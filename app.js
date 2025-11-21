@@ -1,7 +1,45 @@
-// Firebase config (from user)
+/* app.js (module)
+   - Inicializa Firebase
+   - Maneja Auth, UI, Admin, Exams
+   - Inyecta Analytics/Meta Pixel tras aceptar cookies
+*/
+
+/* ------------------ ANALYTICS SNIPPET (desde tu archivo) ------------------ */
+/* Este bloque se inyectará solamente si el usuario ACEPTA cookies. */
+const ANALYTICS_SNIPPET = `
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-B43LFZV7MR');
+</script>
+
+<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1146031771035535');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
+/></noscript>
+`;
+
+/* ------------------ FIREBASE (modular) ------------------ */
+/* Uses your provided firebase config */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -12,21 +50,21 @@ const firebaseConfig = {
   messagingSenderId: "1012829203040",
   appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
 };
-
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-// auth.js: handles login, register, session state, role check
-import { auth, db } from './firebase-config.js';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
+/* ------------------ App UI & Logic ------------------ */
 const AppUI = {
+  selectedMode: 'user', // default
+  currentSection: null,
   init() {
     this.bind();
-    this.initUIFromAuth();
+    this.initAuthListener();
     this.initCountdown();
+    this.checkCookieBanner();
+    this.setupMobileBehavior();
   },
   bind() {
     document.getElementById('btn-login').addEventListener('click', ()=> this.login());
@@ -37,17 +75,23 @@ const AppUI = {
     document.getElementById('btn-return').addEventListener('click', ()=> this.goBackToSection());
     document.getElementById('cookie-accept').addEventListener('click', ()=> this.acceptCookies());
     document.getElementById('cookie-decline').addEventListener('click', ()=> this.declineCookies());
+    document.getElementById('admin-btn').addEventListener('click', ()=> Admin.openAdminModal());
+    document.getElementById('close-admin-modal').addEventListener('click', ()=> Admin.closeAdminModal());
+    document.getElementById('access-full-btn').addEventListener('click', ()=> this.handleAccessFull());
   },
+
+  /* ------------------ AUTH ------------------ */
   async login() {
     const email = document.getElementById('login-email').value;
     const pass = document.getElementById('login-pass').value;
     try {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
-      this.postAuthInit(cred.user);
+      await this.postAuthInit(cred.user);
     } catch(err) {
       alert('Error de login: ' + err.message);
     }
   },
+
   async register() {
     const email = document.getElementById('login-email').value;
     const pass = document.getElementById('login-pass').value;
@@ -55,44 +99,50 @@ const AppUI = {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       // create user doc
       await setDoc(doc(db,'users', cred.user.uid), { email: email, role: 'user', createdAt: new Date()});
-      this.postAuthInit(cred.user);
+      await this.postAuthInit(cred.user);
     } catch(err) {
       alert('Error de registro: ' + err.message);
     }
   },
+
   async postAuthInit(user) {
-    // fetch user doc to check role
     const udoc = await getDoc(doc(db,'users', user.uid));
     const role = udoc.exists() ? udoc.data().role : 'user';
     if(role === 'admin') {
       document.getElementById('admin-btn').classList.remove('hidden');
+    } else {
+      document.getElementById('admin-btn').classList.add('hidden');
     }
-    // render sections for user mode by default
     this.renderSectionsUI();
-    // hide login panel
     document.getElementById('login-panel').classList.add('hidden');
     document.getElementById('exam-list').classList.remove('hidden');
-    // TODO: fetch exams list
   },
-  initUIFromAuth() {
+
+  initAuthListener() {
     onAuthStateChanged(auth, async (user) => {
       if(user) {
-        this.postAuthInit(user);
+        await this.postAuthInit(user);
       } else {
-        // not logged in
         document.getElementById('login-panel').classList.remove('hidden');
+        document.getElementById('exam-list').classList.add('hidden');
+        document.getElementById('admin-btn').classList.add('hidden');
       }
     });
   },
+
   selectMode(mode) {
-    // store desired mode for next login behavior
     this.selectedMode = mode;
+    // Visual feedback
+    document.querySelectorAll('#main-nav .menu-item').forEach(el=> el.classList.remove('active'));
+    if(mode === 'user') document.getElementById('btn-user-mode').classList.add('active');
+    else document.getElementById('btn-admin-mode').classList.add('active');
     document.getElementById('login-panel').scrollIntoView({behavior:'smooth'});
   },
+
   renderSectionsUI() {
-    // fetch sections from Firestore (placeholder)
     const container = document.getElementById('sections-container');
     container.innerHTML = '';
+    // Ideally fetch sections from Firestore; for now, use default sections:
     const sections = [
       {id:'s1', title:'Examen Semanal'},
       {id:'s2', title:'MIEN examen'},
@@ -108,39 +158,41 @@ const AppUI = {
     });
     container.classList.remove('hidden');
   },
+
   openSection(section) {
-    // show exams for that section
     document.getElementById('exam-list').classList.remove('hidden');
     document.getElementById('exam-viewer').classList.add('hidden');
-    // populate with demo items (replace with Firestore query)
     const list = document.getElementById('exam-list');
     list.innerHTML = '';
+    // In production: query exams by sectionId from Firestore
     for(let i=1;i<=4;i++){
       const card = document.createElement('div');
       card.className = 'exam-card';
       card.innerHTML = `<div><strong>${section.title} - Semana ${i}</strong><div class="meta">Duración: 60 min</div></div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <div class="attempt-badge" id="attempt_${i}">0 de 3</div>
-          <button class="link-btn" onclick="AppUI.openExam('${section.id}', 'exam_${i}')">Abrir</button>
+          <div class="attempt-badge" id="attempt_${section.id}_${i}">0 de 3</div>
+          <button class="link-btn" data-section="${section.id}" data-exam="exam_${i}">Abrir</button>
         </div>`;
+      const openBtn = card.querySelector('button.link-btn');
+      openBtn.addEventListener('click', ()=> this.openExam(section.id, `exam_${i}`));
       list.appendChild(card);
     }
-    // remember current section
     this.currentSection = section;
   },
+
   async openExam(sectionId, examId) {
-    // load exam – placeholder; replace with Firestore fetch
+    // show exam viewer and render sample questions (replace with Firestore fetch)
     document.getElementById('exam-list').classList.add('hidden');
     document.getElementById('exam-viewer').classList.remove('hidden');
     document.getElementById('exam-title').textContent = `Examen: ${examId}`;
     document.getElementById('attempts-counter').textContent = '0 de 3';
-    // load questions (dummy)
     const qcont = document.getElementById('questions-container');
     qcont.innerHTML = '';
-    for(let q=1;q<=5;q++){
+    // placeholder questions
+    for(let q=1;q<=10;q++){
       const qbox = document.createElement('div');
       qbox.className = 'topic';
-      qbox.innerHTML = `<div><strong>Pregunta ${q}:</strong> ¿Cuál es la respuesta correcta?</div>
+      qbox.innerHTML = `<div><strong>Pregunta ${q}:</strong> Enunciado de ejemplo</div>
         <div style="margin-top:8px;">
           <label><input type="radio" name="q${q}" value="a"> Opción A</label><br>
           <label><input type="radio" name="q${q}" value="b"> Opción B</label><br>
@@ -149,14 +201,59 @@ const AppUI = {
         </div>`;
       qcont.appendChild(qbox);
     }
+
+    // bind finish
+    document.getElementById('btn-finish').onclick = ()=> this.finishExam(sectionId, examId);
   },
+
   goBackToSection() {
     document.getElementById('exam-viewer').classList.add('hidden');
     document.getElementById('exam-list').classList.remove('hidden');
   },
+
+  async finishExam(sectionId, examId) {
+    // compute score (placeholder)
+    // In production: compare answers with correctOptionId from questions collection
+    const total = 10;
+    const score = Math.floor(Math.random()* (total+1));
+    alert(`Examen terminado. Tu puntuación: ${score}/${total}`);
+    // record attempt using Exams.recordAttempt (placeholder)
+    if(auth.currentUser) {
+      try {
+        await Exams.recordAttempt(auth.currentUser.uid, examId, score, []);
+        alert('Intento registrado.');
+      } catch(e) {
+        console.warn('No se pudo registrar intento: ', e);
+      }
+    }
+    this.goBackToSection();
+  },
+
+  handleAccessFull() {
+    // open link configured in Firestore settings or prompt if not set
+    (async () => {
+      try {
+        const docRef = doc(db,'settings','global');
+        const snap = await getDoc(docRef);
+        const url = snap.exists() && snap.data().fullAccessUrl ? snap.data().fullAccessUrl : '#';
+        if(url === '#') {
+          alert('El enlace "Acceso Completo" no está configurado. Accede en modo admin para configurarlo.');
+        } else {
+          window.open(url,'_blank');
+        }
+      } catch(e) {
+        console.warn(e);
+        alert('Error al abrir enlace.');
+      }
+    })();
+  },
+
+  /* ------------------ COUNTDOWN ------------------ */
   initCountdown() {
     const el = document.getElementById('countdown');
-    const target = new Date(window.__APP_CONFIG.countdownDate);
+    const defaultDate = new Date('2026-09-23T09:00:00-06:00');
+    const maybe = window.__APP_CONFIG && window.__APP_CONFIG.countdownDate ? new Date(window.__APP_CONFIG.countdownDate) : defaultDate;
+    const target = maybe;
     const tick = () => {
       const now = new Date();
       const diff = target - now;
@@ -172,68 +269,113 @@ const AppUI = {
     tick();
     setInterval(tick, 60*1000);
   },
+
+  /* ------------------ COOKIES / ANALYTICS ------------------ */
+  checkCookieBanner() {
+    const banner = document.getElementById('cookie-banner');
+    const accepted = localStorage.getItem('cookies_accepted');
+    if(accepted === '1') {
+      banner.classList.add('hidden');
+      this.injectAnalytics();
+    } else if(accepted === '0') {
+      banner.classList.add('hidden');
+    } else {
+      banner.classList.remove('hidden');
+    }
+  },
+
   acceptCookies() {
     localStorage.setItem('cookies_accepted','1');
     document.getElementById('cookie-banner').classList.add('hidden');
-    // load GA + Pixel from file content (we provide a method to inline)
-    // We'll fetch content from server if available or ask you to paste. For now, attempt to load /mnt/data/Google Analytics y pixel meta.txt via fetch.
-    fetch('/mnt/data/Google Analytics y pixel meta.txt').then(r=>r.text()).then(code=>{
-      const s = document.createElement('div');
-      s.innerHTML = code;
-      document.head.appendChild(s);
-    }).catch(()=>console.warn('No se pudo cargar analytics desde ruta local.'));
+    this.injectAnalytics();
   },
+
   declineCookies() {
     localStorage.setItem('cookies_accepted','0');
     document.getElementById('cookie-banner').classList.add('hidden');
-  }
-};
+  },
 
-window.AppUI = AppUI;
-
-// exams.js: logic for start/finish exam, scoring, attempts bookkeeping
-import { db } from './firebase-config.js';
-import { doc, getDoc, updateDoc, setDoc, addDoc, collection } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
-const Exams = {
-  // placeholder functions — integrate Firestore queries here
-  async recordAttempt(userId, examId, score, answers) {
-    await addDoc(collection(db,'attempts'), {
-      userId, examId, score, answers, startedAt: new Date(), finishedAt: new Date()
+  injectAnalytics() {
+    // Inject the saved snippet into head (GTAG + FB Pixel).
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = ANALYTICS_SNIPPET;
+    // move children script nodes to head safely
+    Array.from(wrapper.children).forEach(node => {
+      if(node.tagName && node.tagName.toLowerCase() === 'script') {
+        const s = document.createElement('script');
+        if(node.src) s.src = node.src;
+        if(node.async) s.async = true;
+        if(node.textContent) s.textContent = node.textContent;
+        document.head.appendChild(s);
+      } else {
+        document.head.appendChild(node);
+      }
     });
-    // increment user attempts count
-    const uref = doc(db,'users',userId);
-    const udoc = await getDoc(uref);
-    const data = udoc.exists() ? udoc.data() : {};
-    const attempts = data.attempts || {};
-    attempts[examId] = (attempts[examId] || 0) + 1;
-    await updateDoc(uref, { attempts });
+    // for noscript image fallback, append to body
+    const noscript = wrapper.querySelector('noscript');
+    if(noscript) document.body.appendChild(noscript);
+  },
+
+  /* ------------------ MOBILE UX ------------------ */
+  setupMobileBehavior() {
+    const menuBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('mobile-overlay');
+    menuBtn.addEventListener('click', ()=> {
+      sidebar.classList.toggle('open-mobile');
+      overlay.classList.toggle('hidden');
+    });
+    overlay.addEventListener('click', ()=> {
+      sidebar.classList.remove('open-mobile');
+      overlay.classList.add('hidden');
+    });
+  }
+
+}; // AppUI end
+
+/* ------------------ Exams module ------------------ */
+const Exams = {
+  async recordAttempt(userId, examId, score, answers) {
+    try {
+      await addDoc(collection(db,'attempts'), {
+        userId, examId, score, answers, startedAt: new Date(), finishedAt: new Date()
+      });
+      const uref = doc(db,'users',userId);
+      const udoc = await getDoc(uref);
+      const data = udoc.exists() ? udoc.data() : {};
+      const attempts = data.attempts || {};
+      attempts[examId] = (attempts[examId] || 0) + 1;
+      await updateDoc(uref, { attempts });
+      return true;
+    } catch(e) {
+      console.error('recordAttempt error', e);
+      throw e;
+    }
   }
 };
 
-window.Exams = Exams;
-export default Exams;
-// admin.js: UI for admin to create exams, edit questions, edit links
-import { db } from './firebase-config.js';
-import { collection, addDoc, setDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
+/* ------------------ Admin module ------------------ */
 const Admin = {
-  openAdminModal() {
+  async openAdminModal() {
     document.getElementById('admin-modal').classList.remove('hidden');
     document.getElementById('admin-content').innerHTML = `
       <h3>Panel Admin</h3>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
         <button id="create-exam-btn" class="link-btn">Crear examen</button>
         <button id="edit-links-btn" class="edit-btn">Editar enlaces</button>
+        <button id="seed-demo-btn" class="edit-btn">Cargar demo</button>
       </div>
-      <div id="admin-area" style="margin-top:12px;"></div>
+      <div id="admin-area"></div>
     `;
     document.getElementById('create-exam-btn').addEventListener('click', ()=> this.showCreateExam());
     document.getElementById('edit-links-btn').addEventListener('click', ()=> this.showEditLinks());
+    document.getElementById('seed-demo-btn').addEventListener('click', ()=> this.seedDemo());
   },
+
   closeAdminModal() {
     document.getElementById('admin-modal').classList.add('hidden');
   },
+
   showCreateExam() {
     const area = document.getElementById('admin-area');
     area.innerHTML = `
@@ -242,6 +384,8 @@ const Admin = {
         <select id="new-exam-section">
           <option value="s1">Examen Semanal</option>
           <option value="s2">MIEN examen</option>
+          <option value="s3">Especialidad</option>
+          <option value="s4">Examen Mega</option>
         </select>
         <button id="save-new-exam" class="link-btn">Guardar examen</button>
       </div>
@@ -249,11 +393,16 @@ const Admin = {
     document.getElementById('save-new-exam').addEventListener('click', async ()=>{
       const title = document.getElementById('new-exam-title').value;
       const section = document.getElementById('new-exam-section').value;
-      // create doc in Firestore
-      await addDoc(collection(db,'exams'), { title, sectionId: section, createdAt: new Date(), published: false, attemptsAllowed: 3 });
-      alert('Examen creado (publicado = false por defecto).');
+      try {
+        await addDoc(collection(db,'exams'), { title, sectionId: section, createdAt: new Date(), published: false, attemptsAllowed: 3 });
+        alert('Examen creado (published=false por defecto).');
+      } catch(e) {
+        console.warn(e);
+        alert('Error al crear examen.');
+      }
     });
   },
+
   showEditLinks() {
     const area = document.getElementById('admin-area');
     area.innerHTML = `
@@ -273,16 +422,35 @@ const Admin = {
       const wa = document.getElementById('link-wa').value;
       const tt = document.getElementById('link-tt').value;
       const tg = document.getElementById('link-tg').value;
-      // save to settings/global doc
-      await setDoc(doc(db,'settings','global'), { fullAccessUrl: full, socialLinks: { ig, wa, tt, tg } }, { merge:true });
-      alert('Enlaces guardados.');
+      try {
+        await setDoc(doc(db,'settings','global'), { fullAccessUrl: full, socialLinks: { ig, wa, tt, tg } }, { merge:true });
+        alert('Enlaces guardados.');
+      } catch(e) {
+        console.warn(e);
+        alert('No se pudieron guardar los enlaces.');
+      }
     });
+  },
+
+  async seedDemo() {
+    if(!confirm('Cargar demo en Firestore? Esto añadirá documentos de ejemplo.')) return;
+    try {
+      // create sections
+      await setDoc(doc(db,'sections','s1'), { title:'Examen Semanal', order:1 });
+      await setDoc(doc(db,'sections','s2'), { title:'MIEN examen', order:2 });
+      await setDoc(doc(db,'sections','s3'), { title:'Especialidad', order:3 });
+      await setDoc(doc(db,'sections','s4'), { title:'Examen Mega', order:4 });
+      // create a sample exam
+      const examRef = await addDoc(collection(db,'exams'), { title:'Semana 1 - Demo', sectionId:'s1', durationMinutes:60, attemptsAllowed:3, published:true, createdAt:new Date() });
+      alert('Demo creada. Revisa Firestore.');
+    } catch(e) {
+      console.warn(e);
+      alert('Error creando demo.');
+    }
   }
 };
 
-document.getElementById('admin-btn').addEventListener('click', ()=> Admin.openAdminModal());
-document.getElementById('close-admin-modal').addEventListener('click', ()=> Admin.closeAdminModal());
-
-window.Admin = Admin;
-export default Admin;
-
+/* ------------------ Start the app ------------------ */
+document.addEventListener('DOMContentLoaded', () => {
+  AppUI.init();
+});
