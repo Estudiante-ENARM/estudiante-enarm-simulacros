@@ -75,3 +75,10 @@ main { padding:18px; overflow:auto; }
 
 /* small polish */
 .hidden { display:none !important; }
+
+/* Additional small improvements */
+#countdown { font-size:14px; color:var(--muted); padding:8px; border-radius:10px; background: rgba(0,0,0,0.02); text-align:center; }
+#access-full-btn { display:block; }
+.menu-hamburger { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:transparent; border:none; cursor:pointer; }
+.menu-icon-btn { width:22px; height:22px; }
+
