@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Estudiante ENARM - Nueva Versión</title>
+
+  <!-- Meta Pixel (coloca tu Pixel ID abajo) -->
+  <!-- START Meta Pixel -->
+  <!-- Replace 1146031771035535 -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535'); 
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- END Meta Pixel -->
+
+  <!-- Google Analytics (replace MEASUREMENT_ID) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=MEASUREMENT_ID"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="light">
+    <!-- Top bar (mobile: hamburger + title) -->
+    <header class="topbar">
+      <button id="hamburger" class="iconbtn" aria-label="Menu">
+        <img src="menu.png" alt="menu" />
+      </button>
+      <div class="title">Estudiante ENARM</div>
+      <div class="top-actions">
+        <button id="toggleTheme" class="small-btn">🌙/☀️</button>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar open">
+      <div class="sidebar-top">
+        <img src="logo.png" alt="logo" class="logo" />
+        <h1>Estudiante ENARM</h1>
+      </div>
+
+      <!-- Login buttons (initial state) -->
+      <div id="loginButtons" class="login-area">
+        <button id="btnUsuario" class="side-btn">Usuario</button>
+        <button id="btnAdmin" class="side-btn">Admin</button>
+      </div>
+
+      <!-- After login: sections list -->
+      <nav id="sectionsList" class="sections hidden">
+        <!-- Sections dynamically injected -->
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="countdown" id="sidebarCountdown"></div>
+        <div class="icons-row" id="sidebarIcons">
+          <a href="#" class="iconlink" data-key="instagram"><img src="instagram.png" alt="ig" /></a>
+          <a href="#" class="iconlink" data-key="whatsapp"><img src="WhatsApp.png" alt="wa" /></a>
+          <a href="#" class="iconlink" data-key="tiktok"><img src="TikTok.png" alt="tt" /></a>
+          <a href="#" class="iconlink" data-key="telegram"><img src="Telegram.png" alt="tg" /></a>
+        </div>
+        <a id="accesoCompleto" class="acceso-link" href="#" target="_blank">Acceso completo</a>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="main" class="main">
+      <!-- Login modal -->
+      <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+        <div class="modal-content">
+          <h2 id="modalTitle">Acceso</h2>
+          <label>Usuario<input id="inputUser" type="text" /></label>
+          <label>Contraseña<input id="inputPass" type="password" /></label>
+          <div class="modal-actions">
+            <button id="modalCancel" class="btn">Cancelar</button>
+            <button id="modalLogin" class="btn primary">Entrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main screens -->
+      <!-- Home / Lista de exámenes -->
+      <section id="homeScreen" class="screen">
+        <h2 id="homeTitle">Exámenes disponibles</h2>
+        <div id="examsGrid" class="exams-grid">
+          <!-- Cards injected here -->
+        </div>
+      </section>
+
+      <!-- Exam full-screen -->
+      <section id="examScreen" class="screen hidden">
+        <div class="exam-header">
+          <button id="examBack" class="btn">← Regresar</button>
+          <h2 id="examTitle">Examen</h2>
+          <div id="examTimer" class="exam-timer">00:00</div>
+        </div>
+        <div id="examContent" class="exam-content">
+          <!-- Questions injected here -->
+        </div>
+        <div class="exam-footer">
+          <button id="btnFinish" class="btn primary">Terminar examen</button>
+        </div>
+      </section>
+
+      <!-- Results screen -->
+      <section id="resultsScreen" class="screen hidden">
+        <div class="results-header">
+          <h2 id="resultsTitle">Resultados</h2>
+        </div>
+        <div id="resultsContent"></div>
+        <div class="results-footer">
+          <button id="resultsBack" class="btn">Regresar</button>
+        </div>
+      </section>
+
+      <!-- Admin screens container -->
+      <section id="adminScreen" class="screen hidden">
+        <h2>Panel Admin</h2>
+        <div class="admin-actions">
+          <button id="adminUsuarios" class="btn">Agregar usuarios</button>
+          <button id="adminIconos" class="btn">Iconos</button>
+          <button id="adminSecciones" class="btn">Secciones</button>
+        </div>
+        <div id="adminMain" class="admin-main">
+          <!-- Admin content injected -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-storage-compat.js"></script>
+
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>
