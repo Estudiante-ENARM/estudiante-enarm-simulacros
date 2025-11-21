@@ -1,27 +1,24 @@
 /* app.js
   Vanilla JS front-end with Firebase hooks (Auth + Firestore + Storage).
-  Please replace firebaseConfig with your project's config.
+  Uses Firebase compat SDK (loaded in index.html).
 */
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
+/* ---------- FIREBASE CONFIG: reemplaza si es necesario ---------- */
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
   projectId: "simulacros-plataforma-enarm",
-  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  storageBucket: "simulacros-plataforma-enarm.appspot.com", // opcional ajustar
   messagingSenderId: "1012829203040",
   appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
 };
+/* ------------------------------------------------------------------ */
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-firebase.initializeApp(firebaseConfig);
+try {
+  firebase.initializeApp(firebaseConfig);
+} catch (e) {
+  console.warn('Firebase initializeApp warning (probablemente ya inicializado):', e);
+}
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -33,11 +30,11 @@ const state = {
   currentExam: null,
   examTimerInterval: null,
   examRemainingSec: 0,
-  examAnswers: {}, // {qId: selectedIndex}
-  config: null // will load site config (icons links, accesoCompleto)
+  examAnswers: {},
+  config: null
 };
 
-/* DOM */
+/* DOM references (ensure elements exist) */
 const sidebar = document.getElementById('sidebar');
 const hamburger = document.getElementById('hamburger');
 const toggleThemeBtn = document.getElementById('toggleTheme');
@@ -76,28 +73,23 @@ const sectionsContainer = sectionsList;
 function showModal(title, mode){
   modalTitle.textContent = title;
   modal.classList.remove('hidden');
-  modal.dataset.for = mode; // 'user' or 'admin'
+  modal.dataset.for = mode;
 }
 function hideModal(){ modal.classList.add('hidden'); inputUser.value=''; inputPass.value=''; }
-function showScreen(id){
-  // hide all screens
-  [homeScreen, examScreen, resultsScreen, adminScreen].forEach(s=>s.classList.add('hidden'));
-  id.classList.remove('hidden');
+function showScreen(el){
+  [homeScreen, examScreen, resultsScreen, adminScreen].forEach(s=> s && s.classList.add('hidden'));
+  el && el.classList.remove('hidden');
 }
 function setTheme(theme){
   document.body.classList.remove('light','dark');
   document.body.classList.add(theme);
   localStorage.setItem('theme', theme);
 }
-toggleThemeBtn.addEventListener('click', () => {
+toggleThemeBtn && toggleThemeBtn.addEventListener('click', () => {
   const current = document.body.classList.contains('dark')? 'dark' : 'light';
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
-
-// hamburger
-hamburger.addEventListener('click', ()=> {
-  sidebar.classList.toggle('closed');
-});
+hamburger && hamburger.addEventListener('click', ()=> sidebar && sidebar.classList.toggle('closed') );
 
 /* ---------- Countdown to 23 Sep 2026 ---------- */
 function updateCountdown(){
@@ -107,44 +99,48 @@ function updateCountdown(){
   const days = Math.floor(diff / 86400); diff %= 86400;
   const hours = Math.floor(diff / 3600); diff %= 3600;
   const minutes = Math.floor(diff / 60);
-  sidebarCountdown.textContent = `${days}d ${hours}h ${minutes}m`;
+  if(sidebarCountdown) sidebarCountdown.textContent = `${days}d ${hours}h ${minutes}m`;
 }
 setInterval(updateCountdown, 60*1000);
 updateCountdown();
 
 /* ---------- Load site config (icons, acceso link) ---------- */
 async function loadConfig(){
-  const doc = await db.collection('site').doc('config').get();
-  if(doc.exists) state.config = doc.data();
-  else {
-    // default placeholders
-    state.config = {
-      icons: { instagram: '#', whatsapp: '#', tiktok: '#', telegram: '#' },
-      accesoCompleto: '#'
-    };
-    await db.collection('site').doc('config').set(state.config);
+  try{
+    const doc = await db.collection('site').doc('config').get();
+    if(doc.exists) state.config = doc.data();
+    else {
+      state.config = {
+        icons: { instagram: '#', whatsapp: '#', tiktok: '#', telegram: '#' },
+        accesoCompleto: '#'
+      };
+      await db.collection('site').doc('config').set(state.config);
+    }
+    sidebarIcons && sidebarIcons.querySelectorAll('.iconlink').forEach(a=>{
+      const key = a.dataset.key;
+      a.href = state.config.icons[key] || '#';
+      a.target = '_blank';
+    });
+    if(accesoCompleto) accesoCompleto.href = state.config.accesoCompleto || '#';
+  }catch(err){
+    console.error('loadConfig error', err);
   }
-  // populate links
-  sidebarIcons.querySelectorAll('.iconlink').forEach(a=>{
-    const key = a.dataset.key;
-    a.href = state.config.icons[key] || '#';
-    a.target = '_blank';
-  });
-  accesoCompleto.href = state.config.accesoCompleto || '#';
 }
 loadConfig();
 
-/* ---------- Auth (simple email/password) ---------- */
-modalLogin.addEventListener('click', async ()=>{
-  const mode = modal.dataset.for; // 'user' or 'admin'
+/* ---------- Auth (email/password) ---------- */
+modalLogin && modalLogin.addEventListener('click', async ()=>{
+  const mode = modal.dataset.for;
   const email = inputUser.value.trim();
   const pass = inputPass.value.trim();
   if(!email || !pass){ alert('Completa usuario y contraseña.'); return; }
   try{
-    // Sign-in flow: using signInWithEmailAndPassword
+    // ensure persistence (important for GitHub Pages)
+    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
     const res = await auth.signInWithEmailAndPassword(email, pass);
     state.uid = res.user.uid;
-    // load user profile from Firestore
+
     const udoc = await db.collection('users').doc(state.uid).get();
     const udata = udoc.exists ? udoc.data() : null;
     if(mode === 'admin' && (!udata || !udata.isAdmin)){
@@ -154,9 +150,8 @@ modalLogin.addEventListener('click', async ()=>{
       hideModal();
       return;
     }
-    // check enabled / expiration
     if(udata){
-      if(udata.state === 'inhabilitado') { alert('Usuario inhabilitado.'); await auth.signOut(); state.uid=null; hideModal(); return;}
+      if(udata.state === 'inhabilitado'){ alert('Usuario inhabilitado.'); await auth.signOut(); state.uid=null; hideModal(); return; }
       if(udata.expiresAt && udata.expiresAt.toDate && udata.expiresAt.toDate() < new Date()){
         alert('Usuario vencido.'); await auth.signOut(); state.uid=null; hideModal(); return;
       }
@@ -165,91 +160,91 @@ modalLogin.addEventListener('click', async ()=>{
     hideModal();
     onLogin();
   }catch(err){
-    console.error(err); alert('Error de login: '+err.message);
+    console.error('Login error', err);
+    alert('Error de login: '+ err.message);
   }
 });
-modalCancel.addEventListener('click', hideModal);
+modalCancel && modalCancel.addEventListener('click', hideModal);
 
-btnUsuario.addEventListener('click', ()=> showModal('Acceso Usuario','user'));
-btnAdmin.addEventListener('click', ()=> showModal('Acceso Admin','admin'));
+btnUsuario && btnUsuario.addEventListener('click', ()=> showModal('Acceso Usuario','user'));
+btnAdmin && btnAdmin.addEventListener('click', ()=> showModal('Acceso Admin','admin'));
 
 /* ---------- After login UI ---------- */
 async function onLogin(){
-  // hide login buttons, show sections
-  loginButtons.classList.add('hidden');
-  sectionsList.classList.remove('hidden');
+  try{
+    loginButtons && loginButtons.classList.add('hidden');
+    sectionsList && sectionsList.classList.remove('hidden');
 
-  // load sections
-  const sectionsSnap = await db.collection('sections').orderBy('order').get();
-  sectionsContainer.innerHTML = '';
-  sectionsSnap.forEach(doc=>{
-    const d = doc.data();
-    const el = document.createElement('div');
-    el.className = 'section-item';
-    el.dataset.id = doc.id;
-    el.textContent = d.name;
-    el.addEventListener('click', ()=> loadSection(doc.id));
-    sectionsContainer.appendChild(el);
-  });
+    const sectionsSnap = await db.collection('sections').orderBy('order').get();
+    sectionsContainer.innerHTML = '';
+    sectionsSnap.forEach(doc=>{
+      const d = doc.data();
+      const el = document.createElement('div');
+      el.className = 'section-item';
+      el.dataset.id = doc.id;
+      el.textContent = d.name;
+      el.addEventListener('click', ()=> loadSection(doc.id));
+      sectionsContainer.appendChild(el);
+    });
 
-  // if admin: show admin screen button
-  if(state.mode === 'admin'){
-    adminScreen.classList.remove('hidden');
-    showScreen(adminScreen);
-  } else {
-    // as user: default load first section
-    const firstSection = sectionsContainer.querySelector('.section-item');
-    if(firstSection) firstSection.click();
-    showScreen(homeScreen);
+    if(state.mode === 'admin'){
+      adminScreen && adminScreen.classList.remove('hidden');
+      showScreen(adminScreen);
+    } else {
+      const firstSection = sectionsContainer.querySelector('.section-item');
+      if(firstSection) firstSection.click();
+      showScreen(homeScreen);
+    }
+    const lb = document.getElementById('loginButtons');
+    if(lb) lb.style.display = 'none';
+  }catch(err){
+    console.error('onLogin error', err);
   }
-  // hide sidebar login buttons permanently
-  document.getElementById('loginButtons').style.display = 'none';
 }
 
 /* ---------- Load section -> list exams ---------- */
 async function loadSection(sectionId){
-  showScreen(homeScreen);
-  // get exams for section
-  const examsSnap = await db.collection('sections').doc(sectionId).collection('exams').orderBy('order').get();
-  examsGrid.innerHTML = '';
-  examsSnap.forEach(async doc=>{
-    const ex = doc.data();
-    const card = document.createElement('div'); card.className='exam-card';
-    card.innerHTML = `<strong>${ex.title}</strong><div>${ex.description || ''}</div><div class="attempts" id="attempt-${doc.id}">Cargando intentos...</div>`;
-    const btn = document.createElement('button'); btn.className='btn primary';
-    btn.textContent = 'Iniciar examen';
-    btn.addEventListener('click', ()=> startExam(sectionId, doc.id));
-    card.appendChild(btn);
-    examsGrid.appendChild(card);
+  try{
+    showScreen(homeScreen);
+    const examsSnap = await db.collection('sections').doc(sectionId).collection('exams').orderBy('order').get();
+    examsGrid.innerHTML = '';
+    examsSnap.forEach(async doc=>{
+      const ex = doc.data();
+      const card = document.createElement('div'); card.className='exam-card';
+      card.innerHTML = `<strong>${ex.title}</strong><div>${ex.description || ''}</div><div class="attempts" id="attempt-${doc.id}">Cargando intentos...</div>`;
+      const btn = document.createElement('button'); btn.className='btn primary';
+      btn.textContent = 'Iniciar examen';
+      btn.addEventListener('click', ()=> startExam(sectionId, doc.id));
+      card.appendChild(btn);
+      examsGrid.appendChild(card);
 
-    // load attempts for this user
-    if(state.uid){
-      const attDoc = await db.collection('attempts').doc(`${state.uid}_${doc.id}`).get();
-      const att = attDoc.exists ? attDoc.data() : {count:0};
-      const el = document.getElementById(`attempt-${doc.id}`);
-      if(el) el.textContent = `Intentos ${att.count || 0}/3`;
-      if(att.count >= 3) {
-        btn.disabled = true;
-        btn.textContent = 'Completado';
+      if(state.uid){
+        const attDoc = await db.collection('attempts').doc(`${state.uid}_${doc.id}`).get();
+        const att = attDoc.exists ? attDoc.data() : {count:0};
+        const el = document.getElementById(`attempt-${doc.id}`);
+        if(el) el.textContent = `Intentos ${att.count || 0}/3`;
+        if(att.count >= 3) {
+          btn.disabled = true;
+          btn.textContent = 'Completado';
+        }
+      } else {
+        const el = document.getElementById(`attempt-${doc.id}`);
+        if(el) el.textContent = `Inicia sesión para ver intentos`;
       }
-    } else {
-      // if not logged (shouldn't happen)
-      const el = document.getElementById(`attempt-${doc.id}`);
-      if(el) el.textContent = `Inicia sesión para ver intentos`;
-    }
-  });
+    });
+  }catch(err){
+    console.error('loadSection error', err);
+  }
 }
 
 /* ---------- Start exam ---------- */
 async function startExam(sectionId, examId){
-  // pre-check attempts
   if(!state.uid){ alert('Necesitas iniciar sesión como usuario'); return; }
   const attRef = db.collection('attempts').doc(`${state.uid}_${examId}`);
   const attDoc = await attRef.get();
   const count = attDoc.exists ? (attDoc.data().count||0) : 0;
   if(count >= 3){ alert('Has completado los 3 intentos.'); return; }
 
-  // load exam
   const examDoc = await db.collection('sections').doc(sectionId).collection('exams').doc(examId).get();
   if(!examDoc.exists) { alert('Examen no encontrado'); return; }
   const exam = examDoc.data();
@@ -258,10 +253,8 @@ async function startExam(sectionId, examId){
   state.currentExam = exam;
   state.examAnswers = {};
 
-  // build exam UI
   examTitle.textContent = exam.title;
   examContent.innerHTML = '';
-  // exam.questions expected array of blocks: [{blockTitle, questions:[{q, options:[..], correctIndex, justification}]}]
   let totalQuestions = 0;
   exam.questions.forEach((block, bi)=>{
     const blockEl = document.createElement('div'); blockEl.className='question-block';
@@ -279,9 +272,7 @@ async function startExam(sectionId, examId){
         o.tabIndex = 0;
         o.textContent = opt;
         o.addEventListener('click', ()=>{
-          // save answer
           state.examAnswers[qId] = oi;
-          // mark selection
           opts.querySelectorAll('.option').forEach((el, idx)=>el.classList.toggle('selected', idx===oi));
         });
         opts.appendChild(o);
@@ -292,10 +283,8 @@ async function startExam(sectionId, examId){
     examContent.appendChild(blockEl);
   });
 
-  // compute timer: 75s per question
   state.examRemainingSec = totalQuestions * 75;
   updateExamTimerUI();
-  // start interval
   clearInterval(state.examTimerInterval);
   state.examTimerInterval = setInterval(()=>{
     state.examRemainingSec--;
@@ -304,8 +293,6 @@ async function startExam(sectionId, examId){
       finishExamAutomatically();
     } else updateExamTimerUI();
   },1000);
-
-  // show exam screen
   showScreen(examScreen);
 }
 
@@ -318,9 +305,8 @@ function formatTime(sec){
 function updateExamTimerUI(){ examTimer.textContent = formatTime(state.examRemainingSec); }
 
 /* ---------- Finish exam ---------- */
-btnFinish.addEventListener('click', finishExam);
-examBack.addEventListener('click', ()=> {
-  // back behavior: leave exam (even if not finished) - we keep running timer
+btnFinish && btnFinish.addEventListener('click', finishExam);
+examBack && examBack.addEventListener('click', ()=> {
   if(confirm('¿Salir del examen? Tu intento contará al dar "Terminar examen".')) {
     showScreen(homeScreen);
     clearInterval(state.examTimerInterval);
@@ -329,18 +315,12 @@ examBack.addEventListener('click', ()=> {
 
 async function finishExam(){
   clearInterval(state.examTimerInterval);
-  // grade
   const exam = state.currentExam;
   let total = 0, correct = 0;
-  // iterate blocks
   exam.questions.forEach(block=>{
-    block.questions.forEach((q)=>{
-      total++;
-    });
+    block.questions.forEach((q)=> total++ );
   });
-  // Build results and mark per question
   const results = [];
-  let qIndex = 0;
   exam.questions.forEach((block, bi)=>{
     block.questions.forEach((q, qi)=>{
       const qId = `b${bi}_q${qi}`;
@@ -348,12 +328,10 @@ async function finishExam(){
       const isCorrect = sel === q.correctIndex;
       if(isCorrect) correct++;
       results.push({qText: q.q, options: q.options, sel, correctIndex: q.correctIndex, justification: q.justification || ''});
-      qIndex++;
     });
   });
   const percent = Math.round((correct / total)*100);
 
-  // Save attempt increment and store result summary
   const attRef = db.collection('attempts').doc(`${state.uid}_${exam.id}`);
   const attDoc = await attRef.get();
   const prev = attDoc.exists ? attDoc.data() : {count:0, history:[]};
@@ -368,7 +346,6 @@ async function finishExam(){
     })
   }, {merge:true});
 
-  // Show results screen
   resultsContent.innerHTML = `<div><strong>Calificación:</strong> ${percent}% (${correct}/${total})</div>`;
   results.forEach((r, idx)=>{
     const block = document.createElement('div'); block.className='question-block';
@@ -396,15 +373,11 @@ async function finishExamAutomatically(){
 }
 
 /* ---------- Results back button ---------- */
-resultsBack.addEventListener('click', ()=> {
-  // go back to home
-  showScreen(homeScreen);
-});
+resultsBack && resultsBack.addEventListener('click', ()=> showScreen(homeScreen) );
 
 /* ---------- Admin tools (simplified UI) ---------- */
 adminUsuarios && adminUsuarios.addEventListener('click', async ()=>{
   adminMain.innerHTML = '';
-  // Search bar
   const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between';
   const input = document.createElement('input'); input.placeholder='Buscar por correo';
   const addBtn = document.createElement('button'); addBtn.className='btn primary'; addBtn.textContent='Agregar';
@@ -414,7 +387,6 @@ adminUsuarios && adminUsuarios.addEventListener('click', async ()=>{
   const list = document.createElement('div'); list.style.marginTop='12px';
   adminMain.appendChild(list);
 
-  // load users list
   async function loadUsers(q=''){
     list.innerHTML = 'Cargando...';
     let snap = await db.collection('users').get();
@@ -435,19 +407,15 @@ adminUsuarios && adminUsuarios.addEventListener('click', async ()=>{
   input.addEventListener('input', ()=> loadUsers(input.value.trim()));
 
   addBtn.addEventListener('click', ()=> {
-    // simple modal to create user
     const email = prompt('Email/nombre de usuario (se usará para login):');
     const pass = prompt('Contraseña:');
     if(!email || !pass) return alert('Datos incompletos');
-    // create user in Firebase Auth via Admin? Spark can't use Admin SDK from client — so instead add user document and create via Cloud Function or manual create.
-    // We'll create user record in "users" collection and create a "credentials" doc the admin can use to create the Auth user manually, or you can create via Firebase Console.
     db.collection('users').add({email, displayName: email, state: 'habilitado', expiresAt: null, isAdmin: false}).then(()=> alert('Usuario agregado en Firestore. Crea también la cuenta en Firebase Auth (Console) con el mismo email/contraseña.'));
   });
 });
 
 adminIconos && adminIconos.addEventListener('click', async ()=>{
   adminMain.innerHTML = '<h3>Iconos y enlace Acceso completo</h3>';
-  // load config
   const confDoc = await db.collection('site').doc('config').get();
   const conf = confDoc.exists ? confDoc.data() : {icons:{},accesoCompleto:'#'};
   const container = document.createElement('div');
@@ -487,7 +455,6 @@ adminIconos && adminIconos.addEventListener('click', async ()=>{
 });
 
 adminSecciones && adminSecciones.addEventListener('click', async ()=>{
-  // CRUD secciones y examenes (UI simplificada)
   adminMain.innerHTML = '<h3>Secciones</h3><div id="sectionsAdmin"></div><div style="margin-top:12px"><button id="addSection" class="btn primary">Agregar nueva sección</button></div>';
   const container = document.getElementById('sectionsAdmin');
   async function loadSections(){
@@ -512,7 +479,6 @@ adminSecciones && adminSecciones.addEventListener('click', async ()=>{
   });
 
   async function editSection(id,data){
-    // open a mini manager for exams inside section
     adminMain.innerHTML = `<h4>Sección: ${data.name}</h4><div id="examsAdmin"></div><div style="margin-top:8px"><button id="addExam" class="btn primary">Agregar examen</button><button id="backSections" class="btn">Atras</button></div>`;
     const examsAdmin = document.getElementById('examsAdmin');
     document.getElementById('backSections').addEventListener('click', ()=> adminSecciones.click());
@@ -530,19 +496,17 @@ adminSecciones && adminSecciones.addEventListener('click', async ()=>{
     }
     loadExams();
     document.getElementById('addExam').addEventListener('click', async ()=>{
-      // create a blank exam template and open edit
       const newDoc = await db.collection('sections').doc(id).collection('exams').add({
         title: prompt('Título examen:','Examen semana X'),
         description: '',
         order: 100,
-        questions: [] // admin will add questions via edit
+        questions: []
       });
       editExam(id, newDoc.id, {title:'Nuevo examen', questions:[]});
     });
   }
 
   async function editExam(sectionId, examId, examData){
-    // simplified editor using JSON input for flexibility
     adminMain.innerHTML = `<h4>Editar examen: ${examData.title}</h4>
       <div>
         Título: <input id="e_title" value="${examData.title || ''}" style="width:80%"/>
@@ -561,7 +525,6 @@ adminSecciones && adminSecciones.addEventListener('click', async ()=>{
         const newTitle = document.getElementById('e_title').value.trim();
         const newDesc = document.getElementById('e_desc').value.trim();
         const newQs = JSON.parse(document.getElementById('e_qs').value);
-        // Validate structure quickly (should be array of blocks)
         if(!Array.isArray(newQs)) throw new Error('Formato de preguntas inválido, debe ser un array de bloques.');
         await db.collection('sections').doc(sectionId).collection('exams').doc(examId).set({
           title: newTitle, description: newDesc, questions: newQs
@@ -579,24 +542,25 @@ adminSecciones && adminSecciones.addEventListener('click', async ()=>{
 (function init(){
   const savedTheme = localStorage.getItem('theme') || 'light';
   setTheme(savedTheme);
-  // guest UI: show login buttons, hide sections
-  loginButtons.classList.remove('hidden');
-  sectionsList.classList.add('hidden');
+  loginButtons && loginButtons.classList.remove('hidden');
+  sectionsList && sectionsList.classList.add('hidden');
+
   // auth state listener
   auth.onAuthStateChanged(async user=>{
     if(user){
-      // fetch user record
       state.uid = user.uid;
-      const udoc = await db.collection('users').doc(user.uid).get();
-      const udata = udoc.exists ? udoc.data() : null;
-      if(udata && udata.isAdmin) state.mode = 'admin';
-      else state.mode = 'user';
+      try{
+        const udoc = await db.collection('users').doc(user.uid).get();
+        const udata = udoc.exists ? udoc.data() : null;
+        if(udata && udata.isAdmin) state.mode = 'admin';
+        else state.mode = 'user';
+      }catch(err){ console.error('Error reading user doc', err); }
       onLogin();
     } else {
       state.uid = null;
       state.mode = 'guest';
-      loginButtons.classList.remove('hidden');
-      sectionsList.classList.add('hidden');
+      loginButtons && loginButtons.classList.remove('hidden');
+      sectionsList && sectionsList.classList.add('hidden');
       showScreen(homeScreen);
     }
   });
