@@ -90,7 +90,7 @@ body.dark{
 .small-btn{padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,0.06)}
 .primary{background:var(--primary);color:white;border:0;padding:8px 12px;border-radius:8px}
 .btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);background:transparent;cursor:pointer}
-.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4)}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);z-index:9999}
 .modal-content{background:var(--card);padding:16px;border-radius:12px;width:320px;box-shadow:var(--shadow)}
 .iconlink img{width:28px;height:28px;object-fit:contain;margin-right:6px}
 .acceso-link{display:block;margin-top:8px;padding:8px;border-radius:8px;text-align:center;background:transparent}
