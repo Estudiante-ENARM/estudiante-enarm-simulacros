@@ -7,7 +7,6 @@
 
   <!-- Meta Pixel (coloca tu Pixel ID abajo) -->
   <!-- START Meta Pixel -->
-  <!-- Replace 1146031771035535 -->
   <script>
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -17,7 +16,7 @@
     t.src=v;s=b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1146031771035535'); 
+    fbq('init', '1146031771035535');
     fbq('track', 'PageView');
   </script>
   <noscript><img height="1" width="1" style="display:none"
@@ -25,8 +24,8 @@
   /></noscript>
   <!-- END Meta Pixel -->
 
-  <!-- Google Analytics (replace MEASUREMENT_ID) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=MEASUREMENT_ID"></script>
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
@@ -95,12 +94,9 @@
       </div>
 
       <!-- Main screens -->
-      <!-- Home / Lista de exámenes -->
       <section id="homeScreen" class="screen">
         <h2 id="homeTitle">Exámenes disponibles</h2>
-        <div id="examsGrid" class="exams-grid">
-          <!-- Cards injected here -->
-        </div>
+        <div id="examsGrid" class="exams-grid"></div>
       </section>
 
       <!-- Exam full-screen -->
@@ -110,9 +106,7 @@
           <h2 id="examTitle">Examen</h2>
           <div id="examTimer" class="exam-timer">00:00</div>
         </div>
-        <div id="examContent" class="exam-content">
-          <!-- Questions injected here -->
-        </div>
+        <div id="examContent" class="exam-content"></div>
         <div class="exam-footer">
           <button id="btnFinish" class="btn primary">Terminar examen</button>
         </div>
@@ -120,13 +114,9 @@
 
       <!-- Results screen -->
       <section id="resultsScreen" class="screen hidden">
-        <div class="results-header">
-          <h2 id="resultsTitle">Resultados</h2>
-        </div>
+        <div class="results-header"><h2 id="resultsTitle">Resultados</h2></div>
         <div id="resultsContent"></div>
-        <div class="results-footer">
-          <button id="resultsBack" class="btn">Regresar</button>
-        </div>
+        <div class="results-footer"><button id="resultsBack" class="btn">Regresar</button></div>
       </section>
 
       <!-- Admin screens container -->
@@ -137,20 +127,18 @@
           <button id="adminIconos" class="btn">Iconos</button>
           <button id="adminSecciones" class="btn">Secciones</button>
         </div>
-        <div id="adminMain" class="admin-main">
-          <!-- Admin content injected -->
-        </div>
+        <div id="adminMain" class="admin-main"></div>
       </section>
     </main>
   </div>
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase compat SDKs (usadas por app.js) -->
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-storage-compat.js"></script>
 
-  <!-- App JS -->
-<script type="module" src="app.js"></script>
+  <!-- App JS (cargado como script normal, no module) -->
+  <script src="app.js"></script>
 </body>
 </html>
