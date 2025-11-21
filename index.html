@@ -1,13 +1,109 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Estudiante ENARM - Nueva Versión</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudiante ENARM - Plataforma de Estudio</title>
+    <!-- Incluye Tailwind CSS para un diseño responsive y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuente Inter (estética profesional) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos base y variables CSS para el modo oscuro/claro */
+        :root {
+            --bg-color: #f7f7f7;
+            --text-color: #1f2937;
+            --sidebar-bg: #ffffff;
+            --accent-color: #10b981; /* Esmeralda de Tailwind */
+        }
+        .dark {
+            --bg-color: #1f2937;
+            --text-color: #f7f7f7;
+            --sidebar-bg: #111827;
+            --accent-color: #34d399;
+        }
 
-  <!-- Meta Pixel (coloca tu Pixel ID abajo) -->
-  <!-- START Meta Pixel -->
-  <script>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Estilo para la barra lateral (compartido entre light/dark) */
+        #sidebar {
+            background-color: var(--sidebar-bg);
+            transition: background-color 0.3s;
+        }
+
+        /* Ocultar el scrollbar solo para estética en el sidebar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* Estilos de respuesta y justificación en la revisión */
+        .correct-answer {
+            background-color: var(--accent-color);
+            color: #1f2937;
+            font-weight: 600;
+        }
+        .user-incorrect {
+            background-color: #ef4444; /* Rojo de Tailwind */
+            color: white;
+            font-weight: 600;
+        }
+        .user-selected {
+            border: 2px solid var(--accent-color);
+        }
+
+        /* Estilo para el botón flotante de Regresar en el examen */
+        #exam-back-btn {
+            z-index: 50;
+        }
+
+        /* Animación del sidebar en móvil */
+        @media (max-width: 767px) {
+            #sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                z-index: 40;
+                transition: transform 0.3s ease-in-out;
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+            }
+        }
+    </style>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+    
+      gtag('config', 'G-B43LFZV7MR');
+    </script>
+
+    <!-- Meta Pixel Code -->
+    <script>
     !function(f,b,e,v,n,t,s)
     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};
@@ -18,127 +114,1842 @@
     'https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '1146031771035535');
     fbq('track', 'PageView');
-  </script>
-  <noscript><img height="1" width="1" style="display:none"
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
-  /></noscript>
-  <!-- END Meta Pixel -->
+    /></noscript>
+    <!-- End Meta Pixel Code -->
 
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-B43LFZV7MR');
-  </script>
-
-  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div id="app" class="light">
-    <!-- Top bar (mobile: hamburger + title) -->
-    <header class="topbar">
-      <button id="hamburger" class="iconbtn" aria-label="Menu">
-        <img src="menu.png" alt="menu" />
-      </button>
-      <div class="title">Estudiante ENARM</div>
-      <div class="top-actions">
-        <button id="toggleTheme" class="small-btn">🌙/☀️</button>
-      </div>
-    </header>
+<body class="min-h-screen">
 
-    <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar open">
-      <div class="sidebar-top">
-        <img src="logo.png" alt="logo" class="logo" />
-        <h1>Estudiante ENARM</h1>
-      </div>
+    <!-- Incluye Firebase SDKs (v11.6.1) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, arrayRemove, arrayUnion, runTransaction, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Habilitar logs de debug para Firestore (Útil para desarrollo)
+        setLogLevel('Debug');
 
-      <!-- Login buttons (initial state) -->
-      <div id="loginButtons" class="login-area">
-        <button id="btnUsuario" class="side-btn">Usuario</button>
-        <button id="btnAdmin" class="side-btn">Admin</button>
-      </div>
+        // --- Variables Globales de Canvas (MANDATORIAS) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-enarm-app';
+        
+        // Configuración del usuario (Integrada desde tu solicitud)
+        // Si estamos en el entorno de preview (con __firebase_config), usamos esa para garantizar que funcione la vista previa.
+        // De lo contrario (cuando descargues el archivo), se usará TU configuración específica.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+            authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+            projectId: "simulacros-plataforma-enarm",
+            storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+            messagingSenderId: "1012829203040",
+            appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+        };
 
-      <!-- After login: sections list -->
-      <nav id="sectionsList" class="sections hidden">
-        <!-- Sections dynamically injected -->
-      </nav>
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-      <div class="sidebar-footer">
-        <div class="countdown" id="sidebarCountdown"></div>
-        <div class="icons-row" id="sidebarIcons">
-          <a href="#" class="iconlink" data-key="instagram"><img src="instagram.png" alt="ig" /></a>
-          <a href="#" class="iconlink" data-key="whatsapp"><img src="WhatsApp.png" alt="wa" /></a>
-          <a href="#" class="iconlink" data-key="tiktok"><img src="TikTok.png" alt="tt" /></a>
-          <a href="#" class="iconlink" data-key="telegram"><img src="Telegram.png" alt="tg" /></a>
+        if (!firebaseConfig) {
+            console.error("Firebase config no está disponible.");
+        }
+
+        // --- Inicialización y Autenticación de Firebase ---
+        let app, db, auth, storage;
+        let userId = null;
+        let isAuthReady = false;
+
+        // Inicializar Firebase con la configuración proporcionada
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            storage = getStorage(app); // Agregado storage como solicitaste
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    // Intenta obtener el rol del usuario (solo si el user es real, no anónimo)
+                    if (!user.isAnonymous) {
+                         // Carga el perfil de usuario para obtener el rol, pero no bloquea la UI
+                         try {
+                            const userDocRef = doc(db, "artifacts", appId, "public", "data", "users", userId);
+                            const userDoc = await getDoc(userDocRef);
+                            if (userDoc.exists()) {
+                                appState.role = userDoc.data().role; // 'user' o 'admin'
+                            } else {
+                                console.warn("Documento de usuario no encontrado en /public/data/users. Asignando rol de 'user' por defecto.");
+                                appState.role = 'user';
+                            }
+                         } catch (error) {
+                             console.error("Error al obtener el documento de usuario:", error);
+                             appState.role = 'guest';
+                         }
+
+                    } else {
+                        // Usuario anónimo (invitado)
+                        appState.role = 'guest';
+                    }
+                    
+                } else {
+                    // Si no hay usuario, intenta iniciar sesión.
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Error en el inicio de sesión de Firebase:", error);
+                        // A pesar del error, marcamos como listo para que la UI no se bloquee indefinidamente
+                    }
+                }
+
+                // Una vez que el estado de autenticación inicial se ha manejado:
+                isAuthReady = true;
+                // Intentamos cargar la data inicial una vez que el auth está listo
+                if (appState.view === 'loading') {
+                    await loadAppData();
+                    renderApp(); // Renderiza la UI principal (login/dashboard)
+                }
+            });
+
+        } catch (error) {
+            // Modo Offline / Sin Configuración o Error de Config
+            console.error("Error inicializando Firebase con la config proporcionada:", error);
+            isAuthReady = true;
+            appState.role = 'guest';
+            appState.view = 'dashboard';
+            console.warn("Ejecutando en modo mock debido a error de configuración.");
+            
+            // Simular carga de datos para el modo mock
+            mockData.users[crypto.randomUUID()] = { username: "mock-user", password: "123", role: "user", status: "habilitado", vencimiento: "2030-12-31", attempts_count: 0 };
+            mockData.users[crypto.randomUUID()] = { username: "mock-admin", password: "admin", role: "admin", status: "habilitado", vencimiento: "2030-12-31", attempts_count: 0 };
+            appState.users = mockData.users;
+            appState.sections = mockData.sections;
+            appState.links = mockData.links;
+
+            renderApp();
+        }
+
+        // --- Definición del Estado de la Aplicación (Global State) ---
+        const appState = {
+            view: 'loading', // 'loading', 'dashboard', 'exam', 'review', 'admin-users', 'admin-links', 'admin-sections', 'admin-exam-edit'
+            role: 'guest', // 'guest', 'user', 'admin'
+            sidebarOpen: window.innerWidth >= 768, // Se abre por defecto en desktop
+            isDark: false, // Modo oscuro
+            // Datos cargados desde Firebase
+            users: {},
+            sections: [],
+            exams: {}, // { sectionId: [exam1, exam2] }
+            links: {}, // social links, full_access_url
+            userAttempts: {}, // { examId: [{ score, user_answers }] }
+            // Estado del examen
+            currentExamId: null,
+            currentExam: null,
+            examAttempt: { user_answers: [], timerSeconds: 0, isFinished: false },
+            examTimerInterval: null,
+            // Estado Admin
+            adminEditTarget: null, // Objeto/ID que se está editando en el panel de admin
+            
+        };
+
+        // --- Datos de MOCK (por si falla la configuración de Firebase) ---
+        const mockData = {
+            links: {
+                instagram: 'https://instagram.com/enarm_study',
+                whatsapp: 'https://wa.me/521123456789',
+                tiktok: 'https://tiktok.com/@enarm_study',
+                telegram: 'https://t.me/enarm_study',
+                full_access_url: 'https://acceso-completo.com'
+            },
+            sections: [
+                { id: 'sec-semanal', name: 'Semanal', order: 1 },
+                { id: 'sec-mini', name: 'Mini', order: 2 },
+                { id: 'sec-esp', name: 'Especialidad', order: 3 },
+                { id: 'sec-mega', name: 'Mega', order: 4 },
+            ],
+            exams: {
+                'sec-semanal': [
+                    {
+                        id: 'exm-sem-1',
+                        title: 'Examen Semana 1: Cardiología',
+                        questions: [
+                            { block: 1, text: 'Paciente masculino de 55 años con disnea de esfuerzo y soplo sistólico en foco aórtico. ¿Cuál es el diagnóstico más probable?', options: ['Estenosis Mitral', 'Insuficiencia Aórtica', 'Estenosis Aórtica', 'Insuficiencia Mitral'], correct_option_index: 2, justification: 'La estenosis aórtica es la causa más frecuente de disnea en pacientes mayores con soplo sistólico y se asocia a la triada de angina, síncope y disnea.' },
+                            { block: 1, text: 'En el caso anterior, ¿qué hallazgo electrocardiográfico esperaría encontrar?', options: ['Fibrilación auricular', 'Hipertrofia ventricular izquierda', 'Bloqueo AV de primer grado', 'Taquicardia supraventricular'], correct_option_index: 1, justification: 'La sobrecarga de presión en el ventrículo izquierdo por la estenosis aórtica conduce a la hipertrofia ventricular izquierda.' },
+                            { block: 2, text: 'Fármaco de elección para el tratamiento de la crisis hipertensiva con daño a órgano blanco (encefalopatía hipertensiva).', options: ['Captopril oral', 'Nifedipino sublingual', 'Labetalol IV', 'Hidroclorotiazida'], correct_option_index: 2, justification: 'El Labetalol intravenoso es un betabloqueante alfa y beta que permite un descenso controlado de la presión arterial, esencial en la crisis hipertensiva con daño a órgano blanco.' },
+                        ]
+                    },
+                    { id: 'exm-sem-2', title: 'Examen Semana 2: Neumología', questions: [{ block: 1, text: 'Pregunta de Neumo 1', options: ['A', 'B', 'C', 'D'], correct_option_index: 0, justification: 'Justificación 1.' }] }
+                ]
+            },
+            users: {
+                'admin-id-mock': { username: "admin", password: "admin", role: "admin", status: "habilitado", vencimiento: "2030-12-31", attempts_count: 5 },
+                'user-id-mock': { username: "usuario1", password: "123", role: "user", status: "habilitado", vencimiento: "2026-09-23", attempts_count: 10 }
+            },
+            userAttempts: {
+                'exm-sem-1': [
+                    { score: 66, user_answers: [2, 1, 3], timestamp: Date.now() - 86400000 },
+                    { score: 100, user_answers: [2, 1, 2], timestamp: Date.now() - 3600000 }
+                ]
+            }
+        };
+
+        // --- Funciones de Utilidad ---
+
+        // Función de autenticación simulada (para guest -> user/admin)
+        async function handleLogin(username, password, role) {
+            if (!isAuthReady) {
+                showToast("Cargando servicios de autenticación...", 'warning');
+                return;
+            }
+
+            // 1. Encontrar el usuario en la lista cargada
+            const userEntry = Object.entries(appState.users).find(([id, u]) => u.username === username && u.password === password && u.role === role);
+
+            if (!userEntry) {
+                showToast(`Credenciales incorrectas o el rol no coincide con '${role}'.`, 'error');
+                return;
+            }
+
+            const [foundUserId, userData] = userEntry;
+
+            if (userData.status === 'inhabilitado') {
+                showToast(`El usuario ${username} está inhabilitado.`, 'error');
+                return;
+            }
+
+            // 2. Comprobar vencimiento
+            const today = new Date();
+            const vencimientoDate = new Date(userData.vencimiento);
+            if (vencimientoDate < today) {
+                showToast(`El acceso del usuario ${username} ha expirado.`, 'error');
+                // En un sistema real, aquí actualizaríamos el estado en Firestore a 'inhabilitado'
+                return;
+            }
+
+            // 3. Inicio de sesión simulado (usando Custom Token si estuviera disponible, o solo simulando el estado)
+            if (auth) {
+                 // En un sistema real, aquí se llamaría a una función backend para generar un Custom Token
+                 // para simplificar y cumplir, solo usaremos el state/userId temporal
+                 userId = foundUserId;
+                 appState.role = role;
+                 // Cierra el modal y actualiza la vista
+                 document.getElementById('login-modal').classList.add('hidden');
+                 await loadUserAttempts(); // Carga los intentos específicos del usuario
+                 renderApp();
+                 showToast(`¡Bienvenido, ${username}! (Rol: ${role.toUpperCase()})`, 'success');
+
+            } else {
+                 // Modo Mock
+                 userId = foundUserId;
+                 appState.role = role;
+                 document.getElementById('login-modal').classList.add('hidden');
+                 appState.userAttempts = mockData.userAttempts; // Usar mock attempts
+                 renderApp();
+                 showToast(`¡Bienvenido, ${username}! (Rol: ${role.toUpperCase()} - MOCK)`, 'success');
+            }
+        }
+
+        // --- Funciones de Carga de Datos (Firebase) ---
+
+        // Escucha en tiempo real de todos los usuarios, secciones y links (público)
+        async function setupFirestoreListeners() {
+            if (!db) return;
+
+            // 1. Escuchar Usuarios (Admin/User list)
+            onSnapshot(collection(db, "artifacts", appId, "public", "data", "users"), (snapshot) => {
+                const users = {};
+                snapshot.forEach(doc => {
+                    users[doc.id] = { id: doc.id, ...doc.data() };
+                });
+                appState.users = users;
+                if (appState.view.startsWith('admin-')) renderApp(); // Re-renderizar si estamos en el panel de admin
+            }, (error) => console.error("Error al escuchar usuarios:", error));
+
+            // 2. Escuchar Secciones y Exámenes
+            onSnapshot(collection(db, "artifacts", appId, "public", "data", "sections"), (snapshot) => {
+                const sections = [];
+                snapshot.forEach(doc => { sections.push({ id: doc.id, ...doc.data() }); });
+                appState.sections = sections.sort((a, b) => (a.order || 99) - (b.order || 99));
+
+                // Escuchar exámenes dentro de las secciones
+                snapshot.forEach(sectionDoc => {
+                    onSnapshot(collection(db, "artifacts", appId, "public", "data", "sections", sectionDoc.id, "exams"), (examSnapshot) => {
+                        const exams = [];
+                        examSnapshot.forEach(examDoc => { exams.push({ id: examDoc.id, ...examDoc.data() }); });
+                        appState.exams[sectionDoc.id] = exams;
+                        if (appState.view === 'dashboard') renderApp(); // Re-renderizar dashboard
+                    }, (error) => console.error(`Error al escuchar exámenes de sección ${sectionDoc.id}:`, error));
+                });
+            }, (error) => console.error("Error al escuchar secciones:", error));
+
+            // 3. Escuchar Links
+            onSnapshot(doc(db, "artifacts", appId, "public", "data", "links", "config"), (docSnapshot) => {
+                if (docSnapshot.exists()) {
+                    appState.links = docSnapshot.data();
+                } else {
+                    // Inicializar con links mock si no existen
+                    appState.links = mockData.links;
+                }
+                renderApp(); // Re-renderizar sidebar
+            }, (error) => console.error("Error al escuchar links:", error));
+        }
+
+        // Carga los intentos del usuario autenticado (Privado)
+        async function loadUserAttempts() {
+            if (!db || !userId || appState.role === 'guest') {
+                appState.userAttempts = {};
+                return;
+            }
+
+            try {
+                // Path: /artifacts/{appId}/users/{userId}/attempts
+                onSnapshot(collection(db, "artifacts", appId, "users", userId, "attempts"), (snapshot) => {
+                    const attempts = {};
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        const examId = data.examId;
+                        if (!attempts[examId]) { attempts[examId] = []; }
+                        attempts[examId].push({ ...data, id: doc.id });
+                    });
+                    appState.userAttempts = attempts;
+                    // Ordenar intentos por timestamp (el último intento primero)
+                    Object.keys(appState.userAttempts).forEach(examId => {
+                         appState.userAttempts[examId].sort((a, b) => b.timestamp - a.timestamp);
+                    });
+                    if (appState.view === 'dashboard') renderApp(); // Re-renderizar dashboard
+                }, (error) => console.error("Error al escuchar intentos de usuario:", error));
+
+            } catch (error) {
+                console.error("Error cargando intentos de usuario:", error);
+            }
+        }
+
+
+        // Carga Inicial de Datos (para modo guest o antes de listeners)
+        async function loadAppData() {
+            if (db) {
+                // Inicializar datos si no existen y comenzar a escuchar
+                await setDoc(doc(db, "artifacts", appId, "public", "data", "links", "config"), mockData.links, { merge: true });
+
+                for (const section of mockData.sections) {
+                    await setDoc(doc(db, "artifacts", appId, "public", "data", "sections", section.id), section, { merge: true });
+
+                    // Crear exámenes de mock si no existen
+                    for (const exam of (mockData.exams[section.id] || [])) {
+                        await setDoc(doc(db, "artifacts", appId, "public", "data", "sections", section.id, "exams", exam.id), exam, { merge: true });
+                    }
+                }
+
+                // Crear usuarios de mock (solo si no hay ninguno)
+                const userSnapshot = await getDocs(collection(db, "artifacts", appId, "public", "data", "users"));
+                if (userSnapshot.empty) {
+                    for (const [id, user] of Object.entries(mockData.users)) {
+                        await setDoc(doc(db, "artifacts", appId, "public", "data", "users", id), user, { merge: true });
+                    }
+                }
+
+                await setupFirestoreListeners();
+                // Si el usuario ya está autenticado (no anónimo), cargamos sus intentos
+                if (auth.currentUser && !auth.currentUser.isAnonymous) {
+                     await loadUserAttempts();
+                } else {
+                    // Si el usuario es guest o anónimo, la vista será el dashboard (login)
+                    appState.view = 'dashboard';
+                }
+
+            } else {
+                // Modo Mock Offline
+                 appState.users = mockData.users;
+                 appState.sections = mockData.sections;
+                 appState.exams = mockData.exams;
+                 appState.links = mockData.links;
+                 appState.view = 'dashboard';
+            }
+        }
+
+
+        // --- Lógica del Temporizador ---
+
+        const ENARM_DATE = new Date('2026-09-23T00:00:00');
+
+        function updateCountdown() {
+            const now = new Date();
+            const difference = ENARM_DATE - now;
+
+            if (difference < 0) {
+                document.getElementById('countdown').innerHTML = '¡El ENARM ha pasado!';
+                return;
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+            const countdownHtml = `
+                <div class="text-sm text-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition duration-300">
+                    <p class="font-bold text-lg">${days}</p>
+                    <span class="text-xs">Días</span>
+                </div>
+                <div class="text-sm text-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition duration-300">
+                    <p class="font-bold text-lg">${hours}</p>
+                    <span class="text-xs">Horas</span>
+                </div>
+                <div class="text-sm text-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition duration-300">
+                    <p class="font-bold text-lg">${minutes}</p>
+                    <span class="text-xs">Min</span>
+                </div>
+                <div class="text-sm text-center p-2 rounded-lg bg-gray-100 dark:bg-gray-800 transition duration-300">
+                    <p class="font-bold text-lg">${seconds}</p>
+                    <span class="text-xs">Seg</span>
+                </div>
+            `;
+            const countdownEl = document.getElementById('countdown');
+            if (countdownEl) {
+                countdownEl.innerHTML = countdownHtml;
+            }
+        }
+        setInterval(updateCountdown, 1000);
+
+
+        // --- Lógica de Modales y Mensajes ---
+
+        function showToast(message, type = 'info') {
+            const toastEl = document.getElementById('toast');
+            if (!toastEl) return;
+
+            let color = 'bg-gray-500';
+            if (type === 'success') color = 'bg-emerald-500';
+            if (type === 'error') color = 'bg-red-500';
+            if (type === 'warning') color = 'bg-yellow-500';
+
+            toastEl.className = `fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white ${color} transition transform duration-300`;
+            toastEl.textContent = message;
+            toastEl.classList.remove('hidden', 'translate-y-full');
+            toastEl.classList.add('translate-y-0');
+
+            setTimeout(() => {
+                toastEl.classList.remove('translate-y-0');
+                toastEl.classList.add('translate-y-full');
+                setTimeout(() => toastEl.classList.add('hidden'), 300);
+            }, 5000);
+        }
+
+        // --- Lógica del Modo Oscuro/Claro ---
+
+        function toggleDarkMode() {
+            appState.isDark = !appState.isDark;
+            localStorage.setItem('darkMode', appState.isDark ? 'dark' : 'light');
+            document.documentElement.classList.toggle('dark', appState.isDark);
+            renderApp(); // Para actualizar el icono
+        }
+
+        function loadDarkModePreference() {
+            const preference = localStorage.getItem('darkMode');
+            if (preference === 'dark') {
+                appState.isDark = true;
+            } else if (preference === 'light') {
+                appState.isDark = false;
+            } else {
+                // Usar preferencia del sistema si no hay preferencia guardada
+                appState.isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+            document.documentElement.classList.toggle('dark', appState.isDark);
+        }
+        loadDarkModePreference();
+
+        // --- Lógica del Sidebar (Mobile/Hamburger) ---
+
+        function toggleSidebar() {
+            appState.sidebarOpen = !appState.sidebarOpen;
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (sidebar && overlay) {
+                sidebar.classList.toggle('open', appState.sidebarOpen);
+                overlay.style.display = appState.sidebarOpen ? 'block' : 'none';
+            }
+        }
+
+        // --- Renderización de Componentes ---
+
+        // Función para cambiar la vista principal
+        function navigate(newView, data = null) {
+            appState.view = newView;
+            if (newView === 'exam' || newView === 'review') {
+                // Si cambiamos a examen, ocultamos el sidebar en móvil
+                if (window.innerWidth < 768) {
+                    appState.sidebarOpen = false;
+                    toggleSidebar();
+                }
+            } else if (newView === 'dashboard' && appState.role !== 'guest') {
+                // Cargar datos si se vuelve al dashboard
+                loadUserAttempts();
+            }
+
+            // Para vistas de Admin con datos específicos
+            if (newView.startsWith('admin-')) {
+                 appState.adminEditTarget = data;
+            }
+
+            renderApp();
+        }
+
+        // Función para renderizar el botón de Login/Admin en la barra lateral
+        function renderAuthButtons() {
+            if (appState.role !== 'guest') return '';
+
+            return `
+                <button onclick="showLoginModal('user')"
+                    class="w-full p-3 mb-2 rounded-lg text-left font-semibold hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-gray-700 dark:hover:text-emerald-400 transition duration-200 flex items-center justify-between">
+                    <span>👤 Usuario</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <button onclick="showLoginModal('admin')"
+                    class="w-full p-3 mb-4 rounded-lg text-left font-semibold bg-red-500 text-white hover:bg-red-600 transition duration-200 flex items-center justify-between">
+                    <span>👑 Admin</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 110-6 3 3 0 010 6z" />
+                    </svg>
+                </button>
+            `;
+        }
+
+        // Función que muestra el modal de Login
+        window.showLoginModal = (role) => {
+            const modal = document.getElementById('login-modal');
+            const roleInput = document.getElementById('login-role');
+            const title = document.getElementById('login-title');
+
+            roleInput.value = role;
+            title.textContent = `Iniciar Sesión como ${role === 'user' ? 'Usuario' : 'Administrador'}`;
+            modal.classList.remove('hidden');
+
+            // Limpiar campos y enfocar
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-username').focus();
+        };
+
+        // Función para cerrar el modal
+        window.closeModal = () => {
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('custom-modal').classList.add('hidden');
+        };
+
+        // Función para manejar el envío del formulario de login
+        window.handleLoginSubmit = (event) => {
+            event.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const role = document.getElementById('login-role').value;
+            handleLogin(username, password, role);
+        };
+
+
+        // Renderiza el contenido principal según el estado
+        function renderMainContent() {
+            switch (appState.view) {
+                case 'dashboard':
+                    return renderDashboard();
+                case 'exam':
+                    return renderExamView();
+                case 'review':
+                    return renderReviewView();
+                case 'admin-users':
+                    return renderAdminUsers();
+                case 'admin-links':
+                    return renderAdminLinks();
+                case 'admin-sections':
+                    return renderAdminSections();
+                case 'admin-edit-exam':
+                    return renderAdminEditExam();
+                case 'loading':
+                    return renderLoading();
+                default:
+                    return renderDashboard();
+            }
+        }
+
+        // --- Render Views ---
+
+        function renderLoading() {
+            return `
+                <div class="flex flex-col items-center justify-center h-full">
+                    <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-emerald-500 border-opacity-50"></div>
+                    <p class="mt-4 text-xl font-semibold dark:text-gray-300">Cargando plataforma...</p>
+                    <p class="text-sm dark:text-gray-400">Estableciendo conexión con Firebase.</p>
+                </div>
+            `;
+        }
+
+
+        function renderDashboard() {
+            if (appState.role === 'guest') {
+                return `
+                    <div class="flex flex-col items-center justify-center p-8 h-full min-h-screen-minus-header">
+                        <div class="max-w-xl text-center p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg transition duration-300">
+                            <h1 class="text-3xl font-bold mb-4 text-emerald-600 dark:text-emerald-400">Bienvenido a Estudiante ENARM</h1>
+                            <p class="text-lg mb-6 dark:text-gray-300">Para acceder a los exámenes de preparación, por favor, inicia sesión como Usuario o Administrador.</p>
+                            <div class="space-y-4">
+                                <button onclick="showLoginModal('user')" class="w-full py-3 px-6 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-300 transform hover:scale-[1.02]">
+                                    Iniciar Sesión como Usuario
+                                </button>
+                                <button onclick="showLoginModal('admin')" class="w-full py-3 px-6 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-300 transform hover:scale-[1.02]">
+                                    Iniciar Sesión como Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const isUser = appState.role === 'user';
+            const user = appState.users[userId] || {};
+
+            let html = `
+                <div class="p-4 md:p-8">
+                    <h1 class="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">
+                        ${isUser ? 'Panel de Exámenes Disponibles' : 'Panel de Administración'}
+                    </h1>
+            `;
+
+            // ADMIN Dashboard - Mostrar resumen
+            if (appState.role === 'admin') {
+                const totalUsers = Object.keys(appState.users).length;
+                const activeUsers = Object.values(appState.users).filter(u => u.status === 'habilitado').length;
+                const totalExams = Object.values(appState.exams).flat().length;
+
+                html += `
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-emerald-500 transition duration-300">
+                            <p class="text-2xl font-bold">${totalUsers}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total de Usuarios</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-red-500 transition duration-300">
+                            <p class="text-2xl font-bold">${activeUsers}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Usuarios Habilitados</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border-t-4 border-blue-500 transition duration-300">
+                            <p class="text-2xl font-bold">${totalExams}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Total de Exámenes</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // USER/ADMIN Exam List
+            html += `<div class="space-y-6">`;
+            appState.sections.forEach(section => {
+                const exams = appState.exams[section.id] || [];
+                if (exams.length === 0) return; // Ocultar secciones sin exámenes
+
+                html += `
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg transition duration-300">
+                        <h2 class="text-2xl font-semibold mb-4 text-emerald-600 dark:text-emerald-400">${section.name}</h2>
+                        <div class="space-y-4">
+                `;
+
+                exams.forEach(exam => {
+                    const attempts = appState.userAttempts[exam.id] || [];
+                    const maxAttempts = 3;
+                    const attemptsCount = attempts.length;
+                    const isCompleted = attemptsCount >= maxAttempts;
+                    const lastScore = attempts.length > 0 ? attempts[0].score : null; // El 0 es el intento más reciente
+
+                    // Botón y contador
+                    let statusText = `${attemptsCount}/${maxAttempts}`;
+                    let buttonClass = 'bg-emerald-500 hover:bg-emerald-600';
+                    let action = `startExam('${exam.id}', '${section.id}')`;
+                    let statusColor = 'text-gray-500 dark:text-gray-400';
+
+                    if (isCompleted) {
+                        statusText = 'COMPLETADO';
+                        buttonClass = 'bg-gray-400 cursor-not-allowed';
+                        action = 'void(0)';
+                        statusColor = 'text-red-500 font-bold';
+                    }
+
+                    if (appState.role === 'admin') {
+                        // Admin ve un botón de editar
+                        statusText = 'EDITAR';
+                        buttonClass = 'bg-blue-500 hover:bg-blue-600';
+                        action = `Maps('admin-edit-exam', { sectionId: '${section.id}', examId: '${exam.id}' })`;
+                        statusColor = 'text-blue-500';
+                    }
+
+                    html += `
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                            <div class="mb-2 md:mb-0">
+                                <p class="font-medium text-lg">${exam.title}</p>
+                                ${lastScore !== null && isUser ? `<p class="text-sm text-blue-500">Última Calificación: ${lastScore}%</p>` : ''}
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <span class="${statusColor} font-semibold min-w-[120px] text-right">${statusText}</span>
+                                <button onclick="${action}"
+                                    class="py-2 px-4 text-white font-semibold rounded-lg shadow-md ${buttonClass} transition duration-300 text-sm">
+                                    ${appState.role === 'admin' ? 'Editar Examen' : (isCompleted ? 'Revisar' : 'Iniciar Examen')}
+                                </button>
+                                ${attemptsCount > 0 && isUser ? `<button onclick="showReviewHistory('${exam.id}', '${exam.title}')" class="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 text-sm">Historial</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+            return html;
+        }
+
+
+        // --- Render Examen View (User) ---
+
+        // Inicia el examen y el temporizador
+        window.startExam = (examId, sectionId) => {
+            const examsInSection = appState.exams[sectionId] || [];
+            const exam = examsInSection.find(e => e.id === examId);
+
+            if (!exam) {
+                showToast("Error: Examen no encontrado.", 'error');
+                return;
+            }
+
+            const attempts = appState.userAttempts[examId] || [];
+            if (attempts.length >= 3 && appState.role === 'user') {
+                showToast("Has completado los 3 intentos disponibles para este examen.", 'error');
+                return;
+            }
+
+            // Inicializar estado del examen
+            appState.currentExamId = examId;
+            appState.currentExam = exam;
+            appState.examAttempt.user_answers = new Array(exam.questions.length).fill(null);
+            appState.examAttempt.isFinished = false;
+
+            // Calcular tiempo: 1 min 15 seg (75 segundos) por pregunta
+            const totalQuestions = exam.questions.length;
+            const totalSeconds = totalQuestions * 75;
+            appState.examAttempt.timerSeconds = totalSeconds;
+
+            // Iniciar temporizador
+            if (appState.examTimerInterval) clearInterval(appState.examTimerInterval);
+            appState.examTimerInterval = setInterval(updateExamTimer, 1000);
+
+            navigate('exam');
+        };
+
+        function updateExamTimer() {
+            if (appState.examAttempt.timerSeconds > 0) {
+                appState.examAttempt.timerSeconds--;
+            } else {
+                clearInterval(appState.examTimerInterval);
+                appState.examAttempt.isFinished = true;
+                // Si el temporizador llega a cero, forzar la finalización
+                if (appState.view === 'exam') {
+                    finishExam(true); // Pasar 'true' para indicar finalización forzada por tiempo
+                }
+            }
+            // Actualizar solo el contador en la UI para no re-renderizar todo
+            const timerEl = document.getElementById('exam-timer');
+            if (timerEl) {
+                const minutes = Math.floor(appState.examAttempt.timerSeconds / 60);
+                const seconds = appState.examAttempt.timerSeconds % 60;
+                timerEl.textContent = `${minutes.toString().padStart(2, '0')} : ${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // Finaliza el examen (botón o tiempo)
+        async function finishExam(isForced = false) {
+            clearInterval(appState.examTimerInterval);
+
+            // Calcular calificación
+            let correctCount = 0;
+            const questions = appState.currentExam.questions;
+            const userAnswers = appState.examAttempt.user_answers;
+            const totalQuestions = questions.length;
+
+            for (let i = 0; i < totalQuestions; i++) {
+                if (userAnswers[i] === questions[i].correct_option_index) {
+                    correctCount++;
+                }
+            }
+            const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+            const newAttempt = {
+                examId: appState.currentExamId,
+                score: score,
+                user_answers: userAnswers,
+                timestamp: Date.now(),
+            };
+
+            // Intentar guardar el intento en Firebase (solo para usuarios reales)
+            if (db && userId && appState.role !== 'guest') {
+                try {
+                    // Path: /artifacts/{appId}/users/{userId}/attempts
+                    const attemptCollectionRef = collection(db, "artifacts", appId, "users", userId, "attempts");
+                    await addDoc(attemptCollectionRef, newAttempt);
+
+                    // Actualizar contador de intentos del usuario (usando Transacción)
+                    const userDocRef = doc(db, "artifacts", appId, "public", "data", "users", userId);
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userDocRef);
+                        if (userDoc.exists()) {
+                            const newCount = (userDoc.data().attempts_count || 0) + 1;
+                            transaction.update(userDocRef, { attempts_count: newCount });
+                        }
+                    });
+
+                    showToast("Examen finalizado y guardado con éxito.", 'success');
+                } catch (error) {
+                    console.error("Error guardando el intento de examen:", error);
+                    showToast("Error al guardar el intento. Se mostrará la revisión.", 'error');
+                }
+            } else if (appState.role === 'guest') {
+                showToast("Sesión de invitado. El resultado no será guardado.", 'info');
+            }
+
+
+            // Guardar el intento actual para la revisión
+            appState.currentReview = newAttempt;
+            appState.currentReview.examTitle = appState.currentExam.title;
+
+            // Navegar a la vista de revisión
+            navigate('review');
+        }
+
+        // Lógica de selección de opción
+        window.selectOption = (questionIndex, optionIndex) => {
+            if (appState.examAttempt.isFinished) return; // No permitir cambios después de terminar
+            appState.examAttempt.user_answers[questionIndex] = optionIndex;
+            renderExamView(); // Re-renderizar para actualizar la selección
+        };
+
+        function renderExamView() {
+            if (!appState.currentExam) return renderDashboard(); // Fallback
+
+            const exam = appState.currentExam;
+            const questions = exam.questions;
+            const userAnswers = appState.examAttempt.user_answers;
+            const totalQuestions = questions.length;
+
+            // Agrupar preguntas por bloque
+            const blocks = questions.reduce((acc, q, index) => {
+                const blockId = q.block;
+                if (!acc[blockId]) {
+                    acc[blockId] = { questions: [], startIndex: index };
+                }
+                acc[blockId].questions.push({ ...q, index });
+                return acc;
+            }, {});
+
+            // Determinar el bloque actual (basado en la primer pregunta no respondida o el inicio)
+            const firstUnansweredIndex = userAnswers.findIndex(a => a === null);
+            const initialBlockId = questions[firstUnansweredIndex > -1 ? firstUnansweredIndex : 0]?.block || questions[0]?.block;
+
+            const blockIds = Object.keys(blocks);
+            const currentBlockIndex = blockIds.findIndex(id => id === String(initialBlockId));
+            const currentBlockId = blockIds[currentBlockIndex] || blockIds[0];
+
+
+            // Renderizar la navegación de bloques
+            const blockNavHtml = blockIds.map((bId, idx) => {
+                const isCurrent = bId === currentBlockId;
+                const blockStatus = blocks[bId].questions.every(q => userAnswers[q.index] !== null);
+                let btnClass = isCurrent ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-emerald-100 dark:hover:bg-gray-600';
+                let icon = '';
+                if (blockStatus) {
+                    icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>`;
+                }
+
+                return `<button onclick="scrollToBlock(${blocks[bId].startIndex})"
+                            class="flex items-center justify-center p-3 rounded-lg font-semibold transition duration-200 text-sm md:text-base ${btnClass}">
+                            ${icon} Bloque ${bId}
+                        </button>`;
+            }).join('');
+
+
+            // Renderizar el examen
+            let html = `
+                <div class="fixed top-0 left-0 w-full h-16 bg-white dark:bg-gray-900 border-b dark:border-gray-700 shadow-md flex items-center justify-between p-4 z-30">
+                    <button id="exam-back-btn" onclick="confirmExitExam()"
+                        class="flex items-center text-gray-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 font-semibold transition duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Regresar
+                    </button>
+                    <h1 class="text-xl md:text-2xl font-bold truncate">${exam.title}</h1>
+                    <div id="exam-timer" class="text-xl font-mono text-red-500 bg-red-100 dark:bg-red-900 p-2 rounded-lg min-w-[100px] text-center">
+                        ${Math.floor(appState.examAttempt.timerSeconds / 60).toString().padStart(2, '0')} : ${(appState.examAttempt.timerSeconds % 60).toString().padStart(2, '0')}
+                    </div>
+                </div>
+
+                <div class="pt-20 pb-20 p-4 md:p-8">
+                    <!-- Navegación de Bloques -->
+                    <div class="sticky top-16 bg-white dark:bg-gray-900 p-4 -mx-4 md:-mx-8 border-b dark:border-gray-700 z-20 shadow-sm overflow-x-auto no-scrollbar">
+                        <div class="flex space-x-4 max-w-full">
+                            ${blockNavHtml}
+                        </div>
+                    </div>
+
+                    <div class="mt-8 space-y-12">
+            `;
+
+            questions.forEach((q, qIndex) => {
+                const isSelected = userAnswers[qIndex] !== null;
+                const isBlockStart = qIndex === 0 || q.block !== questions[qIndex - 1].block;
+
+                if (isBlockStart) {
+                    html += `<div class="p-4 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 mb-6 sticky top-[108px] z-10 shadow-lg" id="block-${q.block}">
+                                <h3 class="text-xl font-bold text-emerald-800 dark:text-emerald-300">Bloque de Preguntas ${q.block}</h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Este grupo de preguntas está relacionado.</p>
+                            </div>`;
+                }
+
+                html += `
+                    <div id="question-${qIndex}" class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg transition duration-300">
+                        <p class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+                            Pregunta ${qIndex + 1}/${totalQuestions}:
+                        </p>
+                        <p class="text-lg mb-6 leading-relaxed dark:text-gray-300">${q.text}</p>
+                        <div class="space-y-4">
+                `;
+
+                q.options.forEach((option, oIndex) => {
+                    const isUserSelected = userAnswers[qIndex] === oIndex;
+                    const optionClass = isUserSelected ? 'bg-emerald-100 dark:bg-emerald-700 user-selected' : 'hover:bg-gray-100 dark:hover:bg-gray-700';
+
+                    html += `
+                        <button onclick="selectOption(${qIndex}, ${oIndex})"
+                            class="w-full p-4 text-left rounded-lg border dark:border-gray-600 transition duration-150 ${optionClass}">
+                            <span class="font-bold mr-2">${String.fromCharCode(65 + oIndex)}.</span> ${option}
+                        </button>
+                    `;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+
+                <!-- Botón de Terminar Examen (Flotante) -->
+                <div class="fixed bottom-0 right-0 p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-700 w-full z-30 flex justify-end shadow-2xl">
+                    <button onclick="confirmFinishExam()"
+                        class="py-3 px-6 bg-red-600 text-white font-bold rounded-lg shadow-xl hover:bg-red-700 transition duration-300 transform hover:scale-[1.02]">
+                        Terminar Examen
+                    </button>
+                </div>
+            `;
+            return html;
+        }
+
+        // Lógica para desplazarse al inicio de un bloque
+        window.scrollToBlock = (qIndex) => {
+            const blockId = appState.currentExam.questions[qIndex].block;
+            const targetEl = document.getElementById(`block-${blockId}`);
+            if (targetEl) {
+                // Ajustar el scroll para tener en cuenta el encabezado fijo
+                window.scrollTo({
+                    top: targetEl.offsetTop - 110,
+                    behavior: 'smooth'
+                });
+            }
+        };
+
+        // Función de confirmación para terminar/salir del examen
+        window.confirmFinishExam = () => {
+            showCustomModal({
+                title: 'Confirmar Finalización',
+                body: '¿Estás seguro de que deseas terminar el examen? Tu tiempo se detendrá y se registrará tu intento.',
+                confirmText: 'Sí, Terminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => finishExam()
+            });
+        }
+
+        window.confirmExitExam = () => {
+            showCustomModal({
+                title: 'Confirmar Salida',
+                body: 'Si sales ahora, el examen no será calificado ni guardado. ¿Deseas salir de todas formas?',
+                confirmText: 'Sí, Salir sin Guardar',
+                cancelText: 'Cancelar',
+                onConfirm: () => {
+                    clearInterval(appState.examTimerInterval);
+                    navigate('dashboard');
+                    showToast('Examen cancelado y no guardado.', 'info');
+                }
+            });
+        }
+
+        function showCustomModal({ title, body, confirmText, cancelText, onConfirm }) {
+            const modalEl = document.getElementById('custom-modal');
+            modalEl.querySelector('#modal-title').textContent = title;
+            modalEl.querySelector('#modal-body').innerHTML = body;
+            modalEl.querySelector('#modal-confirm-btn').textContent = confirmText;
+            modalEl.querySelector('#modal-cancel-btn').textContent = cancelText;
+
+            // Limpiar listener previo y asignar el nuevo
+            const confirmBtn = modalEl.querySelector('#modal-confirm-btn');
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeModal();
+            };
+
+            modalEl.classList.remove('hidden');
+        }
+
+
+        // --- Render Revisión View (User) ---
+
+        function renderReviewView() {
+            const review = appState.currentReview;
+            if (!review) return renderDashboard();
+
+            const questions = appState.currentExam.questions;
+            const userAnswers = review.user_answers;
+            const totalQuestions = questions.length;
+            const score = review.score;
+
+            // Renderizar la revisión
+            let html = `
+                <div class="fixed top-0 left-0 w-full h-16 bg-white dark:bg-gray-900 border-b dark:border-gray-700 shadow-md flex items-center justify-start p-4 z-30">
+                    <button onclick="navigate('dashboard')"
+                        class="flex items-center text-gray-600 dark:text-gray-300 hover:text-emerald-500 dark:hover:text-emerald-400 font-semibold transition duration-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Regresar a Dashboard
+                    </button>
+                    <h1 class="text-xl md:text-2xl font-bold truncate ml-4">${review.examTitle} - Revisión</h1>
+                </div>
+
+                <div class="pt-20 p-4 md:p-8">
+                    <div class="max-w-4xl mx-auto mb-8 p-6 bg-emerald-500 text-white rounded-xl shadow-xl text-center">
+                        <p class="text-lg font-medium mb-2">Calificación Obtenida</p>
+                        <p class="text-5xl font-extrabold">${score}%</p>
+                        <p class="mt-2">${(score / 100 * totalQuestions).toFixed(0)} aciertos de ${totalQuestions} preguntas</p>
+                    </div>
+
+                    <div class="space-y-10">
+            `;
+
+            questions.forEach((q, qIndex) => {
+                const userChoice = userAnswers[qIndex];
+                const isCorrect = userChoice === q.correct_option_index;
+
+                html += `
+                    <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border-l-4 ${isCorrect ? 'border-emerald-500' : 'border-red-500'}">
+                        <p class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">
+                            Pregunta ${qIndex + 1}:
+                            <span class="text-lg font-bold ml-2 ${isCorrect ? 'text-emerald-600' : 'text-red-600'}">(${isCorrect ? 'Correcta' : 'Incorrecta'})</span>
+                        </p>
+                        <p class="text-lg mb-6 leading-relaxed dark:text-gray-300">${q.text}</p>
+                        <div class="space-y-3 mb-6">
+                `;
+
+                q.options.forEach((option, oIndex) => {
+                    const isUserSelected = userChoice === oIndex;
+                    const isCorrectOption = q.correct_option_index === oIndex;
+
+                    let optionClass = 'w-full p-3 text-left rounded-lg border dark:border-gray-600';
+
+                    if (isCorrectOption) {
+                        optionClass += ' correct-answer';
+                    } else if (isUserSelected && !isCorrectOption) {
+                        optionClass += ' user-incorrect';
+                    } else if (isUserSelected) {
+                         optionClass += ' user-selected bg-gray-100 dark:bg-gray-700'; // Solo para mostrar la seleccion si es neutro
+                    } else {
+                         optionClass += ' bg-gray-50 dark:bg-gray-700/50';
+                    }
+
+                    html += `
+                        <div class="${optionClass}">
+                            <span class="font-bold mr-2">${String.fromCharCode(65 + oIndex)}.</span> ${option}
+                            ${isCorrectOption ? '<span class="ml-2 text-sm font-semibold">(Opción Correcta)</span>' : ''}
+                            ${isUserSelected && !isCorrectOption ? '<span class="ml-2 text-sm font-semibold">(Tu Respuesta)</span>' : ''}
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                        <!-- Justificación -->
+                        <div class="p-4 rounded-lg bg-gray-100 dark:bg-gray-700 border-l-4 border-blue-500">
+                            <p class="font-semibold text-blue-600 dark:text-blue-400 mb-1">Justificación:</p>
+                            <p class="text-gray-700 dark:text-gray-300">${q.justification || 'No hay justificación disponible.'}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        window.showReviewHistory = (examId, examTitle) => {
+             const attempts = appState.userAttempts[examId] || [];
+             if (attempts.length === 0) {
+                 showToast("No hay historial de intentos para este examen.", 'info');
+                 return;
+             }
+
+             const historyHtml = attempts.map((attempt, index) => {
+                 const date = new Date(attempt.timestamp).toLocaleString();
+                 return `
+                     <div class="flex items-center justify-between p-3 border-b dark:border-gray-600">
+                         <p class="font-semibold">Intento ${attempts.length - index} (${date})</p>
+                         <p class="text-xl font-bold ${attempt.score >= 70 ? 'text-emerald-500' : 'text-red-500'}">${attempt.score}%</p>
+                     </div>
+                 `;
+             }).join('');
+
+             showCustomModal({
+                 title: `Historial de Intentos: ${examTitle}`,
+                 body: `<div class="max-h-80 overflow-y-auto">${historyHtml}</div>`,
+                 confirmText: 'Aceptar',
+                 cancelText: 'Cerrar',
+                 onConfirm: () => closeModal()
+             });
+        }
+
+        // --- Render Admin Views (Placeholders) ---
+
+        function renderAdminUsers() {
+            return `<div class="p-4 md:p-8">
+                <h1 class="text-3xl font-bold mb-6 dark:text-gray-100">👑 Administración de Usuarios</h1>
+                <p class="text-red-500 font-semibold mb-4">¡ADVERTENCIA! Las contraseñas se muestran en texto plano. En una aplicación de producción, esto es una seria falla de seguridad.</p>
+
+                <div class="flex justify-between items-center mb-4">
+                    <input type="text" id="user-search" oninput="filterUsers()" placeholder="Buscar por Nombre de Usuario..." class="p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 w-full md:w-1/3">
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Usuario</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Contraseña</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Estado</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Vencimiento</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Intentos Total</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            ${renderUserTableRows(appState.users)}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="navigate('dashboard')" class="py-2 px-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Atrás</button>
+                    <button onclick="openUserEditModal('new')" class="py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">Agregar Nuevo Usuario</button>
+                </div>
+            </div>`;
+        }
+        
+        // Helper para renderizar filas de usuarios (usado en el render de admin)
+        function renderUserTableRows(usersObject) {
+            const users = Object.values(usersObject);
+            return users.map(user => {
+                const isEnabled = user.status === 'habilitado';
+                const statusClass = isEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                return `
+                    <tr data-username="${user.username.toLowerCase()}" class="user-row hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td class="px-6 py-4 whitespace-nowrap">${user.username} (${user.role})</td>
+                        <td class="px-6 py-4 whitespace-nowrap font-mono">${user.password}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="${statusClass} font-semibold">${isEnabled ? 'Habilitado' : 'Inhabilitado'}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">${user.vencimiento || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${user.attempts_count || 0}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="openUserEditModal('${user.id}')" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-600 mr-3">Editar</button>
+                            <button onclick="confirmDeleteUser('${user.id}', '${user.username}')" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-600">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Filtro de usuarios (simulado en el DOM)
+        window.filterUsers = () => {
+            const searchTerm = document.getElementById('user-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#user-table-body .user-row');
+            rows.forEach(row => {
+                const username = row.getAttribute('data-username');
+                row.style.display = username.includes(searchTerm) ? '' : 'none';
+            });
+        }
+
+        // --- Lógica CRUD de Admin (Usuarios) ---
+
+        window.openUserEditModal = (userIdToEdit) => {
+            // Reutilizamos el modal genérico
+            const isNew = userIdToEdit === 'new';
+            const user = isNew ? { username: '', password: '', role: 'user', status: 'habilitado', vencimiento: '' } : appState.users[userIdToEdit];
+
+            if (!user) {
+                showToast("Error: Usuario no encontrado.", 'error');
+                return;
+            }
+
+            const bodyHtml = `
+                <input type="hidden" id="edit-user-id" value="${userIdToEdit}">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Nombre de Usuario</label>
+                    <input type="text" id="edit-username" value="${user.username}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Contraseña</label>
+                    <input type="text" id="edit-password" value="${user.password}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Rol</label>
+                    <select id="edit-role" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                        <option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuario</option>
+                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Estado</label>
+                    <select id="edit-status" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                        <option value="habilitado" ${user.status === 'habilitado' ? 'selected' : ''}>Habilitado</option>
+                        <option value="inhabilitado" ${user.status === 'inhabilitado' ? 'selected' : ''}>Inhabilitado</option>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Vencimiento (YYYY-MM-DD)</label>
+                    <input type="date" id="edit-vencimiento" value="${user.vencimiento ? user.vencimiento.split('T')[0] : ''}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                </div>
+            `;
+
+            showCustomModal({
+                title: isNew ? 'Agregar Nuevo Usuario' : `Editar Usuario: ${user.username}`,
+                body: bodyHtml,
+                confirmText: isNew ? 'Guardar Usuario' : 'Actualizar Usuario',
+                cancelText: 'Cancelar',
+                onConfirm: saveUser
+            });
+        }
+
+        async function saveUser() {
+            const id = document.getElementById('edit-user-id').value;
+            const username = document.getElementById('edit-username').value.trim();
+            const password = document.getElementById('edit-password').value;
+            const role = document.getElementById('edit-role').value;
+            const status = document.getElementById('edit-status').value;
+            const vencimiento = document.getElementById('edit-vencimiento').value;
+
+            if (!username || !password) {
+                showToast("Nombre de usuario y contraseña son obligatorios.", 'error');
+                return;
+            }
+
+            const isNew = id === 'new';
+            const userId = isNew ? doc(collection(db, "artifacts", appId, "public", "data", "users")).id : id;
+            const userDocRef = doc(db, "artifacts", appId, "public", "data", "users", userId);
+
+            const userData = {
+                username: username,
+                password: password,
+                role: role,
+                status: status,
+                vencimiento: vencimiento,
+                attempts_count: (appState.users[id] ? appState.users[id].attempts_count : 0) // Mantener contador existente
+            };
+
+            try {
+                await setDoc(userDocRef, userData);
+                showToast(`Usuario ${username} ${isNew ? 'creado' : 'actualizado'} con éxito.`, 'success');
+                // Firestore listener se encargará de re-renderizar la tabla automáticamente
+            } catch (error) {
+                console.error("Error guardando usuario:", error);
+                showToast("Error al guardar el usuario en Firebase.", 'error');
+            }
+        }
+
+        window.confirmDeleteUser = (id, username) => {
+            showCustomModal({
+                title: 'Confirmar Eliminación',
+                body: `¿Estás seguro de que deseas eliminar permanentemente al usuario <strong>${username}</strong>? Esta acción no se puede deshacer.`,
+                confirmText: 'Sí, Eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => deleteUser(id, username)
+            });
+        }
+
+        async function deleteUser(id, username) {
+            try {
+                const userDocRef = doc(db, "artifacts", appId, "public", "data", "users", id);
+                await deleteDoc(userDocRef);
+                showToast(`Usuario ${username} eliminado con éxito.`, 'success');
+                // Firestore listener se encargará de re-renderizar la tabla automáticamente
+            } catch (error) {
+                console.error("Error eliminando usuario:", error);
+                showToast("Error al eliminar el usuario en Firebase.", 'error');
+            }
+        }
+
+        // --- Render Admin Links ---
+        function renderAdminLinks() {
+            const links = appState.links || {};
+            return `<div class="p-4 md:p-8">
+                <h1 class="text-3xl font-bold mb-6 dark:text-gray-100">🔗 Administración de Links e Iconos</h1>
+                <p class="text-gray-600 dark:text-gray-400 mb-8">Aquí puedes actualizar los links de las redes sociales y el link del botón "Acceso Completo".</p>
+
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg space-y-6 max-w-2xl mx-auto">
+                    ${['instagram', 'whatsapp', 'tiktok', 'telegram'].map(key => `
+                        <div>
+                            <label class="block text-sm font-medium dark:text-gray-300 flex items-center mb-1">
+                                <img src="https://placehold.co/24x24/${key === 'whatsapp' ? '25D366' : (key === 'instagram' ? 'C13584' : (key === 'tiktok' ? '000000' : '2AABEE'))}/ffffff?text=${key.slice(0, 1).toUpperCase()}" alt="${key}" class="w-6 h-6 mr-2 rounded-md">
+                                Link de ${key.charAt(0).toUpperCase() + key.slice(1)} (.png)
+                            </label>
+                            <input type="url" id="link-${key}" value="${links[key] || ''}" placeholder="Ej. https://instagram.com/tu_cuenta" class="p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                    `).join('')}
+
+                    <div class="pt-4 border-t dark:border-gray-700">
+                        <label class="block text-sm font-medium dark:text-gray-300 mb-1">Link del Botón "Acceso Completo"</label>
+                        <input type="url" id="link-full_access_url" value="${links.full_access_url || ''}" placeholder="Ej. https://pagos.com/acceso_completo" class="p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="navigate('dashboard')" class="py-2 px-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Atrás</button>
+                    <button onclick="saveLinks()" class="py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">Guardar Links</button>
+                </div>
+            </div>`;
+        }
+
+        async function saveLinks() {
+            const newLinks = {};
+            ['instagram', 'whatsapp', 'tiktok', 'telegram', 'full_access_url'].forEach(key => {
+                const input = document.getElementById(`link-${key}`);
+                if (input) newLinks[key] = input.value;
+            });
+
+            if (!db) {
+                 appState.links = newLinks; // Solo en mock
+                 showToast("Links actualizados en modo MOCK. Conexión Firebase no activa.", 'success');
+                 return;
+            }
+
+            try {
+                const linksDocRef = doc(db, "artifacts", appId, "public", "data", "links", "config");
+                await setDoc(linksDocRef, newLinks);
+                showToast("Links actualizados con éxito en Firebase.", 'success');
+                // El listener se encargará de actualizar appState.links y re-renderizar el sidebar
+            } catch (error) {
+                console.error("Error guardando links:", error);
+                showToast("Error al guardar los links en Firebase.", 'error');
+            }
+        }
+
+        // --- Render Admin Sections ---
+
+        function renderAdminSections() {
+            const sections = appState.sections || [];
+            return `<div class="p-4 md:p-8">
+                <h1 class="text-3xl font-bold mb-6 dark:text-gray-100">📚 Administración de Secciones y Exámenes</h1>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">Administra las secciones (Semanal, Mini, etc.) y los exámenes dentro de ellas. El orden es controlado por la propiedad 'order'.</p>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
+                    ${sections.map(section => `
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                            <p class="font-medium text-xl">${section.name} (Order: ${section.order || 'N/A'})</p>
+                            <div class="flex space-x-3 mt-2 md:mt-0">
+                                <button onclick="openSectionEditModal('${section.id}', '${section.name}', ${section.order || 99})" class="py-1 px-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition text-sm">Editar Nombre/Orden</button>
+                                <button onclick="navigate('admin-edit-exam', { sectionId: '${section.id}', sectionName: '${section.name}' })" class="py-1 px-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm">Administrar Exámenes</button>
+                                <button onclick="confirmDeleteSection('${section.id}', '${section.name}')" class="py-1 px-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">Eliminar</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="navigate('dashboard')" class="py-2 px-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Atrás</button>
+                    <button onclick="openSectionEditModal('new')" class="py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Agregar Nueva Sección</button>
+                </div>
+            </div>`;
+        }
+
+        // --- Lógica CRUD de Admin (Secciones) ---
+
+        window.openSectionEditModal = (id, name = '', order = 99) => {
+            const isNew = id === 'new';
+            const bodyHtml = `
+                <input type="hidden" id="edit-section-id" value="${id}">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Nombre de la Sección</label>
+                    <input type="text" id="edit-section-name" value="${name}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Orden de la Sección (Número)</label>
+                    <input type="number" id="edit-section-order" value="${order}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600" required>
+                </div>
+            `;
+
+            showCustomModal({
+                title: isNew ? 'Agregar Nueva Sección' : `Editar Sección: ${name}`,
+                body: bodyHtml,
+                confirmText: 'Guardar Sección',
+                cancelText: 'Cancelar',
+                onConfirm: saveSection
+            });
+        }
+
+        async function saveSection() {
+            const id = document.getElementById('edit-section-id').value;
+            const name = document.getElementById('edit-section-name').value.trim();
+            const order = parseInt(document.getElementById('edit-section-order').value) || 99;
+
+            if (!name) { showToast("El nombre de la sección es obligatorio.", 'error'); return; }
+
+            const isNew = id === 'new';
+            const sectionId = isNew ? doc(collection(db, "artifacts", appId, "public", "data", "sections")).id : id;
+            const sectionDocRef = doc(db, "artifacts", appId, "public", "data", "sections", sectionId);
+
+            try {
+                await setDoc(sectionDocRef, { name, order });
+                showToast(`Sección ${name} ${isNew ? 'creada' : 'actualizada'} con éxito.`, 'success');
+                // El listener se encarga de re-renderizar
+            } catch (error) {
+                console.error("Error guardando sección:", error);
+                showToast("Error al guardar la sección en Firebase.", 'error');
+            }
+        }
+
+        window.confirmDeleteSection = (id, name) => {
+            showCustomModal({
+                title: 'Confirmar Eliminación de Sección',
+                body: `¿Estás seguro de que deseas eliminar la sección <strong>${name}</strong>? ¡Esto también eliminará <strong>TODOS</strong> los exámenes dentro! Esta acción es irreversible.`,
+                confirmText: 'Sí, Eliminar Permanentemente',
+                cancelText: 'Cancelar',
+                onConfirm: () => deleteSection(id, name)
+            });
+        }
+
+        async function deleteSection(id, name) {
+            try {
+                // 1. Eliminar Exámenes dentro de la sección (Firebase no elimina subcolecciones automáticamente)
+                const examsQuery = collection(db, "artifacts", appId, "public", "data", "sections", id, "exams");
+                const examSnapshots = await getDocs(examsQuery);
+                const deletePromises = [];
+                examSnapshots.forEach(examDoc => {
+                    deletePromises.push(deleteDoc(examDoc.ref));
+                });
+                await Promise.all(deletePromises);
+
+                // 2. Eliminar la Sección
+                const sectionDocRef = doc(db, "artifacts", appId, "public", "data", "sections", id);
+                await deleteDoc(sectionDocRef);
+
+                showToast(`Sección ${name} y sus exámenes eliminados con éxito.`, 'success');
+                // El listener se encarga de re-renderizar
+            } catch (error) {
+                console.error("Error eliminando sección:", error);
+                showToast("Error al eliminar la sección.", 'error');
+            }
+        }
+
+
+        // --- Render Admin Edit Exam ---
+
+        function renderAdminEditExam() {
+            const { sectionId, sectionName, examId } = appState.adminEditTarget;
+            const currentExams = appState.exams[sectionId] || [];
+            const currentExam = currentExams.find(e => e.id === examId);
+
+            if (!sectionId) return renderDashboard();
+
+            let html = `<div class="p-4 md:p-8">
+                <h1 class="text-3xl font-bold mb-2 dark:text-gray-100">📝 Administración de Exámenes en: ${sectionName || 'Sección Desconocida'}</h1>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">Listado de exámenes en esta sección.</p>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 space-y-4 mb-6">
+                    <h2 class="text-xl font-semibold mb-4 dark:text-gray-100">Exámenes</h2>
+                    ${currentExams.map(exam => `
+                        <div class="flex items-center justify-between p-3 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                            <p>${exam.title} (${exam.questions.length} preguntas)</p>
+                            <div class="flex space-x-3">
+                                <button onclick="openExamStructureModal('${sectionId}', '${exam.id}')" class="py-1 px-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition text-sm">Editar Estructura</button>
+                                <button onclick="confirmDeleteExam('${sectionId}', '${exam.id}', '${exam.title}')" class="py-1 px-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">Eliminar</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button onclick="navigate('admin-sections')" class="py-2 px-4 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">Atrás a Secciones</button>
+                    <button onclick="openExamStructureModal('${sectionId}', 'new')" class="py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">Agregar Nuevo Examen</button>
+                </div>
+            </div>`;
+
+            // Si se seleccionó un examen para edición, mostrar el editor avanzado
+            if (currentExam) {
+                 // Aquí se implementaría el editor avanzado de preguntas
+                 // Por la complejidad, el editor de estructura se implementará en un modal.
+            }
+
+            return html;
+        }
+
+        // --- Lógica CRUD de Admin (Exámenes) ---
+
+        window.openExamStructureModal = (sectionId, examId) => {
+            const isNew = examId === 'new';
+            const currentExams = appState.exams[sectionId] || [];
+            const exam = isNew ? { title: '', questions: [], sectionId } : currentExams.find(e => e.id === examId);
+
+            if (!exam) {
+                showToast("Error: Examen no encontrado para edición.", 'error');
+                return;
+            }
+
+            // Usamos JSON.stringify para pasar el objeto complejo a la función de guardado
+            const examJson = JSON.stringify(exam);
+            // Esto es una simplificación extrema del editor. Un editor real sería más complejo.
+            const bodyHtml = `
+                <input type="hidden" id="edit-exam-section-id" value="${sectionId}">
+                <input type="hidden" id="edit-exam-id" value="${examId}">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Título del Examen</label>
+                    <input type="text" id="edit-exam-title" value="${exam.title}" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium dark:text-gray-300">Estructura de Preguntas (JSON)</label>
+                    <textarea id="edit-exam-questions-json" rows="15" class="mt-1 p-2 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-xs">${JSON.stringify(exam.questions, null, 2)}</textarea>
+                    <p class="text-xs text-gray-500 mt-1">Formato de cada pregunta: <code>{ "block": 1, "text": "...", "options": ["A", "B", "C", "D"], "correct_option_index": 0, "justification": "..." }</code></p>
+                </div>
+            `;
+
+            showCustomModal({
+                title: isNew ? 'Agregar Nuevo Examen' : `Editar Examen: ${exam.title}`,
+                body: bodyHtml,
+                confirmText: 'Guardar Examen y Preguntas',
+                cancelText: 'Cancelar',
+                onConfirm: saveExamStructure
+            });
+        }
+
+        async function saveExamStructure() {
+            const sectionId = document.getElementById('edit-exam-section-id').value;
+            const examId = document.getElementById('edit-exam-id').value;
+            const title = document.getElementById('edit-exam-title').value.trim();
+            const questionsJson = document.getElementById('edit-exam-questions-json').value;
+
+            if (!title) { showToast("El título del examen es obligatorio.", 'error'); return; }
+
+            let questions;
+            try {
+                questions = JSON.parse(questionsJson);
+                if (!Array.isArray(questions)) throw new Error("Debe ser un array.");
+            } catch (e) {
+                showToast("Error en el formato JSON de las preguntas. Revísalo.", 'error');
+                return;
+            }
+
+            const isNew = examId === 'new';
+            const finalExamId = isNew ? doc(collection(db, "artifacts", appId, "public", "data", "sections", sectionId, "exams")).id : examId;
+            const examDocRef = doc(db, "artifacts", appId, "public", "data", "sections", sectionId, "exams", finalExamId);
+
+            const examData = { title, questions, sectionId };
+
+            try {
+                await setDoc(examDocRef, examData);
+                showToast(`Examen ${title} ${isNew ? 'creado' : 'actualizado'} con ${questions.length} preguntas.`, 'success');
+                // El listener se encarga de re-renderizar
+                navigate('admin-edit-exam', { sectionId: sectionId }); // Regresar a la lista
+            } catch (error) {
+                console.error("Error guardando examen:", error);
+                showToast("Error al guardar el examen en Firebase.", 'error');
+            }
+        }
+
+        window.confirmDeleteExam = (sectionId, examId, examTitle) => {
+            showCustomModal({
+                title: 'Confirmar Eliminación de Examen',
+                body: `¿Estás seguro de que deseas eliminar el examen <strong>${examTitle}</strong>? ¡Esto eliminará todas las preguntas!`,
+                confirmText: 'Sí, Eliminar',
+                cancelText: 'Cancelar',
+                onConfirm: () => deleteExam(sectionId, examId, examTitle)
+            });
+        }
+
+        async function deleteExam(sectionId, examId, examTitle) {
+            try {
+                const examDocRef = doc(db, "artifacts", appId, "public", "data", "sections", sectionId, "exams", examId);
+                await deleteDoc(examDocRef);
+                showToast(`Examen ${examTitle} eliminado con éxito.`, 'success');
+                // El listener se encarga de re-renderizar
+            } catch (error) {
+                console.error("Error eliminando examen:", error);
+                showToast("Error al eliminar el examen.", 'error');
+            }
+        }
+
+        // --- Renderización General de la Aplicación ---
+
+        function renderApp() {
+            const mainContainer = document.getElementById('app-container');
+            if (!mainContainer) return;
+
+            // Renderizar Sidebar y Main Content
+            mainContainer.innerHTML = `
+                <!-- Overlay para móvil -->
+                <div id="overlay" class="md:hidden" onclick="toggleSidebar()"></div>
+
+                <!-- Barra Lateral (Sidebar) -->
+                <div id="sidebar" class="fixed md:sticky top-0 w-64 h-full md:h-screen no-scrollbar flex flex-col p-4 z-40 shadow-xl dark:shadow-none md:shadow-none">
+                    ${renderSidebarContent()}
+                </div>
+
+                <!-- Contenido Principal -->
+                <div id="main-content-wrapper" class="flex-1 min-h-screen transition-all duration-300">
+                     <!-- Barra superior para móvil/tablet con botón hamburguesa -->
+                    <div class="md:hidden sticky top-0 h-16 bg-white dark:bg-gray-900 border-b dark:border-gray-700 shadow-md flex items-center justify-between px-4 z-30">
+                        <button onclick="toggleSidebar()" class="p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </button>
+                        <h1 class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Estudiante ENARM</h1>
+                        <button onclick="toggleDarkMode()" class="p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                             <!-- Icono de Sol o Luna -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                                ${appState.isDark ?
+                                    '<path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.965 5.68a1 1 0 00.727.174l2.847-.842a1 1 0 00-.735-1.838l-2.847.842a1 1 0 00-.174.735zM3 10a7 7 0 1114 0 7 7 0 01-14 0zm9.293-9.293a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414z" />' :
+                                    '<path d="M17.293 13.707A8 8 0 016.207 2.707a8.001 8.001 0 1011.086 11.086z" />'
+                                }
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Contenido principal cargado por la vista actual -->
+                    <div id="main-view" class="${(appState.view === 'exam' || appState.view === 'review') ? 'h-full' : 'min-h-screen-minus-header'}">
+                        ${renderMainContent()}
+                    </div>
+                </div>
+            `;
+
+            // Aplicar estado de sidebar para desktop/tablet
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (sidebar && window.innerWidth >= 768) {
+                sidebar.classList.remove('open'); // Asegurar que está abierto en desktop
+                if(overlay) overlay.style.display = 'none';
+            } else if (sidebar) {
+                 sidebar.classList.toggle('open', appState.sidebarOpen);
+                 if(overlay) overlay.style.display = appState.sidebarOpen ? 'block' : 'none';
+            }
+
+            // Si estamos en la vista de examen, asegurarnos de que el temporizador se inicialice
+            if (appState.view === 'exam') {
+                if (appState.examTimerInterval) clearInterval(appState.examTimerInterval);
+                appState.examTimerInterval = setInterval(updateExamTimer, 1000);
+            }
+        }
+
+        // Renderiza el contenido dentro del Sidebar
+        function renderSidebarContent() {
+            const isUser = appState.role !== 'guest';
+            const isAdmin = appState.role === 'admin';
+
+            let html = `
+                <!-- Header y Toggle Dark Mode (Solo visible en desktop/tablet) -->
+                <div class="hidden md:flex items-center justify-between border-b pb-4 mb-4 dark:border-gray-700">
+                    <div class="flex items-center">
+                        <!-- Placeholder Logo (logo.png) -->
+                        <img src="https://placehold.co/32x32/10b981/ffffff?text=L" alt="Logo ENARM" class="w-8 h-8 rounded-md mr-2">
+                        <span class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Estudiante ENARM</span>
+                    </div>
+                    <button onclick="toggleDarkMode()" class="p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                         <!-- Icono de Sol o Luna -->
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                            ${appState.isDark ?
+                                '<path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.965 5.68a1 1 0 00.727.174l2.847-.842a1 1 0 00-.735-1.838l-2.847.842a1 1 0 00-.174.735zM3 10a7 7 0 1114 0 7 7 0 01-14 0zm9.293-9.293a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414z" />' :
+                                '<path d="M17.293 13.707A8 8 0 016.207 2.707a8.001 8.001 0 1011.086 11.086z" />'
+                            }
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Botones de Usuario/Admin (Modo Invitado) -->
+                <div id="auth-buttons" class="mb-4">
+                    ${renderAuthButtons()}
+                </div>
+
+                <!-- Navegación (Modo Usuario/Admin) -->
+                ${isUser ? `
+                    <nav class="flex-grow space-y-1 no-scrollbar overflow-y-auto">
+                        <h3 class="text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2">Exámenes</h3>
+                        ${appState.sections.map(section => `
+                             <button onclick="navigate('dashboard')"
+                                class="w-full p-3 rounded-lg text-left font-semibold ${appState.view === 'dashboard' ? 'bg-emerald-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} transition duration-200">
+                                📚 ${section.name}
+                            </button>
+                        `).join('')}
+
+                        ${isAdmin ? `
+                            <h3 class="text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 pt-4 mb-2">Administración</h3>
+                            <button onclick="navigate('admin-users')"
+                                class="w-full p-3 rounded-lg text-left font-semibold ${appState.view === 'admin-users' ? 'bg-red-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} transition duration-200">
+                                👤 Agregar Usuarios
+                            </button>
+                            <button onclick="navigate('admin-links')"
+                                class="w-full p-3 rounded-lg text-left font-semibold ${appState.view === 'admin-links' ? 'bg-red-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} transition duration-200">
+                                🔗 Iconos & Links
+                            </button>
+                            <button onclick="navigate('admin-sections')"
+                                class="w-full p-3 rounded-lg text-left font-semibold ${appState.view === 'admin-sections' ? 'bg-red-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700'} transition duration-200">
+                                📋 Secciones & Exámenes
+                            </button>
+                        ` : ''}
+
+                        <button onclick="handleLogout()"
+                            class="w-full p-3 rounded-lg text-left font-semibold text-red-500 hover:bg-red-100 dark:hover:bg-gray-700 transition duration-200 mt-4">
+                            🚪 Cerrar Sesión
+                        </button>
+                    </nav>
+                ` : `<div class="flex-grow"></div>`}
+
+
+                <!-- Cronómetro y Links Sociales -->
+                <div class="mt-auto pt-4 border-t dark:border-gray-700">
+                    <h3 class="text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2">ENARM 2026: 23/Sep</h3>
+                    <div id="countdown" class="grid grid-cols-4 gap-2 mb-4 text-gray-800 dark:text-gray-200">
+                        <!-- El JS actualizará esto -->
+                        ${updateCountdown()}
+                    </div>
+
+                    <!-- Botón Acceso Completo -->
+                    <a href="${appState.links.full_access_url || '#'}" target="_blank"
+                        class="w-full block text-center py-2 mb-4 rounded-lg font-bold bg-blue-500 text-white hover:bg-blue-600 transition duration-200">
+                        Acceso Completo
+                    </a>
+
+                    <!-- Iconos Sociales -->
+                    <div class="flex justify-center space-x-4">
+                        ${['instagram', 'whatsapp', 'tiktok', 'telegram'].map(key => `
+                            <a href="${appState.links[key] || '#'}" target="_blank" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition duration-200">
+                                <!-- Placeholder para .png -->
+                                <img src="https://placehold.co/24x24/${key === 'whatsapp' ? '25D366' : (key === 'instagram' ? 'C13584' : (key === 'tiktok' ? '000000' : '2AABEE'))}/ffffff?text=${key.slice(0, 1).toUpperCase()}" alt="${key}" class="w-6 h-6 rounded-md">
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Lógica de Logout ---
+        window.handleLogout = async () => {
+            if (auth) {
+                try {
+                    await auth.signOut();
+                    // Firebase listener se encargará de resetear el estado y forzar signInAnonymously
+                } catch (error) {
+                    console.error("Error al cerrar sesión:", error);
+                }
+            }
+            // Resetear estado local para forzar vista de invitado
+            userId = null;
+            appState.role = 'guest';
+            appState.view = 'dashboard';
+            appState.userAttempts = {};
+            renderApp();
+            showToast('Sesión cerrada.', 'info');
+        }
+
+        // Inicia la aplicación al cargar la ventana
+        window.onload = async () => {
+             // Si el auth no estaba listo, loadAppData lo llamará una vez que onAuthStateChanged termine.
+             if (isAuthReady) {
+                 await loadAppData();
+                 renderApp();
+             }
+        };
+
+        // Escuchar el resize para manejar el sidebar en tablet/desktop
+        window.addEventListener('resize', () => {
+             const newSidebarOpen = window.innerWidth >= 768;
+             if (appState.sidebarOpen !== newSidebarOpen) {
+                 appState.sidebarOpen = newSidebarOpen;
+                 const sidebar = document.getElementById('sidebar');
+                 if (sidebar) {
+                     sidebar.classList.toggle('open', appState.sidebarOpen);
+                     const overlay = document.getElementById('overlay');
+                     if(overlay) overlay.style.display = appState.sidebarOpen ? 'block' : 'none';
+                 }
+             }
+        });
+
+
+    </script>
+    
+    <!-- Contenedor Principal de la App -->
+    <div id="app-container" class="flex flex-col md:flex-row min-h-screen">
+        <!-- El JS inyectará el Sidebar y el Contenido Principal aquí -->
+    </div>
+
+    <!-- Modal de Login (Oculto por defecto) -->
+    <div id="login-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4" onclick="if(event.target.id === 'login-modal') closeModal()">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300">
+            <h2 id="login-title" class="text-2xl font-bold mb-6 text-center text-emerald-600 dark:text-emerald-400">Iniciar Sesión</h2>
+            <form onsubmit="handleLoginSubmit(event)">
+                <input type="hidden" id="login-role" value="user">
+                <div class="mb-4">
+                    <label for="login-username" class="block text-sm font-medium dark:text-gray-300">Usuario</label>
+                    <input type="text" id="login-username" required class="mt-1 p-3 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Introduce tu usuario">
+                </div>
+                <div class="mb-6">
+                    <label for="login-password" class="block text-sm font-medium dark:text-gray-300">Contraseña</label>
+                    <input type="password" id="login-password" required class="mt-1 p-3 w-full border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Introduce tu contraseña">
+                </div>
+                <button type="submit" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-700 transition duration-300">
+                    Acceder
+                </button>
+                <button type="button" onclick="closeModal()" class="w-full mt-3 py-3 text-gray-600 dark:text-gray-400 hover:text-red-500 transition duration-300">
+                    Cancelar
+                </button>
+            </form>
         </div>
-        <a id="accesoCompleto" class="acceso-link" href="#" target="_blank">Acceso completo</a>
-      </div>
-    </aside>
+    </div>
 
-    <!-- Main content -->
-    <main id="main" class="main">
-      <!-- Login modal -->
-      <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
-        <div class="modal-content">
-          <h2 id="modalTitle">Acceso</h2>
-          <label>Usuario<input id="inputUser" type="text" /></label>
-          <label>Contraseña<input id="inputPass" type="password" /></label>
-          <div class="modal-actions">
-            <button id="modalCancel" class="btn">Cancelar</button>
-            <button id="modalLogin" class="btn primary">Entrar</button>
-          </div>
+    <!-- Modal Genérico para Confirmaciones y Edición de Admin (Oculto por defecto) -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4" onclick="if(event.target.id === 'custom-modal') closeModal()">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300">
+            <h2 id="modal-title" class="text-xl font-bold mb-4 text-red-600 dark:text-red-400">Título del Modal</h2>
+            <div id="modal-body" class="mb-6 text-gray-700 dark:text-gray-300 space-y-4">
+                <!-- Contenido dinámico -->
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button id="modal-cancel-btn" onclick="closeModal()" class="py-2 px-4 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-600 transition">
+                    Cancelar
+                </button>
+                <button id="modal-confirm-btn" class="py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition">
+                    Confirmar
+                </button>
+            </div>
         </div>
-      </div>
+    </div>
 
-      <!-- Main screens -->
-      <section id="homeScreen" class="screen">
-        <h2 id="homeTitle">Exámenes disponibles</h2>
-        <div id="examsGrid" class="exams-grid"></div>
-      </section>
+    <!-- Toast / Notificación (Oculto por defecto) -->
+    <div id="toast" class="hidden fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-xl text-white transition transform duration-300 translate-y-full">
+        Mensaje de Notificación
+    </div>
 
-      <!-- Exam full-screen -->
-      <section id="examScreen" class="screen hidden">
-        <div class="exam-header">
-          <button id="examBack" class="btn">← Regresar</button>
-          <h2 id="examTitle">Examen</h2>
-          <div id="examTimer" class="exam-timer">00:00</div>
-        </div>
-        <div id="examContent" class="exam-content"></div>
-        <div class="exam-footer">
-          <button id="btnFinish" class="btn primary">Terminar examen</button>
-        </div>
-      </section>
-
-      <!-- Results screen -->
-      <section id="resultsScreen" class="screen hidden">
-        <div class="results-header"><h2 id="resultsTitle">Resultados</h2></div>
-        <div id="resultsContent"></div>
-        <div class="results-footer"><button id="resultsBack" class="btn">Regresar</button></div>
-      </section>
-
-      <!-- Admin screens container -->
-      <section id="adminScreen" class="screen hidden">
-        <h2>Panel Admin</h2>
-        <div class="admin-actions">
-          <button id="adminUsuarios" class="btn">Agregar usuarios</button>
-          <button id="adminIconos" class="btn">Iconos</button>
-          <button id="adminSecciones" class="btn">Secciones</button>
-        </div>
-        <div id="adminMain" class="admin-main"></div>
-      </section>
-    </main>
-  </div>
-
-  <!-- Firebase compat SDKs (usadas por app.js) -->
-  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-storage-compat.js"></script>
-
-  <!-- App JS (cargado como script normal, no module) -->
-  <script src="app.js"></script>
 </body>
 </html>
