@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Estudiante ENARM</title>
 
-  <!-- Google tag (gtag.js) -->
+  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -14,7 +14,7 @@
     gtag('config', 'G-B43LFZV7MR');
   </script>
 
-  <!-- Meta Pixel Code -->
+  <!-- Meta Pixel -->
   <script>
   !function(f,b,e,v,n,t,s)
   {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -30,67 +30,87 @@
     <img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
   </noscript>
-  <!-- End Meta Pixel Code -->
 
-  <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css">
-
-  <!-- SEO -->
-  <meta name="description" content="Plataforma Estudiante ENARM - simulacros y exámenes con administración avanzada.">
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-  <div id="app" class="app">
-    
-    <!-- ========================== SIDEBAR ========================== -->
-    <aside class="sidebar" role="navigation" aria-label="Navegación lateral">
 
-      <div class="brand">
-        <div class="brand-text">Estudiante ENARM</div>
-        <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo" />
+<div id="app" class="app">
+
+  <!-- ==========================================================
+       SIDEBAR IZQUIERDA (SECCIONES + REDES)
+       ========================================================== -->
+  <aside class="sidebar left-sidebar">
+    <div class="brand">
+      <div class="brand-text">Estudiante ENARM</div>
+      <img src="./logo.png" class="logo" alt="Logo">
+    </div>
+
+    <nav id="sectionsList" class="sections">
+      <!-- Secciones dinámicas -->
+    </nav>
+
+    <div class="sidebar-actions">
+
+      <a id="btnAccesoCompleto"
+         class="btn primary"
+         href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
+         target="_blank" rel="noopener noreferrer">
+         Acceso completo
+      </a>
+
+      <div id="mainCountdown" class="countdown"></div>
+
+      <div class="socials">
+        <a id="link-instagram" target="_blank"><img src="./instagram.png" alt=""></a>
+        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" alt=""></a>
+        <a id="link-telegram" target="_blank"><img src="./telegram.png" alt=""></a>
+        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt=""></a>
       </div>
 
-      <nav id="sectionsList" class="sections">
-        <!-- Secciones dinámicas -->
-      </nav>
+    </div>
+  </aside>
 
-      <div class="sidebar-actions">
 
-        <a id="btnAccesoCompleto"
-           class="btn primary"
-           href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
-           target="_blank" rel="noopener noreferrer">
-           Acceso completo
-        </a>
+  <!-- ==========================================================
+       SIDEBAR DERECHA (SOLO ADMIN)
+       ========================================================== -->
+  <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
 
-        <div id="mainCountdown" class="countdown"></div>
+    <h3 class="admin-title">Administrador</h3>
 
-        <div class="socials">
-          <a id="link-instagram" href="#" target="_blank"><img src="./instagram.png" alt="Instagram"></a>
-          <a id="link-whatsapp" href="#" target="_blank"><img src="./whatsapp.png" alt="WhatsApp"></a>
-          <a id="link-telegram" href="#" target="_blank"><img src="./telegram.png" alt="Telegram"></a>
-          <a id="link-tiktok" href="#" target="_blank"><img src="./tiktok.png" alt="TikTok"></a>
-        </div>
+    <button id="adminAddSection" class="btn">Agregar sección</button>
+    <button id="adminAddExam" class="btn">Agregar examen</button>
+    <button id="adminEditQuestions" class="btn">Editar preguntas del examen</button>
+    <button id="adminUsers" class="btn">Ver usuarios</button>
+    <button id="adminLinks" class="btn">Links</button>
 
-      </div>
-    </aside>
+    <hr>
 
-    <!-- =========================== MAIN =========================== -->
-    <main class="main">
+    <button id="adminLogout" class="btn danger">Cerrar sesión</button>
 
-      <!-- TOPBAR -->
-      <header class="topbar">
-        <div id="userInfo" class="user-info"></div>
-        <div id="authButtons" class="auth-buttons"></div>
-      </header>
+  </aside>
 
-      <section id="screen" class="screen" aria-live="polite">
 
-        <!-- ===================== LOGIN ===================== -->
+  <!-- ==========================================================
+       MAIN CONTENT (AHORA VACÍO Y DINÁMICO)
+       ========================================================== -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div id="userInfo" class="user-info"></div>
+      <div id="authButtons" class="auth-buttons"></div>
+    </header>
+
+    <section id="mainContent" class="screen">
+        
+        <!-- LOGIN -->
         <div id="loginScreen" class="card centered">
           <h2>Acceso</h2>
-          <input id="inputEmail" type="email" placeholder="Correo electrónico" autocomplete="username" />
-          <input id="inputPassword" type="password" placeholder="Contraseña" autocomplete="current-password" />
+          <input id="inputEmail" type="email" placeholder="Correo electrónico" />
+          <input id="inputPassword" type="password" placeholder="Contraseña" />
           <div class="row" style="margin-top:12px;">
             <button id="btnLogin" class="btn primary">Entrar</button>
             <button id="btnCancel" class="btn">Cancelar</button>
@@ -98,49 +118,47 @@
           <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
         </div>
 
-        <!-- ===================== PANTALLA ESTUDIANTE ===================== -->
+        <!-- PANTALLA SECCIONES / EXÁMENES -->
         <div id="studentScreen" class="hidden">
-          <h2 id="studentTitle">Sección</h2>
+          <h2 id="studentTitle">Sección seleccionada</h2>
           <div id="examsList" class="examsList"></div>
-        </div>
 
-        <!-- ===================== PANEL ADMIN ===================== -->
-        <div id="adminScreen" class="hidden">
-          <h2>Administrador</h2>
-
-          <div class="admin-actions">
-            <button id="btnAddSection" class="btn">Agregar sección</button>
-            <button id="btnAddExam" class="btn">Agregar examen</button>
-            <button id="btnEditMode" class="btn">Editar</button>
-            <button id="btnLinks" class="btn">Links</button>
-            <button id="btnUsers" class="btn">Agregar usuarios</button>
+          <!-- Botones admin flotando -->
+          <div id="editButtons" class="editControls hidden">
+            <button id="btnEdit" class="btn">Editar</button>
+            <button id="btnSave" class="btn primary">Guardar</button>
           </div>
-
-          <div id="adminEditor" class="editor"></div>
         </div>
 
-        <!-- ===================== EXAMEN (PANTALLA COMPLETA) ===================== -->
+        <!-- EXAMEN -->
         <div id="examScreen" class="hidden fullScreenExam">
           <div class="examHeader">
             <h3 id="examTitle"></h3>
             <div id="examTimer" class="examTimer"></div>
           </div>
 
-          <form id="examForm" class="examForm"></form>
+          <form id="examForm"></form>
 
           <div class="examFooter">
             <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
           </div>
+
+          <!-- Botones admin -->
+          <div id="editExamButtons" class="editControls hidden">
+            <button id="btnEditExam" class="btn">Editar</button>
+            <button id="btnSaveExam" class="btn primary">Guardar</button>
+          </div>
         </div>
 
-        <!-- ===================== RESULTADOS ===================== -->
+        <!-- RESULTADOS -->
         <div id="resultScreen" class="hidden card"></div>
 
-      </section>
-    </main>
-  </div>
+    </section>
 
-  <!-- Script principal -->
-  <script type="module" src="app.js"></script>
+  </main>
+
+</div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
