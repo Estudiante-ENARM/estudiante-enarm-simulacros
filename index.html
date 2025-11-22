@@ -1,144 +1,893 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Estudiantenarm — Simulacros ENARM</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudiante ENARM</title>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-B43LFZV7MR');
+    </script>
 
-  <!-- Meta / SEO -->
-  <meta name="description" content="Plataforma de simulacros ENARM - Estudiantenarm" />
+    <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code -->
 
-  <!-- LINK CSS -->
-  <link rel="stylesheet" href="css/style.css" />
+    <!-- React & Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- FAVICON -->
-  <link rel="icon" href="assets/logo.png" />
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-  <!-- NOTE: Analytics & Meta Pixel are injected only si el usuario acepta cookies.
-       El snippet existente (Google Analytics + Meta Pixel) se encuentra integrado
-       en /js/app.js como la constante ANALYTICS_SNIPPET y se inyectará tras aceptar cookies.
-  -->
+        const firebaseConfig = {
+            apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+            authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+            projectId: "simulacros-plataforma-enarm",
+            storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+            messagingSenderId: "1012829203040",
+            appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        window.auth = getAuth(app);
+        window.db = getFirestore(app);
+        
+        // Secondary app for Admin creating users without logging out
+        // Note: In a real production environment on Spark plan, creating users usually requires logging out 
+        // or using a secondary app instance. We will simulate the UI logic here.
+    </script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
 </head>
 <body>
-  <div id="app">
-    <!-- MOBILE HEADER -->
-    <header id="mobile-header" class="hidden">
-      <div class="mobile-logo">
-        <img id="mobile-logo-img" src="assets/logo.png" alt="logo" />
-        <div class="mobile-title">Estudiantenarm</div>
-      </div>
-      <div>
-        <button id="mobile-menu-btn" class="menu-hamburger" aria-label="Abrir menú">
-          <img class="menu-icon-btn" src="assets/menu.png" alt="menu" />
-        </button>
-      </div>
-    </header>
+    <div id="root"></div>
 
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="">
-      <div id="logo-area">
-        <img id="logo-img" src="assets/logo.png" alt="logo" />
-        <div class="logo-text">Estudiantenarm</div>
-      </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-      <nav id="main-nav">
-        <!-- Initial: login choices -->
-        <button class="menu-item" id="btn-user-mode">Usuario</button>
-        <button class="menu-item" id="btn-admin-mode">Administrador</button>
+        // --- CONSTANTS & UTILS ---
+        const ADMIN_UID = "2T2NYl0wkwTu1EH14K82b0IgPiy2";
+        const ENARM_DATE = new Date("2026-09-23T00:00:00");
 
-        <!-- After login: sections will be rendered here -->
-        <div id="sections-container" class="hidden"></div>
-      </nav>
+        // Helper to format time for countdown
+        const useCountdown = (targetDate) => {
+            const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-      <!-- Countdown -->
-      <div id="countdown" style="margin:12px; font-weight:700; text-align:center;">Cargando cronómetro...</div>
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    const now = new Date();
+                    const difference = targetDate - now;
 
-      <!-- Access button -->
-      <button id="access-full-btn" class="link-btn" style="width:85%; margin:10px auto;">Acceso Completo</button>
+                    if (difference > 0) {
+                        setTimeLeft({
+                            days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+                            hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+                            minutes: Math.floor((difference / 1000 / 60) % 60),
+                            seconds: Math.floor((difference / 1000) % 60)
+                        });
+                    }
+                }, 1000);
+                return () => clearInterval(interval);
+            }, [targetDate]);
 
-      <!-- Social -->
-      <div id="social-icons">
-        <a class="social-link" id="social-instagram" href="#" target="_blank"><img src="assets/icons/instagram.png" alt="IG" /></a>
-        <a class="social-link" id="social-whatsapp" href="#" target="_blank"><img src="assets/icons/whatsapp.png" alt="WA" /></a>
-        <a class="social-link" id="social-tiktok" href="#" target="_blank"><img src="assets/icons/tiktok.png" alt="TT" /></a>
-        <a class="social-link" id="social-telegram" href="#" target="_blank"><img src="assets/icons/telegram.png" alt="TG" /></a>
-      </div>
+            return timeLeft;
+        };
 
-      <button id="admin-btn" class="hidden">Abrir Admin</button>
-    </aside>
+        // Helper to format exam timer (seconds to MM:SS)
+        const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        };
 
-    <!-- APP SHELL -->
-    <div id="app-shell">
-      <main>
-        <div class="main-inner">
+        // --- COMPONENTS ---
 
-          <!-- LOGIN PANEL -->
-          <div id="login-panel" class="topic">
-            <h4>Iniciar sesión</h4>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <div style="flex:1;">
-                <label>Email</label>
-                <input id="login-email" type="email" style="width:100%; padding:8px; border-radius:8px;" />
-              </div>
-              <div style="width:220px;">
-                <label>Contraseña</label>
-                <input id="login-pass" type="password" style="width:100%; padding:8px; border-radius:8px;" />
-              </div>
-            </div>
-            <div style="margin-top:10px; display:flex; gap:8px;">
-              <button id="btn-login" class="link-btn">Entrar</button>
-              <button id="btn-register" class="edit-btn">Crear cuenta</button>
-            </div>
-            <p style="margin-top:10px; color:var(--muted); font-size:13px;">Selecciona Usuario o Administrador antes de iniciar.</p>
-          </div>
+        const Login = ({ onLogin }) => {
+            const [email, setEmail] = useState("");
+            const [password, setPassword] = useState("");
+            const [error, setError] = useState("");
+            const [loading, setLoading] = useState(false);
 
-          <!-- EXAM LIST (dynamically populated) -->
-          <div id="exam-list" class="hidden"></div>
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError("");
+                try {
+                    const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(window.auth, email, password);
+                    // Role and status check happens in the parent component via onAuthStateChanged logic
+                } catch (err) {
+                    setError("Error al iniciar sesión: Verifique sus credenciales.");
+                    console.error(err);
+                    setLoading(false);
+                }
+            };
 
-          <!-- EXAM VIEWER -->
-          <div id="exam-viewer" class="hidden">
-            <!-- Header with attempts count -->
-            <div id="exam-header" style="display:flex; justify-content:space-between; align-items:center;">
-              <h3 id="exam-title"></h3>
-              <div id="attempts-counter">0 de 3</div>
-            </div>
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-gray-100">
+                    <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+                        <div className="flex justify-center mb-6">
+                             <img src="logo.png" onError={(e) => e.target.src='https://via.placeholder.com/100x100?text=Logo'} alt="Logo" className="h-20 w-20 object-contain" />
+                        </div>
+                        <h2 className="mb-6 text-2xl font-bold text-center text-gray-800">Estudiante ENARM</h2>
+                        {error && <p className="mb-4 text-sm text-red-600 bg-red-100 p-2 rounded text-center">{error}</p>}
+                        <form onSubmit={handleLogin}>
+                            <div className="mb-4">
+                                <label className="block mb-2 text-sm font-bold text-gray-700">Usuario (Email)</label>
+                                <input 
+                                    type="email" 
+                                    className="w-full px-3 py-2 border rounded shadow appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-6">
+                                <label className="block mb-2 text-sm font-bold text-gray-700">Contraseña</label>
+                                <input 
+                                    type="password" 
+                                    className="w-full px-3 py-2 border rounded shadow appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button type="submit" disabled={loading} className="w-full px-4 py-2 font-bold text-white bg-blue-600 rounded hover:bg-blue-700 focus:outline-none focus:shadow-outline disabled:bg-gray-400">
+                                    {loading ? "Entrando..." : "Entrar"}
+                                </button>
+                                <button type="button" className="w-full px-4 py-2 font-bold text-gray-700 bg-gray-200 rounded hover:bg-gray-300 focus:outline-none" onClick={() => {setEmail(''); setPassword('');}}>
+                                    Cancelar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
 
-            <div id="questions-container"></div>
+        const Sidebar = ({ links, timeLeft, user, onLogout }) => {
+            return (
+                <div className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 z-50">
+                    {/* Header */}
+                    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <h1 className="text-lg font-bold text-blue-900 leading-tight">Estudiante ENARM</h1>
+                        <img src="logo.png" onError={(e) => e.target.src='https://via.placeholder.com/40?text=Logo'} alt="Logo" className="h-10 w-10 object-contain" />
+                    </div>
 
-            <div style="display:flex; gap:8px; margin-top:14px;">
-              <button id="btn-return" class="edit-btn">Regresar</button>
-              <button id="btn-finish" class="link-btn">Terminar</button>
-            </div>
-          </div>
+                    {/* Sections List */}
+                    <div className="flex-1 overflow-y-auto p-4 sidebar-scroll">
+                        <div className="space-y-2">
+                            <div className="p-2 bg-blue-50 text-blue-700 font-semibold rounded cursor-default">Sección 1</div>
+                            <div className="p-2 text-gray-600 hover:bg-gray-50 rounded cursor-default">Sección 2</div>
+                            <div className="p-2 text-gray-600 hover:bg-gray-50 rounded cursor-default">Sección 3</div>
+                            <div className="p-2 text-gray-600 hover:bg-gray-50 rounded cursor-default">Sección 4</div>
+                        </div>
+                    </div>
 
-          <!-- Admin modal placeholder -->
-          <div id="admin-modal" class="hidden">
-            <div class="modal-content">
-              <button class="close-modal" id="close-admin-modal">✕</button>
-              <div id="admin-content"></div>
-            </div>
-          </div>
+                    {/* Footer Actions */}
+                    <div className="p-4 border-t border-gray-200 bg-gray-50">
+                        <button onClick={() => window.open(links?.accessBtnLink || '#', '_blank')} className="w-full mb-2 py-2 bg-indigo-600 text-white rounded font-bold text-sm hover:bg-indigo-700 transition">
+                            Acceso Completo
+                        </button>
+                        <button onClick={() => window.open(links?.purchaseBtnLink || '#', '_blank')} className="w-full mb-4 py-2 bg-green-600 text-white rounded font-bold text-sm hover:bg-green-700 transition">
+                            Adquirir Acceso
+                        </button>
+                        
+                        {/* Countdown */}
+                        <div className="mb-4 text-center">
+                            <p className="text-xs text-gray-500 uppercase font-bold mb-1">ENARM 2026</p>
+                            <div className="grid grid-cols-4 gap-1 text-center text-gray-800 font-mono text-sm bg-white p-2 rounded border">
+                                <div><span className="block font-bold">{timeLeft.days}</span><span className="text-[10px]">d</span></div>
+                                <div><span className="block font-bold">{timeLeft.hours}</span><span className="text-[10px]">h</span></div>
+                                <div><span className="block font-bold">{timeLeft.minutes}</span><span className="text-[10px]">m</span></div>
+                                <div><span className="block font-bold">{timeLeft.seconds}</span><span className="text-[10px]">s</span></div>
+                            </div>
+                        </div>
 
-        </div>
-      </main>
-    </div>
+                        {/* Social Icons */}
+                        <div className="flex justify-between px-2 mb-4">
+                             {['instagram', 'whatsapp', 'telegram', 'tiktok'].map(social => (
+                                <a key={social} href={links?.[social] || '#'} target="_blank" rel="noopener noreferrer" className="hover:opacity-75 transition">
+                                    <img 
+                                        src={`${social}.png`} 
+                                        onError={(e) => e.target.src=`https://via.placeholder.com/24?text=${social.charAt(0).toUpperCase()}`} 
+                                        alt={social} 
+                                        className="w-6 h-6" 
+                                    />
+                                </a>
+                             ))}
+                        </div>
+                        
+                        <button onClick={onLogout} className="w-full py-1 text-xs text-gray-500 hover:text-red-500 border-t border-gray-200 mt-2">
+                            Cerrar Sesión
+                        </button>
+                    </div>
+                </div>
+            );
+        };
 
-    <!-- Mobile overlay for sidebar -->
-    <div id="mobile-overlay" class="hidden"></div>
-  </div>
+        const ExamRunner = ({ exam, onFinish }) => {
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [answers, setAnswers] = useState({}); // { questionId: optionIndex }
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [isFinished, setIsFinished] = useState(false);
+            const [score, setScore] = useState(0);
 
-  <!-- Cookie banner placeholder -->
-  <div id="cookie-banner" class="hidden" style="position:fixed; bottom:12px; left:12px; right:12px; z-index:9999;">
-    <div style="background:var(--card-bg); padding:12px; border-radius:10px; box-shadow:0 8px 24px rgba(2,6,23,0.12); display:flex; justify-content:space-between; align-items:center;">
-      <div style="max-width:70%;">Usamos cookies para mejorar tu experiencia y para analytics. ¿Aceptas cargar Google Analytics y Meta Pixel?</div>
-      <div style="display:flex; gap:8px;">
-        <button id="cookie-decline" class="edit-btn">Rechazar</button>
-        <button id="cookie-accept" class="link-btn">Aceptar</button>
-      </div>
-    </div>
-  </div>
+            // Calculate initial time: 1m 15s per question
+            useEffect(() => {
+                if (exam && exam.questions) {
+                    setTimeLeft(exam.questions.length * 75);
+                }
+            }, [exam]);
 
-  <!-- APP SCRIPT (module) -->
-  <script type="module" src="js/app.js"></script>
+            // Timer Logic
+            useEffect(() => {
+                if (timeLeft > 0 && !isFinished) {
+                    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+                    return () => clearInterval(timer);
+                } else if (timeLeft === 0 && !isFinished) {
+                    handleSubmit();
+                }
+            }, [timeLeft, isFinished]);
+
+            const handleSelectOption = (questionId, optionIndex) => {
+                if (isFinished) return;
+                setAnswers(prev => ({...prev, [questionId]: optionIndex}));
+            };
+
+            const handleSubmit = () => {
+                let correctCount = 0;
+                exam.questions.forEach(q => {
+                    if (answers[q.id] === q.correctIndex) {
+                        correctCount++;
+                    }
+                });
+                const calculatedScore = Math.round((correctCount / exam.questions.length) * 100);
+                setScore(calculatedScore);
+                setIsFinished(true);
+                onFinish(calculatedScore); // Call parent to save attempt
+            };
+
+            if (!exam) return <div>Cargando examen...</div>;
+
+            return (
+                <div className="fixed inset-0 z-[60] bg-white overflow-y-auto fade-in">
+                    <div className="max-w-4xl mx-auto p-6">
+                        {/* Header Sticky */}
+                        <div className="sticky top-0 bg-white z-10 border-b pb-4 mb-6 flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">{exam.name}</h2>
+                                {isFinished && (
+                                    <div className="text-xl font-bold mt-1">
+                                        Calificación: <span className={score >= 70 ? "text-green-600" : "text-red-600"}>{score}%</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`text-2xl font-mono font-bold px-4 py-2 rounded ${timeLeft < 60 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-800'}`}>
+                                {formatTime(timeLeft)}
+                            </div>
+                        </div>
+
+                        {/* Questions List */}
+                        <div className="space-y-8 pb-20">
+                            {exam.questions.map((q, index) => {
+                                const userAns = answers[q.id];
+                                const isCorrect = userAns === q.correctIndex;
+                                
+                                return (
+                                    <div key={q.id} className="border rounded-lg p-6 bg-gray-50">
+                                        <div className="mb-4">
+                                            <h3 className="font-bold text-lg text-blue-800 mb-2">Caso Clínico {index + 1}</h3>
+                                            <p className="text-gray-700 whitespace-pre-line mb-4 italic bg-white p-3 rounded border-l-4 border-blue-500">{q.caseText}</p>
+                                            <p className="font-semibold text-gray-900 mb-3">{index + 1}. {q.questionText}</p>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            {q.options.map((opt, optIdx) => {
+                                                let optionClass = "w-full text-left p-3 rounded border transition flex items-center ";
+                                                
+                                                if (isFinished) {
+                                                    if (optIdx === q.correctIndex) {
+                                                        optionClass += "bg-green-100 border-green-500 text-green-900 font-bold";
+                                                    } else if (userAns === optIdx) {
+                                                        optionClass += "bg-red-100 border-red-500 text-red-900";
+                                                    } else {
+                                                        optionClass += "bg-white border-gray-200 opacity-50";
+                                                    }
+                                                } else {
+                                                    if (userAns === optIdx) {
+                                                        optionClass += "bg-blue-100 border-blue-500 text-blue-900 shadow-sm";
+                                                    } else {
+                                                        optionClass += "bg-white border-gray-200 hover:bg-gray-100";
+                                                    }
+                                                }
+
+                                                return (
+                                                    <button 
+                                                        key={optIdx}
+                                                        onClick={() => handleSelectOption(q.id, optIdx)}
+                                                        disabled={isFinished}
+                                                        className={optionClass}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded-full border mr-3 flex items-center justify-center ${userAns === optIdx ? 'border-blue-600' : 'border-gray-400'}`}>
+                                                            {userAns === optIdx && <div className="w-2 h-2 rounded-full bg-blue-600"></div>}
+                                                        </div>
+                                                        {['A', 'B', 'C', 'D'][optIdx]}) {opt}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        {isFinished && (
+                                            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded text-sm">
+                                                <strong className="block text-green-800 mb-1">Justificación:</strong>
+                                                <p className="text-gray-700">{q.justification}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Footer Action */}
+                        {!isFinished ? (
+                             <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 text-center shadow-lg z-20">
+                                <button 
+                                    onClick={handleSubmit}
+                                    className="bg-red-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-red-700 shadow-lg transform hover:-translate-y-1 transition"
+                                >
+                                    Finalizar Examen
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <button onClick={() => window.location.reload()} className="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-700">
+                                    Volver al Inicio
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const AdminDashboard = ({ db }) => {
+            const [view, setView] = useState('sections'); // sections, exams, users, links
+            const [sections, setSections] = useState([]);
+            const [exams, setExams] = useState([]);
+            const [users, setUsers] = useState([]);
+            const [linksData, setLinksData] = useState({});
+            const [loading, setLoading] = useState(false);
+
+            // Form States
+            const [newSectionName, setNewSectionName] = useState('');
+            const [selectedSection, setSelectedSection] = useState('');
+            const [newExamName, setNewExamName] = useState('');
+            
+            // Exam Editing State
+            const [editingExamId, setEditingExamId] = useState(null);
+            const [examQuestions, setExamQuestions] = useState([]);
+            
+            // User Mgmt State
+            const [newUser, setNewUser] = useState({ email: '', password: '', expiresAt: '' });
+
+            useEffect(() => {
+                fetchData();
+            }, []);
+
+            const fetchData = async () => {
+                setLoading(true);
+                const sSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.collection(db, 'sections'));
+                setSections(sSnap.docs.map(d => ({id: d.id, ...d.data()})));
+
+                const eSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.collection(db, 'exams'));
+                setExams(eSnap.docs.map(d => ({id: d.id, ...d.data()})));
+
+                const uSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.collection(db, 'users'));
+                setUsers(uSnap.docs.map(d => ({id: d.id, ...d.data()})));
+
+                const lSnap = await window.firebaseFirestore.getDoc(window.firebaseFirestore.doc(db, 'config', 'global_links'));
+                if(lSnap.exists()) setLinksData(lSnap.data());
+                
+                setLoading(false);
+            };
+
+            // --- ACTION HANDLERS ---
+
+            const addSection = async () => {
+                if(!newSectionName) return;
+                await window.firebaseFirestore.addDoc(window.firebaseFirestore.collection(db, 'sections'), { name: newSectionName, order: Date.now() });
+                setNewSectionName('');
+                fetchData();
+            };
+
+            const addExam = async () => {
+                if(!newExamName || !selectedSection) return;
+                await window.firebaseFirestore.addDoc(window.firebaseFirestore.collection(db, 'exams'), { 
+                    name: newExamName, 
+                    sectionId: selectedSection,
+                    questions: [] // Initialize empty
+                });
+                setNewExamName('');
+                fetchData();
+            };
+
+            const startEditExam = (exam) => {
+                setEditingExamId(exam.id);
+                setExamQuestions(exam.questions || []);
+            };
+
+            const addQuestionToExam = () => {
+                setExamQuestions([...examQuestions, {
+                    id: Date.now().toString(),
+                    caseText: '',
+                    questionText: '',
+                    options: ['', '', '', ''],
+                    correctIndex: 0,
+                    justification: ''
+                }]);
+            };
+
+            const updateQuestion = (index, field, value) => {
+                const updated = [...examQuestions];
+                updated[index][field] = value;
+                setExamQuestions(updated);
+            };
+            
+            const updateOption = (qIndex, optIndex, value) => {
+                const updated = [...examQuestions];
+                updated[qIndex].options[optIndex] = value;
+                setExamQuestions(updated);
+            };
+
+            const saveExamQuestions = async () => {
+                if(!editingExamId) return;
+                await window.firebaseFirestore.updateDoc(window.firebaseFirestore.doc(db, 'exams', editingExamId), {
+                    questions: examQuestions
+                });
+                setEditingExamId(null);
+                fetchData();
+                alert('Examen guardado correctamente');
+            };
+
+            const updateLinks = async () => {
+                await window.firebaseFirestore.setDoc(window.firebaseFirestore.doc(db, 'config', 'global_links'), linksData);
+                alert('Links actualizados');
+            };
+
+            const createUser = async () => {
+                if(!newUser.email || !newUser.password || !newUser.expiresAt) return alert("Complete todos los campos");
+                
+                try {
+                    // NOTE: In client-side code w/o secondary app, create user logs you out. 
+                    // Implementing a workaround to just store metadata for this demo. 
+                    // In production, user creation should happen via Admin SDK or separate process.
+                    // Here we store the permission. The actual Auth Account must be created manually 
+                    // or we accept the limitation of re-login. 
+                    // FOR DEMO: We will add to Firestore.
+                    
+                    await window.firebaseFirestore.addDoc(window.firebaseFirestore.collection(db, 'users'), {
+                        email: newUser.email,
+                        role: 'student',
+                        status: 'active',
+                        expiresAt: newUser.expiresAt, // YYYY-MM-DD
+                        dummyPassword: newUser.password // NOT SECURE - Only for demo purposes as per prompt "save pass"
+                    });
+                    
+                    setNewUser({ email: '', password: '', expiresAt: '' });
+                    fetchData();
+                    alert('Usuario registrado en base de datos. (Nota: Crear la cuenta Auth manualmente o usar otra sesión)');
+                } catch (e) {
+                    console.error(e);
+                    alert('Error creando usuario');
+                }
+            };
+
+            const toggleUserStatus = async (user) => {
+                const newStatus = user.status === 'active' ? 'disabled' : 'active';
+                await window.firebaseFirestore.updateDoc(window.firebaseFirestore.doc(db, 'users', user.id), { status: newStatus });
+                fetchData();
+            };
+
+            // --- RENDER ---
+
+            if (editingExamId) {
+                return (
+                    <div className="p-6 bg-white rounded shadow">
+                        <div className="flex justify-between mb-4">
+                            <h3 className="font-bold text-xl">Editando Examen</h3>
+                            <button onClick={() => setEditingExamId(null)} className="text-red-500">Cancelar</button>
+                        </div>
+                        <div className="space-y-8">
+                            {examQuestions.map((q, idx) => (
+                                <div key={q.id} className="border p-4 rounded bg-gray-50">
+                                    <div className="flex justify-between mb-2">
+                                        <h4 className="font-bold">Pregunta {idx + 1}</h4>
+                                        <button onClick={() => {
+                                            const updated = examQuestions.filter((_, i) => i !== idx);
+                                            setExamQuestions(updated);
+                                        }} className="text-red-500 text-sm">Eliminar</button>
+                                    </div>
+                                    
+                                    <textarea placeholder="Caso Clínico" className="w-full p-2 border mb-2 rounded" rows="3" value={q.caseText} onChange={e => updateQuestion(idx, 'caseText', e.target.value)} />
+                                    <input type="text" placeholder="Pregunta" className="w-full p-2 border mb-2 rounded" value={q.questionText} onChange={e => updateQuestion(idx, 'questionText', e.target.value)} />
+                                    
+                                    <div className="grid grid-cols-2 gap-2 mb-2">
+                                        {q.options.map((opt, oIdx) => (
+                                            <div key={oIdx} className="flex items-center">
+                                                <input type="radio" name={`correct-${q.id}`} checked={q.correctIndex === oIdx} onChange={() => updateQuestion(idx, 'correctIndex', oIdx)} className="mr-2" />
+                                                <input type="text" placeholder={`Opción ${oIdx+1}`} className="w-full p-1 border rounded" value={opt} onChange={e => updateOption(idx, oIdx, e.target.value)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    <textarea placeholder="Justificación de la respuesta correcta" className="w-full p-2 border rounded bg-green-50" rows="2" value={q.justification} onChange={e => updateQuestion(idx, 'justification', e.target.value)} />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-6 flex gap-4">
+                            <button onClick={addQuestionToExam} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">+ Agregar Pregunta</button>
+                            <button onClick={saveExamQuestions} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Guardar Todo</button>
+                        </div>
+                    </div>
+                )
+            }
+
+            return (
+                <div className="p-4">
+                    {/* Admin Nav */}
+                    <div className="flex mb-6 border-b">
+                        <button onClick={() => setView('sections')} className={`px-4 py-2 ${view === 'sections' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-600'}`}>Secciones</button>
+                        <button onClick={() => setView('exams')} className={`px-4 py-2 ${view === 'exams' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-600'}`}>Exámenes</button>
+                        <button onClick={() => setView('links')} className={`px-4 py-2 ${view === 'links' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-600'}`}>Links</button>
+                        <button onClick={() => setView('users')} className={`px-4 py-2 ${view === 'users' ? 'border-b-2 border-blue-500 text-blue-600 font-bold' : 'text-gray-600'}`}>Usuarios</button>
+                    </div>
+
+                    {view === 'sections' && (
+                        <div>
+                            <div className="flex gap-2 mb-4">
+                                <input type="text" placeholder="Nombre Sección" className="border p-2 rounded" value={newSectionName} onChange={e => setNewSectionName(e.target.value)} />
+                                <button onClick={addSection} className="bg-green-500 text-white px-4 py-2 rounded">Agregar Sección</button>
+                            </div>
+                            <ul className="bg-white rounded shadow divide-y">
+                                {sections.map(s => <li key={s.id} className="p-3">{s.name}</li>)}
+                            </ul>
+                        </div>
+                    )}
+
+                    {view === 'exams' && (
+                        <div>
+                            <div className="flex gap-2 mb-4 items-center bg-white p-3 rounded shadow">
+                                <select className="border p-2 rounded" onChange={e => setSelectedSection(e.target.value)} value={selectedSection}>
+                                    <option value="">Seleccionar Sección</option>
+                                    {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                                <input type="text" placeholder="Nombre Examen" className="border p-2 rounded flex-1" value={newExamName} onChange={e => setNewExamName(e.target.value)} />
+                                <button onClick={addExam} className="bg-green-500 text-white px-4 py-2 rounded">Agregar Examen</button>
+                            </div>
+                            <div className="grid gap-4">
+                                {exams.filter(e => !selectedSection || e.sectionId === selectedSection).map(exam => (
+                                    <div key={exam.id} className="bg-white p-4 rounded shadow flex justify-between items-center">
+                                        <div>
+                                            <span className="font-bold block">{exam.name}</span>
+                                            <span className="text-sm text-gray-500">{sections.find(s => s.id === exam.sectionId)?.name}</span>
+                                            <span className="text-xs ml-2 bg-gray-200 px-2 rounded">{exam.questions?.length || 0} preguntas</span>
+                                        </div>
+                                        <button onClick={() => startEditExam(exam)} className="bg-blue-100 text-blue-600 px-3 py-1 rounded hover:bg-blue-200">Editar</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'links' && (
+                        <div className="bg-white p-6 rounded shadow max-w-lg">
+                            <h3 className="font-bold mb-4">Configurar Enlaces</h3>
+                            <div className="space-y-3">
+                                {['instagram', 'whatsapp', 'telegram', 'tiktok', 'accessBtnLink', 'purchaseBtnLink'].map(key => (
+                                    <div key={key}>
+                                        <label className="block text-xs font-bold uppercase text-gray-500">{key}</label>
+                                        <input type="text" className="w-full border p-2 rounded" value={linksData[key] || ''} onChange={e => setLinksData({...linksData, [key]: e.target.value})} />
+                                    </div>
+                                ))}
+                                <button onClick={updateLinks} className="w-full bg-blue-600 text-white py-2 rounded font-bold mt-4">Guardar Links</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'users' && (
+                        <div>
+                            <div className="bg-white p-4 rounded shadow mb-6">
+                                <h3 className="font-bold mb-2">Agregar Usuario</h3>
+                                <div className="flex gap-2 flex-wrap">
+                                    <input type="email" placeholder="Email" className="border p-2 rounded" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} />
+                                    <input type="text" placeholder="Password" className="border p-2 rounded" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+                                    <input type="date" className="border p-2 rounded" value={newUser.expiresAt} onChange={e => setNewUser({...newUser, expiresAt: e.target.value})} />
+                                    <button onClick={createUser} className="bg-green-600 text-white px-4 py-2 rounded">Crear</button>
+                                </div>
+                            </div>
+                            
+                            <table className="w-full bg-white rounded shadow text-sm">
+                                <thead className="bg-gray-100 text-left">
+                                    <tr>
+                                        <th className="p-3">Email</th>
+                                        <th className="p-3">Expira</th>
+                                        <th className="p-3">Estado</th>
+                                        <th className="p-3">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {users.map(u => (
+                                        <tr key={u.id} className="border-t">
+                                            <td className="p-3">{u.email}</td>
+                                            <td className="p-3">{u.expiresAt}</td>
+                                            <td className="p-3">
+                                                <span className={`px-2 py-1 rounded text-xs ${u.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {u.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-3">
+                                                <button onClick={() => toggleUserStatus(u)} className="text-blue-600 hover:underline">
+                                                    {u.status === 'active' ? 'Inhabilitar' : 'Habilitar'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [userData, setUserData] = useState(null); // Firestore data (role, status)
+            const [loading, setLoading] = useState(true);
+            const [currentView, setCurrentView] = useState('home'); // home, exam
+            const [selectedExam, setSelectedExam] = useState(null);
+            const [links, setLinks] = useState({});
+            const [timeLeft, setTimeLeft] = useState({days:0, hours:0, minutes:0, seconds:0});
+            
+            // Data
+            const [sections, setSections] = useState([]);
+            const [exams, setExams] = useState([]);
+            const [attempts, setAttempts] = useState({}); // { examId: count }
+
+            const countdown = useCountdown(ENARM_DATE);
+
+            useEffect(() => {
+                // Auth Listener
+                const unsubscribe = window.firebaseAuth.onAuthStateChanged(window.auth, async (currentUser) => {
+                    if (currentUser) {
+                        // Check Firestore for user details/validity
+                        const userRef = window.firebaseFirestore.doc(window.db, 'users', currentUser.uid);
+                        // If admin by UID
+                        if(currentUser.uid === ADMIN_UID) {
+                            setUserData({ role: 'admin', status: 'active' });
+                            setUser(currentUser);
+                        } else {
+                            // Fetch student data (Or find by email if we created manually via Firestore first)
+                            // For this simple demo, we query by email if doc doesn't exist by UID yet
+                            const q = window.firebaseFirestore.query(window.firebaseFirestore.collection(window.db, 'users'), window.firebaseFirestore.where('email', '==', currentUser.email));
+                            const querySnapshot = await window.firebaseFirestore.getDocs(q);
+                            
+                            if(!querySnapshot.empty) {
+                                const data = querySnapshot.docs[0].data();
+                                const today = new Date().toISOString().split('T')[0];
+                                if(data.status === 'active' && data.expiresAt >= today) {
+                                    setUserData(data);
+                                    setUser(currentUser);
+                                } else {
+                                    alert("Su cuenta ha expirado o está inhabilitada.");
+                                    window.firebaseAuth.signOut(window.auth);
+                                }
+                            } else {
+                                // Allow login but no data? Or create default?
+                                // For now, deny
+                                alert("Usuario no registrado en la base de datos.");
+                                window.firebaseAuth.signOut(window.auth);
+                            }
+                        }
+                    } else {
+                        setUser(null);
+                        setUserData(null);
+                    }
+                    setLoading(false);
+                });
+
+                // Global Config
+                const fetchConfig = async () => {
+                    const snap = await window.firebaseFirestore.getDoc(window.firebaseFirestore.doc(window.db, 'config', 'global_links'));
+                    if(snap.exists()) setLinks(snap.data());
+                };
+                fetchConfig();
+
+                return () => unsubscribe();
+            }, []);
+
+            // Load Content when user is ready
+            useEffect(() => {
+                if(user && userData) {
+                    const loadContent = async () => {
+                        const db = window.db;
+                        // Sections
+                        const sSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.collection(db, 'sections'));
+                        setSections(sSnap.docs.map(d => ({id: d.id, ...d.data()})));
+                        
+                        // Exams
+                        const eSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.collection(db, 'exams'));
+                        setExams(eSnap.docs.map(d => ({id: d.id, ...d.data()})));
+
+                        // Attempts (Only for student)
+                        if(userData.role !== 'admin') {
+                            const aSnap = await window.firebaseFirestore.getDocs(window.firebaseFirestore.query(
+                                window.firebaseFirestore.collection(db, 'attempts'), 
+                                window.firebaseFirestore.where('userId', '==', user.uid)
+                            ));
+                            const attemptMap = {};
+                            aSnap.forEach(doc => {
+                                const d = doc.data();
+                                attemptMap[d.examId] = (attemptMap[d.examId] || 0) + 1;
+                            });
+                            setAttempts(attemptMap);
+                        }
+                    };
+                    loadContent();
+                }
+            }, [user, userData]);
+
+            const handleLogout = () => {
+                window.firebaseAuth.signOut(window.auth);
+            };
+
+            const startExam = (exam) => {
+                const count = attempts[exam.id] || 0;
+                if (count >= 3) {
+                    alert("Has agotado tus 3 intentos para este examen.");
+                    return;
+                }
+                setSelectedExam(exam);
+                setCurrentView('exam');
+            };
+
+            const handleExamFinish = async (score) => {
+                // Save attempt
+                try {
+                    await window.firebaseFirestore.addDoc(window.firebaseFirestore.collection(window.db, 'attempts'), {
+                        userId: user.uid,
+                        examId: selectedExam.id,
+                        score: score,
+                        timestamp: window.firebaseFirestore.serverTimestamp()
+                    });
+                    // Update local attempts
+                    setAttempts(prev => ({...prev, [selectedExam.id]: (prev[selectedExam.id] || 0) + 1}));
+                } catch(e) {
+                    console.error("Error saving attempt", e);
+                }
+            };
+
+            if (loading) return <div className="flex h-screen items-center justify-center">Cargando...</div>;
+
+            if (!user) {
+                return <Login />;
+            }
+
+            // --- AUTHENTICATED VIEW ---
+
+            return (
+                <div className="flex min-h-screen bg-gray-100">
+                    <Sidebar links={links} timeLeft={countdown} user={user} onLogout={handleLogout} />
+                    
+                    <main className="ml-64 w-full p-8">
+                        {/* ADMIN VIEW */}
+                        {userData.role === 'admin' ? (
+                            <div>
+                                <h2 className="text-2xl font-bold mb-4 text-gray-800">Panel de Administrador</h2>
+                                <AdminDashboard db={window.db} />
+                            </div>
+                        ) : (
+                            /* STUDENT VIEW */
+                            <div>
+                                {currentView === 'home' && (
+                                    <div className="fade-in">
+                                        <h2 className="text-2xl font-bold mb-6 text-gray-800">Exámenes Disponibles</h2>
+                                        
+                                        {/* Default to Section 1 per requirements */}
+                                        <div className="space-y-6">
+                                            {sections.sort((a,b) => a.order - b.order).map(section => {
+                                                const sectionExams = exams.filter(e => e.sectionId === section.id);
+                                                if(sectionExams.length === 0) return null;
+
+                                                return (
+                                                    <div key={section.id}>
+                                                        <h3 className="text-xl font-semibold text-blue-700 mb-3">{section.name}</h3>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                            {sectionExams.map(exam => {
+                                                                const attemptCount = attempts[exam.id] || 0;
+                                                                return (
+                                                                    <div key={exam.id} className="bg-white p-5 rounded-lg shadow hover:shadow-md transition relative border-l-4 border-indigo-500">
+                                                                        <div className="absolute top-2 right-2 text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-600">
+                                                                            Intentos: {attemptCount}/3
+                                                                        </div>
+                                                                        <h4 className="font-bold text-lg mb-2 pr-16">{exam.name}</h4>
+                                                                        <p className="text-sm text-gray-500 mb-4">{exam.questions?.length || 0} Preguntas</p>
+                                                                        
+                                                                        {attemptCount < 3 ? (
+                                                                            <button 
+                                                                                onClick={() => startExam(exam)}
+                                                                                className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition"
+                                                                            >
+                                                                                Comenzar Examen
+                                                                            </button>
+                                                                        ) : (
+                                                                             <button disabled className="w-full bg-gray-300 text-gray-500 py-2 rounded font-semibold cursor-not-allowed">
+                                                                                Agotado
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {currentView === 'exam' && selectedExam && (
+                                    <ExamRunner exam={selectedExam} onFinish={handleExamFinish} />
+                                )}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        // Make firebase libraries available globally for Components
+        window.firebaseAuth = { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword };
+        window.firebaseFirestore = { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, getDoc, setDoc, serverTimestamp };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
