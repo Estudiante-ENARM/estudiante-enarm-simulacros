@@ -1,5 +1,5 @@
-// app.js (módulo) - Plataforma Estudiante ENARM
-// Requisitos: index.html debe cargar este archivo como <script type="module" src="app.js"></script>
+// app.js (modificado: correcciones Add Users UI y flujo Add Exam -> abrir editor)
+// Mantiene intactas el resto de funciones originales (login, timers, exámenes, CRUD preguntas).
 
 // ---------------------- IMPORTS FIREBASE (modular CDN) ----------------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
@@ -101,9 +101,6 @@ function ensure(id) {
   'examTitle','examTimer','examForm','btnFinishExam','mainCountdown',
   'link-instagram','link-whatsapp','link-telegram','link-tiktok'
 ].forEach(ensure);
-
-// Re-select in case created
-// (reassign consts won't work; relying on globals above is fine — ensure created ids exist)
 
 // ---------------------- ESTADO ----------------------
 let currentUser = null;        // { uid, email, role, estado, expiracion }
@@ -501,14 +498,16 @@ btnAddSection && (btnAddSection.onclick = async () => {
   } catch(e) { console.error('addSection', e); alert('Error creando sección'); }
 });
 
-// Agregar examen (dentro de sección seleccionada)
+// Agregar examen (dentro de sección seleccionada) - ahora abre editor para agregar preguntas
 btnAddExam && (btnAddExam.onclick = async () => {
   if (!currentSectionId) return alert('Selecciona una sección antes');
   const nombre = prompt('Nombre del examen:');
   if (!nombre) return;
   try {
     const exRef = await addDoc(collection(db,'exams'), { nombre, sectionId: currentSectionId, questionCount: 0, createdAt: new Date().toISOString() });
-    alert('Examen creado. Ahora agrega preguntas (Editar).');
+    alert('Examen creado. Se abrirá el editor para agregar preguntas.');
+    // Abrimos el editor inmediatamente para que el admin agregue casos/preguntas
+    openExamEditor(exRef.id);
     await loadExamsForSection(currentSectionId);
   } catch(e) { console.error('addExam', e); alert('Error creando examen'); }
 });
@@ -659,60 +658,124 @@ btnLinks && (btnLinks.onclick = async () => {
 });
 
 // ---------------------- ADMIN: GESTION USUARIOS (colección users) ----------------------
+// Reemplazamos la funcionalidad basada en prompts por un UI completo dentro de adminEditor.
+// Al hacer clic en btnUsers se renderiza en adminEditor la lista de usuarios y un formulario para crear/editar.
+
 btnUsers && (btnUsers.onclick = async () => {
-  adminEditor.innerHTML = '<h4>Usuarios</h4>';
-  const uSnap = await getDocs(collection(db,'users'));
-  uSnap.forEach(u => {
-    const d = document.createElement('div'); d.className = 'card'; d.style.marginBottom = '8px';
-    const data = u.data();
-    d.innerHTML = `<strong>${u.id}</strong> - ${escapeHtml(data.role || 'estudiante')} - ${escapeHtml(data.estado || 'habilitado')}
-      <div style="margin-top:8px">
-        <button class="btn" data-uid="${u.id}">Editar</button>
-        <button class="btn" data-del="${u.id}">Eliminar</button>
+  // render panel de usuarios
+  adminEditor.innerHTML = '<h4>Usuarios</h4><div id="usersList"></div><hr/><div id="userFormContainer"></div>';
+  const usersList = document.getElementById('usersList');
+  const userFormContainer = document.getElementById('userFormContainer');
+
+  // función para cargar lista
+  async function refreshUsersList(){
+    usersList.innerHTML = '';
+    const uSnap = await getDocs(collection(db,'users'));
+    uSnap.forEach(u => {
+      const data = u.data();
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.style.marginBottom = '8px';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${escapeHtml(u.id)}</strong><br/>
+            <small>${escapeHtml(data.usuario || data.nombre || '')} - ${escapeHtml(data.role || 'estudiante')} - ${escapeHtml(data.estado || 'habilitado')}</small>
+            <div style="font-size:12px;color:#666">Expiración: ${escapeHtml(data.expiracion || '')}</div>
+          </div>
+          <div>
+            <button class="btn edit-user" data-uid="${u.id}">Editar</button>
+            <button class="btn del-user" data-uid="${u.id}">Eliminar</button>
+          </div>
+        </div>
+      `;
+      usersList.appendChild(div);
+    });
+
+    // attach handlers
+    usersList.querySelectorAll('.edit-user').forEach(btn => {
+      btn.onclick = async () => {
+        const uid = btn.getAttribute('data-uid');
+        const docRef = doc(db,'users',uid);
+        const snap = await getDoc(docRef);
+        const d = snap.exists() ? snap.data() : {};
+        renderUserForm(uid, d);
+      };
+    });
+
+    usersList.querySelectorAll('.del-user').forEach(btn => {
+      btn.onclick = async () => {
+        const uid = btn.getAttribute('data-uid');
+        if (!confirm('Eliminar usuario? Esto solo elimina el registro en Firestore, no la cuenta Auth.')) return;
+        await deleteDoc(doc(db,'users',uid));
+        alert('Usuario eliminado');
+        refreshUsersList();
+      };
+    });
+  }
+
+  // render form vacío para crear nuevo usuario
+  function renderUserForm(uid = '', data = {}) {
+    userFormContainer.innerHTML = `
+      <h4>${uid ? 'Editar usuario' : 'Agregar nuevo usuario'}</h4>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label>UID (identificador)</label>
+        <input id="form_uid" value="${escapeHtml(uid)}" ${uid ? 'readonly' : ''} />
+        <label>Nombre visible</label>
+        <input id="form_nombre" value="${escapeHtml(data.usuario || data.nombre || '')}" />
+        <label>Contraseña (solo para registro en Firestore)</label>
+        <input id="form_pass" value="${escapeHtml(data.pass || '')}" />
+        <label>Rol</label>
+        <select id="form_role">
+          <option value="estudiante" ${ (data.role === 'estudiante' || !data.role) ? 'selected' : '' }>Estudiante</option>
+          <option value="admin" ${ data.role === 'admin' ? 'selected' : '' }>Admin</option>
+        </select>
+        <label>Estado</label>
+        <select id="form_estado">
+          <option value="habilitado" ${ (data.estado === 'habilitado' || !data.estado) ? 'selected' : '' }>Habilitado</option>
+          <option value="inhabilitado" ${ data.estado === 'inhabilitado' ? 'selected' : '' }>Inhabilitado</option>
+        </select>
+        <label>Fecha expiración</label>
+        <input id="form_expiracion" type="date" value="${escapeHtml(data.expiracion || '')}" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="saveUserBtn" class="btn primary">${uid ? 'Actualizar' : 'Crear'}</button>
+          <button id="cancelUserBtn" class="btn">Cancelar</button>
+        </div>
       </div>
     `;
-    adminEditor.appendChild(d);
-  });
 
-  adminEditor.querySelectorAll('[data-uid]').forEach(b => {
-    b.onclick = async () => {
-      const uid = b.getAttribute('data-uid');
-      const dRef = doc(db,'users', uid);
-      const dSnap = await getDoc(dRef);
-      const data = dSnap.exists() ? dSnap.data() : {};
-      const nuevoRole = prompt('Rol (estudiante/admin):', data.role || 'estudiante');
-      const estado = prompt('Estado (habilitado/inhabilitado):', data.estado || 'habilitado');
-      const expir = prompt('Fecha expiración (YYYY-MM-DD) (vacío = sin expiración):', data.expiracion || '');
-      await setDoc(dRef, { ...data, role: nuevoRole, estado, expiracion: expir });
-      alert('Usuario actualizado (nota: para crear cuenta Auth crea el usuario en Firebase Console).');
-      btnUsers.click();
+    document.getElementById('cancelUserBtn').onclick = () => { userFormContainer.innerHTML = ''; };
+    document.getElementById('saveUserBtn').onclick = async () => {
+      const fuid = document.getElementById('form_uid').value.trim();
+      const fnombre = document.getElementById('form_nombre').value.trim();
+      const fpass = document.getElementById('form_pass').value.trim();
+      const frole = document.getElementById('form_role').value;
+      const festado = document.getElementById('form_estado').value;
+      const fexp = document.getElementById('form_expiracion').value;
+
+      if (!fuid || !fnombre) return alert('UID y nombre son obligatorios');
+      // Guardar en collection users
+      await setDoc(doc(db,'users', fuid), {
+        usuario: fnombre,
+        pass: fpass,
+        role: frole,
+        estado: festado,
+        expiracion: fexp
+      }, { merge: true });
+
+      alert('Usuario guardado en Firestore. Recuerda crear la cuenta en Firebase Auth si quieres que inicie sesión.');
+      userFormContainer.innerHTML = '';
+      refreshUsersList();
     };
-  });
+  }
 
-  adminEditor.querySelectorAll('[data-del]').forEach(b => {
-    b.onclick = async () => {
-      if (!confirm('Eliminar registro de usuario? (esto NO elimina la cuenta de Auth)')) return;
-      const uid = b.getAttribute('data-del');
-      await deleteDoc(doc(db,'users', uid));
-      alert('Eliminado');
-      btnUsers.click();
-    };
-  });
+  // botón para crear nuevo usuario
+  const createBtn = document.createElement('button'); createBtn.className = 'btn'; createBtn.textContent = 'Agregar nuevo (registro)';
+  createBtn.onclick = () => renderUserForm('', {});
+  userFormContainer.appendChild(createBtn);
 
-  // botón crear usuario (registro en collection users; la creación en Auth debe hacerse desde console o Cloud Function)
-  const addBtn = document.createElement('button'); addBtn.className='btn'; addBtn.textContent = 'Agregar nuevo (solo registro)';
-  addBtn.onclick = async () => {
-    const uid = prompt('UID (debe coincidir con Auth si luego crearás la cuenta) (ej. correo sin @):', '');
-    const user = prompt('Nombre de usuario (visible):', '');
-    const role = prompt('Rol (estudiante/admin):', 'estudiante');
-    const estado = prompt('estado (habilitado/inhabilitado):', 'habilitado');
-    const expir = prompt('Fecha expiración (YYYY-MM-DD) (vacío = sin expiración):', '');
-    if (!uid || !user) return alert('UID y nombre requerido');
-    await setDoc(doc(db,'users', uid), { usuario: user, role, estado, expiracion: expir });
-    alert('Usuario agregado en colección users. Recuerda crear la cuenta en Firebase Auth si quieres que inicie sesión.');
-    btnUsers.click();
-  };
-  adminEditor.appendChild(addBtn);
+  // inicial load
+  await refreshUsersList();
 });
 
 // ---------------------- UTILIDADES ADICIONALES ----------------------
