@@ -9,60 +9,53 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments); }
+    function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-B43LFZV7MR');
   </script>
 
   <!-- Meta Pixel Code -->
   <script>
-    !function(f,b,e,v,n,t,s){
-      if(f.fbq) return;
-      n=f.fbq=function(){ n.callMethod ?
-        n.callMethod.apply(n,arguments) : n.queue.push(arguments)
-      };
-      if(!f._fbq) f._fbq=n;
-      n.push=n; n.loaded=!0; n.version='2.0';
-      n.queue=[];
-      t=b.createElement(e); t.async=!0;
-      t.src=v;
-      s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s);
-    }(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-    
-    try{
-      fbq('init', '1146031771035535');
-      fbq('track', 'PageView');
-    } catch(e){ console.warn('Pixel init failed', e); }
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  try{ fbq('init', '1146031771035535'); fbq('track', 'PageView'); } catch(e){ console.warn('fbq init failed', e); }
   </script>
-
   <noscript>
-    <img src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
-         height="1" width="1" style="display:none"/>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
   </noscript>
+  <!-- End Meta Pixel Code -->
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 
-  <!-- SEO básico -->
-  <meta name="description" content="Plataforma Estudiante ENARM - simulacros y exámenes con Firebase y GitHub Pages.">
+  <!-- SEO -->
+  <meta name="description" content="Plataforma Estudiante ENARM - simulacros y exámenes con administración avanzada.">
 </head>
 
 <body>
   <div id="app" class="app">
+    
+    <!-- ========================== SIDEBAR ========================== -->
+    <aside class="sidebar" role="navigation" aria-label="Navegación lateral">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar" role="navigation" aria-label="Navegación principal">
       <div class="brand">
         <div class="brand-text">Estudiante ENARM</div>
-        <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo"/>
+        <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo" />
       </div>
 
-      <nav id="sectionsList" class="sections" aria-label="Secciones">
+      <nav id="sectionsList" class="sections">
         <!-- Secciones dinámicas -->
       </nav>
 
       <div class="sidebar-actions">
+
         <a id="btnAccesoCompleto"
            class="btn primary"
            href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
@@ -70,62 +63,48 @@
            Acceso completo
         </a>
 
-        <div id="mainCountdown" class="countdown" aria-live="polite"></div>
+        <div id="mainCountdown" class="countdown"></div>
 
-        <div class="socials" aria-label="Redes sociales">
-          <a id="link-instagram" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./instagram.png" alt="Instagram" />
-          </a>
-          <a id="link-whatsapp" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./whatsapp.png" alt="WhatsApp" />
-          </a>
-          <a id="link-telegram" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./telegram.png" alt="Telegram" />
-          </a>
-          <a id="link-tiktok" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./tiktok.png" alt="TikTok" />
-          </a>
+        <div class="socials">
+          <a id="link-instagram" href="#" target="_blank"><img src="./instagram.png" alt="Instagram"></a>
+          <a id="link-whatsapp" href="#" target="_blank"><img src="./whatsapp.png" alt="WhatsApp"></a>
+          <a id="link-telegram" href="#" target="_blank"><img src="./telegram.png" alt="Telegram"></a>
+          <a id="link-tiktok" href="#" target="_blank"><img src="./tiktok.png" alt="TikTok"></a>
         </div>
+
       </div>
     </aside>
 
-    <!-- MAIN -->
-    <main class="main" role="main">
+    <!-- =========================== MAIN =========================== -->
+    <main class="main">
 
-      <!-- TOP BAR -->
+      <!-- TOPBAR -->
       <header class="topbar">
-        <div id="userInfo" class="user-info" aria-live="polite"></div>
+        <div id="userInfo" class="user-info"></div>
         <div id="authButtons" class="auth-buttons"></div>
       </header>
 
-      <!-- SCREENS -->
-      <section id="screen" class="screen">
+      <section id="screen" class="screen" aria-live="polite">
 
-        <!-- LOGIN -->
+        <!-- ===================== LOGIN ===================== -->
         <div id="loginScreen" class="card centered">
           <h2>Acceso</h2>
-
-          <input id="inputEmail" type="email" placeholder="Correo electrónico"
-                 autocomplete="username" />
-
-          <input id="inputPassword" type="password" placeholder="Contraseña"
-                 autocomplete="current-password" />
-
+          <input id="inputEmail" type="email" placeholder="Correo electrónico" autocomplete="username" />
+          <input id="inputPassword" type="password" placeholder="Contraseña" autocomplete="current-password" />
           <div class="row" style="margin-top:12px;">
             <button id="btnLogin" class="btn primary">Entrar</button>
             <button id="btnCancel" class="btn">Cancelar</button>
           </div>
-
           <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
         </div>
 
-        <!-- ESTUDIANTE -->
+        <!-- ===================== PANTALLA ESTUDIANTE ===================== -->
         <div id="studentScreen" class="hidden">
           <h2 id="studentTitle">Sección</h2>
           <div id="examsList" class="examsList"></div>
         </div>
 
-        <!-- ADMIN -->
+        <!-- ===================== PANEL ADMIN ===================== -->
         <div id="adminScreen" class="hidden">
           <h2>Administrador</h2>
 
@@ -140,21 +119,21 @@
           <div id="adminEditor" class="editor"></div>
         </div>
 
-        <!-- EXAMEN -->
+        <!-- ===================== EXAMEN (PANTALLA COMPLETA) ===================== -->
         <div id="examScreen" class="hidden fullScreenExam">
           <div class="examHeader">
             <h3 id="examTitle"></h3>
-            <div id="examTimer" class="examTimer" aria-live="polite"></div>
+            <div id="examTimer" class="examTimer"></div>
           </div>
 
           <form id="examForm" class="examForm"></form>
 
           <div class="examFooter">
-            <button id="btnFinishExam" class="btn primary" type="button">Finalizar examen</button>
+            <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
           </div>
         </div>
 
-        <!-- RESULTADOS -->
+        <!-- ===================== RESULTADOS ===================== -->
         <div id="resultScreen" class="hidden card"></div>
 
       </section>
