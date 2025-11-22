@@ -1,137 +1,118 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Estudiante ENARM</title>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
+    <!-- ===== ESTILOS ===== -->
+    <link rel="stylesheet" href="style.css" />
 
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-B43LFZV7MR');
-    </script>
-
-    <!-- Meta Pixel -->
-    <script>
-      !function(f,b,e,v,n,t,s)
-      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)}(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
-      fbq('init', '1146031771035535');
-      fbq('track', 'PageView');
-    </script>
+    <!-- ===== FIREBASE ===== -->
+    <script type="module" src="app.js" defer></script>
 </head>
 
 <body>
 
-    <!-- ======== SIDEBAR ======== -->
-    <aside class="sidebar">
-        <div class="sidebar-header">
-            <span class="titulo">Estudiante ENARM</span>
-            <img class="logo" src="logo.png" alt="Logo">
-        </div>
+    <!-- ===== HEADER ===== -->
+    <header class="header">
+        <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo" />
+        <h1>Estudiante ENARM</h1>
+    </header>
 
-        <nav class="menu">
-            <button class="menu-item" data-section="seccion1">Sección 1</button>
-            <button class="menu-item" data-section="seccion2">Sección 2</button>
-            <button class="menu-item" data-section="seccion3">Sección 3</button>
-            <button class="menu-item" data-section="seccion4">Sección 4</button>
-        </nav>
+    <!-- ===== MENÚ PRINCIPAL ===== -->
+    <nav class="menu">
+        <button id="btn-categorias">Categorías</button>
+        <button id="btn-acceso-completo" class="whatsapp-btn">
+            Acceso completo
+        </button>
+        <button id="btn-admin">Admin</button>
+    </nav>
 
-        <a href="https://wa.me/525515656316?text=Me%20gustaría%20adquirir%20el%20acceso%20completo"
-           target="_blank"
-           class="btn-acceso">
-           Acceso completo
+    <!-- ===== ICONOS SOCIALES ===== -->
+    <div class="social-icons">
+        <a id="link-instagram" href="#" target="_blank" rel="noopener noreferrer">
+            <img src="./instagram.png" alt="Instagram" class="social-icon">
         </a>
 
-        <!-- Contador -->
-        <div id="countdown" class="countdown"></div>
+        <a id="link-telegram" href="#" target="_blank" rel="noopener noreferrer">
+            <img src="./telegram.png" alt="Telegram" class="social-icon">
+        </a>
 
-        <!-- Iconos -->
-        <div class="iconos-sociales">
-            <a id="link-instagram" target="_blank"><img src="instagram.png" alt="Instagram"></a>
-            <a id="link-whatsapp" target="_blank"><img src="whatsapp.png" alt="WhatsApp"></a>
-            <a id="link-telegram" target="_blank"><img src="telegram.png" alt="Telegram"></a>
-            <a id="link-tiktok" target="_blank"><img src="tiktok.png" alt="TikTok"></a>
-        </div>
-    </aside>
+        <a id="link-tiktok" href="#" target="_blank" rel="noopener noreferrer">
+            <img src="./tiktok.png" alt="TikTok" class="social-icon">
+        </a>
 
-    <!-- ======== CONTENIDO PRINCIPAL ======== -->
-    <main id="main-content">
+        <a id="link-whatsapp" href="#" target="_blank" rel="noopener noreferrer">
+            <img src="./whatsapp.png" alt="WhatsApp" class="social-icon">
+        </a>
+    </div>
 
-        <!-- LOGIN -->
-        <div id="login-box" class="login-box">
-            <h2>Iniciar sesión</h2>
-            <input type="text" id="login-usuario" placeholder="Usuario">
-            <input type="password" id="login-password" placeholder="Contraseña">
+    <!-- ===== SECCIÓN DE CONTENIDO ===== -->
+    <main>
+        <section id="categorias-section" class="hidden">
+            <h2>Categorías</h2>
+            <div id="lista-categorias"></div>
+        </section>
 
-            <div class="login-btns">
-                <button id="btn-login" class="btn">Entrar</button>
-                <button id="btn-cancelar" class="btn-cancelar">Cancelar</button>
+        <section id="admin-section" class="hidden">
+            <h2>Panel de Administración</h2>
+
+            <!-- AGREGAR USUARIO -->
+            <button id="btn-mostrar-panel-agregar">Agregar usuario</button>
+
+            <div id="panel-agregar-usuario" class="hidden panel">
+                <h3>Nuevo Usuario</h3>
+                <input id="nuevo-usuario" type="text" placeholder="Nombre de usuario" />
+                <input id="nueva-pass" type="password" placeholder="Contraseña" />
+                <input id="fecha-expiracion" type="date" />
+                <select id="estado-usuario">
+                    <option value="habilitado">Habilitado</option>
+                    <option value="inhabilitado">Inhabilitado</option>
+                </select>
+                <button id="guardar-usuario">Guardar</button>
             </div>
-        </div>
 
-        <!-- Secciones dinámicas -->
-        <div id="contenido-dinamico" class="contenido-dinamico"></div>
+            <!-- AGREGAR EXAMEN -->
+            <button id="btn-agregar-examen">Agregar examen</button>
 
-        <!-- Panel Admin -->
-        <div id="admin-panel" class="admin-panel oculto">
-            <button id="btn-agregar-seccion" class="admin-btn">Agregar sección</button>
-            <button id="btn-agregar-examen" class="admin-btn">Agregar examen</button>
-            <button id="btn-editar" class="admin-btn">Editar</button>
-            <button id="btn-links" class="admin-btn">Links</button>
-            <button id="btn-usuarios" class="admin-btn">Agregar usuarios</button>
-        </div>
+            <div id="panel-agregar-examen" class="hidden panel">
+                <h3>Nuevo Examen</h3>
+                <input id="nombre-examen" type="text" placeholder="Nombre del examen" />
+                <button id="guardar-examen">Guardar examen</button>
+            </div>
 
+            <!-- LISTA DE EXÁMENES EDITABLES -->
+            <h3>Exámenes</h3>
+            <div id="lista-examenes-admin"></div>
+        </section>
+
+        <!-- SECCIÓN PARA MOSTRAR EXÁMENES A USUARIOS -->
+        <section id="examenes-section" class="hidden">
+            <h2>Exámenes</h2>
+            <div id="lista-examenes"></div>
+        </section>
+
+        <!-- SECCIÓN PARA CARGAR PREGUNTAS -->
+        <section id="preguntas-section" class="hidden">
+            <h2>Agregar preguntas</h2>
+            <div id="formulario-preguntas"></div>
+        </section>
     </main>
 
-    <!-- Modal para agregar usuarios -->
-    <div id="modal-usuarios" class="modal oculto">
-        <div class="modal-content">
-            <h3>Agregar usuario</h3>
+    <!-- ===== FOOTER ===== -->
+    <footer>
+        <p>© 2025 Estudiante ENARM. Todos los derechos reservados.</p>
+    </footer>
 
-            <input id="usuario-nombre" type="text" placeholder="Usuario">
-            <input id="usuario-pass" type="text" placeholder="Contraseña">
+    <!-- ===== SCRIPT PARA WHATSAPP ===== -->
+    <script>
+        document.getElementById("btn-acceso-completo").addEventListener("click", () => {
+            const telefono = "525515656316";
+            const mensaje = encodeURIComponent("Me gustaría adquirir el acceso completo");
+            window.open(`https://wa.me/${telefono}?text=${mensaje}`, "_blank");
+        });
+    </script>
 
-            <label>Estado</label>
-            <select id="usuario-estado">
-                <option value="habilitado">Habilitado</option>
-                <option value="inhabilitado">Inhabilitado</option>
-            </select>
-
-            <label>Fecha de expiración</label>
-            <input id="usuario-fecha" type="date">
-
-            <button id="guardar-usuario" class="btn">Guardar</button>
-            <button id="cerrar-modal-usuario" class="btn-cancelar">Cerrar</button>
-        </div>
-    </div>
-
-    <!-- Modal para crear examen -->
-    <div id="modal-examen" class="modal oculto">
-        <div class="modal-content">
-            <h3>Crear examen</h3>
-
-            <input id="examen-nombre" type="text" placeholder="Nombre del examen">
-
-            <div id="preguntas-container"></div>
-
-            <button id="btn-agregar-pregunta" class="btn-small">Agregar pregunta</button>
-            <button id="guardar-examen" class="btn">Guardar examen</button>
-            <button id="cerrar-modal-examen" class="btn-cancelar">Cerrar</button>
-        </div>
-    </div>
-
-    <script type="module" src="app.js"></script>
 </body>
 </html>
