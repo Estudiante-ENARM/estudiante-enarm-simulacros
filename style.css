@@ -1,13 +1,14 @@
 /* ============================================================
    ESTUDIANTE ENARM - STYLE.CSS
    Correcciones aplicadas:
-   - Iconos PNG correctos, sin texto
-   - Sidebar actualizado
-   - Nuevos estilos para panel admin: usuarios, exámenes, editor
-   - Formularios limpios, responsivos
+   - Iconos PNG correctos
+   - Sidebar refinado
+   - Soporte para móviles mejorado
+   - UI administrador consistente
+   - Formularios más limpios
    ============================================================ */
 
-/* RESET GENERAL */
+/* RESET */
 * {
   box-sizing: border-box;
   font-family: Arial, Helvetica, sans-serif;
@@ -18,17 +19,18 @@
 body {
   background: #f5f6fa;
   color: #222;
+  overflow-x: hidden;
 }
 
-/* LAYOUT PRINCIPAL */
+/* LAYOUT */
 .app {
   display: flex;
   min-height: 100vh;
 }
 
-/* ====================================
+/* ============================
    SIDEBAR
-   ==================================== */
+   ============================ */
 .sidebar {
   width: 260px;
   background: #ffffff;
@@ -63,15 +65,17 @@ body {
   margin-bottom: 8px;
   cursor: pointer;
 }
+
 .sections .section-item:hover {
   background: #ececec;
 }
+
 .sections .section-item.active {
   background: #dbeafe;
   font-weight: bold;
 }
 
-/* Sidebar: botones y countdown */
+/* Countdown y botones */
 .sidebar-actions {
   margin-top: auto;
 }
@@ -83,12 +87,13 @@ body {
   font-weight: 600;
 }
 
-/* ICONOS REDES SOCIALES */
+/* Redes sociales */
 .socials {
   display: flex;
   justify-content: center;
   gap: 12px;
 }
+
 .socials img {
   width: 40px;
   height: 40px;
@@ -96,13 +101,14 @@ body {
   cursor: pointer;
   transition: 0.2s;
 }
+
 .socials img:hover {
   transform: scale(1.14);
 }
 
-/* ====================================
+/* ============================
    TOPBAR
-   ==================================== */
+   ============================ */
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -116,15 +122,15 @@ body {
   font-weight: 600;
 }
 
-/* ====================================
-   MAIN SCREEN
-   ==================================== */
+/* ============================
+   MAIN
+   ============================ */
 .main {
   flex: 1;
   padding: 20px;
 }
 
-/* TARJETAS */
+/* Tarjetas */
 .card {
   background: #fff;
   border-radius: 8px;
@@ -137,51 +143,57 @@ body {
   width: 350px;
   margin: 80px auto;
 }
+
 #loginScreen input {
   width: 100%;
-  margin-top:10px;
+  margin-top: 10px;
   padding: 10px;
-  border:1px solid #ccc;
-  border-radius:5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
 
-/* ====================================
+/* ============================
    BOTONES
-   ==================================== */
+   ============================ */
 .btn {
   padding: 8px 14px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
   background: #d1d5db;
+  transition: 0.2s;
 }
+
 .btn:hover {
   background: #c5c9cf;
 }
+
 .btn.primary {
   background: #3b82f6;
   color: white;
 }
+
 .btn.primary:hover {
   background: #2563eb;
 }
 
-/* ====================================
-   EXÁMENES
-   ==================================== */
+/* ============================
+   LISTA DE EXÁMENES
+   ============================ */
 .examsList {
   margin-top: 20px;
   display: grid;
   gap: 12px;
 }
+
 .examBox {
-  display:flex; 
-  justify-content:space-between;
-  align-items:center;
-  padding:14px;
-  border-radius:8px;
-  background:#fff;
-  box-shadow:0 1px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
 .examAttempts {
@@ -189,9 +201,9 @@ body {
   font-size: 15px;
 }
 
-/* ====================================
-   EXAMEN (FULL SCREEN)
-   ==================================== */
+/* ============================
+   EXAMEN (FULLSCREEN)
+   ============================ */
 .fullScreenExam {
   background: #fefefe;
   padding: 20px;
@@ -233,37 +245,40 @@ body {
   cursor: pointer;
 }
 
-/* ====================================
+/* ============================
    RESULTADOS
-   ==================================== */
+   ============================ */
 .result-correct {
   border-left: 5px solid #16a34a;
 }
+
 .result-wrong {
   border-left: 5px solid #dc2626;
 }
 
-/* ====================================
-   ADMIN UI
-   ==================================== */
+/* ============================
+   ADMIN PANEL
+   ============================ */
 .admin-actions {
   margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-/* Editor general */
+/* Editor */
 #adminEditor {
   margin-top: 10px;
   padding: 10px;
 }
 
-/* Pregunta editada */
 #adminEditor .card {
   margin-bottom: 12px;
 }
 
-/* ====================================
-   FORMULARIO DE USUARIOS (panel admin)
-   ==================================== */
+/* ============================
+   PANEL USUARIOS
+   ============================ */
 #usersList .card {
   padding: 12px;
 }
@@ -292,38 +307,59 @@ body {
   display: block;
 }
 
-/* ====================================
-   HERRAMIENTAS
-   ==================================== */
-.hidden {
-  display: none;
-}
+/* ============================
+   UTILIDADES
+   ============================ */
+.hidden { display: none; }
+.centered { margin: auto; text-align: center; }
 
-.centered {
-  margin: auto;
-  text-align: center;
-}
-
-.small {
-  font-size: 13px;
-}
-
-.muted {
-  color: #777;
-}
-
-/* ====================================
-   SCROLL Y DETALLES
-   ==================================== */
-body, html {
-  scroll-behavior: smooth;
-}
+.small { font-size: 13px; }
+.muted { color: #777; }
 
 .screen {
   overflow-y: auto;
   max-height: calc(100vh - 80px);
 }
 
-textarea {
-  resize: vertical;
+textarea { resize: vertical; }
+
+/* ============================
+   RESPONSIVE
+   ============================ */
+
+@media (max-width: 850px) {
+  .sidebar {
+    width: 200px;
+  }
+}
+
+@media (max-width: 680px) {
+  .app {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .sections {
+    display: flex;
+    gap: 8px;
+  }
+
+  .sections .section-item {
+    white-space: nowrap;
+  }
+
+  .main {
+    padding: 10px;
+  }
+
+  #loginScreen {
+    width: 90%;
+  }
 }
