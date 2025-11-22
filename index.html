@@ -9,153 +9,130 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments); }
+    function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
     gtag('config', 'G-B43LFZV7MR');
   </script>
 
   <!-- Meta Pixel Code -->
   <script>
-    !function(f,b,e,v,n,t,s)
-    { if(f.fbq)return;n=f.fbq=function(){ n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments) };
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s) }(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-
-    try {
-      fbq('init', '1146031771035535');
-      fbq('track', 'PageView');
-    } catch(e){
-      console.warn('FB pixel block', e);
-    }
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  try{ fbq('init', '1146031771035535'); fbq('track', 'PageView'); } catch(e){ console.warn('fbq init failed', e); }
   </script>
-  <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/></noscript>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
+  </noscript>
+  <!-- End Meta Pixel Code -->
 
-  <link rel="stylesheet" href="style.css" />
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Meta / SEO básicos -->
+  <meta name="description" content="Plataforma Estudiante ENARM - simulacros y exámenes. Hosting en GitHub Pages y backend en Firebase.">
 </head>
-
 <body>
-<div class="app">
+  <div id="app" class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" role="navigation" aria-label="Navegación lateral">
+      <div class="brand" aria-hidden="false">
+        <div class="brand-text">Estudiante ENARM</div>
+        <!-- Logo: archivo en la misma carpeta que index.html -->
+        <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo" />
+      </div>
 
-  <!-- ==========================================================
-       SIDEBAR — CORREGIDO Y REORGANIZADO
-  ========================================================== -->
-  <aside class="sidebar">
-    
-    <div class="brand">
-      <div class="brand-text">Estudiante ENARM</div>
-      <img src="./logo.png" class="logo" alt="Logo">
-    </div>
+      <nav id="sectionsList" class="sections" aria-label="Secciones">
+        <!-- Secciones dinámicas desde Firestore -->
+      </nav>
 
-    <!-- SECCIONES DINÁMICAS -->
-    <nav id="sectionsList" class="sections"></nav>
+      <div class="sidebar-actions" aria-hidden="false">
+        <!-- Acceso completo: abre WhatsApp con mensaje -->
+        <a id="btnAccesoCompleto"
+           class="btn primary"
+           href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
+           target="_blank" rel="noopener noreferrer">
+           Acceso completo
+        </a>
 
-    <!-- === BOTONES DEL ADMIN EN EL SIDEBAR (como lo pediste) === -->
-    <div class="sidebar-buttons">
-      <button id="btnAddSection" class="btn full">Agregar sección</button>
-      <button id="btnAddExam" class="btn full">Agregar examen</button>
-      <button id="btnEditMode" class="btn full">Editar</button>
-      <button id="btnLinks" class="btn full">Links</button>
-      <button id="btnUsers" class="btn full">Usuarios</button>
-    </div>
+        <!-- NOTE: botón "Adquirir acceso" eliminado intencionalmente -->
 
-    <!-- COUNTDOWN -->
-    <div id="mainCountdown" class="countdown"></div>
+        <div class="countdown" id="mainCountdown" aria-live="polite" title="Cuenta regresiva hacia 23 de septiembre de 2026"></div>
 
-    <!-- ICONOS SOCIALES SIN TEXTO / RUTA CORREGIDA -->
-    <div class="socials">
-      <a id="link-instagram" href="#" target="_blank"><img src="./instagram.png"></a>
-      <a id="link-whatsapp" href="#" target="_blank"><img src="./whatsapp.png"></a>
-      <a id="link-telegram" href="#" target="_blank"><img src="./telegram.png"></a>
-      <a id="link-tiktok" href="#" target="_blank"><img src="./tiktok.png"></a>
-    </div>
+        <div class="socials" aria-label="Redes sociales">
+          <!-- Rutas corregidas: archivos en la misma carpeta que index.html -->
+          <a id="link-instagram" href="#" target="_blank" rel="noopener noreferrer"><img src="./instagram.png" alt="Instagram"></a>
+          <a id="link-whatsapp" href="#" target="_blank" rel="noopener noreferrer"><img src="./whatsapp.png" alt="WhatsApp"></a>
+          <a id="link-telegram" href="#" target="_blank" rel="noopener noreferrer"><img src="./telegram.png" alt="Telegram"></a>
+          <a id="link-tiktok" href="#" target="_blank" rel="noopener noreferrer"><img src="./tiktok.png" alt="TikTok"></a>
+        </div>
+      </div>
+    </aside>
 
-  </aside>
+    <!-- Main -->
+    <main class="main" role="main">
+      <header class="topbar" aria-hidden="false">
+        <div id="userInfo" class="user-info" aria-live="polite"></div>
+        <div id="authButtons" class="auth-buttons"></div>
+      </header>
 
-  <!-- ==========================================================
-       MAIN AREA
-  ========================================================== -->
-  <main class="main">
-
-    <!-- BARRA SUPERIOR -->
-    <header class="topbar">
-      <div id="userInfo"></div>
-      <div id="authButtons"></div>
-    </header>
-
-    <!-- TODAS LAS PANTALLAS VAN AQUÍ -->
-    <section id="screen" class="screen">
-
-      <!-- ======================================================
-           LOGIN
-      ====================================================== -->
-      <div id="loginScreen" class="card centered">
-        <h2>Acceso</h2>
-        <input id="inputEmail" type="email" placeholder="Correo electrónico">
-        <input id="inputPassword" type="password" placeholder="Contraseña">
-
-        <div class="row" style="margin-top:12px;">
-          <button id="btnLogin" class="btn primary">Entrar</button>
-          <button id="btnCancel" class="btn">Cancelar</button>
+      <section id="screen" class="screen" aria-live="polite">
+        <!-- LOGIN -->
+        <div id="loginScreen" class="card centered" role="region" aria-label="Acceso a la plataforma">
+          <h2>Acceso</h2>
+          <input id="inputEmail" type="email" placeholder="Correo electrónico" autocomplete="username" />
+          <input id="inputPassword" type="password" placeholder="Contraseña" autocomplete="current-password" />
+          <div class="row" style="margin-top:12px;">
+            <button id="btnLogin" class="btn primary" type="button">Entrar</button>
+            <button id="btnCancel" class="btn" type="button">Cancelar</button>
+          </div>
+          <div id="loginMessage" class="small muted" role="status" style="margin-top:8px;"></div>
         </div>
 
-        <div id="loginMessage" class="muted small"></div>
-      </div>
-
-      <!-- ======================================================
-           ESTUDIANTE — Lista de exámenes
-      ====================================================== -->
-      <div id="studentScreen" class="hidden">
-        <h2 id="studentTitle">Sección</h2>
-        <div id="examsList" class="examsList"></div>
-      </div>
-
-      <!-- ======================================================
-           ADMIN — YA NO CONTIENE BOTONES
-           SOLO ENVUELVE LA PANTALLA ADMIN
-      ====================================================== -->
-      <div id="adminScreen" class="hidden">
-        <!-- vacío, se usa solo como envoltura -->
-      </div>
-
-      <!-- ======================================================
-           EDITOR / PANEL DINÁMICO
-           (Antes estaba dentro de adminScreen, ahora es global)
-      ====================================================== -->
-      <div id="adminEditor" class="hidden"></div>
-
-
-      <!-- ======================================================
-           EXAMEN (FULL SCREEN)
-      ====================================================== -->
-      <div id="examScreen" class="hidden fullScreenExam">
-
-        <div class="examHeader">
-          <h3 id="examTitle"></h3>
-          <div id="examTimer" class="examTimer"></div>
+        <!-- INTERFAZ ESTUDIANTE -->
+        <div id="studentScreen" class="hidden" role="region" aria-label="Pantalla estudiante">
+          <h2 id="studentTitle">Sección</h2>
+          <div id="examsList" class="examsList" aria-live="polite"></div>
         </div>
 
-        <form id="examForm"></form>
+        <!-- INTERFAZ ADMIN -->
+        <div id="adminScreen" class="hidden" role="region" aria-label="Panel administrador">
+          <h2>Administrador</h2>
+          <div class="admin-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="btnAddSection" class="btn" type="button">Agregar sección</button>
+            <button id="btnAddExam" class="btn" type="button">Agregar examen</button>
+            <button id="btnEditMode" class="btn" type="button">Editar</button>
+            <button id="btnLinks" class="btn" type="button">Links</button>
+            <button id="btnUsers" class="btn" type="button">Agregar usuarios</button>
+          </div>
+          <div id="adminEditor" class="editor" aria-live="polite"></div>
+        </div>
 
-        <button id="btnFinishExam" class="btn primary" style="margin-top:20px;">
-          Finalizar examen
-        </button>
-      </div>
+        <!-- EXAMEN (pantalla completa) -->
+        <div id="examScreen" class="hidden fullScreenExam" role="region" aria-label="Examen">
+          <div class="examHeader" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3 id="examTitle"></h3>
+            <div id="examTimer" class="examTimer" aria-live="polite" aria-atomic="true"></div>
+          </div>
+          <form id="examForm" class="examForm" aria-label="Formulario de examen"></form>
+          <div class="examFooter" style="margin-top:12px;">
+            <button id="btnFinishExam" class="btn primary" type="button">Finalizar examen</button>
+          </div>
+        </div>
 
-      <!-- ======================================================
-           RESULTADOS
-      ====================================================== -->
-      <div id="resultScreen" class="hidden card"></div>
+        <!-- RESULTADOS -->
+        <div id="resultScreen" class="hidden card" role="region" aria-label="Resultados del examen"></div>
+      </section>
+    </main>
+  </div>
 
-    </section>
-  </main>
-</div>
-
-<script type="module" src="app.js"></script>
-
+  <!-- App script (módulo) -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
