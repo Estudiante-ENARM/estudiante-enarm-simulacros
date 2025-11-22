@@ -1,322 +1,329 @@
-/* ===========================
-   ESTUDIANTE ENARM - ESTILOS
-   =========================== */
+/* ============================================================
+   ESTUDIANTE ENARM - STYLE.CSS
+   Correcciones aplicadas:
+   - Iconos PNG correctos, sin texto
+   - Sidebar actualizado
+   - Nuevos estilos para panel admin: usuarios, exámenes, editor
+   - Formularios limpios, responsivos
+   ============================================================ */
 
-/* ----- RESET ----- */
+/* RESET GENERAL */
 * {
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  font-family: "Inter", Arial, sans-serif;
 }
 
-html, body {
-  height: 100%;
+body {
   background: #f5f6fa;
   color: #222;
 }
 
-/* Layout general */
+/* LAYOUT PRINCIPAL */
 .app {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
-/* ===========================
-        SIDEBAR
-   =========================== */
+/* ====================================
+   SIDEBAR
+   ==================================== */
 .sidebar {
-  width: 270px;
-  background: #1e1f26;
-  color: #fff;
+  width: 260px;
+  background: #ffffff;
+  border-right: 1px solid #ddd;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  padding: 18px;
-  gap: 20px;
-  overflow-y: auto;
 }
 
 .brand {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  font-size: 22px;
-  font-weight: 700;
+  align-items: center;
+  margin-bottom: 22px;
 }
 
 .brand-text {
-  max-width: 160px;
+  font-size: 20px;
+  font-weight: bold;
 }
 
 .logo {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
 }
 
-.sections {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.sections button,
-.section-item {
-  background: #2c2d35;
-  border: none;
-  padding: 10px 14px;
-  text-align: left;
+.sections .section-item {
+  padding: 10px;
+  background: #f7f7f7;
   border-radius: 6px;
-  color: #fff;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: 0.2s;
+}
+.sections .section-item:hover {
+  background: #ececec;
+}
+.sections .section-item.active {
+  background: #dbeafe;
+  font-weight: bold;
 }
 
-.sections button:hover,
-.section-item:hover {
-  background: #383a44;
-}
-
-.sections .active {
-  background: #4f71ff;
-}
-
-/* Botones del sidebar */
+/* Sidebar: botones y countdown */
 .sidebar-actions {
   margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.btn {
-  background: #33343a;
-  color: #fff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.btn:hover {
-  opacity: 0.85;
-}
-
-.btn.primary {
-  background: #4f71ff;
 }
 
 .countdown {
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffe680;
+  margin: 14px 0;
   text-align: center;
+  font-size: 15px;
+  font-weight: 600;
 }
 
-/* Iconos sociales */
+/* ICONOS REDES SOCIALES */
 .socials {
   display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
+  justify-content: center;
+  gap: 12px;
 }
-
 .socials img {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
   cursor: pointer;
   transition: 0.2s;
 }
-
 .socials img:hover {
-  transform: scale(1.1);
+  transform: scale(1.14);
 }
 
-/* ===========================
-            MAIN
-   =========================== */
-.main {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
+/* ====================================
+   TOPBAR
+   ==================================== */
 .topbar {
   display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  padding: 12px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
 }
 
 .user-info {
-  margin-right: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-/* ===========================
-        TARJETAS
-   =========================== */
+/* ====================================
+   MAIN SCREEN
+   ==================================== */
+.main {
+  flex: 1;
+  padding: 20px;
+}
+
+/* TARJETAS */
 .card {
   background: #fff;
-  padding: 20px;
-  max-width: 420px;
-  width: 100%;
-  margin: 0 auto;
-  border-radius: 10px;
-  box-shadow: 0px 3px 8px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.07);
 }
 
-.centered {
-  margin-top: 80px;
-  text-align: center;
+/* LOGIN */
+#loginScreen {
+  width: 350px;
+  margin: 80px auto;
+}
+#loginScreen input {
+  width: 100%;
+  margin-top:10px;
+  padding: 10px;
+  border:1px solid #ccc;
+  border-radius:5px;
 }
 
-input {
-  width: 100%;
-  padding: 10px 12px;
-  margin-top: 10px;
-  border: 1px solid #d2d2d2;
+/* ====================================
+   BOTONES
+   ==================================== */
+.btn {
+  padding: 8px 14px;
   border-radius: 6px;
-  font-size: 15px;
-}
-
-input:focus {
-  border-color: #4f71ff;
-  outline: none;
-}
-
-/* Filas base */
-.row {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.small {
-  font-size: 14px;
-}
-
-.muted {
-  color: #666;
-}
-
-/* ===========================
-        LISTA DE EXÁMENES
-   =========================== */
-.examsList {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.examBox {
-  background: #fff;
-  padding: 18px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  border: none;
   cursor: pointer;
-  transition: 0.2s;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background: #d1d5db;
+}
+.btn:hover {
+  background: #c5c9cf;
+}
+.btn.primary {
+  background: #3b82f6;
+  color: white;
+}
+.btn.primary:hover {
+  background: #2563eb;
 }
 
-.examBox:hover {
-  transform: translateY(-3px);
+/* ====================================
+   EXÁMENES
+   ==================================== */
+.examsList {
+  margin-top: 20px;
+  display: grid;
+  gap: 12px;
+}
+.examBox {
+  display:flex; 
+  justify-content:space-between;
+  align-items:center;
+  padding:14px;
+  border-radius:8px;
+  background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,0.1);
 }
 
 .examAttempts {
-  background: #4f71ff;
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 15px;
 }
 
-/* ===========================
-        EXAMEN COMPLETO
-   =========================== */
+/* ====================================
+   EXAMEN (FULL SCREEN)
+   ==================================== */
 .fullScreenExam {
-  background: #fff;
+  background: #fefefe;
   padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
 }
 
 .examHeader {
-  border-bottom: 2px solid #eee;
-  padding-bottom: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .examTimer {
-  font-size: 20px;
-  color: #ff4f4f;
-  font-weight: 800;
-}
-
-.examForm {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-.caseText {
-  font-size: 16px;
-  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: #1e3a8a;
+  color: white;
+  font-weight: 700;
+  border-radius: 6px;
 }
 
 .questionBlock {
-  padding: 16px;
-  background: #f3f4f7;
-  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
 .questionTitle {
-  font-weight: 600;
-  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.caseText {
+  font-size: 14px;
+  background: #eef2ff;
+  padding: 10px;
+  border-left: 3px solid #4f46e5;
+  margin-bottom: 8px;
 }
 
 .options label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   margin: 6px 0;
   cursor: pointer;
 }
 
-/* Resultados */
-.correct {
-  color: #0abf53;
-  font-weight: 600;
+/* ====================================
+   RESULTADOS
+   ==================================== */
+.result-correct {
+  border-left: 5px solid #16a34a;
+}
+.result-wrong {
+  border-left: 5px solid #dc2626;
 }
 
-.wrong {
-  color: #ff4f4f;
-  font-weight: 600;
+/* ====================================
+   ADMIN UI
+   ==================================== */
+.admin-actions {
+  margin-bottom: 12px;
 }
 
-.justification {
+/* Editor general */
+#adminEditor {
   margin-top: 10px;
-  font-size: 14px;
-  color: #444;
+  padding: 10px;
 }
 
-/* ===========================
-        ADMIN
-   =========================== */
-.admin-actions .btn {
-  background: #4f4f4f;
+/* Pregunta editada */
+#adminEditor .card {
+  margin-bottom: 12px;
 }
 
-.editor {
+/* ====================================
+   FORMULARIO DE USUARIOS (panel admin)
+   ==================================== */
+#usersList .card {
+  padding: 12px;
+}
+
+#userFormContainer {
+  margin-top: 16px;
+  padding: 14px;
   background: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
+#userFormContainer input,
+#userFormContainer select,
+#userFormContainer textarea {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+#userFormContainer label {
+  font-weight: 600;
+  margin-top: 10px;
+  display: block;
+}
+
+/* ====================================
+   HERRAMIENTAS
+   ==================================== */
 .hidden {
-  display: none !important;
+  display: none;
+}
+
+.centered {
+  margin: auto;
+  text-align: center;
+}
+
+.small {
+  font-size: 13px;
+}
+
+.muted {
+  color: #777;
+}
+
+/* ====================================
+   SCROLL Y DETALLES
+   ==================================== */
+body, html {
+  scroll-behavior: smooth;
+}
+
+.screen {
+  overflow-y: auto;
+  max-height: calc(100vh - 80px);
+}
+
+textarea {
+  resize: vertical;
 }
