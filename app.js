@@ -418,14 +418,21 @@ onAuthStateChanged(auth, async (user) => {
       }
       currentUser = { uid: user.uid, email: user.email, role, estado, expiracion };
 
-      // verificar expiración
+      // verificar expiración: si expiró, actualizar estado a inhabilitado en Firestore y cerrar sesión
       if (currentUser.expiracion) {
-        const now = new Date();
-        const exp = new Date(currentUser.expiracion);
-        if (now > exp) {
-          alert('Tu acceso ha expirado. Contacta al administrador.');
-          await signOut(auth);
-          return;
+        try {
+          const now = new Date();
+          const exp = new Date(currentUser.expiracion);
+          if (now > exp) {
+            // marcar inhabilitado en Firestore
+            await updateDoc(doc(db,'users', user.uid), { estado: 'inhabilitado' });
+            alert('Tu acceso ha expirado y tu cuenta ha sido inhabilitada automáticamente. Contacta al administrador.');
+            await signOut(auth);
+            return;
+          }
+        } catch (ee) {
+          console.warn('Error verificando expiración', ee);
+          // En caso de error de parsing, no bloquear: continuar con comportamiento normal
         }
       }
 
