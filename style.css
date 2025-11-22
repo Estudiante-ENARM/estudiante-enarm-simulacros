@@ -363,3 +363,124 @@ textarea { resize: vertical; }
     width: 90%;
   }
 }
+/* ============================================================
+   MODO OSCURO AUTOMÁTICO
+   Detecta si el sistema del usuario usa dark mode
+   ============================================================ */
+
+@media (prefers-color-scheme: dark) {
+
+  body {
+    background: #0f0f0f;
+    color: #f2f2f2;
+  }
+
+  .sidebar {
+    background: #181818;
+    border-right: 1px solid #333;
+  }
+
+  .brand-text {
+    color: #fff;
+  }
+
+  .sections .section-item {
+    background: #222;
+    color: #e6e6e6;
+  }
+
+  .sections .section-item:hover {
+    background: #2b2b2b;
+  }
+
+  .sections .section-item.active {
+    background: #1e3a8a;
+    color: #fff;
+  }
+
+  .topbar {
+    background: #181818;
+    border-bottom: 1px solid #333;
+  }
+
+  .card {
+    background: #1a1a1a;
+    box-shadow: 0 2px 5px rgba(255,255,255,0.05);
+  }
+
+  .btn {
+    background: #2b2b2b;
+    color: #eee;
+  }
+
+  .btn:hover {
+    background: #3b3b3b;
+  }
+
+  .btn.primary {
+    background: #3b82f6;
+    color: #fff;
+  }
+
+  .btn.primary:hover {
+    background: #2563eb;
+  }
+
+  .examBox {
+    background: #1a1a1a;
+  }
+
+  .fullScreenExam {
+    background: #121212;
+  }
+
+  .caseText {
+    background: #1e1e30;
+    border-left-color: #6366f1;
+  }
+
+  .examTimer {
+    background: #2563eb;
+  }
+
+  .result-correct {
+    border-left-color: #22c55e;
+  }
+
+  .result-wrong {
+    border-left-color: #ef4444;
+  }
+
+  #userFormContainer {
+    background: #1a1a1a;
+  }
+
+  input, select, textarea {
+    background: #2a2a2a;
+    color: #eaeaea;
+    border: 1px solid #555;
+  }
+
+  .socials img {
+    filter: brightness(0.9);
+  }
+
+  #loginScreen {
+    background: #1a1a1a;
+  }
+
+  /* Scrollbar oscuro */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #444;
+  }
+}
