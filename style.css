@@ -1,6 +1,11 @@
-/* =========================================
-   RESET
-   ========================================= */
+/* ============================================================
+   ESTUDIANTE ENARM - PANEL ADMIN
+   Layout simple: sidebar izquierda + main
+   - Editor de exámenes en una sola pantalla (casos + preguntas)
+   - Modo oscuro por sistema
+   ============================================================ */
+
+/* RESET */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -12,66 +17,51 @@ html, body {
 }
 
 body {
-  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
   background: #f4f6fb;
   color: #0b1220;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.4;
 }
 
-/* =========================================
-   LAYOUT PRINCIPAL
-   ========================================= */
+/* UTILIDADES */
+.hidden {
+  display: none !important;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* LAYOUT PRINCIPAL */
 .app {
   display: grid;
   grid-template-columns: 260px 1fr;
-  grid-template-rows: 56px 1fr;
-  height: 100vh;
+  grid-template-rows: 100vh;
 }
 
 /* SIDEBAR IZQUIERDA */
 .left-sidebar {
-  grid-column: 1 / 2;
-  grid-row: 1 / 3;
-  border-right: 1px solid #e0e4f0;
+  border-right: 1px solid #e2e8f0;
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 16px;
+  padding: 18px;
+  gap: 16px;
 }
 
-/* MAIN */
-.main {
-  grid-column: 2 / 3;
-  grid-row: 1 / 3;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, #fbfdff, #f4f6fb);
-}
-
-/* TOPBAR */
-.topbar {
-  height: 56px;
-  padding: 8px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(10px);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-/* =========================================
-   BRAND
-   ========================================= */
+/* Brand */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
 .logo {
@@ -81,460 +71,460 @@ body {
 }
 
 .brand-text {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 18px;
-  color: #06152b;
+  color: #0f172a;
 }
 
-/* =========================================
-   SIDEBAR BLOQUES
-   ========================================= */
+/* Sidebar blocks */
 .sidebar-block {
-  margin-bottom: 18px;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar-title {
   font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: #64748b;
-  margin-bottom: 6px;
 }
 
+/* Secciones */
 .sections {
-  max-height: 55vh;
+  max-height: 45vh;
   overflow-y: auto;
-  margin-bottom: 8px;
+  padding-right: 4px;
 }
 
-/* Fila de sección */
-.section-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-  border-radius: 8px;
-  cursor: pointer;
-  background: #f5f7ff;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.section-row:hover {
-  background: #e9f0ff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-}
-
-.section-row.active {
-  background: linear-gradient(90deg, #0b4aa6, #0a74ff);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
-}
-
-.section-name {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.section-row.active .section-name {
-  color: #ffffff;
-}
-
-.section-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-/* Botones sidebar */
-.btn-sidebar {
+.section-item {
   width: 100%;
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
   text-align: left;
-  background: #eef1ff;
-  color: #1e293b;
-  font-weight: 600;
-  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #e2e8f0;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
 }
 
-.btn-sidebar:hover {
-  background: #e0e7ff;
+.section-item:hover {
+  background: #d1e3ff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
 }
 
-.btn-sidebar.active {
-  background: linear-gradient(90deg, #0b4aa6, #0a74ff);
+.section-item.active {
+  background: linear-gradient(90deg, #0f172a, #1d4ed8);
   color: #ffffff;
 }
 
-.btn-sidebar.danger {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.btn-sidebar.danger:hover {
-  background: #fecaca;
-}
-
-/* Botón icono pequeñito */
-.btn-icon {
-  border: none;
-  background: transparent;
-  padding: 2px 6px;
-  cursor: pointer;
-  font-size: 14px;
-  color: inherit;
-}
-
-/* FOOTER SIDEBAR */
-.sidebar-footer {
+/* Sidebar actions */
+.sidebar-actions {
   margin-top: auto;
-}
-
-/* =========================================
-   MAIN SCREENS
-   ========================================= */
-.screen {
-  flex: 1;
-  padding: 16px 22px 22px;
-  overflow-y: auto;
-}
-
-/* LOGIN */
-.login-card {
-  max-width: 360px;
-  margin: 60px auto;
-  padding: 20px 22px;
-  background: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
-}
-
-.login-card h2 {
-  font-size: 20px;
-  margin-bottom: 12px;
-  color: #0f172a;
-}
-
-.login-card label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  margin-top: 10px;
-  color: #0f172a;
-}
-
-.login-card input {
-  margin-top: 6px;
-}
-
-/* Campos de formulario globales */
-input, textarea, select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #d0d7ec;
-  background: #ffffff;
-  font-size: 14px;
-  color: #0f172a;
-}
-
-textarea {
-  resize: vertical;
-}
-
-/* Row genérica */
-.row {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.login-buttons {
-  margin-top: 14px;
+.countdown {
+  font-weight: 700;
+  color: #0f172a;
+  background: #e0f2fe;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+  border: 1px solid #bfdbfe;
 }
 
-/* BOTONES GENERALES */
+.socials {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.socials img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+/* BOTONES */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   padding: 8px 12px;
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  background: #e2e8f0;
-  color: #0f172a;
   font-weight: 600;
   font-size: 14px;
-  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  background: #e2e8f0;
+  color: #0f172a;
+  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.1s ease;
 }
 
 .btn:hover {
   background: #cbd5f5;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2);
 }
 
 .btn.primary {
-  background: linear-gradient(90deg, #0b4aa6, #0a74ff);
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
   color: #ffffff;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
 }
 
-/* TEXTOS PEQUEÑOS */
-.small {
-  font-size: 12px;
+.btn.primary:hover {
+  background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
 }
 
-.muted {
-  color: #64748b;
+.btn.danger {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
-/* =========================================
-   ADMIN TOOLBAR
-   ========================================= */
-.admin-toolbar {
+.btn.danger:hover {
+  background: #fecaca;
+}
+
+.small-btn {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* MAIN */
+.main {
+  padding: 16px 22px;
+  background: linear-gradient(180deg, #f9fafb, #eef2ff);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* TOPBAR */
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
 }
 
-.admin-section-name {
-  font-size: 16px;
+.app-title {
   font-weight: 700;
+  font-size: 18px;
   color: #0f172a;
 }
 
-.admin-toolbar-actions {
+.user-info {
+  font-size: 14px;
+  color: #475569;
+  margin-right: 10px;
+}
+
+.auth-buttons button {
+  font-size: 13px;
+}
+
+/* SCREENS */
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0 24px 0;
+}
+
+/* Cabecera de pantalla */
+.screen-header {
   display: flex;
-  gap: 8px;
-}
-
-/* =========================================
-   CARDS / CONTENEDORES
-   ========================================= */
-.card {
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 12px 14px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
-}
-
-.card h3 {
-  margin-bottom: 6px;
-}
-
-/* =========================================
-   EXÁMENES LISTA
-   ========================================= */
-.examsList {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
   gap: 10px;
 }
 
-.exam-row {
+/* CARD */
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+}
+
+.card + .card {
+  margin-top: 10px;
+}
+
+/* Card centrada login */
+.card.centered {
+  max-width: 420px;
+  margin: 40px auto;
+}
+
+/* TEXTOS AUX */
+.small {
+  font-size: 13px;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+/* INPUTS */
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #0f172a;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+  margin-top: 8px;
+}
+
+/* EXÁMENES LISTA */
+.examsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exam-card {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
-.exam-main {
+.exam-card-main {
   flex: 1;
 }
 
 .exam-title {
-  font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
-}
-
-.exam-desc {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #64748b;
+  color: #111827;
 }
 
 .exam-meta {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
 }
 
-.exam-actions {
+/* Caso clínico */
+.caso-card {
+  border-left: 4px solid #2563eb;
+  margin-bottom: 10px;
+}
+
+.caso-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.caso-title {
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Preguntas */
+.pregunta-list {
+  margin-top: 8px;
+}
+
+.pregunta-card {
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  margin-top: 8px;
+}
+
+.pregunta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 6px;
 }
 
-/* Panel nuevo examen */
-.new-exam-card {
-  margin-bottom: 12px;
-}
-
-/* =========================================
-   EDITOR DE EXAMEN
-   ========================================= */
-.admin-view {
-  display: none;
-}
-
-.admin-view.active {
-  display: block;
-}
-
-#viewExamEditor {
-  margin-top: 8px;
-}
-
-.exam-editor-header {
-  display: flex;
-  justify-content: space-between;
+.badge {
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 10px;
-}
-
-.exam-editor-header h2 {
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.exam-editor-meta {
-  font-size: 13px;
-  color: #64748b;
-}
-
-/* Datos básicos del examen */
-.exam-basic-card {
-  margin-bottom: 12px;
-}
-
-/* Casos clínicos */
-.case-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.case-card {
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: #f9fbff;
-  padding: 10px 12px;
-}
-
-.case-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.case-header-title {
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.case-body label {
-  font-size: 13px;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 600;
-  margin-top: 6px;
-  display: block;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-/* Preguntas dentro de un caso */
-.questions-list {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.question-card {
+/* Nueva pregunta dentro de caso */
+.new-question-block {
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: #ffffff;
-  padding: 8px 10px;
+  padding: 10px 12px;
+  border: 1px dashed #c7d2fe;
+  background: #eef2ff;
+  margin-top: 10px;
 }
 
-.question-card label {
-  font-size: 12px;
-  font-weight: 600;
-  margin-top: 4px;
-  display: block;
-}
-
-.question-card .row {
-  margin-top: 6px;
-}
-
-/* =========================================
-   USUARIOS PANEL
-   ========================================= */
-.users-header {
+/* Meta examen */
+.meta-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #4b5563;
 }
 
-.users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
+/* USUARIOS */
 .user-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
 }
 
-/* =========================================
-   UTILIDADES
-   ========================================= */
-.hidden {
-  display: none !important;
+.user-row-main {
+  flex: 1;
 }
 
-/* RESPONSIVE BÁSICO */
+/* SCROLLBARS */
+.screen::-webkit-scrollbar,
+.sections::-webkit-scrollbar {
+  width: 8px;
+}
+
+.screen::-webkit-scrollbar-thumb,
+.sections::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
+}
+
+/* RESPONSIVE */
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: 56px auto 1fr;
+    grid-template-rows: auto auto;
   }
+
   .left-sidebar {
-    grid-column: 1 / 2;
-    grid-row: 2 / 3;
     flex-direction: row;
-    overflow-x: auto;
-    border-right: none;
-    border-bottom: 1px solid #e0e4f0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
   }
-  .main {
-    grid-column: 1 / 2;
-    grid-row: 3 / 4;
-  }
+
   .sidebar-block {
-    min-width: 220px;
-    margin-right: 12px;
+    flex: 1 1 220px;
   }
-  .sidebar-footer {
-    display: none;
+
+  .main {
+    padding: 10px 12px;
+  }
+
+  .card.centered {
+    margin-top: 20px;
+  }
+}
+
+/* DARK MODE */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #020617;
+    color: #e5e7eb;
+  }
+
+  .left-sidebar {
+    background: #020617;
+    border-right-color: #1f2937;
+  }
+
+  .sidebar-block {
+    background: #020617;
+    border: 1px solid #1f2937;
+  }
+
+  .section-item {
+    background: #111827;
+    color: #e5e7eb;
+  }
+
+  .section-item:hover {
+    background: #1f2937;
+  }
+
+  .main {
+    background: radial-gradient(circle at top, #1d283a, #020617);
+  }
+
+  .card {
+    background: #020617;
+    border-color: #1f2937;
+  }
+
+  input,
+  textarea,
+  select {
+    background: #020617;
+    border-color: #374151;
+    color: #e5e7eb;
+  }
+
+  .btn {
+    background: #111827;
+    color: #e5e7eb;
+  }
+
+  .btn.primary {
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+  }
+
+  .countdown {
+    background: #0f172a;
+    color: #e5e7eb;
+    border-color: #1f2937;
+  }
+
+  .pregunta-card {
+    background: #020617;
+    border-color: #111827;
+  }
+
+  .new-question-block {
+    background: #020617;
+    border-color: #1d4ed8;
   }
 }
