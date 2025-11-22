@@ -1,6 +1,8 @@
-// app.js - Versión nueva compatible con:
-// sections / exams / casosClinicos / preguntas / users / cambios
-// Estructura ENARM: sección -> examen -> casos clínicos -> preguntas
+// ===============================
+// app.js (Parte 1/3)
+// Estructura compatible con Firestore nuevo:
+// sections, exams, casosClinicos, preguntas, users, cambios
+// ===============================
 
 // ---------------------- IMPORTS FIREBASE (modular CDN) ----------------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
@@ -21,7 +23,9 @@ import {
   deleteDoc,
   getDocs,
   query,
-  where
+  where,
+  orderBy,
+  limit
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // ---------------------- CONFIG FIREBASE ----------------------
@@ -37,199 +41,368 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ---------------------- CONSTANTES ----------------------
+// UID del admin principal (el que ya tienes dado de alta)
 const ADMIN_UID = "2T2NYl0wkwTu1EH14K82b0IgPiy2";
 
 // ---------------------- SELECTORES DOM ----------------------
-const $  = (id) => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
-// layout
-const sectionsList    = $("sectionsList");
-const loginScreen     = $("loginScreen");
-const studentScreen   = $("studentScreen");
-const examsList       = $("examsList");
-const examScreen      = $("examScreen");
+// Sidebar izquierda
+const sectionsList     = $("sectionsList");
+const mainCountdownEl  = $("mainCountdown");
+const linkInstagram    = $("link-instagram");
+const linkWhatsApp     = $("link-whatsapp");
+const linkTelegram     = $("link-telegram");
+const linkTikTok       = $("link-tiktok");
+
+// Sidebar derecha (admin)
+const adminSidebar       = $("adminSidebar");
+const adminAddSection    = $("adminAddSection");
+const adminAddExam       = $("adminAddExam");
+const adminEditQuestions = $("adminEditQuestions");
+const adminUsers         = $("adminUsers");
+const adminLinks         = $("adminLinks");
+const adminLogout        = $("adminLogout");
+
+// Main / auth / pantallas
+const userInfo      = $("userInfo");
+const authButtons   = $("authButtons");
+const mainContent   = $("mainContent");
+
+const loginScreen   = $("loginScreen");
+const inputEmail    = $("inputEmail");
+const inputPassword = $("inputPassword");
+const btnLogin      = $("btnLogin");
+const btnCancel     = $("btnCancel");
+const loginMessage  = $("loginMessage");
+
+const studentScreen = $("studentScreen");
+const studentTitle  = $("studentTitle");
+const examsList     = $("examsList");
+
+const examScreen    = $("examScreen");
+const examTitle     = $("examTitle");
+const examTimer     = $("examTimer");
+const examForm      = $("examForm");
+const btnFinishExam = $("btnFinishExam");
+
+const editExamButtons = $("editExamButtons"); // no lo usaremos (dejamos oculto)
 const resultScreen    = $("resultScreen");
-const adminSidebar    = $("adminSidebar");
 
-// auth / topbar
-const inputEmail      = $("inputEmail");
-const inputPassword   = $("inputPassword");
-const btnLogin        = $("btnLogin");
-const btnCancel       = $("btnCancel");
-const loginMessage    = $("loginMessage");
-const userInfo        = $("userInfo");
-const authButtons     = $("authButtons");
-
-// exam screen
-const examTitle       = $("examTitle");
-const examTimerEl     = $("examTimer");
-const examForm        = $("examForm");
-const btnFinishExam   = $("btnFinishExam");
-
-// edit floating buttons (exams list)
-const editButtons     = $("editButtons");
-const btnEdit         = $("btnEdit");
-const btnSave         = $("btnSave");
-
-// edit floating buttons (preguntas dentro del examen)
-const editExamButtons = $("editExamButtons");
-const btnEditExam     = $("btnEditExam");
-const btnSaveExam     = $("btnSaveExam");
-
-// admin buttons
-const adminAddSection     = $("adminAddSection");
-const adminAddExam        = $("adminAddExam");
-const adminEditQuestions  = $("adminEditQuestions");
-const adminUsers          = $("adminUsers");
-const adminLinks          = $("adminLinks");
-const adminLogout         = $("adminLogout");
-
-// socials / countdown
-const mainCountdownEl = $("mainCountdown");
-const linkInstagram   = $("link-instagram");
-const linkWhatsApp    = $("link-whatsapp");
-const linkTelegram    = $("link-telegram");
-const linkTikTok      = $("link-tiktok");
-
-// ---------------------- HELPERS ----------------------
-function show(el){ if(el) el.classList.remove("hidden"); }
-function hide(el){ if(el) el.classList.add("hidden"); }
-function esc(s){
-  if (s === undefined || s === null) return "";
-  return String(s)
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;");
-}
-function qid(){ return "id_" + Math.random().toString(36).slice(2,9); }
+// Botones flotantes de edición de lista de exámenes (no usados por ahora)
+const editButtons = $("editButtons");
+const btnEdit     = $("btnEdit");
+const btnSave     = $("btnSave");
 
 // ---------------------- ESTADO GLOBAL ----------------------
-let currentUser      = null;  // {uid,email,role}
+let currentUser      = null;   // { uid, email, role }
 let currentSectionId = null;
-let currentExam      = null;  // {id, title,...}
+let currentExam      = null;   // { id, ... }
 let examTimerInterval = null;
 let examRemainingSeconds = 0;
 
-// Para modo edición (exámenes y preguntas)
-let draft = {
-  exams: {},
-  questions: {},
-  newExams: []
-};
+// ---------------------- UTILIDADES ----------------------
+function show(el) { if (el) el.classList.remove("hidden"); }
+function hide(el) { if (el) el.classList.add("hidden"); }
 
-// ---------------------- COUNTDOWN ----------------------
-function startMainCountdown(){
-  if (!mainCountdownEl) return;
+function escapeHtml(s) {
+  if (s === undefined || s === null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// ---------------------- COUNTDOWN PRINCIPAL ----------------------
+function startMainCountdown() {
   try {
     const target = new Date("2026-09-23T00:00:00");
-    function tick(){
+    const el = mainCountdownEl;
+    if (!el) return;
+
+    function tick() {
       const now = new Date();
-      let diff = Math.floor((target - now)/1000);
+      let diff = Math.floor((target - now) / 1000);
       if (diff <= 0) {
-        mainCountdownEl.textContent = "Evento iniciado";
+        el.textContent = "Evento iniciado";
         return;
       }
-      const days = Math.floor(diff/86400); diff -= days*86400;
-      const hrs  = Math.floor(diff/3600);  diff -= hrs*3600;
-      const mins = Math.floor(diff/60);    const secs = diff%60;
-      mainCountdownEl.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
+      const days = Math.floor(diff / 86400); diff -= days * 86400;
+      const hrs  = Math.floor(diff / 3600);  diff -= hrs * 3600;
+      const mins = Math.floor(diff / 60);
+      const secs = diff % 60;
+      el.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
     }
+
     tick();
-    setInterval(tick,1000);
-  } catch(e){
-    console.warn("countdown", e);
+    setInterval(tick, 1000);
+  } catch (e) {
+    console.warn("countdown error", e);
   }
 }
 startMainCountdown();
 
-// ---------------------- LOAD SECTIONS ----------------------
-async function loadSections(){
-  sectionsList.innerHTML = "";
-  try {
-    // Leemos todas las secciones; las ordenamos por 'order' en JS para no necesitar índice compuesto
-    const snap = await getDocs(collection(db,"sections"));
-    const arr = [];
-    snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+// ---------------------- AUTO-DEFAULTS MÍNIMOS ----------------------
+let autoDefaultsRan = false;
+async function ensureDefaults() {
+  if (autoDefaultsRan) return;
+  autoDefaultsRan = true;
 
-    if (arr.length === 0) {
+  try {
+    // 1) Asegurar al menos 1 sección
+    const sSnap = await getDocs(
+      query(collection(db, "sections"), limit(1))
+    );
+    if (sSnap.empty) {
+      await addDoc(collection(db, "sections"), {
+        name: "Gastroenterología",
+        order: 1,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    // 2) Asegurar doc de admin en users (si no existe)
+    const adminUserRef = doc(db, "users", ADMIN_UID);
+    const adminUserSnap = await getDoc(adminUserRef);
+    if (!adminUserSnap.exists()) {
+      await setDoc(adminUserRef, {
+        email: "admin@example.com",
+        name: "Admin ENARM",
+        role: "admin",
+        createdAt: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.warn("ensureDefaults error:", e);
+  }
+}
+
+// ---------------------- AUTH ----------------------
+if (btnLogin) {
+  btnLogin.onclick = async () => {
+    const email = (inputEmail.value || "").trim();
+    const pass  = (inputPassword.value || "").trim();
+    if (!email || !pass) {
+      loginMessage.textContent = "Ingrese correo y contraseña";
+      return;
+    }
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      loginMessage.textContent = "";
+    } catch (e) {
+      console.error("login error", e);
+      loginMessage.textContent = "Credenciales inválidas";
+    }
+  };
+}
+if (btnCancel) {
+  btnCancel.onclick = () => {
+    inputEmail.value = "";
+    inputPassword.value = "";
+    loginMessage.textContent = "";
+  };
+}
+
+async function doLogout() {
+  try {
+    await signOut(auth);
+    location.reload();
+  } catch (e) {
+    console.error("logout error", e);
+  }
+}
+
+onAuthStateChanged(auth, async (user) => {
+  try {
+    await ensureDefaults();
+  } catch (_) {}
+
+  if (user) {
+    try {
+      // Leer role desde colección "users"
+      const uRef = doc(db, "users", user.uid);
+      const uSnap = await getDoc(uRef);
+      let role = "user";
+      let name = "";
+
+      if (uSnap.exists()) {
+        const d = uSnap.data();
+        role = d.role || "user";
+        name = d.name || "";
+      } else {
+        // si no existe doc en "users", lo creamos
+        await setDoc(uRef, {
+          email: user.email || "",
+          name: "",
+          role: "user",
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      currentUser = {
+        uid: user.uid,
+        email: user.email || "",
+        role
+      };
+
+      if (role === "admin" || user.uid === ADMIN_UID) {
+        currentUser.role = "admin";
+        showAdminUI();
+      } else {
+        currentUser.role = "user";
+        showStudentUI();
+      }
+    } catch (e) {
+      console.error("onAuthStateChanged error:", e);
+    }
+  } else {
+    // No logueado
+    currentUser = null;
+    hide(adminSidebar);
+    hide(studentScreen);
+    hide(examScreen);
+    hide(resultScreen);
+    show(loginScreen);
+    userInfo.textContent = "";
+    authButtons.innerHTML = "";
+    await loadSections(); // aun sin login, secciones visibles
+  }
+});
+
+// ---------------------- UI: STUDENT / ADMIN ----------------------
+async function showStudentUI() {
+  hide(loginScreen);
+  hide(adminSidebar);
+  show(studentScreen);
+  hide(examScreen);
+  hide(resultScreen);
+
+  userInfo.textContent = currentUser?.email || "";
+  authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
+  const btnLogoutTop = document.getElementById("btnLogoutTop");
+  if (btnLogoutTop) btnLogoutTop.onclick = doLogout;
+
+  await loadSections();
+}
+
+async function showAdminUI() {
+  hide(loginScreen);
+  show(studentScreen);
+  show(adminSidebar);
+  hide(examScreen);
+  hide(resultScreen);
+
+  userInfo.textContent = `${currentUser?.email || ""} (Admin)`;
+  authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
+  const btnLogoutTop = document.getElementById("btnLogoutTop");
+  if (btnLogoutTop) btnLogoutTop.onclick = doLogout;
+
+  await loadSections();
+}
+
+// ---------------------- SECCIONES ----------------------
+async function loadSections() {
+  if (!sectionsList) return;
+  sectionsList.innerHTML = "";
+
+  try {
+    await ensureDefaults();
+    // Intentamos ordenar por "order"; si no, por name.
+    const qSections = query(
+      collection(db, "sections"),
+      orderBy("order")
+    );
+    const sSnap = await getDocs(qSections);
+    if (sSnap.empty) {
       sectionsList.innerHTML = `<div class="muted">Sin secciones</div>`;
       return;
     }
 
-    arr.sort((a,b) => (a.order || 0) - (b.order || 0));
+    sSnap.forEach((sDoc) => {
+      const data = sDoc.data();
+      const secId = sDoc.id;
+      const name  = data.name || "Sección";
 
-    arr.forEach(sec => {
       const el = document.createElement("div");
       el.className = "section-item";
-      el.dataset.id = sec.id;
-      el.textContent = sec.name || "Sección";
-      el.onclick = () => selectSection(sec.id);
+      el.dataset.id = secId;
+      el.textContent = name;
+      el.onclick = () => selectSection(secId, name);
+
       sectionsList.appendChild(el);
     });
 
-    if (!currentSectionId) {
-      selectSection(arr[0].id);
+    // Si no hay sección seleccionada, seleccionamos la primera.
+    if (!currentSectionId && sSnap.docs.length > 0) {
+      const first = sSnap.docs[0];
+      selectSection(first.id, first.data().name || "Sección");
     }
-
-  } catch(e){
-    console.error("loadSections", e);
+  } catch (e) {
+    console.error("loadSections error", e);
     sectionsList.innerHTML = `<div class="muted">Error cargando secciones</div>`;
   }
 }
 
-async function selectSection(sectionId){
-  currentSectionId = sectionId;
-  // activar visual
-  Array.from(sectionsList.children).forEach(ch => {
-    ch.classList.toggle("active", ch.dataset.id === sectionId);
-  });
+async function selectSection(id, name) {
+  currentSectionId = id;
+  studentTitle.textContent = `Sección: ${name}`;
+
+  // marcar activa
+  if (sectionsList) {
+    Array.from(sectionsList.children).forEach((ch) => {
+      ch.classList.toggle("active", ch.dataset.id === id);
+    });
+  }
+
   hide(loginScreen);
   show(studentScreen);
   hide(examScreen);
   hide(resultScreen);
-  await renderExamsForSection(sectionId);
+
+  await renderExamsForSection(id);
 }
 
-// ---------------------- RENDER EXAMS LIST ----------------------
-async function renderExamsForSection(sectionId){
+// ---------------------- LISTA DE EXÁMENES POR SECCIÓN ----------------------
+async function renderExamsForSection(sectionId) {
+  if (!examsList) return;
   examsList.innerHTML = "";
+
   if (!sectionId) {
     examsList.innerHTML = `<div class="muted">Selecciona una sección</div>`;
     return;
   }
-  try {
-    const qEx = query(collection(db,"exams"), where("sectionId","==", sectionId));
-    const snap = await getDocs(qEx);
-    const exams = [];
-    snap.forEach(d => exams.push({ id:d.id, ...d.data() }));
 
-    if (exams.length === 0) {
+  try {
+    const qEx = query(
+      collection(db, "exams"),
+      where("sectionId", "==", sectionId),
+      orderBy("createdAt")
+    );
+    const snap = await getDocs(qEx);
+
+    if (snap.empty) {
       examsList.innerHTML = `<div class="muted">No hay exámenes en esta sección</div>`;
-      hide(editButtons);
       return;
     }
 
-    // limpiar draft
-    draft.exams = {};
-    draft.newExams = [];
-
-    // Pintamos tarjetas estilo A
-    exams.forEach(ex => {
-      draft.exams[ex.id] = { title: ex.title || "", deleted:false, new:false };
+    snap.forEach((eDoc) => {
+      const data = eDoc.data();
+      const examId = eDoc.id;
 
       const card = document.createElement("div");
       card.className = "examBox";
-      card.dataset.eid = ex.id;
+      card.dataset.eid = examId;
+
+      const title = data.title || "Examen";
+      const desc  = data.description || "";
+      const dur   = data.duration || 0;
 
       const left = document.createElement("div");
-      const title = esc(ex.title || "Examen");
-      const desc  = esc(ex.description || "");
-      const dur   = ex.duration ? `${ex.duration} min` : "Sin duración";
       left.innerHTML = `
-        <div class="title" data-title>${title}</div>
-        ${desc ? `<div class="small muted">${desc}</div>` : ""}
-        <div class="small muted">Duración: ${dur}</div>
+        <div style="font-weight:700">${escapeHtml(title)}</div>
+        <div class="small muted">
+          ${desc ? escapeHtml(desc) + " · " : ""}Duración: ${dur} min
+        </div>
       `;
 
       const right = document.createElement("div");
@@ -237,781 +410,890 @@ async function renderExamsForSection(sectionId){
       right.style.flexDirection = "column";
       right.style.alignItems = "flex-end";
       right.style.gap = "8px";
-      right.innerHTML = `
-        <button class="btn primary" data-open="${ex.id}">Iniciar</button>
-      `;
 
-      const btnOpen = right.querySelector("[data-open]");
-      btnOpen.onclick = () => openExam(ex.id);
+      const openBtn = document.createElement("button");
+      openBtn.className = "btn primary";
+      openBtn.textContent = "Abrir";
+      openBtn.onclick = () => openExam(examId);
+
+      right.appendChild(openBtn);
 
       card.appendChild(left);
       card.appendChild(right);
       examsList.appendChild(card);
     });
 
-    // solo admin puede editar
-    if (currentUser && currentUser.role === "admin") {
-      show(editButtons);
-    } else {
-      hide(editButtons);
-    }
-
-  } catch(e){
-    console.error("renderExamsForSection", e);
-    examsList.innerHTML = `<div class="muted">Error cargando exámenes</div>`;
+    // Nunca mostramos botones flotantes de edición por ahora
     hide(editButtons);
+  } catch (e) {
+    console.error("renderExamsForSection error", e);
+    examsList.innerHTML = `<div class="muted">Error cargando exámenes</div>`;
   }
 }
 
-// ---------------------- OPEN EXAM (student view) ----------------------
-async function openExam(examId){
+// ---------------------- ABRIR EXAMEN (usa casosClinicos + preguntas) ----------------------
+async function openExam(examId) {
   try {
-    const exDoc = await getDoc(doc(db,"exams", examId));
-    if (!exDoc.exists()) {
+    const eSnap = await getDoc(doc(db, "exams", examId));
+    if (!eSnap.exists()) {
       alert("Examen no encontrado");
       return;
     }
-    const exData = exDoc.data();
-    currentExam = { id: examId, ...exData };
+    const examData = eSnap.data();
+    currentExam = { id: examId, ...examData };
 
-    // obtenemos TODOS los casos clínicos del examen
-    const qCasos = query(collection(db,"casosClinicos"), where("examId","==", examId));
+    // 1) traer casos clínicos del examen
+    const qCasos = query(
+      collection(db, "casosClinicos"),
+      where("examId", "==", examId),
+      orderBy("orden")
+    );
     const casosSnap = await getDocs(qCasos);
     const casos = [];
-    casosSnap.forEach(c => casos.push({ id:c.id, ...c.data() }));
-    casos.sort((a,b) => (a.orden || 0) - (b.orden || 0));
-
-    // obtenemos TODAS las preguntas del examen
-    const qPreg = query(collection(db,"preguntas"), where("examId","==", examId));
-    const pregSnap = await getDocs(qPreg);
-    const preguntas = [];
-    pregSnap.forEach(p => preguntas.push({ id:p.id, ...p.data() }));
-    preguntas.sort((a,b) => (a.orden || 0) - (b.orden || 0));
-
-    // agrupamos preguntas por casoId
-    const preguntasPorCaso = {};
-    preguntas.forEach(p => {
-      const cId = p.casoId || "sinCaso";
-      if (!preguntasPorCaso[cId]) preguntasPorCaso[cId] = [];
-      preguntasPorCaso[cId].push(p);
+    casosSnap.forEach((cDoc) => {
+      casos.push({ id: cDoc.id, ...cDoc.data() });
     });
 
-    // render examen completo
-    renderExamScreen(currentExam, casos, preguntasPorCaso);
+    // 2) traer todas las preguntas del examen
+    const qPreg = query(
+      collection(db, "preguntas"),
+      where("examId", "==", examId),
+      orderBy("orden")
+    );
+    const pregSnap = await getDocs(qPreg);
+    const preguntas = [];
+    pregSnap.forEach((pDoc) => {
+      preguntas.push({ id: pDoc.id, ...pDoc.data() });
+    });
 
-  } catch(e){
-    console.error("openExam", e);
-    alert("Error al abrir el examen");
+    renderExamScreen(currentExam, casos, preguntas);
+  } catch (e) {
+    console.error("openExam error", e);
+    alert("Error al abrir examen");
   }
 }
 
-function renderExamScreen(exam, casos, preguntasPorCaso){
+function renderExamScreen(exam, casos, preguntas) {
   hide(loginScreen);
   hide(studentScreen);
   hide(resultScreen);
   show(examScreen);
+  hide(editExamButtons); // editor interno no se usa
 
   examTitle.textContent = exam.title || "Examen";
-
   examForm.innerHTML = "";
 
-  // tiempo: si el examen tiene duration en minutos, usamos eso
+  // Asignar tiempo: duración en minutos o 60s por pregunta si no hay duration
   let totalSeconds = 0;
-  if (typeof exam.duration === "number" && exam.duration > 0) {
-    totalSeconds = exam.duration * 60;
+  if (exam.duration && Number(exam.duration) > 0) {
+    totalSeconds = Number(exam.duration) * 60;
   } else {
-    // fallback: 75 segundos por pregunta
-    let totalPreguntas = 0;
-    Object.values(preguntasPorCaso).forEach(arr => totalPreguntas += arr.length);
-    totalSeconds = Math.max(60, totalPreguntas * 75);
+    const nPreg = preguntas.length || 1;
+    totalSeconds = Math.max(60, nPreg * 75);
   }
   startExamTimer(totalSeconds);
 
-  // para cada caso clínico → mostramos texto una vez y todas sus preguntas abajo
-  casos.forEach((caso, idxCaso) => {
-    const bloqueCaso = document.createElement("div");
-    bloqueCaso.className = "questionBlock card";
-    bloqueCaso.style.marginBottom = "14px";
+  // Index global de pregunta
+  let idxGlobal = 1;
 
-    const header = document.createElement("div");
-    header.innerHTML = `
-      <div class="questionTitle">Caso clínico ${idxCaso + 1}</div>
-      <div class="caseText">
-        <strong>${esc(caso.titulo || "")}</strong><br>
-        ${esc(caso.texto || "")}
-      </div>
-    `;
-    bloqueCaso.appendChild(header);
-
-    const listaPreguntas = preguntasPorCaso[caso.id] || [];
-    if (listaPreguntas.length === 0) {
-      const noQ = document.createElement("div");
-      noQ.className = "small muted";
-      noQ.textContent = "Sin preguntas asociadas a este caso.";
-      bloqueCaso.appendChild(noQ);
-    } else {
-      listaPreguntas.forEach((q, idxPreg) => {
-        const qWrap = document.createElement("div");
-        qWrap.style.marginTop = "10px";
-
-        const tituloPregunta = document.createElement("div");
-        tituloPregunta.innerHTML = `<strong>Pregunta ${idxCaso + 1}.${idxPreg + 1}</strong> ${esc(q.pregunta)}`;
-        qWrap.appendChild(tituloPregunta);
-
-        const optsDiv = document.createElement("div");
-        optsDiv.className = "options";
-
-        (q.opciones || []).forEach((opt, i) => {
-          const label = document.createElement("label");
-          label.innerHTML = `
-            <input type="radio" name="${q.id}" value="${i}">
-            ${String.fromCharCode(65 + i)}. ${esc(opt)}
-          `;
-          optsDiv.appendChild(label);
-        });
-
-        qWrap.appendChild(optsDiv);
-        bloqueCaso.appendChild(qWrap);
-      });
-    }
-
-    examForm.appendChild(bloqueCaso);
+  // Mapeo de preguntas por casoId
+  const preguntasPorCaso = {};
+  preguntas.forEach((p) => {
+    const cid = p.casoId || "sinCaso";
+    if (!preguntasPorCaso[cid]) preguntasPorCaso[cid] = [];
+    preguntasPorCaso[cid].push(p);
   });
 
-  // botones admin para editar preguntas del examen actual
-  if (currentUser && currentUser.role === "admin") {
-    show(editExamButtons);
-  } else {
-    hide(editExamButtons);
+  // Ordenar cada arreglo de preguntas por "orden"
+  Object.values(preguntasPorCaso).forEach((arr) => {
+    arr.sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  });
+
+  // 1) Mostrar casos clínicos con sus preguntas
+  casos.forEach((caso) => {
+    const grupo = document.createElement("div");
+    grupo.className = "questionBlock card";
+    grupo.style.marginBottom = "16px";
+
+    const header = document.createElement("div");
+    header.className = "caseText";
+    header.innerHTML = `
+      <strong>${escapeHtml(caso.titulo || "Caso clínico")}</strong><br>
+      ${escapeHtml(caso.texto || "")}
+    `;
+    grupo.appendChild(header);
+
+    const arrPreg = preguntasPorCaso[caso.id] || [];
+    arrPreg.forEach((p) => {
+      const qDiv = document.createElement("div");
+      qDiv.style.marginTop = "10px";
+      qDiv.dataset.qid = p.id;
+
+      const titulo = document.createElement("div");
+      titulo.className = "questionTitle";
+      titulo.textContent = `Pregunta ${idxGlobal++}`;
+      qDiv.appendChild(titulo);
+
+      const enunciado = document.createElement("div");
+      enunciado.style.marginTop = "6px";
+      enunciado.innerHTML = `<strong>${escapeHtml(p.pregunta || "")}</strong>`;
+      qDiv.appendChild(enunciado);
+
+      const optsDiv = document.createElement("div");
+      optsDiv.className = "options";
+
+      (p.opciones || []).forEach((opt, i) => {
+        const label = document.createElement("label");
+        label.innerHTML = `
+          <input type="radio" name="${p.id}" value="${i}">
+          ${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}
+        `;
+        optsDiv.appendChild(label);
+      });
+
+      qDiv.appendChild(optsDiv);
+      grupo.appendChild(qDiv);
+    });
+
+    examForm.appendChild(grupo);
+  });
+
+  // 2) Preguntas sin caso (casoId vacío o sinCaso)
+  const huérfanas = preguntasPorCaso["sinCaso"] || [];
+  if (huérfanas.length > 0) {
+    const grupo = document.createElement("div");
+    grupo.className = "questionBlock card";
+    grupo.style.marginBottom = "16px";
+
+    const header = document.createElement("div");
+    header.className = "caseText";
+    header.innerHTML = `<strong>Preguntas sin caso clínico</strong>`;
+    grupo.appendChild(header);
+
+    huérfanas.forEach((p) => {
+      const qDiv = document.createElement("div");
+      qDiv.style.marginTop = "10px";
+      qDiv.dataset.qid = p.id;
+
+      const titulo = document.createElement("div");
+      titulo.className = "questionTitle";
+      titulo.textContent = `Pregunta ${idxGlobal++}`;
+      qDiv.appendChild(titulo);
+
+      const enunciado = document.createElement("div");
+      enunciado.style.marginTop = "6px";
+      enunciado.innerHTML = `<strong>${escapeHtml(p.pregunta || "")}</strong>`;
+      qDiv.appendChild(enunciado);
+
+      const optsDiv = document.createElement("div");
+      optsDiv.className = "options";
+
+      (p.opciones || []).forEach((opt, i) => {
+        const label = document.createElement("label");
+        label.innerHTML = `
+          <input type="radio" name="${p.id}" value="${i}">
+          ${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}
+        `;
+        optsDiv.appendChild(label);
+      });
+
+      qDiv.appendChild(optsDiv);
+      grupo.appendChild(qDiv);
+    });
+
+    examForm.appendChild(grupo);
   }
 
-  btnFinishExam.onclick = () => {
-    if (!confirm("¿Deseas finalizar el examen?")) return;
-    finalizeExamAndGrade(exam.id);
-  };
+  // Handler finalizar
+  if (btnFinishExam) {
+    btnFinishExam.onclick = async () => {
+      if (!currentExam) return;
+      const ok = confirm("¿Deseas finalizar el examen?");
+      if (!ok) return;
+      await finalizeExamAndGrade(currentExam.id);
+    };
+  }
 }
 
-// ---------------------- TIMER ----------------------
-function startExamTimer(totalSeconds){
+// ---------------------- TIMER DE EXAMEN ----------------------
+function startExamTimer(totalSeconds) {
   clearInterval(examTimerInterval);
   examRemainingSeconds = totalSeconds;
 
-  function tick(){
+  function tick() {
     if (examRemainingSeconds <= 0) {
       clearInterval(examTimerInterval);
-      examTimerEl.textContent = "00:00";
-      alert("Tiempo agotado");
-      btnFinishExam.click();
+      examTimer.textContent = "00:00";
+      alert("Tiempo agotado. Se finalizará el examen.");
+      if (btnFinishExam) btnFinishExam.click();
       return;
     }
-    const mm = Math.floor(examRemainingSeconds / 60).toString().padStart(2,"0");
-    const ss = (examRemainingSeconds % 60).toString().padStart(2,"0");
-    examTimerEl.textContent = `${mm}:${ss}`;
+    const mm = Math.floor(examRemainingSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const ss = (examRemainingSeconds % 60)
+      .toString()
+      .padStart(2, "0");
+    examTimer.textContent = `${mm}:${ss}`;
     examRemainingSeconds--;
   }
+
   tick();
-  examTimerInterval = setInterval(tick,1000);
+  examTimerInterval = setInterval(tick, 1000);
 }
 
 // ---------------------- FINALIZAR Y CALIFICAR ----------------------
-async function finalizeExamAndGrade(examId){
+async function finalizeExamAndGrade(examId) {
   try {
-    // respuestas marcadas
     const answers = {};
-    examForm.querySelectorAll("input[type=radio]:checked").forEach(r => {
-      answers[r.name] = Number(r.value);
+    const inputs = examForm.querySelectorAll('input[type="radio"]:checked');
+    inputs.forEach((inp) => {
+      answers[inp.name] = Number(inp.value);
     });
 
-    // cargamos todas las preguntas del examen
-    const qPreg = query(collection(db,"preguntas"), where("examId","==", examId));
+    const qPreg = query(
+      collection(db, "preguntas"),
+      where("examId", "==", examId)
+    );
     const snap = await getDocs(qPreg);
     const preguntas = [];
-    snap.forEach(p => preguntas.push({ id:p.id, ...p.data() }));
-
-    let correctas = 0;
-    preguntas.forEach(q => {
-      const sel = answers[q.id];
-      if (typeof sel === "number" && sel === (q.correcta || 0)) correctas++;
+    snap.forEach((pDoc) => {
+      preguntas.push({ id: pDoc.id, ...pDoc.data() });
     });
 
-    const total = preguntas.length;
-    const percent = total ? Math.round((correctas / total) * 100) : 0;
+    let correct = 0;
+    preguntas.forEach((p) => {
+      const sel = answers[p.id];
+      if (typeof sel === "number" && sel === (p.correcta || 0)) {
+        correct++;
+      }
+    });
 
-    renderResultScreen(preguntas, answers, percent);
+    const total = preguntas.length || 1;
+    const percent = Math.round((correct / total) * 100);
+
     clearInterval(examTimerInterval);
-
-  } catch(e){
-    console.error("finalizeExamAndGrade", e);
+    renderResultScreen(preguntas, answers, percent);
+  } catch (e) {
+    console.error("finalizeExamAndGrade error", e);
     alert("Error al calificar el examen");
   }
 }
 
-function renderResultScreen(preguntas, answers, percent){
+function renderResultScreen(preguntas, answers, percent) {
+  hide(examScreen);
   hide(loginScreen);
   hide(studentScreen);
-  hide(examScreen);
   show(resultScreen);
 
   resultScreen.innerHTML = `<h3>Calificación: ${percent}%</h3>`;
 
-  preguntas.forEach((q, idx) => {
-    const userSel = answers[q.id];
-    const correcta = q.correcta || 0;
+  let idx = 1;
+  preguntas.forEach((p) => {
+    const userSel = answers[p.id];
+    const correctIdx = p.correcta || 0;
 
     const card = document.createElement("div");
-    card.className = (userSel === correcta) ? "result-correct card" : "result-wrong card";
+    card.className = (userSel === correctIdx)
+      ? "card result-correct"
+      : "card result-wrong";
     card.style.marginTop = "10px";
-
     card.innerHTML = `
-      <div style="font-weight:700">Pregunta ${idx + 1}</div>
-      <div style="margin-top:8px">${esc(q.pregunta)}</div>
+      <div style="font-weight:700">Pregunta ${idx++}</div>
+      <div style="margin-top:6px;">${escapeHtml(p.pregunta || "")}</div>
     `;
 
     const optsDiv = document.createElement("div");
-    (q.opciones || []).forEach((opt,i) => {
-      const div = document.createElement("div");
+    optsDiv.style.marginTop = "6px";
+
+    (p.opciones || []).forEach((opt, i) => {
+      const divOpt = document.createElement("div");
       let mark = "";
-      if (i === correcta) mark = " (Correcta)";
-      if (i === userSel && i !== correcta) mark = " (Tu elección)";
-      div.textContent = `${String.fromCharCode(65 + i)}. ${opt}${mark}`;
-      optsDiv.appendChild(div);
+      if (i === correctIdx) mark = " (Correcta)";
+      if (i === userSel && i !== correctIdx) mark = " (Tu elección)";
+      divOpt.textContent = `${String.fromCharCode(65 + i)}. ${opt}${mark}`;
+      optsDiv.appendChild(divOpt);
     });
-    card.appendChild(optsDiv);
 
     const just = document.createElement("div");
     just.className = "small muted";
-    just.style.marginTop = "8px";
-    just.textContent = q.justificacion || "";
-    card.appendChild(just);
+    just.style.marginTop = "6px";
+    just.textContent = p.justificacion || "";
 
+    card.appendChild(optsDiv);
+    card.appendChild(just);
     resultScreen.appendChild(card);
   });
 }
+// ===============================
+// app.js (Parte 2/3)
+// Admin: secciones, exámenes, casosClinicos, preguntas
+// ===============================
 
-// ---------------------- AUTH ----------------------
-btnLogin.onclick = async () => {
-  const email = (inputEmail.value || "").trim();
-  const pass  = (inputPassword.value || "").trim();
-  if (!email || !pass) {
-    loginMessage.textContent = "Ingrese credenciales";
-    return;
-  }
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-    loginMessage.textContent = "";
-  } catch(e){
-    console.error("login", e);
-    loginMessage.textContent = "Credenciales inválidas";
-  }
-};
+// ---------------------- ADMIN: AGREGAR SECCIÓN ----------------------
+if (adminAddSection) {
+  adminAddSection.onclick = async () => {
+    const name  = prompt("Nombre de la nueva sección:");
+    if (!name) return;
+    const orderStr = prompt("Orden (número, para ordenar la lista):", "1");
+    const order = Number(orderStr) || 0;
 
-btnCancel.onclick = () => {
-  inputEmail.value = "";
-  inputPassword.value = "";
-  loginMessage.textContent = "";
-};
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    currentUser = null;
-    hide(adminSidebar);
-    hide(editButtons);
-    hide(editExamButtons);
-    hide(studentScreen);
-    hide(examScreen);
-    hide(resultScreen);
-    show(loginScreen);
-    userInfo.textContent = "";
-    authButtons.innerHTML = "";
-    await loadSections();
-    return;
-  }
-
-  // usuario logueado
-  try {
-    const uRef  = doc(db,"users", user.uid);
-    const uSnap = await getDoc(uRef);
-    let role = "user";
-    if (uSnap.exists()) {
-      const d = uSnap.data();
-      role = d.role || "user";
+    try {
+      await addDoc(collection(db, "sections"), {
+        name,
+        order,
+        createdAt: new Date().toISOString()
+      });
+      alert("Sección creada");
+      await loadSections();
+    } catch (e) {
+      console.error("adminAddSection error", e);
+      alert("Error creando sección");
     }
-    // forzamos admin si UID coincide
-    if (user.uid === ADMIN_UID) role = "admin";
+  };
+}
 
-    currentUser = { uid:user.uid, email:user.email, role };
-
-    if (role === "admin") {
-      showAdminUI();
-    } else {
-      showStudentUI();
+// ---------------------- ADMIN: AGREGAR EXAMEN ----------------------
+if (adminAddExam) {
+  adminAddExam.onclick = async () => {
+    if (!currentSectionId) {
+      alert("Primero selecciona una sección en la barra izquierda.");
+      return;
     }
+    const title = prompt("Título del examen:");
+    if (!title) return;
+    const description = prompt("Descripción (opcional):", "");
+    const durStr = prompt("Duración en minutos:", "45");
+    const duration = Number(durStr) || 0;
 
-  } catch(e){
-    console.error("onAuthStateChanged", e);
-  }
-});
-
-async function doLogout(){
-  try {
-    await signOut(auth);
-    location.reload();
-  } catch(e){
-    console.error("logout", e);
-  }
+    try {
+      await addDoc(collection(db, "exams"), {
+        sectionId: currentSectionId,
+        title,
+        description,
+        duration,
+        createdAt: new Date().toISOString()
+      });
+      alert("Examen creado");
+      await renderExamsForSection(currentSectionId);
+    } catch (e) {
+      console.error("adminAddExam error", e);
+      alert("Error creando examen");
+    }
+  };
 }
 
-// ---------------------- UI: STUDENT / ADMIN ----------------------
-async function showStudentUI(){
-  hide(loginScreen);
-  hide(adminSidebar);
-  hide(editButtons);
-  hide(editExamButtons);
-  show(studentScreen);
-
-  userInfo.textContent = currentUser.email || "";
-  authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
-  document.getElementById("btnLogoutTop").onclick = doLogout;
-
-  await loadSections();
+// ---------------------- ADMIN: EDITOR DE CASOS CLÍNICOS + PREGUNTAS ----------------------
+if (adminEditQuestions) {
+  adminEditQuestions.onclick = () => {
+    if (!currentExam) {
+      alert("Abre un examen primero para editar sus casos y preguntas.");
+      return;
+    }
+    openExamEditor(currentExam.id);
+  };
 }
 
-async function showAdminUI(){
-  hide(loginScreen);
-  show(studentScreen);
-  show(adminSidebar);
-
-  userInfo.textContent = `${currentUser.email} (Admin)`;
-  authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
-  document.getElementById("btnLogoutTop").onclick = doLogout;
-
-  await loadSections();
-}
-
-// ---------------------- ADMIN: SECCIONES / EXÁMENES / USERS / LINKS ----------------------
-
-// nueva sección
-adminAddSection.onclick = async () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  const name = prompt("Nombre de la nueva sección:");
-  if (!name) return;
+async function openExamEditor(examId) {
   try {
-    await addDoc(collection(db,"sections"), {
-      name,
-      order: 0,
-      createdAt: new Date()
-    });
-    alert("Sección creada");
-    await loadSections();
-  } catch(e){
-    console.error("adminAddSection", e);
-    alert("Error creando sección");
-  }
-};
+    const eSnap = await getDoc(doc(db, "exams", examId));
+    if (!eSnap.exists()) {
+      alert("Examen no encontrado");
+      return;
+    }
+    const examData = eSnap.data();
 
-// nuevo examen en sección actual
-adminAddExam.onclick = async () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  if (!currentSectionId) {
-    alert("Selecciona una sección primero");
-    return;
-  }
-  const title = prompt("Título del examen:");
-  if (!title) return;
-  const desc  = prompt("Descripción (opcional):","Simulacro ENARM");
-  const dur   = Number(prompt("Duración en minutos:", "45") || 45);
-  try {
-    await addDoc(collection(db,"exams"), {
-      sectionId: currentSectionId,
-      title,
-      description: desc || "",
-      duration: dur || 45,
-      createdAt: new Date()
-    });
-    alert("Examen creado");
-    await renderExamsForSection(currentSectionId);
-  } catch(e){
-    console.error("adminAddExam", e);
-    alert("Error creando examen");
-  }
-};
+    // Limpia cualquier editor anterior
+    const oldAreas = adminSidebar.querySelectorAll(".editor-area");
+    oldAreas.forEach((n) => n.remove());
 
-// Editor de casos y preguntas (simple, en sidebar derecho)
-adminEditQuestions.onclick = () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  if (!currentExam) {
-    alert("Abre primero un examen para editar sus casos y preguntas");
-    return;
-  }
-  openExamEditor(currentExam.id);
-};
+    const editorArea = document.createElement("div");
+    editorArea.className = "editor-area";
+    adminSidebar.appendChild(editorArea);
 
-// gestor de usuarios
-adminUsers.onclick = async () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  // limpiamos áreas previas
-  adminSidebar.querySelectorAll(".editor-area").forEach(n => n.remove());
-  const area = document.createElement("div");
-  area.className = "editor-area";
-  adminSidebar.appendChild(area);
-  area.innerHTML = `<h4>Usuarios</h4><div id="usersList">Cargando...</div>`;
-  const usersList = document.getElementById("usersList");
-  try {
-    const snap = await getDocs(collection(db,"users"));
-    usersList.innerHTML = "";
-    snap.forEach(u => {
-      const d = u.data();
-      const card = document.createElement("div");
-      card.className = "card";
-      card.style.marginBottom = "8px";
-      card.innerHTML = `
-        <div>
-          <strong>${esc(u.id)}</strong>
-          <div class="small muted">${esc(d.name || "")} - ${esc(d.role || "user")}</div>
-        </div>
-        <div style="margin-top:6px;">
-          <button class="btn u_edit" data-uid="${u.id}">Editar</button>
-          <button class="btn u_del" data-uid="${u.id}">Eliminar</button>
-        </div>
-      `;
-      usersList.appendChild(card);
-    });
+    editorArea.innerHTML = `
+      <h4>Editor de examen</h4>
+      <div class="small muted">${escapeHtml(examData.title || "")}</div>
+      <hr>
+      <h5>Casos clínicos</h5>
+      <div id="casosList">Cargando casos...</div>
+      <button id="btnAddCaso" class="btn primary" style="margin-top:8px;">Agregar caso clínico</button>
+      <hr style="margin:10px 0;">
+      <div id="preguntasEditor"></div>
+    `;
 
-    usersList.querySelectorAll(".u_edit").forEach(b => {
-      b.onclick = async () => {
-        const uid = b.getAttribute("data-uid");
-        const ref = doc(db,"users", uid);
-        const snapU = await getDoc(ref);
-        const data = snapU.exists() ? snapU.data() : {};
-        const name = prompt("Nombre visible:", data.name || "");
-        if (!name) return;
-        const role = prompt("Rol (admin/user):", data.role || "user");
-        await setDoc(ref, { name, role }, { merge:true });
-        alert("Usuario actualizado");
-        adminUsers.onclick();
+    const casosList = document.getElementById("casosList");
+    const preguntasEditor = document.getElementById("preguntasEditor");
+    const btnAddCaso = document.getElementById("btnAddCaso");
+
+    // ---- carga inicial de casos
+    await reloadCasos(examId, casosList, preguntasEditor);
+
+    // ---- alta de nuevo caso
+    if (btnAddCaso) {
+      btnAddCaso.onclick = async () => {
+        const titulo = prompt("Título del caso clínico:");
+        if (!titulo) return;
+        const texto = prompt("Texto / enunciado del caso clínico:");
+        if (!texto) return;
+        const ordenStr = prompt("Orden (número para ordenar los casos):", "1");
+        const orden = Number(ordenStr) || 0;
+
+        try {
+          await addDoc(collection(db, "casosClinicos"), {
+            examId,
+            titulo,
+            texto,
+            orden,
+            createdAt: new Date().toISOString()
+          });
+          alert("Caso clínico agregado");
+          await reloadCasos(examId, casosList, preguntasEditor);
+        } catch (e) {
+          console.error("addCaso error", e);
+          alert("Error agregando caso clínico");
+        }
       };
-    });
-    usersList.querySelectorAll(".u_del").forEach(b => {
-      b.onclick = async () => {
-        const uid = b.getAttribute("data-uid");
-        if (!confirm("¿Eliminar registro del usuario en Firestore?")) return;
-        await deleteDoc(doc(db,"users", uid));
-        alert("Eliminado");
-        adminUsers.onclick();
-      };
-    });
-
-  } catch(e){
-    console.error("adminUsers", e);
-    usersList.innerHTML = `<div class="muted">Error cargando usuarios</div>`;
+    }
+  } catch (e) {
+    console.error("openExamEditor error", e);
+    alert("Error abriendo editor");
   }
-};
+}
 
-// Links redes (solo actualiza href en UI)
-adminLinks.onclick = () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  adminSidebar.querySelectorAll(".editor-area").forEach(n => n.remove());
-  const area = document.createElement("div");
-  area.className = "editor-area";
-  adminSidebar.appendChild(area);
-  area.innerHTML = `
-    <h4>Links Sociales</h4>
-    <label>Instagram</label><input id="ln_ig">
-    <label>WhatsApp</label><input id="ln_wa">
-    <label>Telegram</label><input id="ln_tg">
-    <label>TikTok</label><input id="ln_tt">
-    <div style="margin-top:8px;">
-      <button id="ln_save" class="btn primary">Guardar links (solo UI)</button>
-    </div>
-    <div class="small muted" style="margin-top:6px">
-      Esto solo actualiza los links visibles; si quieres, luego los guardamos en Firestore.
-    </div>
-  `;
-  setTimeout(() => {
-    $("ln_ig").value = linkInstagram?.href || "";
-    $("ln_wa").value = linkWhatsApp?.href || "";
-    $("ln_tg").value = linkTelegram?.href || "";
-    $("ln_tt").value = linkTikTok?.href || "";
-    $("ln_save").onclick = () => {
-      const ig = $("ln_ig").value.trim();
-      const wa = $("ln_wa").value.trim();
-      const tg = $("ln_tg").value.trim();
-      const tt = $("ln_tt").value.trim();
-      if (ig && linkInstagram) linkInstagram.href = ig;
-      if (wa && linkWhatsApp) linkWhatsApp.href = wa;
-      if (tg && linkTelegram) linkTelegram.href = tg;
-      if (tt && linkTikTok)  linkTikTok.href  = tt;
-      alert("Links actualizados en la UI");
-    };
-  },50);
-};
-
-adminLogout.onclick = doLogout;
-
-// ---------------------- ADMIN: EDITOR DE CASOS + PREGUNTAS (sidebar derecho) ----------------------
-async function openExamEditor(examId){
-  // limpia editor anterior
-  adminSidebar.querySelectorAll(".editor-area").forEach(n => n.remove());
-  const area = document.createElement("div");
-  area.className = "editor-area";
-  adminSidebar.appendChild(area);
-  area.innerHTML = `
-    <h4>Editor examen</h4>
-    <div class="small muted">Examen ID: ${esc(examId)}</div>
-    <hr>
-    <h5>Casos clínicos</h5>
-    <div id="casosList" class="small muted">Cargando casos...</div>
-    <hr>
-    <h5>Agregar nuevo caso clínico</h5>
-    <label>Título</label><input id="newCasoTitulo">
-    <label>Texto del caso</label><textarea id="newCasoTexto" rows="3"></textarea>
-    <div style="margin-top:6px;">
-      <button id="btnAddCaso" class="btn primary">Agregar caso</button>
-    </div>
-    <hr>
-    <h5>Agregar nueva pregunta</h5>
-    <div class="small muted">Primero copia el <strong>casoId</strong> de la lista de arriba.</div>
-    <label>ID de caso clínico (casoId)</label><input id="newQCasoId">
-    <label>Pregunta</label><input id="newQTexto">
-    <label>Opción A</label><input id="newQA">
-    <label>Opción B</label><input id="newQB">
-    <label>Opción C</label><input id="newQC">
-    <label>Opción D</label><input id="newQD">
-    <label>Índice correcto (0-3)</label><input id="newQCorrecta" type="number" min="0" max="3">
-    <label>Justificación</label><textarea id="newQJust" rows="2"></textarea>
-    <div style="margin-top:6px;">
-      <button id="btnAddPregunta" class="btn primary">Agregar pregunta</button>
-    </div>
-  `;
-
-  const casosList = $("casosList");
-
-  // cargar casos
+async function reloadCasos(examId, casosList, preguntasEditor) {
   try {
-    const qCasos = query(collection(db,"casosClinicos"), where("examId","==", examId));
+    const qCasos = query(
+      collection(db, "casosClinicos"),
+      where("examId", "==", examId),
+      orderBy("orden")
+    );
     const snap = await getDocs(qCasos);
+
     casosList.innerHTML = "";
     if (snap.empty) {
       casosList.innerHTML = `<div class="small muted">Sin casos clínicos aún.</div>`;
-    } else {
-      snap.forEach(c => {
-        const d = c.data();
-        const row = document.createElement("div");
-        row.className = "card";
-        row.style.marginBottom = "6px";
-        row.innerHTML = `
-          <div><strong>${esc(d.titulo || "")}</strong></div>
-          <div class="small muted">ID: ${c.id}</div>
-        `;
-        casosList.appendChild(row);
-      });
+      preguntasEditor.innerHTML = `<div class="small muted">Selecciona un caso para ver / editar sus preguntas.</div>`;
+      return;
     }
-  } catch(e){
-    console.error("openExamEditor - casos", e);
-    casosList.innerHTML = `<div class="small muted">Error cargando casos</div>`;
+
+    snap.forEach((cDoc) => {
+      const cData = cDoc.data();
+      const row = document.createElement("div");
+      row.className = "card";
+      row.style.marginBottom = "8px";
+
+      row.innerHTML = `
+        <div><strong>${escapeHtml(cData.titulo || "Caso clínico")}</strong></div>
+        <div class="small muted">Orden: ${cData.orden || 0}</div>
+        <div style="margin-top:6px;">
+          <button class="btn btn-sm btn-primary" data-accion="preguntas" data-id="${cDoc.id}">Preguntas</button>
+          <button class="btn btn-sm" data-accion="editar" data-id="${cDoc.id}">Editar caso</button>
+          <button class="btn btn-sm" data-accion="eliminar" data-id="${cDoc.id}">Eliminar</button>
+        </div>
+      `;
+      casosList.appendChild(row);
+    });
+
+    // Delegación de eventos
+    casosList.querySelectorAll("button").forEach((btn) => {
+      btn.onclick = async () => {
+        const accion = btn.getAttribute("data-accion");
+        const cid = btn.getAttribute("data-id");
+        if (!cid) return;
+
+        if (accion === "preguntas") {
+          await openPreguntasEditor(examId, cid, preguntasEditor);
+        } else if (accion === "editar") {
+          await editCaso(examId, cid, casosList, preguntasEditor);
+        } else if (accion === "eliminar") {
+          await deleteCaso(examId, cid, casosList, preguntasEditor);
+        }
+      };
+    });
+
+    // Mensaje por defecto en preguntasEditor
+    preguntasEditor.innerHTML = `<div class="small muted">Selecciona "Preguntas" en algún caso clínico.</div>`;
+  } catch (e) {
+    console.error("reloadCasos error", e);
+    casosList.innerHTML = `<div class="muted">Error cargando casos clínicos</div>`;
+  }
+}
+
+async function editCaso(examId, casoId, casosList, preguntasEditor) {
+  try {
+    const cRef = doc(db, "casosClinicos", casoId);
+    const cSnap = await getDoc(cRef);
+    if (!cSnap.exists()) {
+      alert("Caso no encontrado");
+      return;
+    }
+    const data = cSnap.data();
+    const titulo = prompt("Título del caso clínico:", data.titulo || "");
+    if (!titulo) return;
+    const texto = prompt("Texto del caso:", data.texto || "");
+    if (!texto) return;
+    const ordenStr = prompt("Orden:", String(data.orden || 0));
+    const orden = Number(ordenStr) || 0;
+
+    await updateDoc(cRef, { titulo, texto, orden });
+    alert("Caso actualizado");
+    await reloadCasos(examId, casosList, preguntasEditor);
+  } catch (e) {
+    console.error("editCaso error", e);
+    alert("Error actualizando caso");
+  }
+}
+
+async function deleteCaso(examId, casoId, casosList, preguntasEditor) {
+  const ok = confirm("¿Eliminar este caso clínico y sus preguntas?");
+  if (!ok) return;
+
+  try {
+    // Borrar preguntas asociadas
+    const qPreg = query(
+      collection(db, "preguntas"),
+      where("casoId", "==", casoId)
+    );
+    const snapP = await getDocs(qPreg);
+    const batchDeletes = [];
+    snapP.forEach((pDoc) => {
+      batchDeletes.push(deleteDoc(doc(db, "preguntas", pDoc.id)));
+    });
+    await Promise.all(batchDeletes);
+
+    // Borrar caso
+    await deleteDoc(doc(db, "casosClinicos", casoId));
+
+    alert("Caso y preguntas asociadas eliminados");
+    await reloadCasos(examId, casosList, preguntasEditor);
+  } catch (e) {
+    console.error("deleteCaso error", e);
+    alert("Error eliminando caso");
+  }
+}
+
+// ---- Editor de preguntas de un caso concreto ----
+async function openPreguntasEditor(examId, casoId, preguntasEditor) {
+  try {
+    // Traer info del caso
+    const cSnap = await getDoc(doc(db, "casosClinicos", casoId));
+    const cData = cSnap.exists() ? cSnap.data() : { titulo: "Caso" };
+
+    preguntasEditor.innerHTML = `
+      <h5>Preguntas del caso</h5>
+      <div class="small muted">${escapeHtml(cData.titulo || "")}</div>
+      <div id="listaPreguntasCaso" style="margin-top:8px;">Cargando preguntas...</div>
+      <button id="btnAddPreguntaCaso" class="btn primary" style="margin-top:8px;">
+        Agregar pregunta
+      </button>
+    `;
+
+    const lista = document.getElementById("listaPreguntasCaso");
+    const btnAdd = document.getElementById("btnAddPreguntaCaso");
+
+    await reloadPreguntasCaso(examId, casoId, lista);
+
+    if (btnAdd) {
+      btnAdd.onclick = async () => {
+        await addPreguntaPrompt(examId, casoId, lista);
+      };
+    }
+  } catch (e) {
+    console.error("openPreguntasEditor error", e);
+    preguntasEditor.innerHTML = `<div class="muted">Error cargando preguntas</div>`;
+  }
+}
+
+async function reloadPreguntasCaso(examId, casoId, lista) {
+  try {
+    const qPreg = query(
+      collection(db, "preguntas"),
+      where("examId", "==", examId),
+      where("casoId", "==", casoId),
+      orderBy("orden")
+    );
+    const snap = await getDocs(qPreg);
+    lista.innerHTML = "";
+
+    if (snap.empty) {
+      lista.innerHTML = `<div class="small muted">Sin preguntas en este caso.</div>`;
+      return;
+    }
+
+    snap.forEach((pDoc) => {
+      const d = pDoc.data();
+      const row = document.createElement("div");
+      row.className = "card";
+      row.style.marginBottom = "8px";
+
+      row.innerHTML = `
+        <div><strong>${escapeHtml(d.pregunta || "")}</strong></div>
+        <div class="small muted">Orden: ${d.orden || 0}</div>
+        <div style="margin-top:6px;">
+          <button class="btn btn-sm" data-accion="editar" data-id="${pDoc.id}">Editar</button>
+          <button class="btn btn-sm" data-accion="eliminar" data-id="${pDoc.id}">Eliminar</button>
+        </div>
+      `;
+      lista.appendChild(row);
+    });
+
+    lista.querySelectorAll("button").forEach((btn) => {
+      btn.onclick = async () => {
+        const accion = btn.getAttribute("data-accion");
+        const pid = btn.getAttribute("data-id");
+        if (!pid) return;
+
+        if (accion === "editar") {
+          await editPreguntaPrompt(pid, examId, casoId, lista);
+        } else if (accion === "eliminar") {
+          await deletePregunta(pid, examId, casoId, lista);
+        }
+      };
+    });
+  } catch (e) {
+    console.error("reloadPreguntasCaso error", e);
+    lista.innerHTML = `<div class="muted">Error cargando preguntas</div>`;
+  }
+}
+
+async function addPreguntaPrompt(examId, casoId, lista) {
+  const pregunta = prompt("Texto de la pregunta:");
+  if (!pregunta) return;
+
+  const optsStr = prompt("Opciones separadas por || (ej: Apendicitis||Colecistitis||Pancreatitis||Gastritis):");
+  if (!optsStr) return;
+  const opciones = optsStr.split("||").map((s) => s.trim()).filter(Boolean);
+  if (opciones.length === 0) {
+    alert("Debes agregar al menos una opción");
+    return;
   }
 
-  // agregar caso
-  $("btnAddCaso").onclick = async () => {
-    const titulo = $("newCasoTitulo").value.trim();
-    const texto  = $("newCasoTexto").value.trim();
-    if (!titulo || !texto) {
-      alert("Título y texto del caso son obligatorios");
-      return;
-    }
-    try {
-      await addDoc(collection(db,"casosClinicos"), {
-        examId,
-        titulo,
-        texto,
-        orden: 0,
-        createdAt: new Date()
-      });
-      alert("Caso clínico agregado");
-      openExamEditor(examId);
-    } catch(e){
-      console.error("addCaso", e);
-      alert("Error agregando caso clínico");
-    }
-  };
+  const idxStr = prompt("Índice de la opción correcta (0 para la primera, 1 para la segunda, etc):", "0");
+  const correcta = Number(idxStr) || 0;
 
-  // agregar pregunta
-  $("btnAddPregunta").onclick = async () => {
-    const casoId = $("newQCasoId").value.trim();
-    const preg   = $("newQTexto").value.trim();
-    const a      = $("newQA").value.trim();
-    const b      = $("newQB").value.trim();
-    const c      = $("newQC").value.trim();
-    const d      = $("newQD").value.trim();
-    const idx    = Number($("newQCorrecta").value || 0);
-    const just   = $("newQJust").value.trim();
-    const opciones = [a,b,c,d].filter(v => v !== "");
+  const justificacion = prompt("Justificación de la respuesta (opcional):", "") || "";
+  const ordenStr = prompt("Orden (número para ordenar las preguntas):", "1");
+  const orden = Number(ordenStr) || 0;
 
-    if (!casoId) {
-      alert("Necesitas indicar el casoId");
+  try {
+    await addDoc(collection(db, "preguntas"), {
+      examId,
+      casoId,
+      pregunta,
+      opciones,
+      correcta,
+      justificacion,
+      orden,
+      createdAt: new Date().toISOString()
+    });
+    alert("Pregunta agregada");
+    await reloadPreguntasCaso(examId, casoId, lista);
+  } catch (e) {
+    console.error("addPreguntaPrompt error", e);
+    alert("Error agregando pregunta");
+  }
+}
+
+async function editPreguntaPrompt(preguntaId, examId, casoId, lista) {
+  try {
+    const pRef = doc(db, "preguntas", preguntaId);
+    const pSnap = await getDoc(pRef);
+    if (!pSnap.exists()) {
+      alert("Pregunta no encontrada");
       return;
     }
-    if (!preg || opciones.length === 0) {
-      alert("Pregunta y al menos una opción son obligatorias");
-      return;
-    }
+    const d = pSnap.data();
+
+    const pregunta = prompt("Texto de la pregunta:", d.pregunta || "");
+    if (!pregunta) return;
+
+    const optsDefault = (d.opciones || []).join("||");
+    const optsStr = prompt(
+      "Opciones separadas por ||",
+      optsDefault
+    );
+    if (!optsStr) return;
+    const opciones = optsStr.split("||").map((s) => s.trim()).filter(Boolean);
+
+    const idxStr = prompt(
+      "Índice correcto (0 para la primera, etc):",
+      String(d.correcta || 0)
+    );
+    const correcta = Number(idxStr) || 0;
+
+    const justificacion = prompt(
+      "Justificación:",
+      d.justificacion || ""
+    ) || "";
+
+    const ordenStr = prompt(
+      "Orden:",
+      String(d.orden || 0)
+    );
+    const orden = Number(ordenStr) || 0;
+
+    await updateDoc(pRef, {
+      pregunta,
+      opciones,
+      correcta,
+      justificacion,
+      orden
+    });
+
+    alert("Pregunta actualizada");
+    await reloadPreguntasCaso(examId, casoId, lista);
+  } catch (e) {
+    console.error("editPreguntaPrompt error", e);
+    alert("Error actualizando pregunta");
+  }
+}
+
+async function deletePregunta(preguntaId, examId, casoId, lista) {
+  const ok = confirm("¿Eliminar esta pregunta?");
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "preguntas", preguntaId));
+    alert("Pregunta eliminada");
+    await reloadPreguntasCaso(examId, casoId, lista);
+  } catch (e) {
+    console.error("deletePregunta error", e);
+    alert("Error eliminando pregunta");
+  }
+}
+// ===============================
+// app.js (Parte 3/3)
+// Admin: usuarios, links sociales, init
+// ===============================
+
+// ---------------------- ADMIN: USUARIOS ----------------------
+if (adminUsers) {
+  adminUsers.onclick = async () => {
+    const oldAreas = adminSidebar.querySelectorAll(".editor-area");
+    oldAreas.forEach((n) => n.remove());
+
+    const area = document.createElement("div");
+    area.className = "editor-area";
+    adminSidebar.appendChild(area);
+
+    area.innerHTML = `
+      <h4>Usuarios</h4>
+      <div id="usersList">Cargando usuarios...</div>
+    `;
+
+    const usersList = document.getElementById("usersList");
     try {
-      await addDoc(collection(db,"preguntas"), {
-        examId,
-        casoId,
-        pregunta: preg,
-        opciones,
-        correcta: idx,
-        justificacion: just,
-        orden: 0,
-        createdAt: new Date()
+      const snap = await getDocs(collection(db, "users"));
+      usersList.innerHTML = "";
+
+      if (snap.empty) {
+        usersList.innerHTML = `<div class="small muted">Sin usuarios registrados.</div>`;
+        return;
+      }
+
+      snap.forEach((uDoc) => {
+        const d = uDoc.data();
+        const row = document.createElement("div");
+        row.className = "card";
+        row.style.marginBottom = "8px";
+
+        row.innerHTML = `
+          <div>
+            <strong>${escapeHtml(d.email || uDoc.id)}</strong>
+            <div class="small muted">${escapeHtml(d.name || "")} - ${escapeHtml(d.role || "user")}</div>
+          </div>
+          <div style="margin-top:6px;">
+            <button class="btn u_edit" data-uid="${uDoc.id}">Editar</button>
+          </div>
+        `;
+        usersList.appendChild(row);
       });
-      alert("Pregunta agregada");
-      // no recargamos todo para que sigas escribiendo rápido
-    } catch(e){
-      console.error("addPregunta", e);
-      alert("Error agregando pregunta");
+
+      usersList.querySelectorAll(".u_edit").forEach((btn) => {
+        btn.onclick = async () => {
+          const uid = btn.getAttribute("data-uid");
+          const uRef = doc(db, "users", uid);
+          const uSnap = await getDoc(uRef);
+          const data = uSnap.exists() ? uSnap.data() : {};
+
+          const name = prompt("Nombre:", data.name || "");
+          if (name === null) return;
+          const role = prompt("Rol (admin/user):", data.role || "user");
+          if (role === null) return;
+
+          await setDoc(uRef, {
+            ...data,
+            name,
+            role
+          }, { merge: true });
+
+          alert("Usuario actualizado");
+          adminUsers.onclick(); // recargar
+        };
+      });
+    } catch (e) {
+      console.error("adminUsers error", e);
+      usersList.innerHTML = `<div class="muted">Error cargando usuarios</div>`;
     }
   };
 }
 
-// ---------------------- EDIT MODE EXÁMENES (lista) ----------------------
-btnEdit.onclick = () => {
-  if (!currentUser || currentUser.role !== "admin") return alert("Solo admin");
-  const cards = examsList.querySelectorAll(".examBox");
-  cards.forEach(card => {
-    const eid = card.dataset.eid;
-    const titleEl = card.querySelector("[data-title]");
-    const currentTitle = titleEl ? titleEl.textContent : "";
-    const input = document.createElement("input");
-    input.className = "exam-title-input";
-    input.value = currentTitle;
-    input.dataset.eid = eid;
+// ---------------------- ADMIN: LINKS SOCIALES ----------------------
+if (adminLinks) {
+  adminLinks.onclick = () => {
+    const oldAreas = adminSidebar.querySelectorAll(".editor-area");
+    oldAreas.forEach((n) => n.remove());
 
-    const delLabel = document.createElement("label");
-    delLabel.style.display = "block";
-    delLabel.style.marginTop = "6px";
-    delLabel.innerHTML = `<input type="checkbox" data-del="${eid}"> Eliminar examen`;
+    const area = document.createElement("div");
+    area.className = "editor-area";
+    adminSidebar.appendChild(area);
 
-    titleEl.parentNode.replaceChild(input, titleEl);
-    const meta = card.querySelector(".small");
-    if (meta) meta.parentNode.appendChild(delLabel);
-  });
-
-  const addRow = document.createElement("div");
-  addRow.className = "card";
-  addRow.id = "addExamRow";
-  addRow.style.marginTop = "10px";
-  addRow.innerHTML = `
-    <h4>Agregar examen nuevo</h4>
-    <input id="newExamName" placeholder="Título del examen">
-    <div style="margin-top:8px;">
-      <button id="addExamTemp" class="btn primary">Agregar (draft)</button>
-    </div>
-  `;
-  examsList.parentNode.insertBefore(addRow, examsList.nextSibling);
-
-  $("addExamTemp").onclick = () => {
-    const name = $("newExamName").value.trim();
-    if (!name) {
-      alert("Título requerido");
-      return;
-    }
-    const tempId = qid();
-    draft.newExams.push({ tempId, title:name, sectionId: currentSectionId });
-    const preview = document.createElement("div");
-    preview.className = "examBox";
-    preview.dataset.tempid = tempId;
-    preview.innerHTML = `
-      <div>
-        <div class="title">${esc(name)}</div>
-        <div class="small muted">Nuevo (draft)</div>
+    area.innerHTML = `
+      <h4>Links Sociales</h4>
+      <label>Instagram</label><input id="ln_ig" />
+      <label>WhatsApp</label><input id="ln_wa" />
+      <label>Telegram</label><input id="ln_tg" />
+      <label>TikTok</label><input id="ln_tt" />
+      <div style="margin-top:8px;">
+        <button id="ln_save" class="btn primary">Guardar (solo UI)</button>
       </div>
-      <div><button class="btn">---</button></div>
+      <div class="small muted" style="margin-top:6px;">
+        Estos links solo se guardan en la interfaz (no en Firestore).
+      </div>
     `;
-    examsList.appendChild(preview);
-    $("newExamName").value = "";
+
+    // precargar con href actuales
+    const ig = document.getElementById("ln_ig");
+    const wa = document.getElementById("ln_wa");
+    const tg = document.getElementById("ln_tg");
+    const tt = document.getElementById("ln_tt");
+    const btnSave = document.getElementById("ln_save");
+
+    if (ig) ig.value = linkInstagram?.href || "";
+    if (wa) wa.value = linkWhatsApp?.href || "";
+    if (tg) tg.value = linkTelegram?.href || "";
+    if (tt) tt.value = linkTikTok?.href || "";
+
+    if (btnSave) {
+      btnSave.onclick = () => {
+        if (ig && linkInstagram) linkInstagram.href = ig.value.trim();
+        if (wa && linkWhatsApp) linkWhatsApp.href = wa.value.trim();
+        if (tg && linkTelegram) linkTelegram.href = tg.value.trim();
+        if (tt && linkTikTok) linkTikTok.href = tt.value.trim();
+        alert("Links actualizados en la interfaz.");
+      };
+    }
   };
+}
 
-  show(btnSave);
-  hide(btnEdit);
-};
-
-btnSave.onclick = async () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  try {
-    const inputs = examsList.querySelectorAll("input.exam-title-input");
-    inputs.forEach(inp => {
-      const eid = inp.dataset.eid;
-      const title = inp.value.trim();
-      if (!eid) return;
-      if (!draft.exams[eid]) draft.exams[eid] = { deleted:false, new:false };
-      draft.exams[eid].title = title;
-    });
-
-    const dels = examsList.querySelectorAll("input[type=checkbox][data-del]");
-    dels.forEach(d => {
-      const eid = d.getAttribute("data-del");
-      if (!draft.exams[eid]) draft.exams[eid] = { title:"", new:false };
-      if (d.checked) draft.exams[eid].deleted = true;
-    });
-
-    // eliminamos (soft delete: marcar flag deleted)
-    for (const [eid, obj] of Object.entries(draft.exams)) {
-      if (obj.deleted) {
-        await updateDoc(doc(db,"exams", eid), { deleted:true });
-      }
-    }
-    // actualizamos títulos
-    for (const [eid, obj] of Object.entries(draft.exams)) {
-      if (obj.deleted) continue;
-      if (obj.title !== undefined) {
-        await updateDoc(doc(db,"exams", eid), { title: obj.title });
-      }
-    }
-    // nuevos exámenes
-    for (const nx of draft.newExams) {
-      await addDoc(collection(db,"exams"), {
-        sectionId: nx.sectionId,
-        title: nx.title,
-        description: "",
-        duration: 45,
-        createdAt: new Date()
-      });
-    }
-
-    draft.exams = {};
-    draft.newExams = [];
-    alert("Cambios guardados");
-
-    hide(btnSave);
-    show(btnEdit);
-    const addRow = $("addExamRow");
-    if (addRow) addRow.remove();
-    await renderExamsForSection(currentSectionId);
-
-  } catch(e){
-    console.error("save exams draft", e);
-    alert("Error guardando cambios");
-  }
-};
-
-// ---------------------- EDIT MODE PREGUNTAS (dentro del examen) ----------------------
-// Para no hacerlo gigante, dejamos la edición de preguntas fina en Firestore y el
-// alta rápida desde openExamEditor(); aquí solo activamos ese flujo.
-btnEditExam.onclick = () => {
-  if (!currentUser || currentUser.role !== "admin") return;
-  if (!currentExam) return alert("Abre un examen primero");
-  openExamEditor(currentExam.id);
-};
-
-btnSaveExam.onclick = () => {
-  // este botón queda para futuras ampliaciones
-  alert("La edición detallada de preguntas se hace desde el panel derecho (Editor examen).");
-};
+// ---------------------- ADMIN: LOGOUT LATERAL ----------------------
+if (adminLogout) {
+  adminLogout.onclick = doLogout;
+}
 
 // ---------------------- INIT ----------------------
-(async function init(){
+async function init() {
   hide(studentScreen);
   hide(examScreen);
   hide(resultScreen);
@@ -1019,4 +1301,10 @@ btnSaveExam.onclick = () => {
   hide(editButtons);
   hide(editExamButtons);
   await loadSections();
-})();
+}
+
+init().catch((e) => console.error("init error", e));
+
+// ===============================
+// FIN DE app.js
+// ===============================
