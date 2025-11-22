@@ -1,251 +1,339 @@
-/* ============================================================
-   ESTUDIANTE ENARM - style.css (Versión B: Intensivo / Azul-oscuro)
-   Reescritura completa + Fixes:
-   - Se agrega clase .hidden (JS la usa)
-   - Se agrega body.login-mode para ocultar sidebars en el login
-   - Login centrado sin distorsionar el layout
-   - Admin-sidebar oculto por defecto
-   ============================================================ */
-
-/* ---------- RESET GLOBAL ---------- */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+/* RESET */
+* { box-sizing: border-box; margin:0; padding:0; }
+html, body { height:100%; }
 body {
-  font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
-  background: #f4f6fb;
-  color: #0b1220;
-  line-height: 1.4;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:#f4f6fb;
+  color:#0b1220;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
 }
 
-/* CLASE GLOBAL PARA JS (NO EXISTÍA, CAUSABA QUE NADA SE OCULTARA) */
-.hidden {
-  display: none !important;
-}
-
-/* ---------- LOGIN MODE (para que no se vea nada más) ---------- */
-body.login-mode .left-sidebar,
-body.login-mode .admin-sidebar,
-body.login-mode .topbar {
-  display: none !important;
-}
-
-body.login-mode .main {
-  grid-column: 1 / -1 !important;
-  padding: 0 !important;
-}
-
-body.login-mode #loginScreen {
-  margin: 140px auto !important;
-  display: block !important;
-  position: relative;
-  z-index: 10;
-}
-
-/* ---------- LAYOUT PRINCIPAL ---------- */
+/* LAYOUT */
 .app {
-  display: grid;
-  grid-template-columns: 260px 1fr 320px;
-  grid-template-rows: 56px 1fr;
-  height: 100vh;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  height:100vh;
 }
 
-/* --- GRID AREAS --- */
-.left-sidebar { 
-  grid-column: 1 / 2; 
-  grid-row: 1 / 3; 
-  border-right: 1px solid #e6e9f2; 
-  background: #ffffff; 
-  display:flex;
-  flex-direction:column;
-  padding:18px; 
-}
-
-.main { 
-  grid-column: 2 / 3; 
-  grid-row: 1 / 3; 
-  overflow:auto; 
-  padding:18px 22px; 
-  background: linear-gradient(180deg,#fbfdff,#f4f6fb); 
-}
-
-.admin-sidebar { 
-  grid-column: 3 / 4; 
-  grid-row: 1 / 3; 
-  border-left: 1px solid #e6e9f2; 
-  background: #0f1724; 
-  color:#fff;
-  padding:20px; 
+/* SIDEBAR IZQUIERDA */
+.left-sidebar {
+  background:#ffffff;
+  border-right:1px solid #e3e7f0;
+  padding:18px;
   display:flex;
   flex-direction:column;
   gap:12px;
 }
 
-/* Topbar */
-.topbar {
-  grid-column: 2 / 3;
-  grid-row: 1 / 2;
+.brand {
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  padding: 10px 22px;
-  background: transparent;
-  position: sticky;
-  top: 0;
-  z-index: 8;
+  gap:10px;
 }
-
-/* ---------- BRAND ---------- */
-.brand { display:flex; align-items:center; gap:10px; }
+.logo { width:40px; height:40px; object-fit:contain; }
 .brand-text { font-weight:700; font-size:18px; color:#06223a; }
-.logo { width:38px; height:38px; object-fit:contain; }
 
-/* ---------- SIDEBAR IZQUIERDA (Secciones) ---------- */
-.sections { margin-top:8px; overflow:auto; padding-right:6px; }
-
-.section-item {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:10px 12px;
-  margin-bottom:10px;
-  background:#f6f9ff;
-  border-radius:8px;
-  border:1px solid rgba(59,130,246,0.06);
-  cursor:pointer;
-  transition: transform .12s ease, box-shadow .12s ease;
-}
-
-.section-item:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(14,45,85,0.06); }
-
-.section-item.active {
-  background: linear-gradient(90deg, #072f62 0%, #0a4aa6 100%);
-  color: #fff;
-  border: none;
+.sidebar-section-title {
+  font-size:13px;
   font-weight:700;
-  box-shadow: 0 8px 26px rgba(10,41,93,0.18);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:#8a94a8;
+  margin-top:4px;
 }
 
-/* ---------- Sidebar bottom ---------- */
-.sidebar-actions { margin-top:auto; display:flex; flex-direction:column; gap:12px; align-items:center; }
-.countdown {
-  font-weight:700; background:#eef4ff; padding:8px; border-radius:8px;
-  width:100%; text-align:center; border:1px solid #e1ecff;
+.sections {
+  flex:1;
+  margin-top:4px;
+  overflow:auto;
+  padding-right:4px;
 }
 
-.btn {
-  display:flex; align-items:center; justify-content:center;
-  padding:8px 12px; border-radius:8px; cursor:pointer;
-  background:#e6e9f2; color:#071029; font-weight:600;
+.sections-item {
+  padding:9px 10px;
+  border-radius:8px;
+  margin-bottom:6px;
+  cursor:pointer;
+  background:#f6f8ff;
+  border:1px solid transparent;
+  font-size:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.sections-item span {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.sections-item:hover {
+  background:#edf3ff;
+}
+.sections-item.active {
+  background:linear-gradient(90deg,#072f62,#0a4aa6);
+  color:#fff;
   border:none;
 }
 
-.btn.primary {
-  background: linear-gradient(90deg,#0b4aa6,#0a74ff); color:#fff;
+.sidebar-admin-actions {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:6px;
 }
 
-.socials { display:flex; gap:10px; margin-top:6px; }
-.socials img { width:36px; height:36px; }
-
-/* ---------- ADMIN SIDEBAR ---------- */
-.admin-title { font-size:16px; font-weight:800; margin-bottom:6px; color:#e6eefb; }
-
-.admin-sidebar .btn {
-  width:100%; background:transparent; color:#cfe1ff;
-  border:1px solid rgba(255,255,255,0.04);
+.sidebar-footer {
+  margin-top:auto;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 
-.admin-sidebar .btn:hover { background: rgba(255,255,255,0.04); }
-
-.btn.danger {
-  background:transparent; color:#ffb4b4;
-  border:1px solid rgba(255,180,180,0.06);
+.countdown {
+  font-size:13px;
+  font-weight:600;
+  text-align:center;
+  padding:6px 8px;
+  border-radius:8px;
+  background:#eef4ff;
+  border:1px solid #dde7ff;
 }
 
-/* ---------- MAIN CONTENT ---------- */
-.screen { width:100%; height: calc(100vh - 56px); overflow:auto; padding-bottom:80px; }
+.socials {
+  display:flex;
+  justify-content:center;
+  gap:8px;
+}
+.socials img {
+  width:28px;
+  height:28px;
+  object-fit:contain;
+}
 
-/* LOGIN */
-.card.centered {
-  width:420px;
-  margin:80px auto;
-  padding:22px;
+/* MAIN */
+.main {
+  background:linear-gradient(180deg,#fbfdff,#f4f6fb);
+  display:flex;
+  flex-direction:column;
+}
+
+.topbar {
+  height:56px;
+  padding:10px 20px;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+}
+.user-info {
+  font-size:14px;
+  color:#4b5563;
+}
+
+.screen {
+  flex:1;
+  padding:16px 20px;
+  overflow:auto;
+}
+
+/* TARJETAS Y BOTONES */
+.card {
+  background:#fff;
   border-radius:12px;
-  box-shadow:0 6px 30px rgba(11,18,32,0.06);
+  border:1px solid rgba(15,23,42,0.05);
+  box-shadow:0 6px 16px rgba(15,23,42,0.04);
+  padding:14px;
+}
+
+.card.centered {
+  max-width:380px;
+  margin:80px auto;
+}
+
+.row {
+  display:flex;
+  gap:8px;
+}
+
+.btn {
+  border:none;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  background:#e5e7ee;
+  color:#111827;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.btn:hover {
+  filter:brightness(0.97);
+}
+.btn.primary {
+  background:linear-gradient(90deg,#0b4aa6,#0a74ff);
+  color:#fff;
+}
+.btn.danger {
+  background:#fee2e2;
+  color:#b91c1c;
+}
+.btn.full {
+  width:100%;
+}
+
+/* TEXTOS */
+.small { font-size:13px; }
+.muted { color:#6b7280; }
+
+/* INPUTS */
+input, textarea, select {
+  width:100%;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid #d1d5db;
+  font-size:14px;
+  margin-top:8px;
   background:#fff;
 }
+textarea { resize:vertical; min-height:80px; }
 
+/* VISTAS */
+.hidden { display:none !important; }
+
+.view-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:12px;
+}
+.view-header-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+/* LISTA EXÁMENES */
+.examsList {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.examItem {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid rgba(15,23,42,0.06);
+  background:#fff;
+}
+.examItem-left {
+  min-width:0;
+}
+.examItem-title {
+  font-weight:700;
+  font-size:15px;
+}
+.examItem-desc {
+  font-size:13px;
+  color:#6b7280;
+}
+.examItem-right {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+}
+.examItem-attempts {
+  font-size:13px;
+  color:#6b7280;
+}
+
+/* CASOS CLÍNICOS */
+.caseCard {
+  margin-bottom:10px;
+}
+.caseHeader {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:8px;
+}
+.caseTitle {
+  font-weight:700;
+}
+.caseTexto {
+  margin-top:6px;
+  font-size:14px;
+  color:#374151;
+  white-space:pre-wrap;
+}
+.caseBadges {
+  display:flex;
+  gap:6px;
+  margin-top:4px;
+  font-size:12px;
+  color:#6b7280;
+}
+.caseActions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:8px;
+}
+
+/* PREGUNTAS */
+.questionList {
+  margin-top:8px;
+  border-top:1px dashed #e5e7eb;
+  padding-top:6px;
+}
+.questionRow {
+  padding:6px 0;
+  border-bottom:1px dashed #e5e7eb;
+}
+.questionText {
+  font-size:14px;
+  font-weight:500;
+}
+.questionMeta {
+  font-size:12px;
+  color:#6b7280;
+  margin-top:2px;
+}
+.questionActions {
+  margin-top:4px;
+  display:flex;
+  gap:6px;
+}
+
+/* LOGIN INPUTS */
 #loginScreen input {
-  width:100%;
-  padding:10px;
-  border:1px solid #dbe6ff;
-  border-radius:8px;
   margin-top:10px;
 }
 
-/* ---------- STUDENT EXAMS VIEW ---------- */
-#studentTitle { font-size:20px; font-weight:800; margin-bottom:12px; }
-
-.examsList {
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap:14px;
-}
-
-.examBox {
-  background:#fff; border-radius:12px; padding:14px;
-  border:1px solid rgba(11,18,32,0.04);
-  display:flex; justify-content:space-between;
-}
-
-/* ---------- EXAM SCREEN ---------- */
-.examHeader {
-  display:flex; justify-content:space-between; margin-bottom:14px;
-}
-
-.examTimer {
-  background:#081a3a; color:#fff; padding:8px 12px;
-  border-radius:10px; font-weight:800;
-}
-
-.questionBlock {
-  background:#fff; border-radius:10px; padding:14px;
-  border:1px solid rgba(11,18,32,0.04);
-}
-
-/* ---------- EDIT BUTTONS (FLOTANTES) ---------- */
-.editControls {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  display:flex;
-  gap:10px;
-  z-index: 999;
-}
-
-.editControls .btn.primary {
-  background: linear-gradient(90deg,#0b4aa6,#0a74ff); color:#fff;
-}
-
-/* ---------- MODO OSCURO ---------- */
-@media (prefers-color-scheme: dark) {
-  body { background:#07101a; color:#e6f0ff; }
-  .left-sidebar { background:#071126; }
-  .admin-sidebar { background:#071126; }
-  .card.centered, .examBox, .questionBlock {
-    background:#071627; color:#e6f0ff;
+/* RESPONSIVE */
+@media (max-width:900px) {
+  .app { grid-template-columns:1fr; }
+  .left-sidebar {
+    flex-direction:row;
+    align-items:flex-start;
+    gap:10px;
+    overflow-x:auto;
+    height:auto;
   }
-}
-
-/* ---------- RESPONSIVE ---------- */
-@media (max-width: 1100px) {
-  .app { grid-template-columns: 220px 1fr; }
-  .admin-sidebar { display:none !important; }
-}
-
-@media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; }
-  .left-sidebar { grid-column:1 / -1; flex-direction:row; overflow:auto; }
+  .sidebar-section-title { display:none; }
+  .sections { flex:none; display:flex; gap:6px; margin-top:0; }
+  .sections-item { white-space:nowrap; }
+  .sidebar-admin-actions, .sidebar-footer {
+    flex-direction:row;
+    gap:6px;
+    align-items:center;
+  }
+  .btn.full { width:auto; }
 }
