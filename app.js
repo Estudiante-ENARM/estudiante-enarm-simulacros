@@ -364,70 +364,109 @@ async function selectSection(id, name) {
 
 // ---------------------- LISTA DE EXÁMENES POR SECCIÓN ----------------------
 async function renderExamsForSection(sectionId) {
-  if (!examsList) return;
-  examsList.innerHTML = "";
+  if (!sectionId) return;
 
-  if (!sectionId) {
-    examsList.innerHTML = `<div class="muted">Selecciona una sección</div>`;
-    return;
-  }
+  examsList.innerHTML = `<div class="muted">Cargando exámenes...</div>`;
 
   try {
-    const qEx = query(
+    // Intento con orden
+    let q = query(
       collection(db, "exams"),
       where("sectionId", "==", sectionId),
-      orderBy("createdAt")
+      orderBy("order", "asc")
     );
-    const snap = await getDocs(qEx);
+
+    const snap = await getDocs(q);
+
+    examsList.innerHTML = "";
 
     if (snap.empty) {
-      examsList.innerHTML = `<div class="muted">No hay exámenes en esta sección</div>`;
+      examsList.innerHTML = `<div class="muted">No hay exámenes en esta sección.</div>`;
       return;
     }
 
-    snap.forEach((eDoc) => {
-      const data = eDoc.data();
-      const examId = eDoc.id;
+    snap.forEach((docu) => {
+      const d = docu.data();
+
+      // Asignar orden automático si falta
+      const orderValue = (typeof d.order === "number") ? d.order : 999;
 
       const card = document.createElement("div");
-      card.className = "examBox";
-      card.dataset.eid = examId;
+      card.className = "card exam-card";
 
-      const title = data.title || "Examen";
-      const desc  = data.description || "";
-      const dur   = data.duration || 0;
-
-      const left = document.createElement("div");
-      left.innerHTML = `
-        <div style="font-weight:700">${escapeHtml(title)}</div>
-        <div class="small muted">
-          ${desc ? escapeHtml(desc) + " · " : ""}Duración: ${dur} min
+      card.innerHTML = `
+        <div>
+          <strong>${escapeHtml(d.title || "Examen sin título")}</strong>
+          <div class="small muted">Orden: ${orderValue}</div>
+          <div class="small muted">${escapeHtml(d.description || "")}</div>
+        </div>
+        <div style="margin-top:6px;">
+          <button class="btn exam_start" data-id="${docu.id}">Iniciar</button>
         </div>
       `;
 
-      const right = document.createElement("div");
-      right.style.display = "flex";
-      right.style.flexDirection = "column";
-      right.style.alignItems = "flex-end";
-      right.style.gap = "8px";
-
-      const openBtn = document.createElement("button");
-      openBtn.className = "btn primary";
-      openBtn.textContent = "Abrir";
-      openBtn.onclick = () => openExam(examId);
-
-      right.appendChild(openBtn);
-
-      card.appendChild(left);
-      card.appendChild(right);
       examsList.appendChild(card);
     });
 
-    // Nunca mostramos botones flotantes de edición por ahora
-    hide(editButtons);
+    // Eventos de inicio
+    examsList.querySelectorAll(".exam_start").forEach((btn) => {
+      btn.onclick = () => {
+        const examId = btn.getAttribute("data-id");
+        startExam(examId);
+      };
+    });
+
   } catch (e) {
     console.error("renderExamsForSection error", e);
-    examsList.innerHTML = `<div class="muted">Error cargando exámenes</div>`;
+
+    // Si falla por falta de índice, intento sin orderBy
+    try {
+      console.warn("Intentando carga SIN orderBy");
+
+      const q2 = query(
+        collection(db, "exams"),
+        where("sectionId", "==", sectionId)
+      );
+      const snap2 = await getDocs(q2);
+
+      examsList.innerHTML = "";
+
+      if (snap2.empty) {
+        examsList.innerHTML = `<div class="muted">No hay exámenes en esta sección.</div>`;
+        return;
+      }
+
+      snap2.forEach((docu) => {
+        const d = docu.data();
+
+        const card = document.createElement("div");
+        card.className = "card exam-card";
+
+        card.innerHTML = `
+          <div>
+            <strong>${escapeHtml(d.title || "Examen sin título")}</strong>
+            <div class="small muted">Orden: ${d.order ?? 999}</div>
+            <div class="small muted">${escapeHtml(d.description || "")}</div>
+          </div>
+          <div style="margin-top:6px;">
+            <button class="btn exam_start" data-id="${docu.id}">Iniciar</button>
+          </div>
+        `;
+
+        examsList.appendChild(card);
+      });
+
+      examsList.querySelectorAll(".exam_start").forEach((btn) => {
+        btn.onclick = () => {
+          const examId = btn.getAttribute("data-id");
+          startExam(examId);
+        };
+      });
+
+    } catch (err2) {
+      console.error("Fallo también sin orderBy", err2);
+      examsList.innerHTML = `<div class="muted">Error cargando exámenes.</div>`;
+    }
   }
 }
 
