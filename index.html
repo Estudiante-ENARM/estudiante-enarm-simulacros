@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Estudiante ENARM</title>
+  <title>Panel ADMIN ENARM</title>
 
-  <!-- Google Analytics -->
+  <!-- Google Analytics (deja tu mismo ID) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -33,127 +33,97 @@
 
   <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<div id="app" class="app">
+<div class="app">
 
-  <!-- ==========================================================
-       SIDEBAR IZQUIERDA (SECCIONES + REDES)
-       ========================================================== -->
+  <!-- SIDEBAR IZQUIERDA -->
   <aside class="sidebar left-sidebar">
     <div class="brand">
-      <div class="brand-text">Estudiante ENARM</div>
       <img src="./logo.png" class="logo" alt="Logo">
+      <div class="brand-text">Admin ENARM</div>
     </div>
 
+    <div class="sidebar-section-title">Secciones</div>
     <nav id="sectionsList" class="sections">
-      <!-- Secciones cargadas dinámicamente -->
+      <!-- Secciones dinámicas -->
     </nav>
 
-    <div class="sidebar-actions">
-      <a id="btnAccesoCompleto"
-         class="btn primary"
-         href="https://wa.me/525515656316?text=Me%20gustaría%20adquirir%20el%20acceso%20completo"
-         target="_blank" rel="noopener noreferrer">
-         Acceso completo
-      </a>
+    <div class="sidebar-section-title" style="margin-top:16px;">Administración</div>
+    <div class="sidebar-admin-actions">
+      <button id="btnAddSection" class="btn full">Agregar sección</button>
+      <button id="btnViewUsers" class="btn full">Usuarios</button>
+    </div>
 
+    <div class="sidebar-footer">
       <div id="mainCountdown" class="countdown"></div>
-
       <div class="socials">
-        <a id="link-instagram" target="_blank"><img src="./instagram.png" alt=""></a>
-        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" alt=""></a>
-        <a id="link-telegram" target="_blank"><img src="./telegram.png" alt=""></a>
-        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt=""></a>
+        <a id="link-instagram" target="_blank"><img src="./instagram.png" alt="Instagram"></a>
+        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" alt="WhatsApp"></a>
+        <a id="link-telegram" target="_blank"><img src="./telegram.png" alt="Telegram"></a>
+        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt="TikTok"></a>
       </div>
+      <button id="btnLogout" class="btn full danger">Cerrar sesión</button>
     </div>
   </aside>
 
-
-  <!-- ==========================================================
-       SIDEBAR DERECHA (ADMIN)
-       ========================================================== -->
-  <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
-
-    <h3 class="admin-title">Administrador</h3>
-
-    <button id="adminAddSection" class="btn">Agregar sección</button>
-    <button id="adminAddExam" class="btn">Agregar examen</button>
-    <button id="adminEditQuestions" class="btn">Editar preguntas del examen</button>
-    <button id="adminUsers" class="btn">Ver usuarios</button>
-    <button id="adminLinks" class="btn">Links</button>
-
-    <hr>
-    <button id="adminLogout" class="btn danger">Cerrar sesión</button>
-
-  </aside>
-
-
-  <!-- ==========================================================
-       MAIN CONTENT
-       ========================================================== -->
+  <!-- MAIN -->
   <main class="main">
-
     <!-- TOPBAR -->
     <header class="topbar">
       <div id="userInfo" class="user-info"></div>
-      <div id="authButtons" class="auth-buttons"></div>
     </header>
 
-    <section id="mainContent" class="screen">
+    <!-- CONTENIDO PRINCIPAL -->
+    <section class="screen">
 
-        <!-- LOGIN -->
-        <div id="loginScreen" class="card centered">
-          <h2>Acceso</h2>
-          <input id="inputEmail" type="email" placeholder="Correo electrónico">
-          <input id="inputPassword" type="password" placeholder="Contraseña">
-          <div class="row" style="margin-top:12px;">
-            <button id="btnLogin" class="btn primary">Entrar</button>
-            <button id="btnCancel" class="btn">Cancelar</button>
-          </div>
-          <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
+      <!-- LOGIN -->
+      <div id="loginScreen" class="card centered">
+        <h2>Acceso administrador</h2>
+        <input id="inputEmail" type="email" placeholder="Correo electrónico" />
+        <input id="inputPassword" type="password" placeholder="Contraseña" />
+        <div class="row" style="margin-top:12px;">
+          <button id="btnLogin" class="btn primary">Entrar</button>
+          <button id="btnCancel" class="btn">Cancelar</button>
         </div>
+        <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
+      </div>
 
-        <!-- SECCIONES / EXÁMENES -->
-        <div id="studentScreen" class="hidden">
-          <h2 id="studentTitle">Sección seleccionada</h2>
+      <!-- VISTA: EXÁMENES POR SECCIÓN -->
+      <div id="viewExams" class="hidden">
+        <div class="view-header">
+          <h2 id="sectionTitle">Selecciona una sección</h2>
+          <button id="btnAddExam" class="btn primary">Agregar examen</button>
+        </div>
+        <div id="examsList" class="examsList"></div>
+      </div>
 
-          <div id="examsList" class="examsList"></div>
-
-          <!-- Botones admin flotantes -->
-          <div id="editButtons" class="editControls hidden">
-            <button id="btnEdit" class="btn">Editar</button>
-            <button id="btnSave" class="btn primary">Guardar</button>
+      <!-- VISTA: EDITOR DE EXAMEN (CASOS + PREGUNTAS) -->
+      <div id="viewExamEditor" class="hidden">
+        <div class="view-header">
+          <div>
+            <h2 id="examEditorTitle">Examen</h2>
+            <div id="examEditorSubtitle" class="small muted"></div>
+          </div>
+          <div class="view-header-actions">
+            <button id="btnEditExamInfo" class="btn">Editar datos examen</button>
+            <button id="btnAddCase" class="btn primary">Agregar caso clínico</button>
+            <button id="btnBackToExams" class="btn">Volver a exámenes</button>
           </div>
         </div>
+        <div id="casesList"></div>
+      </div>
 
-        <!-- EXAMEN -->
-        <div id="examScreen" class="hidden fullScreenExam">
-
-          <div class="examHeader">
-            <h3 id="examTitle"></h3>
-            <div id="examTimer" class="examTimer"></div>
-          </div>
-
-          <form id="examForm"></form>
-
-          <div class="examFooter">
-            <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
-          </div>
-
-          <div id="editExamButtons" class="editControls hidden">
-            <button id="btnEditExam" class="btn">Editar</button>
-            <button id="btnSaveExam" class="btn primary">Guardar</button>
-          </div>
-
+      <!-- VISTA: USUARIOS -->
+      <div id="viewUsers" class="hidden">
+        <div class="view-header">
+          <h2>Usuarios</h2>
+          <button id="btnAddUser" class="btn primary">Agregar usuario (solo Firestore)</button>
         </div>
-
-        <!-- RESULTADOS -->
-        <div id="resultScreen" class="hidden card"></div>
+        <div id="usersList"></div>
+      </div>
 
     </section>
-
   </main>
 
 </div>
