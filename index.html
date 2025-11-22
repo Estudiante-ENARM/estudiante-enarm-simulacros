@@ -38,20 +38,23 @@
 
 <div id="app" class="app">
 
-  <!-- SIDEBAR IZQUIERDA -->
+  <!-- ==========================================================
+       SIDEBAR IZQUIERDA (SECCIONES + REDES)
+       ========================================================== -->
   <aside class="sidebar left-sidebar">
     <div class="brand">
       <div class="brand-text">Estudiante ENARM</div>
       <img src="./logo.png" class="logo" alt="Logo">
     </div>
 
-    <nav id="sectionsList" class="sections"></nav>
+    <nav id="sectionsList" class="sections">
+      <!-- Secciones cargadas dinámicamente -->
+    </nav>
 
     <div class="sidebar-actions">
-
       <a id="btnAccesoCompleto"
          class="btn primary"
-         href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
+         href="https://wa.me/525515656316?text=Me%20gustaría%20adquirir%20el%20acceso%20completo"
          target="_blank" rel="noopener noreferrer">
          Acceso completo
       </a>
@@ -64,13 +67,15 @@
         <a id="link-telegram" target="_blank"><img src="./telegram.png" alt=""></a>
         <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt=""></a>
       </div>
-
     </div>
   </aside>
 
 
-  <!-- SIDEBAR DERECHA (ADMIN) -->
+  <!-- ==========================================================
+       SIDEBAR DERECHA (ADMIN)
+       ========================================================== -->
   <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
+
     <h3 class="admin-title">Administrador</h3>
 
     <button id="adminAddSection" class="btn">Agregar sección</button>
@@ -80,26 +85,29 @@
     <button id="adminLinks" class="btn">Links</button>
 
     <hr>
-
     <button id="adminLogout" class="btn danger">Cerrar sesión</button>
+
   </aside>
 
 
-  <!-- MAIN CONTENT -->
+  <!-- ==========================================================
+       MAIN CONTENT
+       ========================================================== -->
   <main class="main">
 
+    <!-- TOPBAR -->
     <header class="topbar">
       <div id="userInfo" class="user-info"></div>
       <div id="authButtons" class="auth-buttons"></div>
     </header>
 
     <section id="mainContent" class="screen">
-        
+
         <!-- LOGIN -->
         <div id="loginScreen" class="card centered">
           <h2>Acceso</h2>
-          <input id="inputEmail" type="email" placeholder="Correo electrónico" />
-          <input id="inputPassword" type="password" placeholder="Contraseña" />
+          <input id="inputEmail" type="email" placeholder="Correo electrónico">
+          <input id="inputPassword" type="password" placeholder="Contraseña">
           <div class="row" style="margin-top:12px;">
             <button id="btnLogin" class="btn primary">Entrar</button>
             <button id="btnCancel" class="btn">Cancelar</button>
@@ -107,11 +115,13 @@
           <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
         </div>
 
-        <!-- LISTA DE EXÁMENES -->
+        <!-- SECCIONES / EXÁMENES -->
         <div id="studentScreen" class="hidden">
           <h2 id="studentTitle">Sección seleccionada</h2>
+
           <div id="examsList" class="examsList"></div>
 
+          <!-- Botones admin flotantes -->
           <div id="editButtons" class="editControls hidden">
             <button id="btnEdit" class="btn">Editar</button>
             <button id="btnSave" class="btn primary">Guardar</button>
@@ -120,6 +130,7 @@
 
         <!-- EXAMEN -->
         <div id="examScreen" class="hidden fullScreenExam">
+
           <div class="examHeader">
             <h3 id="examTitle"></h3>
             <div id="examTimer" class="examTimer"></div>
@@ -135,6 +146,7 @@
             <button id="btnEditExam" class="btn">Editar</button>
             <button id="btnSaveExam" class="btn primary">Guardar</button>
           </div>
+
         </div>
 
         <!-- RESULTADOS -->
