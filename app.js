@@ -1,5 +1,5 @@
-// app.js (modificado: correcciones Add Users UI y flujo Add Exam -> abrir editor)
-// Mantiene intactas el resto de funciones originales (login, timers, exámenes, CRUD preguntas).
+// app.js (FINAL) - Parte 1/3
+// Auto-reconstrucción activada (opción A). No borra datos, solo crea/actualiza los necesarios.
 
 // ---------------------- IMPORTS FIREBASE (modular CDN) ----------------------
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
@@ -21,7 +21,8 @@ import {
   getDocs,
   query,
   where,
-  orderBy
+  orderBy,
+  limit
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // ---------------------- CONFIG FIREBASE (tuya) ----------------------
@@ -39,22 +40,22 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ---------------------- CONSTANTES ----------------------
-// UID admin que me compartiste — se usa en reglas y comprobaciones UI
 const ADMIN_UID = "2T2NYl0wkwTu1EH14K82b0IgPiy2";
+const AUTO_RECONSTRUCT_ENABLED = true; // opción A: auto-reconstrucción activa
 
 // ---------------------- UTIL DOM ----------------------
 const $ = id => document.getElementById(id);
 
-// Elementos esperados en index.html (asegúrate que existan)
+// Elementos del DOM (asegúrate que existan en index.html)
 const inputEmail = $('inputEmail');
 const inputPassword = $('inputPassword');
 const btnLogin = $('btnLogin');
 const btnCancel = $('btnCancel');
 const loginMessage = $('loginMessage');
 
-const sectionsList = $('sectionsList');        // sidebar
-const studentTitle = $('studentTitle');        // título sección (pantalla estudiante)
-const examsList = $('examsList');              // lista de exámenes (pantalla estudiante)
+const sectionsList = $('sectionsList');
+const studentTitle = $('studentTitle');
+const examsList = $('examsList');
 
 const loginScreen = $('loginScreen');
 const studentScreen = $('studentScreen');
@@ -84,7 +85,7 @@ const linkWhatsApp = $('link-whatsapp');
 const linkTelegram = $('link-telegram');
 const linkTikTok = $('link-tiktok');
 
-// Validaciones: si algún elemento no existe, creamos placeholders para evitar errores
+// ensure placeholders exist to avoid runtime errors
 function ensure(id) {
   if (!$(id)) {
     const dummy = document.createElement('div');
@@ -114,7 +115,12 @@ function show(el) { el && el.classList && el.classList.remove('hidden'); }
 function hide(el) { el && el.classList && el.classList.add('hidden'); }
 function qid(){ return 'id_' + Math.random().toString(36).slice(2,9); }
 
-// ---------------------- COUNTDOWN PRINCIPAL (23 SEP 2026) ----------------------
+// safe wrapper for updateDoc to avoid unhandled rejection
+async function safeUpdate(ref, data) {
+  try { await updateDoc(ref, data); } catch (e) { console.warn('safeUpdate failed', e); }
+}
+
+// ---------------------- COUNTDOWN PRINCIPAL ----------------------
 function startMainCountdown(){
   try {
     const target = new Date('2026-09-23T00:00:00');
@@ -133,15 +139,92 @@ function startMainCountdown(){
 }
 startMainCountdown();
 
-// ---------------------- CARGA DE SECCIONES ----------------------
+// ---------------------- AUTO-RECONSTRUCCIÓN & UTILIDADES FIRESTORE ----------------------
+// Esta sección solo corre si AUTO_RECONSTRUCT_ENABLED === true
+let _alreadyRanReconstruct = false;
+
+async function ensureCollectionsAndDefaults() {
+  if (!AUTO_RECONSTRUCT_ENABLED || _alreadyRanReconstruct) return;
+  _alreadyRanReconstruct = true;
+  try {
+    console.log('Auto-reconstruct: verificando colecciones...');
+
+    // 1) sections: si no existe ninguna, crear una por defecto
+    const sSnap = await getDocs(query(collection(db,'sections'), orderBy('nombre'), limit(1)));
+    if (sSnap.empty) {
+      console.log('Auto-reconstruct: creando sección por defecto');
+      await addDoc(collection(db,'sections'), { nombre: 'Sección 1', createdAt: new Date().toISOString() });
+    }
+
+    // 2) exams: si no existe la colección exams, no hay getDocs() diferencia; solo revisamos si empty y no creamos exámenes reales
+    const eSnap = await getDocs(query(collection(db,'exams'), limit(1)));
+    if (eSnap.empty) {
+      console.log('Auto-reconstruct: colección exams vacía (no se crean exámenes por defecto).');
+      // opcionalmente podríamos crear un examen ejemplo en la primera sección, pero preferimos no crear contenido de examen automáticamente.
+    }
+
+    // 3) users: crear un admin placeholder si no hay usuarios (solo documento, no Auth)
+    const uSnap = await getDocs(query(collection(db,'users'), limit(1)));
+    if (uSnap.empty) {
+      console.log('Auto-reconstruct: creando usuario admin placeholder (Firestore doc)');
+      // crea doc cuyo id es ADMIN_UID para facilitar login con Auth si luego creas la cuenta en Auth
+      await setDoc(doc(db,'users', ADMIN_UID), {
+        usuario: 'admin',
+        role: 'admin',
+        estado: 'habilitado',
+        expiracion: ''
+      });
+    }
+
+    // 4) questions/attempts: no creamos documentos aquí. Solo detectamos huérfanos de exams en siguiente paso.
+    await fixOrphanExams(); // reasigna exámenes sin sectionId
+    console.log('Auto-reconstruct: verificación finalizada.');
+  } catch (e) {
+    console.error('ensureCollectionsAndDefaults error', e);
+  }
+}
+
+// Reasigna exámenes huérfanos a la primera sección existente.
+// No borra nada — actualiza field sectionId en exámenes que no lo tengan.
+async function fixOrphanExams() {
+  try {
+    const secSnap = await getDocs(query(collection(db,'sections'), orderBy('nombre')));
+    if (secSnap.empty) return;
+    const firstSectionId = secSnap.docs[0].id;
+
+    const examsSnap = await getDocs(collection(db,'exams'));
+    let reassigned = 0;
+    for (const e of examsSnap.docs) {
+      const data = e.data();
+      if (!data.sectionId || data.sectionId === null || data.sectionId === '') {
+        try {
+          await updateDoc(doc(db,'exams', e.id), { sectionId: firstSectionId });
+          reassigned++;
+        } catch (err) {
+          console.warn('fixOrphanExams update failed for', e.id, err);
+        }
+      }
+    }
+    if (reassigned > 0) console.log(`fixOrphanExams: reasignados ${reassigned} exámenes a sección ${firstSectionId}`);
+    return;
+  } catch (e) {
+    console.error('fixOrphanExams error', e);
+  }
+}
+// app.js (FINAL) - Parte 2/3
+// ---------------------- CARGA DE SECCIONES (MEJORADA) ----------------------
 async function loadSections(){
   sectionsList.innerHTML = '';
   try {
+    // Aseguramos colecciones y defaults (solo la primera vez)
+    await ensureCollectionsAndDefaults();
+
     const col = collection(db, 'sections');
     const snap = await getDocs(query(col, orderBy('nombre')));
     if (snap.empty) {
-      // si no hay secciones, creamos una por defecto
-      await addDoc(collection(db,'sections'), { nombre: 'Sección 1', createdAt: new Date().toISOString() });
+      // si no hay secciones, crear una por defecto (fallback)
+      const created = await addDoc(collection(db,'sections'), { nombre: 'Sección 1', createdAt: new Date().toISOString() });
+      // recargar
       return loadSections();
     }
     snap.forEach(snapDoc => {
@@ -154,30 +237,48 @@ async function loadSections(){
       if (currentSectionId === snapDoc.id) el.classList.add('active');
       sectionsList.appendChild(el);
     });
+
+    // Si no hay sección seleccionada, seleccionar la primera
+    if (!currentSectionId && snap.docs.length > 0) {
+      selectSection(snap.docs[0].id, snap.docs[0].data().nombre);
+    }
   } catch (e) { console.error('loadSections', e); }
 }
 
-// Selección de sección (muestra exámenes)
-async function selectSection(id, nombre){
-  currentSectionId = id;
-  if (studentTitle) studentTitle.textContent = nombre || 'Sección';
-  // marcar activa en UI
-  Array.from(sectionsList.children).forEach(ch => {
-    ch.classList.toggle('active', ch.dataset.id === id);
-  });
-  await loadExamsForSection(id);
-}
-
-// ---------------------- CARGA EXÁMENES POR SECCIÓN ----------------------
+// ---------------------- CARGA EXÁMENES POR SECCIÓN (MEJORADA CON FALLBACKS) ----------------------
 async function loadExamsForSection(sectionId){
   examsList.innerHTML = '';
   try {
+    // Validación: si sectionId es falso, mostrar mensaje y listar todos para admin
+    if (!sectionId) {
+      examsList.innerHTML = '<div class="muted">Selecciona una sección para ver exámenes.</div>';
+      return;
+    }
+
+    // Obtenemos todos los exámenes (para poder reasignar huérfanos si existen)
+    const allExamsSnap = await getDocs(collection(db,'exams'));
+    // Reasignar huérfanos rápidamente (sin bloquear la UI)
+    for (const eDoc of allExamsSnap.docs) {
+      const data = eDoc.data();
+      if (!data.sectionId || data.sectionId === null || data.sectionId === '') {
+        // reasignamos al sectionId pedido (preferible) o a la primera sección
+        try {
+          await updateDoc(doc(db,'exams', eDoc.id), { sectionId });
+        } catch (err) {
+          console.warn('loadExamsForSection: no se pudo reasignar examen huérfano', eDoc.id, err);
+        }
+      }
+    }
+
+    // Ahora cargamos los exámenes de la sección correctamente
     const q = query(collection(db, 'exams'), where('sectionId', '==', sectionId), orderBy('nombre'));
     const snap = await getDocs(q);
     if (snap.empty) {
       examsList.innerHTML = '<div class="muted">No hay exámenes en esta sección</div>';
       return;
     }
+
+    // Renderizar exámenes
     snap.forEach(eDoc => {
       const data = eDoc.data();
       const examId = eDoc.id;
@@ -185,7 +286,7 @@ async function loadExamsForSection(sectionId){
       card.className = 'examBox';
       card.innerHTML = `
         <div>
-          <div style="font-weight:700">${data.nombre || 'Examen'}</div>
+          <div style="font-weight:700">${escapeHtml(data.nombre || 'Examen')}</div>
           <div class="small muted">Preguntas: ${data.questionCount || 0}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
@@ -198,7 +299,7 @@ async function loadExamsForSection(sectionId){
       examsList.appendChild(card);
       updateAttemptsDisplay(examId);
     });
-  } catch (e) { console.error('loadExamsForSection', e); }
+  } catch (e) { console.error('loadExamsForSection', e); examsList.innerHTML = '<div class="muted">Error cargando exámenes</div>'; }
 }
 
 // ---------------------- INTENTOS (ATTEMPTS) ----------------------
@@ -229,12 +330,24 @@ async function openExam(examId){
     if (!eSnap.exists()) return alert('Examen no encontrado');
     currentExam = { id: examId, ...eSnap.data() };
 
-    // cargar preguntas
+    // cargar preguntas (asegurarse de que existan)
     const qSnap = await getDocs(query(collection(db,'questions'), where('examId','==', examId), orderBy('pregunta')));
     const questions = [];
     qSnap.forEach(q => questions.push({ id: q.id, ...q.data() }));
 
-    if (questions.length === 0) return alert('Este examen no tiene preguntas.');
+    if (questions.length === 0) {
+      // mostrar mensaje y ofrecer abrir editor si admin
+      if (currentUser.role === 'admin') {
+        if (confirm('Este examen no tiene preguntas. ¿Deseas abrir el editor para agregar preguntas?')) {
+          openExamEditor(examId);
+          return;
+        } else {
+          return;
+        }
+      } else {
+        return alert('Este examen no tiene preguntas.');
+      }
+    }
 
     // mostrar pantalla de examen
     renderExamScreen(currentExam, questions);
@@ -243,18 +356,15 @@ async function openExam(examId){
 
 // ---------------------- RENDERIZAR PANTALLA DE EXAMEN ----------------------
 function renderExamScreen(exam, questions){
-  // ocultar pantallas y mostrar examen
   hide(loginScreen); hide(studentScreen); hide(adminScreen); hide(resultScreen);
   show(examScreen);
 
   examTitle.textContent = exam.nombre || 'Examen';
   examForm.innerHTML = '';
 
-  // tiempo total: 75 segundos por pregunta
-  const totalSeconds = questions.length * 75;
+  const totalSeconds = Math.max(60, questions.length * 75);
   startExamTimer(totalSeconds);
 
-  // Render preguntas
   questions.forEach((q, idx) => {
     const qBlock = document.createElement('div');
     qBlock.className = 'questionBlock card';
@@ -271,7 +381,6 @@ function renderExamScreen(exam, questions){
       label.innerHTML = `<input type="radio" name="${q.id}" value="${optIdx}" id="${optionId}" /> ${String.fromCharCode(65 + optIdx)}. ${escapeHtml(opt)}`;
       optsDiv.appendChild(label);
     });
-    // store correct index and justification as data attributes (not visible to students)
     qBlock.appendChild(optsDiv);
     const justDiv = document.createElement('div');
     justDiv.className = 'justification hidden';
@@ -280,14 +389,13 @@ function renderExamScreen(exam, questions){
     examForm.appendChild(qBlock);
   });
 
-  // finish handler assigned below (to avoid duplicates)
   btnFinishExam.onclick = async () => {
     if (!confirm('¿Deseas finalizar el examen? Esto contará como un intento.')) return;
     await finalizeExamAndGrade(exam.id);
   };
 }
 
-// ---------------------- TEMPORIZADOR DEL EXAMEN ----------------------
+// ---------------------- TEMPORIZADOR ----------------------
 function startExamTimer(totalSeconds){
   clearInterval(examTimerInterval);
   examRemainingSeconds = totalSeconds;
@@ -307,18 +415,14 @@ function startExamTimer(totalSeconds){
   tick();
   examTimerInterval = setInterval(tick, 1000);
 }
-
+// app.js (FINAL) - Parte 3/3
 // ---------------------- FINALIZAR EXAMEN, CALIFICAR Y MOSTRAR RESULTADOS ----------------------
 async function finalizeExamAndGrade(examId){
   try {
-    // recoger respuestas seleccionadas
-    const answers = {}; // { questionId: selectedIndex }
+    const answers = {};
     const inputs = examForm.querySelectorAll('input[type=radio]:checked');
-    inputs.forEach(inp => {
-      answers[inp.name] = Number(inp.value);
-    });
+    inputs.forEach(inp => { answers[inp.name] = Number(inp.value); });
 
-    // recuperar preguntas para comparar (asegura veracidad)
     const qSnap = await getDocs(query(collection(db,'questions'), where('examId','==', examId)));
     const questions = [];
     qSnap.forEach(q => questions.push({ id: q.id, ...q.data() }));
@@ -338,13 +442,8 @@ async function finalizeExamAndGrade(examId){
     const used = attSnap.exists() ? (attSnap.data().used || 0) : 0;
     await setDoc(attRef, { used: used + 1, last: new Date().toISOString() });
 
-    // Mostrar pantalla de resultados con detalle
     renderResultScreen(questions, answers, percent);
-
-    // actualizar intentos en listado
     await loadExamsForSection(currentSectionId);
-
-    // limpiar timer
     clearInterval(examTimerInterval);
   } catch (e) { console.error('finalizeExamAndGrade', e); alert('Error al finalizar examen'); }
 }
@@ -389,7 +488,6 @@ btnLogin && (btnLogin.onclick = async () => {
   if (!email || !password) { if (loginMessage) loginMessage.textContent = 'Ingrese credenciales'; return; }
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
-    // después de iniciar sesión, onAuthStateChanged manejará el UI
     loginMessage && (loginMessage.textContent = '');
   } catch(e) {
     console.error('login err', e);
@@ -405,7 +503,6 @@ btnCancel && (btnCancel.onclick = () => {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // obtener doc users para role y estado si existe
     try {
       const uDocRef = doc(db, 'users', user.uid);
       const uSnap = await getDoc(uDocRef);
@@ -424,7 +521,6 @@ onAuthStateChanged(auth, async (user) => {
           const now = new Date();
           const exp = new Date(currentUser.expiracion);
           if (now > exp) {
-            // marcar inhabilitado en Firestore
             await updateDoc(doc(db,'users', user.uid), { estado: 'inhabilitado' });
             alert('Tu acceso ha expirado y tu cuenta ha sido inhabilitada automáticamente. Contacta al administrador.');
             await signOut(auth);
@@ -432,11 +528,9 @@ onAuthStateChanged(auth, async (user) => {
           }
         } catch (ee) {
           console.warn('Error verificando expiración', ee);
-          // En caso de error de parsing, no bloquear: continuar con comportamiento normal
         }
       }
 
-      // mostrar UI segun role
       if (currentUser.role === 'admin' || currentUser.uid === ADMIN_UID) {
         currentUser.role = 'admin';
         showAdminUI();
@@ -448,18 +542,16 @@ onAuthStateChanged(auth, async (user) => {
       console.error('onAuthStateChanged read user', e);
     }
   } else {
-    // no user -> mostrar login
     currentUser = null;
     hide(adminScreen); hide(studentScreen); hide(examScreen); hide(resultScreen);
     show(loginScreen);
     userInfo && (userInfo.textContent = '');
     authButtons && (authButtons.innerHTML = '');
-    // cargar secciones en la vista sin login
     await loadSections();
   }
 });
 
-// LOGOUT handler rendered in authButtons by showStudentUI / showAdminUI
+// ---------------------- LOGOUT ----------------------
 async function doLogout(){
   try { await signOut(auth); location.reload(); } catch(e){ console.error('logout', e); }
 }
@@ -470,11 +562,9 @@ async function showStudentUI(){
   show(studentScreen);
   userInfo && (userInfo.textContent = currentUser.email || '');
   authButtons && (authButtons.innerHTML = `<button id="btnLogout" class="btn">Salir</button>`);
-  // attach logout
   const b = document.getElementById('btnLogout');
   if (b) b.onclick = doLogout;
   await loadSections();
-  // seleccionar la primera sección por defecto
   const sSnap = await getDocs(collection(db,'sections'));
   if (sSnap.docs.length) selectSection(sSnap.docs[0].id, sSnap.docs[0].data().nombre);
 }
@@ -487,13 +577,11 @@ async function showAdminUI(){
   const b = document.getElementById('btnLogout');
   if (b) b.onclick = doLogout;
   await loadSections();
-  // seleccionar primera sección por defecto
   const sSnap = await getDocs(collection(db,'sections'));
   if (sSnap.docs.length) selectSection(sSnap.docs[0].id, sSnap.docs[0].data().nombre);
 }
 
 // ---------------------- ADMIN: ACCIONES (CRUD) ----------------------
-
 // Agregar sección
 btnAddSection && (btnAddSection.onclick = async () => {
   const nombre = prompt('Nombre de la nueva sección:');
@@ -513,7 +601,6 @@ btnAddExam && (btnAddExam.onclick = async () => {
   try {
     const exRef = await addDoc(collection(db,'exams'), { nombre, sectionId: currentSectionId, questionCount: 0, createdAt: new Date().toISOString() });
     alert('Examen creado. Se abrirá el editor para agregar preguntas.');
-    // Abrimos el editor inmediatamente para que el admin agregue casos/preguntas
     openExamEditor(exRef.id);
     await loadExamsForSection(currentSectionId);
   } catch(e) { console.error('addExam', e); alert('Error creando examen'); }
@@ -522,14 +609,12 @@ btnAddExam && (btnAddExam.onclick = async () => {
 // Edit mode: listar secciones y exámenes para editar
 btnEditMode && (btnEditMode.onclick = async () => {
   adminEditor.innerHTML = '<h4>Editor</h4>';
-  // secciones
   const sSnap = await getDocs(query(collection(db,'sections'), orderBy('nombre')));
   sSnap.forEach(s => {
     const div = document.createElement('div'); div.className = 'card'; div.style.marginBottom = '8px';
     div.innerHTML = `<strong>${escapeHtml(s.data().nombre)}</strong> <button class="btn" data-sid="${s.id}">Editar</button>`;
     adminEditor.appendChild(div);
   });
-  // exámenes
   const eSnap = await getDocs(query(collection(db,'exams'), orderBy('nombre')));
   eSnap.forEach(e => {
     const div = document.createElement('div'); div.className = 'card'; div.style.marginBottom = '8px';
@@ -537,7 +622,6 @@ btnEditMode && (btnEditMode.onclick = async () => {
     adminEditor.appendChild(div);
   });
 
-  // handlers
   adminEditor.querySelectorAll('[data-sid]').forEach(btn => {
     btn.onclick = async () => {
       const sid = btn.getAttribute('data-sid');
@@ -559,7 +643,6 @@ async function openExamEditor(examId){
   if (!eSnap.exists()) return adminEditor.append('Examen no encontrado');
   adminEditor.innerHTML += `<div style="margin-bottom:8px"><strong>${escapeHtml(eSnap.data().nombre)}</strong></div>`;
 
-  // listar preguntas
   const qSnap = await getDocs(query(collection(db,'questions'), where('examId','==', examId), orderBy('pregunta')));
   qSnap.forEach(q => {
     const d = document.createElement('div'); d.className = 'card'; d.style.marginBottom = '8px';
@@ -573,12 +656,10 @@ async function openExamEditor(examId){
     adminEditor.appendChild(d);
   });
 
-  // botón agregar pregunta
   const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = 'Agregar pregunta';
   btn.onclick = () => showQuestionForm(examId);
   adminEditor.appendChild(btn);
 
-  // handlers editar/eliminar
   adminEditor.querySelectorAll('[data-qid]').forEach(b => {
     b.onclick = async () => {
       const qid = b.getAttribute('data-qid');
@@ -640,7 +721,6 @@ function showQuestionForm(examId){
         justificacion: just,
         createdAt: new Date().toISOString()
       });
-      // actualizar conteo de preguntas en el examen
       const qSnap = await getDocs(query(collection(db,'questions'), where('examId','==', examId)));
       await updateDoc(doc(db,'exams', examId), { questionCount: qSnap.size });
       alert('Pregunta guardada');
@@ -651,7 +731,6 @@ function showQuestionForm(examId){
 
 // ---------------------- LINKS (SOCIALES) ----------------------
 btnLinks && (btnLinks.onclick = async () => {
-  // Para persistir links en Firestore crear colección 'meta' o 'settings'. Por simplicidad actualizamos solo en UI.
   const ig = prompt('Link Instagram', linkInstagram ? linkInstagram.href : 'https://instagram.com');
   const wa = prompt('Link WhatsApp', linkWhatsApp ? linkWhatsApp.href : 'https://wa.me');
   const tg = prompt('Link Telegram', linkTelegram ? linkTelegram.href : 'https://t.me');
@@ -660,21 +739,15 @@ btnLinks && (btnLinks.onclick = async () => {
   if (wa && linkWhatsApp) linkWhatsApp.href = wa;
   if (tg && linkTelegram) linkTelegram.href = tg;
   if (tt && linkTikTok) linkTikTok.href = tt;
-  // Si quieres persistir estos links, crear doc en collection('settings','socials') y guardarlos allí.
   alert('Links actualizados en la UI. Para persistirlos en Firestore dime y lo agrego.');
 });
 
-// ---------------------- ADMIN: GESTION USUARIOS (colección users) ----------------------
-// Reemplazamos la funcionalidad basada en prompts por un UI completo dentro de adminEditor.
-// Al hacer clic en btnUsers se renderiza en adminEditor la lista de usuarios y un formulario para crear/editar.
-
+// ---------------------- ADMIN: GESTION USUARIOS ----------------------
 btnUsers && (btnUsers.onclick = async () => {
-  // render panel de usuarios
   adminEditor.innerHTML = '<h4>Usuarios</h4><div id="usersList"></div><hr/><div id="userFormContainer"></div>';
   const usersList = document.getElementById('usersList');
   const userFormContainer = document.getElementById('userFormContainer');
 
-  // función para cargar lista
   async function refreshUsersList(){
     usersList.innerHTML = '';
     const uSnap = await getDocs(collection(db,'users'));
@@ -699,7 +772,6 @@ btnUsers && (btnUsers.onclick = async () => {
       usersList.appendChild(div);
     });
 
-    // attach handlers
     usersList.querySelectorAll('.edit-user').forEach(btn => {
       btn.onclick = async () => {
         const uid = btn.getAttribute('data-uid');
@@ -721,7 +793,6 @@ btnUsers && (btnUsers.onclick = async () => {
     });
   }
 
-  // render form vacío para crear nuevo usuario
   function renderUserForm(uid = '', data = {}) {
     userFormContainer.innerHTML = `
       <h4>${uid ? 'Editar usuario' : 'Agregar nuevo usuario'}</h4>
@@ -750,7 +821,6 @@ btnUsers && (btnUsers.onclick = async () => {
         </div>
       </div>
     `;
-
     document.getElementById('cancelUserBtn').onclick = () => { userFormContainer.innerHTML = ''; };
     document.getElementById('saveUserBtn').onclick = async () => {
       const fuid = document.getElementById('form_uid').value.trim();
@@ -761,7 +831,6 @@ btnUsers && (btnUsers.onclick = async () => {
       const fexp = document.getElementById('form_expiracion').value;
 
       if (!fuid || !fnombre) return alert('UID y nombre son obligatorios');
-      // Guardar en collection users
       await setDoc(doc(db,'users', fuid), {
         usuario: fnombre,
         pass: fpass,
@@ -776,12 +845,10 @@ btnUsers && (btnUsers.onclick = async () => {
     };
   }
 
-  // botón para crear nuevo usuario
   const createBtn = document.createElement('button'); createBtn.className = 'btn'; createBtn.textContent = 'Agregar nuevo (registro)';
   createBtn.onclick = () => renderUserForm('', {});
   userFormContainer.appendChild(createBtn);
 
-  // inicial load
   await refreshUsersList();
 });
 
@@ -797,7 +864,6 @@ function escapeHtml(unsafe) {
 }
 
 // ---------------------- INICIALIZACION ----------------------
-// cargar secciones initial
 loadSections().catch(e=>console.error(e));
 
-// Si quieres pre-cargar links sociales desde Firestore, lee collection('settings'). Not implemented por defecto.
+// si quieres pre-cargar links sociales desde Firestore, implemento colección 'settings' y lo leo aquí (opcional)
