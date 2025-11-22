@@ -1,118 +1,138 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Estudiante ENARM</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estudiante ENARM</title>
 
-    <!-- ===== ESTILOS ===== -->
-    <link rel="stylesheet" href="style.css" />
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
 
-    <!-- ===== FIREBASE ===== -->
-    <script type="module" src="app.js" defer></script>
+  <!-- Meta Pixel Code -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  try{ fbq('init', '1146031771035535'); fbq('track', 'PageView'); } catch(e){ console.warn('fbq init failed', e); }
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
+  </noscript>
+  <!-- End Meta Pixel Code -->
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Meta / SEO básicos -->
+  <meta name="description" content="Plataforma Estudiante ENARM - simulacros y exámenes. Hosting en GitHub Pages y backend en Firebase.">
 </head>
-
 <body>
-
-    <!-- ===== HEADER ===== -->
-    <header class="header">
+  <div id="app" class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" role="navigation" aria-label="Navegación lateral">
+      <div class="brand" aria-hidden="false">
+        <div class="brand-text">Estudiante ENARM</div>
+        <!-- Logo: archivo en la misma carpeta que index.html -->
         <img src="./logo.png" alt="Logo Estudiante ENARM" class="logo" />
-        <h1>Estudiante ENARM</h1>
-    </header>
+      </div>
 
-    <!-- ===== MENÚ PRINCIPAL ===== -->
-    <nav class="menu">
-        <button id="btn-categorias">Categorías</button>
-        <button id="btn-acceso-completo" class="whatsapp-btn">
-            Acceso completo
-        </button>
-        <button id="btn-admin">Admin</button>
-    </nav>
+      <nav id="sectionsList" class="sections" aria-label="Secciones">
+        <!-- Secciones dinámicas desde Firestore -->
+      </nav>
 
-    <!-- ===== ICONOS SOCIALES ===== -->
-    <div class="social-icons">
-        <a id="link-instagram" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./instagram.png" alt="Instagram" class="social-icon">
+      <div class="sidebar-actions" aria-hidden="false">
+        <!-- Acceso completo: abre WhatsApp con mensaje -->
+        <a id="btnAccesoCompleto"
+           class="btn primary"
+           href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
+           target="_blank" rel="noopener noreferrer">
+           Acceso completo
         </a>
 
-        <a id="link-telegram" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./telegram.png" alt="Telegram" class="social-icon">
-        </a>
+        <!-- NOTE: botón "Adquirir acceso" eliminado intencionalmente -->
 
-        <a id="link-tiktok" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./tiktok.png" alt="TikTok" class="social-icon">
-        </a>
+        <div class="countdown" id="mainCountdown" aria-live="polite" title="Cuenta regresiva hacia 23 de septiembre de 2026"></div>
 
-        <a id="link-whatsapp" href="#" target="_blank" rel="noopener noreferrer">
-            <img src="./whatsapp.png" alt="WhatsApp" class="social-icon">
-        </a>
-    </div>
+        <div class="socials" aria-label="Redes sociales">
+          <!-- Rutas corregidas: archivos en la misma carpeta que index.html -->
+          <a id="link-instagram" href="#" target="_blank" rel="noopener noreferrer"><img src="./instagram.png" alt="Instagram"></a>
+          <a id="link-whatsapp" href="#" target="_blank" rel="noopener noreferrer"><img src="./whatsapp.png" alt="WhatsApp"></a>
+          <a id="link-telegram" href="#" target="_blank" rel="noopener noreferrer"><img src="./telegram.png" alt="Telegram"></a>
+          <a id="link-tiktok" href="#" target="_blank" rel="noopener noreferrer"><img src="./tiktok.png" alt="TikTok"></a>
+        </div>
+      </div>
+    </aside>
 
-    <!-- ===== SECCIÓN DE CONTENIDO ===== -->
-    <main>
-        <section id="categorias-section" class="hidden">
-            <h2>Categorías</h2>
-            <div id="lista-categorias"></div>
-        </section>
+    <!-- Main -->
+    <main class="main" role="main">
+      <header class="topbar" aria-hidden="false">
+        <div id="userInfo" class="user-info" aria-live="polite"></div>
+        <div id="authButtons" class="auth-buttons"></div>
+      </header>
 
-        <section id="admin-section" class="hidden">
-            <h2>Panel de Administración</h2>
+      <section id="screen" class="screen" aria-live="polite">
+        <!-- LOGIN -->
+        <div id="loginScreen" class="card centered" role="region" aria-label="Acceso a la plataforma">
+          <h2>Acceso</h2>
+          <input id="inputEmail" type="email" placeholder="Correo electrónico" autocomplete="username" />
+          <input id="inputPassword" type="password" placeholder="Contraseña" autocomplete="current-password" />
+          <div class="row" style="margin-top:12px;">
+            <button id="btnLogin" class="btn primary" type="button">Entrar</button>
+            <button id="btnCancel" class="btn" type="button">Cancelar</button>
+          </div>
+          <div id="loginMessage" class="small muted" role="status" style="margin-top:8px;"></div>
+        </div>
 
-            <!-- AGREGAR USUARIO -->
-            <button id="btn-mostrar-panel-agregar">Agregar usuario</button>
+        <!-- INTERFAZ ESTUDIANTE -->
+        <div id="studentScreen" class="hidden" role="region" aria-label="Pantalla estudiante">
+          <h2 id="studentTitle">Sección</h2>
+          <div id="examsList" class="examsList" aria-live="polite"></div>
+        </div>
 
-            <div id="panel-agregar-usuario" class="hidden panel">
-                <h3>Nuevo Usuario</h3>
-                <input id="nuevo-usuario" type="text" placeholder="Nombre de usuario" />
-                <input id="nueva-pass" type="password" placeholder="Contraseña" />
-                <input id="fecha-expiracion" type="date" />
-                <select id="estado-usuario">
-                    <option value="habilitado">Habilitado</option>
-                    <option value="inhabilitado">Inhabilitado</option>
-                </select>
-                <button id="guardar-usuario">Guardar</button>
-            </div>
+        <!-- INTERFAZ ADMIN -->
+        <div id="adminScreen" class="hidden" role="region" aria-label="Panel administrador">
+          <h2>Administrador</h2>
+          <div class="admin-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="btnAddSection" class="btn" type="button">Agregar sección</button>
+            <button id="btnAddExam" class="btn" type="button">Agregar examen</button>
+            <button id="btnEditMode" class="btn" type="button">Editar</button>
+            <button id="btnLinks" class="btn" type="button">Links</button>
+            <button id="btnUsers" class="btn" type="button">Agregar usuarios</button>
+          </div>
+          <div id="adminEditor" class="editor" aria-live="polite"></div>
+        </div>
 
-            <!-- AGREGAR EXAMEN -->
-            <button id="btn-agregar-examen">Agregar examen</button>
+        <!-- EXAMEN (pantalla completa) -->
+        <div id="examScreen" class="hidden fullScreenExam" role="region" aria-label="Examen">
+          <div class="examHeader" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3 id="examTitle"></h3>
+            <div id="examTimer" class="examTimer" aria-live="polite" aria-atomic="true"></div>
+          </div>
+          <form id="examForm" class="examForm" aria-label="Formulario de examen"></form>
+          <div class="examFooter" style="margin-top:12px;">
+            <button id="btnFinishExam" class="btn primary" type="button">Finalizar examen</button>
+          </div>
+        </div>
 
-            <div id="panel-agregar-examen" class="hidden panel">
-                <h3>Nuevo Examen</h3>
-                <input id="nombre-examen" type="text" placeholder="Nombre del examen" />
-                <button id="guardar-examen">Guardar examen</button>
-            </div>
-
-            <!-- LISTA DE EXÁMENES EDITABLES -->
-            <h3>Exámenes</h3>
-            <div id="lista-examenes-admin"></div>
-        </section>
-
-        <!-- SECCIÓN PARA MOSTRAR EXÁMENES A USUARIOS -->
-        <section id="examenes-section" class="hidden">
-            <h2>Exámenes</h2>
-            <div id="lista-examenes"></div>
-        </section>
-
-        <!-- SECCIÓN PARA CARGAR PREGUNTAS -->
-        <section id="preguntas-section" class="hidden">
-            <h2>Agregar preguntas</h2>
-            <div id="formulario-preguntas"></div>
-        </section>
+        <!-- RESULTADOS -->
+        <div id="resultScreen" class="hidden card" role="region" aria-label="Resultados del examen"></div>
+      </section>
     </main>
+  </div>
 
-    <!-- ===== FOOTER ===== -->
-    <footer>
-        <p>© 2025 Estudiante ENARM. Todos los derechos reservados.</p>
-    </footer>
-
-    <!-- ===== SCRIPT PARA WHATSAPP ===== -->
-    <script>
-        document.getElementById("btn-acceso-completo").addEventListener("click", () => {
-            const telefono = "525515656316";
-            const mensaje = encodeURIComponent("Me gustaría adquirir el acceso completo");
-            window.open(`https://wa.me/${telefono}?text=${mensaje}`, "_blank");
-        });
-    </script>
-
+  <!-- App script (módulo) -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
