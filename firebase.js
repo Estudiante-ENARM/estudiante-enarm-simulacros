@@ -1,56 +1,42 @@
-// ==========================
-// FIREBASE CONFIG (Tuya)
-// ==========================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  setDoc
-} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+/*************************************************************
+ * firebase.js — Configuración Firebase
+ * Versión estable 2025-11-23
+ *************************************************************/
 
-export const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROJECT.firebaseapp.com",
-  projectId: "TU_PROJECT",
-  storageBucket: "TU_PROJECT.appspot.com",
-  messagingSenderId: "XXXXXXX",
-  appId: "XXXXXXXX",
+// ==========================
+// IMPORTS (modular v9)
+// ==========================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
+// ==========================
+// CONFIGURACIÓN DE TU PROYECTO
+// ==========================
+const firebaseConfig = {
+  apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
+  authDomain: "pagina-buena.firebaseapp.com",
+  projectId: "pagina-buena",
+  storageBucket: "pagina-buena.firebasestorage.app",
+  messagingSenderId: "810208199031",
+  appId: "1:810208199031:web:707a76b931ee7d2f002172"
 };
 
-export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-export {
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword,
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  setDoc
-};
+// ==========================
+// INICIALIZAR APP
+// ==========================
+const app = initializeApp(firebaseConfig);
+
+// ==========================
+// EXPORTAR INSTANCIAS
+// ==========================
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+export { auth, db };
