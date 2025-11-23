@@ -1,42 +1,37 @@
-/*************************************************************
- * firebase.js — Configuración Firebase
- * Versión estable 2025-11-23
- *************************************************************/
+/*******************************************************
+ * firebase.js — Configuración Firebase v10
+ * Plataforma ENARM — 2025-11-23
+ *******************************************************/
 
-// ==========================
-// IMPORTS (modular v9)
-// ==========================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getAuth
+import { 
+  getAuth 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import {
-  getFirestore
+import { 
+  getFirestore 
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-
-// ==========================
-// CONFIGURACIÓN DE TU PROYECTO
-// ==========================
+/*******************************************************
+ *  CONFIGURACIÓN REAL
+ *******************************************************/
 const firebaseConfig = {
-  apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
-  authDomain: "pagina-buena.firebaseapp.com",
-  projectId: "pagina-buena",
-  storageBucket: "pagina-buena.firebasestorage.app",
-  messagingSenderId: "810208199031",
-  appId: "1:810208199031:web:707a76b931ee7d2f002172"
+  apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+  projectId: "simulacros-plataforma-enarm",
+  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  messagingSenderId: "1012829203040",
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
 };
 
-
-// ==========================
-// INICIALIZAR APP
-// ==========================
+/*******************************************************
+ *  INICIALIZAR FIREBASE
+ *******************************************************/
 const app = initializeApp(firebaseConfig);
 
-// ==========================
-// EXPORTAR INSTANCIAS
-// ==========================
-const auth = getAuth(app);
-const db   = getFirestore(app);
+/*******************************************************
+ *  EXPORTAR AUTH & FIRESTORE
+ *******************************************************/
+export const auth = getAuth(app);
+export const db   = getFirestore(app);
 
-export { auth, db };
+console.log("Firebase inicializado correctamente");
