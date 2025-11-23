@@ -1,9 +1,10 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Estudiante ENARM</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plataforma ENARM</title>
+  <link rel="stylesheet" href="style.css">
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
@@ -16,199 +17,173 @@
 
   <!-- Meta Pixel -->
   <script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  try{ fbq('init', '1146031771035535'); fbq('track', 'PageView'); } catch(e){ console.warn('fbq init failed', e); }
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)
+    }(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    try {
+      fbq('init', '1146031771035535');
+      fbq('track', 'PageView');
+    } catch(e){}
   </script>
   <noscript>
-    <img height="1" width="1" style="display:none"
+    <img height="1" width="1"
       src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
   </noscript>
 
-  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
-<div id="app" class="app">
+<div id="app">
 
-  <!-- ==========================================================
-       SIDEBAR IZQUIERDA (SECCIONES + REDES)
-       ========================================================== -->
-  <aside class="sidebar left-sidebar">
-    <div class="brand">
-      <div class="brand-text">Estudiante ENARM</div>
-      <img src="./logo.png" class="logo" alt="Logo">
-    </div>
+  <!-- ========================================================
+       SIDEBAR IZQUIERDO (SECCIONES + ACCESO COMPLETO + REDES)
+       ======================================================== -->
+  <aside id="leftSidebar" class="left-sidebar">
 
-    <!-- Lista de secciones -->
-    <nav id="sectionsList" class="sections">
-      <!-- Secciones dinámicas -->
-    </nav>
-
-    <div class="sidebar-actions">
-
-      <a id="btnAccesoCompleto"
-         class="btn primary"
-         href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
-         target="_blank" rel="noopener noreferrer">
-         Acceso completo
-      </a>
-
-      <div id="mainCountdown" class="countdown"></div>
-
-      <div class="socials">
-        <a id="link-instagram" target="_blank"><img src="./instagram.png" alt="Instagram"></a>
-        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" alt="WhatsApp"></a>
-        <a id="link-telegram" target="_blank"><img src="./telegram.png" alt="Telegram"></a>
-        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt="TikTok"></a>
+      <div class="brand">
+        <img src="./logo.png" class="logo">
+        <span class="brand-text">ENARM</span>
       </div>
 
-    </div>
+      <!-- Secciones -->
+      <nav id="sectionsList"></nav>
+
+      <!-- Acceso completo -->
+      <a id="btnAccesoCompleto"
+         class="btn primary"
+         target="_blank"
+         href="https://wa.me/525515656316?text=Quiero%20el%20acceso%20completo">
+        Acceso completo
+      </a>
+
+      <!-- Cuenta regresiva -->
+      <div id="mainCountdown" class="countdown"></div>
+
+      <!-- Redes sociales -->
+      <div class="socials">
+        <a id="icon-instagram" target="_blank"><img src="./instagram.png"></a>
+        <a id="icon-whatsapp" target="_blank"><img src="./whatsapp.png"></a>
+        <a id="icon-telegram" target="_blank"><img src="./telegram.png"></a>
+        <a id="icon-tiktok" target="_blank"><img src="./tiktok.png"></a>
+      </div>
+
   </aside>
 
 
-  <!-- ==========================================================
-       SIDEBAR DERECHA (SOLO ADMIN)
-       ========================================================== -->
-  <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
-    <h3 class="admin-title">Administrador</h3>
+  <!-- ========================================================
+       SIDEBAR DERECHO FLOTANTE (ADMIN)
+       ======================================================== -->
+  <aside id="adminSidebar" class="admin-sidebar hidden">
 
-    <button id="adminPanelExams" class="btn">Exámenes</button>
-    <button id="adminPanelSections" class="btn">Secciones</button>
-    <button id="adminPanelUsers" class="btn">Usuarios</button>
-    <button id="adminPanelIcons" class="btn">Íconos</button>
+      <div class="admin-header">
+        <h3>Administrador</h3>
+        <button id="closeAdminSidebar" class="btn small">Cerrar</button>
+      </div>
 
-    <hr>
+      <button id="btnAdminSections" class="btn admin-btn">Secciones</button>
+      <button id="btnAdminExams" class="btn admin-btn">Exámenes</button>
+      <button id="btnAdminUsers" class="btn admin-btn">Usuarios</button>
+      <button id="btnAdminIcons" class="btn admin-btn">Íconos</button>
 
-    <button id="adminLogout" class="btn danger">Cerrar sesión</button>
+      <button id="btnLogoutAdmin" class="btn danger" style="margin-top:30px;">
+        Cerrar sesión
+      </button>
+
+      <div id="adminPanel" class="admin-panel"></div>
   </aside>
 
 
-  <!-- ==========================================================
-       MAIN CONTENT
-       ========================================================== -->
-  <main class="main">
+  <!-- Botón flotante para abrir el panel admin -->
+  <button id="openAdminSidebar" class="admin-fab hidden">Admin</button>
 
-    <!-- TOPBAR -->
-    <header class="topbar">
-      <div id="userInfo" class="user-info"></div>
-      <div id="authButtons" class="auth-buttons"></div>
-    </header>
 
-    <section id="mainContent" class="screen">
-        
-        <!-- LOGIN -->
-        <div id="loginScreen" class="card centered">
-          <h2>Acceso</h2>
-          <input id="inputEmail" type="email" placeholder="Correo electrónico" autocomplete="username" />
-          <input id="inputPassword" type="password" placeholder="Contraseña" autocomplete="current-password" />
-          <div class="row" style="margin-top:12px;">
-            <button id="btnLogin" class="btn primary">Entrar</button>
-            <button id="btnCancel" class="btn">Cancelar</button>
-          </div>
-          <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
+  <!-- ========================================================
+       CONTENIDO PRINCIPAL
+       ======================================================== -->
+  <main id="main">
+
+      <!-- LOGIN -->
+      <section id="loginScreen" class="center-card">
+        <h2>Acceso</h2>
+        <input id="inputEmail" placeholder="Correo electrónico" type="email">
+        <input id="inputPassword" placeholder="Contraseña" type="password">
+
+        <div class="login-actions">
+          <button id="btnLogin" class="btn primary">Entrar</button>
+          <button id="btnCancel" class="btn">Cancelar</button>
         </div>
 
-        <!-- PANTALLA PRINCIPAL (MODO ESTUDIANTE / EXÁMENES) -->
-        <div id="studentScreen" class="hidden">
-          <h2 id="studentTitle">Exámenes de la sección</h2>
-          <div id="examsList" class="examsList"></div>
+        <div id="loginMessage" class="muted small"></div>
+      </section>
 
-          <!-- Botones admin para editar exámenes -->
-          <div id="editButtons" class="editControls hidden">
-            <button id="btnEditExams" class="btn">Editar</button>
-            <button id="btnSaveExams" class="btn primary">Guardar</button>
-          </div>
-        </div>
 
-        <!-- EXAMEN (MODO ESTUDIANTE) -->
-        <div id="examScreen" class="hidden fullScreenExam">
-          <div class="examHeader">
-            <h3 id="examTitle"></h3>
-            <div id="examTimer" class="examTimer"></div>
-          </div>
+      <!-- LISTADO DE EXÁMENES (vista estudiante y admin) -->
+      <section id="examsScreen" class="hidden">
+        <h2 id="sectionTitle"></h2>
+        <div id="examsList" class="exam-grid"></div>
 
-          <form id="examForm"></form>
+        <button id="btnAddExam" class="fab-add hidden"> + </button>
+      </section>
 
-          <div class="examFooter">
-            <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
-          </div>
-        </div>
 
-        <!-- RESULTADOS -->
-        <div id="resultScreen" class="hidden card"></div>
+      <!-- EDITOR DE EXAMEN -->
+      <section id="examEditor" class="hidden">
+        <h2 id="editorExamTitle"></h2>
 
-        <!-- PANEL ADMIN: EXÁMENES (lista + editor casos/preguntas) -->
-        <div id="adminExamsScreen" class="hidden">
-          <h2>Administrador · Exámenes</h2>
-          <div id="adminExamsToolbar" class="admin-toolbar">
-            <button id="btnAdminNewExam" class="btn primary">Nuevo examen</button>
-          </div>
-          <div id="adminExamsList" class="examsList" style="margin-top:12px;"></div>
+        <div id="casesContainer"></div>
 
-          <hr style="margin:16px 0;">
+        <button id="btnAddCase" class="fab-add small">+</button>
 
-          <div id="adminExamEditor" class="editor hidden">
-            <!-- Aquí se renderiza el editor de un examen: datos, casos y preguntas -->
-          </div>
-        </div>
+        <button id="btnSaveExam" class="btn primary save-exam">Guardar examen</button>
+      </section>
 
-        <!-- PANEL ADMIN: SECCIONES -->
-        <div id="adminSectionsScreen" class="hidden">
-          <h2>Administrador · Secciones</h2>
-          <div class="admin-toolbar">
-            <button id="btnAdminNewSection" class="btn primary">Nueva sección</button>
-          </div>
-          <div id="adminSectionsList" style="margin-top:12px;"></div>
-        </div>
 
-        <!-- PANEL ADMIN: USUARIOS -->
-        <div id="adminUsersScreen" class="hidden">
-          <h2>Administrador · Usuarios</h2>
-          <div class="admin-toolbar">
-            <button id="btnAdminNewUser" class="btn primary">Nuevo usuario</button>
-          </div>
-          <div id="adminUsersList" style="margin-top:12px;"></div>
-          <div class="small muted" style="margin-top:10px;">
-            Nota: la creación del usuario aquí requiere que también exista en Firebase Auth.
-          </div>
-        </div>
+      <!-- EDITOR DE USUARIOS -->
+      <section id="usersScreen" class="hidden">
+        <h2>Usuarios</h2>
+        <button id="btnAddUser" class="btn primary">Agregar usuario</button>
+        <div id="usersList"></div>
+      </section>
 
-        <!-- PANEL ADMIN: ÍCONOS (REDES) -->
-        <div id="adminIconsScreen" class="hidden">
-          <h2>Administrador · Íconos</h2>
-          <p class="small muted">Configura los links de los íconos de Instagram, WhatsApp, Telegram y TikTok.</p>
-          <div style="margin-top:12px; max-width:480px;">
-            <label>Instagram</label>
-            <input id="iconInstagram" type="url" placeholder="https://instagram.com/..." />
-            <label>WhatsApp</label>
-            <input id="iconWhatsApp" type="url" placeholder="https://wa.me/..." />
-            <label>Telegram</label>
-            <input id="iconTelegram" type="url" placeholder="https://t.me/..." />
-            <label>TikTok</label>
-            <input id="iconTikTok" type="url" placeholder="https://www.tiktok.com/@..." />
-            <div style="margin-top:10px;">
-              <button id="btnSaveIcons" class="btn primary">Guardar íconos</button>
-            </div>
-          </div>
-        </div>
 
-    </section>
+      <!-- EDITOR DE ÍCONOS -->
+      <section id="iconsScreen" class="hidden">
+        <h2>Íconos Sociales</h2>
+
+        <label>Instagram</label>
+        <input id="iconInputInstagram">
+
+        <label>WhatsApp</label>
+        <input id="iconInputWhatsapp">
+
+        <label>Telegram</label>
+        <input id="iconInputTelegram">
+
+        <label>TikTok</label>
+        <input id="iconInputTiktok">
+
+        <button id="btnSaveIcons" class="btn primary" style="margin-top:18px;">
+          Guardar íconos
+        </button>
+      </section>
 
   </main>
 
 </div>
 
-<!-- Firebase + lógica -->
-<script type="module" src="firebase.js"></script>
-<script type="module" src="app.js"></script>
+
+<!-- Firebase config -->
+<script src="firebase.js" type="module"></script>
+
+<!-- App principal -->
+<script src="app.js" type="module"></script>
 
 </body>
 </html>
