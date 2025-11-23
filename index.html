@@ -1,167 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ENARM | Plataforma</title>
-
-  <!-- Google Analytics -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag("js", new Date());
-    gtag("config", "G-B43LFZV7MR");
-  </script>
-
-  <!-- Meta Pixel -->
-  <script>
-    !function (f, b, e, v, n, t, s) {
-      if (f.fbq) return; n = f.fbq = function () {
-        n.callMethod ?
-          n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      };
-      if (!f._fbq) f._fbq = n;
-      n.push = n; n.loaded = !0; n.version = "2.0";
-      n.queue = []; t = b.createElement(e); t.async = !0;
-      t.src = v; s = b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t, s);
-    }(window, document, "script",
-      "https://connect.facebook.net/en_US/fbevents.js");
-    try { fbq("init", "1146031771035535"); fbq("track", "PageView"); }
-    catch (e) { console.warn("fbq init failed", e); }
-  </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estudiante ENARM</title>
 
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
+<div class="app-container">
 
-  <!-- ===========================
-       LOGIN SCREEN
-     =========================== -->
-  <div id="loginScreen" class="center-screen card login-box">
-    <h2>Acceso</h2>
+  <!-- ============================================================
+       SIDEBAR IZQUIERDA (SECCIONES)
+  ============================================================ -->
+  <aside class="left-sidebar">
+    <div class="brand">
+      <h2>Estudiante ENARM</h2>
+    </div>
 
-    <label>Correo</label>
-    <input id="inputEmail" type="email" placeholder="email@example.com" />
+    <nav id="sectionsList" class="sectionsList">
+      <!-- Secciones dinámicas -->
+    </nav>
 
-    <label>Contraseña</label>
-    <input id="inputPassword" type="password" placeholder="********" />
-
-    <button id="btnLogin" class="btn primary full">Entrar</button>
-    <button id="btnCancel" class="btn full">Cancelar</button>
-
-    <div id="loginMessage" class="small muted" style="margin-top:10px;"></div>
-  </div>
-
-
-  <!-- ===========================
-       MAIN LAYOUT
-     =========================== -->
-  <div id="mainLayout" class="hidden">
-
-    <!-- ===== SIDEBAR IZQUIERDO ===== -->
-    <aside class="left-sidebar">
-      <h2 class="brand">ENARM</h2>
-      <nav id="sectionsList"></nav>
-
-      <!-- Íconos sociales -->
-      <div class="socials">
-        <a id="link-instagram" target="_blank"><img src="instagram.png" /></a>
-        <a id="link-whatsapp" target="_blank"><img src="whatsapp.png" /></a>
-        <a id="link-telegram" target="_blank"><img src="telegram.png" /></a>
-        <a id="link-tiktok" target="_blank"><img src="tiktok.png" /></a>
+    <div class="sidebar-footer">
+      <div class="social-icons">
+        <a id="link-instagram" target="_blank"><img src="./instagram.png" /></a>
+        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" /></a>
+        <a id="link-telegram" target="_blank"><img src="./telegram.png" /></a>
+        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" /></a>
       </div>
-    </aside>
+    </div>
+  </aside>
 
-    <!-- ===== SIDEBAR DERECHO ADMIN ===== -->
-    <aside id="adminSidebar" class="admin-sidebar hidden">
-      <h3>Administrador</h3>
+  <!-- ============================================================
+       SIDEBAR DERECHA (ADMIN)
+  ============================================================ -->
+  <aside id="adminSidebar" class="right-sidebar">
+    <h3>Administrador</h3>
 
-      <button id="btnAdminSections" class="btn full">Secciones</button>
-      <button id="btnAdminExams" class="btn full">Exámenes</button>
-      <button id="btnAdminUsers" class="btn full">Usuarios</button>
-      <button id="btnAdminIcons" class="btn full">Íconos</button>
+    <button id="adminAddSection" class="btn block">Secciones</button>
+    <button id="adminAddExam" class="btn block">Exámenes</button>
+    <button id="adminUsers" class="btn block">Usuarios</button>
+    <button id="adminIcons" class="btn block">Íconos</button>
+    <button id="adminLogout" class="btn block danger">Salir</button>
 
-      <button id="adminLogout" class="btn danger full" style="margin-top:20px;">
-        Cerrar sesión
-      </button>
-    </aside>
+    <div id="editButtons" class="admin-floating hidden">
+      <button id="btnSaveExam" class="btn primary">Guardar examen</button>
+      <button id="btnAddCase" class="btn">Agregar caso</button>
+    </div>
 
-    <!-- FAB para abrir/cerrar admin -->
-    <button id="openAdminSidebar" class="admin-fab">⚙</button>
+    <div id="editExamButtons" class="admin-floating hidden">
+      <button id="btnAddQuestion" class="btn small">Agregar pregunta</button>
+    </div>
+  </aside>
 
+  <!-- ============================================================
+       CONTENIDO PRINCIPAL
+  ============================================================ -->
+  <main id="mainContent">
 
-    <!-- ===== CONTENEDOR PRINCIPAL ===== -->
-    <main id="mainContent">
+    <!-- LOGIN -->
+    <section id="loginScreen" class="card login-box">
+      <h2>Acceso</h2>
 
-      <!-- ===========================
-           PANTALLA SECCIONES/EXÁMENES
-         =========================== -->
-      <section id="examsScreen" class="screen hidden">
-        <h2 id="sectionTitle"></h2>
-        <div id="examsList"></div>
-        <button id="btnAddExam" class="btn primary hidden">Agregar examen</button>
-      </section>
+      <input id="inputEmail" type="email" placeholder="Correo" />
+      <input id="inputPassword" type="password" placeholder="Contraseña" />
 
+      <button id="btnLogin" class="btn primary">Entrar</button>
+      <button id="btnCancel" class="btn">Cancelar</button>
 
-      <!-- ===========================
-           EDITOR DE EXAMEN (ADMIN)
-         =========================== -->
-      <section id="examEditor" class="screen hidden">
-        <h2 id="editorTitle">Editor de examen</h2>
+      <div id="loginMessage" class="muted small"></div>
+    </section>
 
-        <div id="casesContainer"></div>
+    <!-- LISTA DE EXÁMENES PARA ESTUDIANTE -->
+    <section id="studentScreen" class="hidden">
+      <h2>Exámenes</h2>
+      <div id="examsList" class="examsList"></div>
+    </section>
 
-        <button id="btnAddCase" class="btn small primary">Agregar caso</button>
-        <button id="btnSaveExam" class="btn primary full">Guardar cambios</button>
-      </section>
+    <!-- EXAMEN -->
+    <section id="examScreen" class="hidden fullExam">
+      <div class="examHeader">
+        <h3 id="examTitle"></h3>
+        <div id="examTimer" class="timer"></div>
+      </div>
 
+      <form id="examForm"></form>
 
-      <!-- ===========================
-           PANEL DE USUARIOS
-         =========================== -->
-      <section id="usersScreen" class="screen hidden">
-        <h2>Usuarios</h2>
-        <button id="btnAddUser" class="btn primary">Crear usuario</button>
-        <div id="usersList" class="editor"></div>
-      </section>
+      <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
+    </section>
 
+    <!-- RESULTADOS -->
+    <section id="resultScreen" class="hidden card"></section>
 
-      <!-- ===========================
-           PANEL ÍCONOS
-         =========================== -->
-      <section id="iconsScreen" class="screen hidden">
-        <h2>Íconos sociales</h2>
+  </main>
 
-        <label>Instagram</label>
-        <input id="iconInputInstagram" />
+</div>
 
-        <label>WhatsApp</label>
-        <input id="iconInputWhatsapp" />
-
-        <label>Telegram</label>
-        <input id="iconInputTelegram" />
-
-        <label>TikTok</label>
-        <input id="iconInputTiktok" />
-
-        <button id="btnSaveIcons" class="btn primary" style="margin-top:12px;">
-          Guardar
-        </button>
-      </section>
-
-    </main>
-
-  </div>
-
-  <!-- ===========================
-       SCRIPTS
-     =========================== -->
-  <script type="module" src="firebase.js"></script>
-  <script type="module" src="app.js"></script>
-
+<!-- SCRIPTS -->
+<script type="module" src="app.js"></script>
 </body>
 </html>
