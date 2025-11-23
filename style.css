@@ -1,21 +1,20 @@
 /* ============================================================
-   ESTUDIANTE ENARM - PANEL ADMIN
-   Layout simple: sidebar izquierda + main
-   - Editor de exámenes en una sola pantalla (casos + preguntas)
-   - Modo oscuro por sistema
+   ESTUDIANTE ENARM - style.css (Versión A: moderno / azul oscuro)
+   Layout:
+   - Sidebar izquierda: secciones + redes
+   - Sidebar derecha: menú admin (solo admin)
+   - Main: login, exámenes, editor admin, usuarios, íconos
    ============================================================ */
 
-/* RESET */
+/* RESET GLOBAL */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
-
 html, body {
   height: 100%;
 }
-
 body {
   font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
   background: #f4f6fb;
@@ -23,508 +22,547 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.4;
+  overflow: hidden;
 }
 
-/* UTILIDADES */
-.hidden {
-  display: none !important;
-}
-
+/* Helpers */
+.hidden { display: none !important; }
 .row {
   display: flex;
   gap: 8px;
 }
-
-.full-width {
-  width: 100%;
-}
+.user-info { font-size: 14px; color: #0b1220; }
+.auth-buttons { display:flex; gap:10px; }
 
 /* LAYOUT PRINCIPAL */
 .app {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  grid-template-rows: 100vh;
+  grid-template-columns: 260px 1fr 320px; /* left sidebar, main, right admin */
+  grid-template-rows: 56px 1fr;
+  gap: 0;
+  height: 100vh;
 }
 
-/* SIDEBAR IZQUIERDA */
+/* --- Areas --- */
 .left-sidebar {
-  border-right: 1px solid #e2e8f0;
+  grid-column: 1 / 2;
+  grid-row: 1 / 3;
+  border-right: 1px solid #e6e9f2;
   background: #ffffff;
   display: flex;
   flex-direction: column;
   padding: 18px;
-  gap: 16px;
 }
-
-/* Brand */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.logo {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-}
-
-.brand-text {
-  font-weight: 700;
-  font-size: 18px;
-  color: #0f172a;
-}
-
-/* Sidebar blocks */
-.sidebar-block {
-  border-radius: 10px;
-  padding: 10px;
-  background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar-title {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-}
-
-/* Secciones */
-.sections {
-  max-height: 45vh;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.section-item {
-  width: 100%;
-  text-align: left;
-  margin-bottom: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: #e2e8f0;
-  color: #0f172a;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background 0.12s ease, transform 0.1s ease, box-shadow 0.12s ease;
-}
-
-.section-item:hover {
-  background: #d1e3ff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
-}
-
-.section-item.active {
-  background: linear-gradient(90deg, #0f172a, #1d4ed8);
-  color: #ffffff;
-}
-
-/* Sidebar actions */
-.sidebar-actions {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.countdown {
-  font-weight: 700;
-  color: #0f172a;
-  background: #e0f2fe;
-  border-radius: 8px;
-  padding: 8px 10px;
-  text-align: center;
-  border: 1px solid #bfdbfe;
-}
-
-.socials {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
-
-.socials img {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-}
-
-/* BOTONES */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-  background: #e2e8f0;
-  color: #0f172a;
-  transition: background 0.12s ease, box-shadow 0.12s ease, transform 0.1s ease;
-}
-
-.btn:hover {
-  background: #cbd5f5;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
-  transform: translateY(-1px);
-}
-
-.btn.primary {
-  background: linear-gradient(90deg, #2563eb, #1d4ed8);
-  color: #ffffff;
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
-}
-
-.btn.primary:hover {
-  background: linear-gradient(90deg, #1d4ed8, #1d4ed8);
-}
-
-.btn.danger {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.btn.danger:hover {
-  background: #fecaca;
-}
-
-.small-btn {
-  padding: 6px 10px;
-  font-size: 13px;
-}
-
-/* MAIN */
 .main {
-  padding: 16px 22px;
-  background: linear-gradient(180deg, #f9fafb, #eef2ff);
-  overflow: hidden;
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+  overflow: auto;
+  padding: 18px 22px;
+  background: linear-gradient(180deg,#fbfdff,#f4f6fb);
+}
+.admin-sidebar {
+  grid-column: 3 / 4;
+  grid-row: 1 / 3;
+  border-left: 1px solid #e6e9f2;
+  background: #0f1724;
+  color: #fff;
+  padding: 20px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 /* TOPBAR */
 .topbar {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  padding: 10px 22px;
+  background: transparent;
+  position: sticky;
+  top: 0;
+  z-index: 8;
 }
 
-.app-title {
+/* Brand / Logo */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand .brand-text {
   font-weight: 700;
   font-size: 18px;
-  color: #0f172a;
+  color: #06223a;
+}
+.logo {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
 }
 
-.user-info {
-  font-size: 14px;
-  color: #475569;
-  margin-right: 10px;
-}
-
-.auth-buttons button {
-  font-size: 13px;
-}
-
-/* SCREENS */
-.screen {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 0 24px 0;
-}
-
-/* Cabecera de pantalla */
-.screen-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 10px;
-}
-
-/* CARD */
-.card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-}
-
-.card + .card {
-  margin-top: 10px;
-}
-
-/* Card centrada login */
-.card.centered {
-  max-width: 420px;
-  margin: 40px auto;
-}
-
-/* TEXTOS AUX */
-.small {
-  font-size: 13px;
-}
-
-.muted {
-  color: #6b7280;
-}
-
-/* INPUTS */
-input,
-textarea,
-select {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
-  color: #0f172a;
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: #2563eb;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
-}
-
-label {
-  display: block;
-  font-weight: 600;
-  font-size: 13px;
-  color: #111827;
+/* SIDEBAR IZQUIERDA (SECCIONES) */
+.sections {
   margin-top: 8px;
+  overflow: auto;
+  padding-right: 6px;
+}
+.sections .section-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #f6f9ff;
+  border-radius: 8px;
+  border: 1px solid rgba(59,130,246,0.06);
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.sections .section-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(14,45,85,0.06);
+}
+.sections .section-item.active {
+  background: linear-gradient(90deg, #072f62 0%, #0a4aa6 100%);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 8px 26px rgba(10,41,93,0.18);
 }
 
-/* EXÁMENES LISTA */
-.examsList {
+/* Sidebar acciones inferiores */
+.sidebar-actions {
+  margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.exam-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.exam-card-main {
-  flex: 1;
-}
-
-.exam-title {
-  font-weight: 700;
-  color: #111827;
-}
-
-.exam-meta {
-  font-size: 13px;
-  color: #6b7280;
-  margin-top: 2px;
-}
-
-/* Caso clínico */
-.caso-card {
-  border-left: 4px solid #2563eb;
-  margin-bottom: 10px;
-}
-
-.caso-header {
-  display: flex;
-  justify-content: space-between;
+  gap: 12px;
   align-items: center;
-  gap: 8px;
 }
-
-.caso-title {
+.countdown {
   font-weight: 700;
-  color: #111827;
+  color: #0b2a4a;
+  background: #eef4ff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: 100%;
+  text-align: center;
+  border: 1px solid #e1ecff;
 }
-
-/* Preguntas */
-.pregunta-list {
-  margin-top: 8px;
-}
-
-.pregunta-card {
-  border-radius: 10px;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  margin-top: 8px;
-}
-
-.pregunta-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-}
-
-.badge {
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #e6e9f2;
+  color: #071029;
   font-weight: 600;
-  background: #dbeafe;
-  color: #1d4ed8;
+  transition: transform .12s, box-shadow .12s;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(14,45,85,0.06);
+}
+.btn.primary {
+  background: linear-gradient(90deg,#0b4aa6,#0a74ff);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(10,74,255,0.18);
+}
+.btn.danger {
+  background: transparent;
+  border: 1px solid rgba(255,180,180,0.3);
+  color: #ffb4b4;
+}
+.socials {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+.socials img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: transparent;
 }
 
-/* Nueva pregunta dentro de caso */
-.new-question-block {
-  border-radius: 10px;
+/* ADMIN SIDEBAR */
+.admin-sidebar {
+  min-width: 280px;
+  max-width: 360px;
+  padding-top: 28px;
+}
+.admin-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #e6eefb;
+}
+.admin-sidebar .btn {
+  width: 100%;
+  justify-content: flex-start;
+  background: transparent;
+  color: #cfe1ff;
+  border: 1px solid rgba(255,255,255,0.04);
   padding: 10px 12px;
-  border: 1px dashed #c7d2fe;
-  background: #eef2ff;
+}
+.admin-sidebar .btn:hover {
+  background: rgba(255,255,255,0.06);
+  transform: none;
+  box-shadow: none;
+}
+
+/* MAIN: CONTENIDO PRINCIPAL */
+.screen {
+  width: 100%;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  padding-bottom: 80px;
+}
+
+/* Login card centered */
+.card.centered {
+  width: 420px;
+  max-width: 100%;
+  margin: 80px auto;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 6px 30px rgba(11,18,32,0.06);
+  background: #fff;
+}
+#loginScreen input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #dbe6ff;
   margin-top: 10px;
 }
 
-/* Meta examen */
-.meta-row {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+/* General card style */
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid rgba(11,18,32,0.04);
+  box-shadow: 0 6px 20px rgba(8,20,40,0.03);
+}
+
+/* Student Screen - Exámenes list full-width */
+#studentTitle {
+  font-size: 20px;
+  font-weight: 800;
+  color: #06223a;
+  margin-bottom: 12px;
+}
+.examsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
   margin-top: 8px;
-  font-size: 14px;
-  color: #4b5563;
+}
+.examBox {
+  background:#fff;
+  border-radius:12px;
+  padding:14px;
+  border:1px solid rgba(11,18,32,0.04);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  box-shadow: 0 6px 20px rgba(8,20,40,0.03);
+}
+.examBox .meta {
+  color:#6b7b90;
+  font-size:13px;
+}
+.examBox .title {
+  font-weight:800;
+  color:#082145;
+}
+.examAttempts {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b4aa6;
 }
 
-/* USUARIOS */
-.user-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+/* EXAM SCREEN (FULL) */
+.fullScreenExam {
+  background:transparent;
+  padding-bottom:120px;
+}
+.examHeader {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+  gap:10px;
+}
+.examTimer {
+  background:#081a3a;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:10px;
+  font-weight:800;
+}
+#examForm {
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.questionBlock {
+  background:#fff;
+  border-radius:10px;
+  padding:14px;
+  border:1px solid rgba(11,18,32,0.04);
+  box-shadow:0 6px 20px rgba(8,20,40,0.03);
+}
+.questionTitle {
+  font-weight:800;
+  color:#071029;
+  margin-bottom:8px;
+}
+.caseText {
+  background: linear-gradient(90deg,#eef6ff,#f8fbff);
+  padding:10px;
+  border-left:4px solid #0b4aa6;
+  border-radius:8px;
+  color:#08315d;
+  margin-bottom:8px;
+}
+.options label {
+  display:block;
+  padding:8px;
+  border-radius:8px;
+  margin-top:6px;
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:background .12s, border-color .12s;
+}
+.options input[type="radio"] {
+  margin-right:8px;
+  transform: translateY(1px);
+}
+.options label:hover {
+  background:#f3f8ff;
+  border-color: rgba(11,74,166,0.12);
+}
+.examFooter {
+  margin-top:18px;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
 }
 
-.user-row-main {
-  flex: 1;
+/* BOTONES FLOTANTES (EDITAR/GUARDAR) */
+.editControls {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display:flex;
+  gap:10px;
+  z-index: 999;
+}
+.editControls button {
+  min-width:110px;
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:800;
+}
+.editControls .btn {
+  background: #fff;
+  color:#0b1220;
+  border:1px solid rgba(3,22,45,0.06);
+  box-shadow: 0 6px 20px rgba(8,20,40,0.04);
+}
+.editControls .btn.primary {
+  background: linear-gradient(90deg,#0b4aa6,#0a74ff);
+  color:#fff;
+  box-shadow: 0 12px 30px rgba(10,74,255,0.18);
 }
 
-/* SCROLLBARS */
+/* ADMIN EDITORS */
+.admin-toolbar {
+  display:flex;
+  gap:10px;
+  margin-top:8px;
+}
+.editor .card {
+  padding:12px;
+  border-radius:10px;
+  background:#fff;
+  border:1px solid rgba(10,20,40,0.06);
+  margin-bottom:10px;
+}
+.editor h3, .editor h4 {
+  margin-bottom:8px;
+}
+.editor label {
+  display:block;
+  font-weight:700;
+  margin-top:8px;
+  color:#0b1220;
+}
+.editor input,
+.editor textarea,
+.editor select {
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #e6eefb;
+  background:#fbfdff;
+  color:#071029;
+  width:100%;
+}
+.editor small {
+  font-size:12px;
+}
+
+/* tiny helpers */
+.small { font-size:13px; color:#6b7b90; }
+.muted { color:#7b8899; }
+
+/* SCROLLBAR */
+.screen, .sections {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(11,18,32,0.12) transparent;
+}
 .screen::-webkit-scrollbar,
 .sections::-webkit-scrollbar {
-  width: 8px;
+  width:10px;
+  height:10px;
 }
-
-.screen::-webkit-scrollbar-thumb,
-.sections::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.6);
-  border-radius: 999px;
+.screen::-webkit-scrollbar-thumb {
+  background: rgba(11,18,32,0.08);
+  border-radius:8px;
+}
+a[role="button"], button {
+  outline: none;
 }
 
 /* RESPONSIVE */
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 56px 1fr;
+  }
+  .admin-sidebar {
+    display:none;
+  }
+}
+@media (max-width: 760px) {
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: 64px 1fr;
   }
-
   .left-sidebar {
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
     flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    padding: 10px;
     gap: 8px;
+    overflow: auto;
+    border-right: none;
+    border-bottom: 1px solid #e6e9f2;
   }
-
-  .sidebar-block {
-    flex: 1 1 220px;
-  }
-
   .main {
-    padding: 10px 12px;
+    grid-column: 1 / -1;
+    grid-row: 2 / -1;
+    padding: 12px;
   }
-
-  .card.centered {
-    margin-top: 20px;
+  .brand-text {
+    display:none;
+  }
+  .sections {
+    display:flex;
+    gap:8px;
+  }
+  .sections .section-item {
+    white-space:nowrap;
+    min-width:120px;
+  }
+  .editControls {
+    right:12px;
+    bottom:12px;
   }
 }
 
-/* DARK MODE */
+/* MODO OSCURO AUTOMÁTICO */
 @media (prefers-color-scheme: dark) {
   body {
-    background: #020617;
-    color: #e5e7eb;
+    background:#07101a;
+    color:#e6f0ff;
   }
-
   .left-sidebar {
-    background: #020617;
-    border-right-color: #1f2937;
+    background:#071126;
+    border-right:1px solid rgba(255,255,255,0.04);
   }
-
-  .sidebar-block {
-    background: #020617;
-    border: 1px solid #1f2937;
-  }
-
-  .section-item {
-    background: #111827;
-    color: #e5e7eb;
-  }
-
-  .section-item:hover {
-    background: #1f2937;
-  }
-
   .main {
-    background: radial-gradient(circle at top, #1d283a, #020617);
+    background: linear-gradient(180deg,#061426,#07101a);
   }
-
-  .card {
-    background: #020617;
-    border-color: #1f2937;
+  .admin-sidebar {
+    background:#071126;
+    border-left:1px solid rgba(255,255,255,0.04);
   }
-
-  input,
-  textarea,
-  select {
-    background: #020617;
-    border-color: #374151;
-    color: #e5e7eb;
+  .brand .brand-text {
+    color:#dbeeff;
   }
-
+  .sections .section-item {
+    background:#071b2e;
+    color:#cfe4ff;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .sections .section-item.active {
+    background: linear-gradient(90deg,#05264f,#073a89);
+    color:#fff;
+    box-shadow:none;
+  }
+  .sidebar-actions .countdown {
+    background: linear-gradient(90deg,#06263d,#04203a);
+    color:#eaf6ff;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .card,
+  .card.centered,
+  .editor .card,
+  .questionBlock,
+  .examBox {
+    background: linear-gradient(180deg,#071627,#071b2b);
+    border:1px solid rgba(255,255,255,0.08);
+    color:#e6f0ff;
+    box-shadow: none;
+  }
+  input, select, textarea {
+    background:#041023;
+    color:#dff0ff;
+    border:1px solid rgba(255,255,255,0.09);
+  }
   .btn {
-    background: #111827;
-    color: #e5e7eb;
+    background:transparent;
+    color:#cfe6ff;
+    border:1px solid rgba(255,255,255,0.08);
   }
-
   .btn.primary {
-    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    background: linear-gradient(90deg,#0a59d4,#0a74ff);
+    color:#fff;
+    box-shadow: 0 8px 28px rgba(10,74,255,0.14);
   }
-
-  .countdown {
-    background: #0f172a;
-    color: #e5e7eb;
-    border-color: #1f2937;
+  .examTimer {
+    background: #0a3a73;
+    color:#fff;
   }
-
-  .pregunta-card {
-    background: #020617;
-    border-color: #111827;
+  .caseText {
+    background: linear-gradient(90deg,#041a35,#061b3a);
+    border-left-color:#0a74ff;
+    color:#dbeeff;
   }
-
-  .new-question-block {
-    background: #020617;
-    border-color: #1d4ed8;
+  .socials img {
+    filter: brightness(0.95) saturate(0.8);
   }
 }
