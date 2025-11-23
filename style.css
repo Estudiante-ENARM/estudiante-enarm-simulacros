@@ -1,568 +1,312 @@
 /* ============================================================
-   ESTUDIANTE ENARM - style.css (Versión A: moderno / azul oscuro)
-   Layout:
-   - Sidebar izquierda: secciones + redes
-   - Sidebar derecha: menú admin (solo admin)
-   - Main: login, exámenes, editor admin, usuarios, íconos
+   ESTUDIANTE ENARM - style.css (Versión Consolidada)
+   Incluye:
+   - Sidebar izquierda y derecha (admin)
+   - Pantalla estudiante optimizada
+   - Admin editor dinámico
+   - Botones flotantes Editar/Guardar
+   - Modo oscuro automático
    ============================================================ */
 
 /* RESET GLOBAL */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-html, body {
-  height: 100%;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html,body { height: 100%; }
 body {
   font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
   background: #f4f6fb;
   color: #0b1220;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.4;
   overflow: hidden;
+  line-height: 1.4;
 }
 
-/* Helpers */
-.hidden { display: none !important; }
-.row {
-  display: flex;
-  gap: 8px;
-}
-.user-info { font-size: 14px; color: #0b1220; }
-.auth-buttons { display:flex; gap:10px; }
-
-/* LAYOUT PRINCIPAL */
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
 .app {
   display: grid;
-  grid-template-columns: 260px 1fr 320px; /* left sidebar, main, right admin */
+  grid-template-columns: 260px 1fr auto; /* Sidebar izquierda | Main | Sidebar Admin */
   grid-template-rows: 56px 1fr;
-  gap: 0;
   height: 100vh;
 }
 
-/* --- Areas --- */
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar {
+  grid-column: 2 / 4;
+  grid-row: 1 / 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 20px;
+  background: #ffffffd8;
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #e6e9f2;
+  z-index: 20;
+}
+
+/* ============================================================
+   SIDEBAR IZQUIERDA (SECCIONES)
+   ============================================================ */
 .left-sidebar {
   grid-column: 1 / 2;
   grid-row: 1 / 3;
   border-right: 1px solid #e6e9f2;
   background: #ffffff;
-  display: flex;
-  flex-direction: column;
   padding: 18px;
-}
-.main {
-  grid-column: 2 / 3;
-  grid-row: 1 / 3;
-  overflow: auto;
-  padding: 18px 22px;
-  background: linear-gradient(180deg,#fbfdff,#f4f6fb);
-}
-.admin-sidebar {
-  grid-column: 3 / 4;
-  grid-row: 1 / 3;
-  border-left: 1px solid #e6e9f2;
-  background: #0f1724;
-  color: #fff;
-  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-/* TOPBAR */
-.topbar {
-  grid-column: 2 / 3;
-  grid-row: 1 / 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 22px;
-  background: transparent;
-  position: sticky;
-  top: 0;
-  z-index: 8;
-}
-
-/* Brand / Logo */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 12px;
 }
-.brand .brand-text {
-  font-weight: 700;
-  font-size: 18px;
-  color: #06223a;
-}
-.logo {
-  width: 38px;
-  height: 38px;
-  object-fit: contain;
-}
+.brand .brand-text { font-size: 18px; font-weight: 800; }
+.logo { width: 38px; height: 38px; }
 
-/* SIDEBAR IZQUIERDA (SECCIONES) */
 .sections {
-  margin-top: 8px;
-  overflow: auto;
+  margin-top: 14px;
+  overflow-y: auto;
   padding-right: 6px;
 }
-.sections .section-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+
+.section-item {
+  padding: 12px;
   margin-bottom: 10px;
   background: #f6f9ff;
   border-radius: 8px;
-  border: 1px solid rgba(59,130,246,0.06);
   cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease;
+  border: 1px solid rgba(59,130,246,0.06);
+  transition: 0.12s;
 }
-.sections .section-item:hover {
+.section-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(14,45,85,0.06);
+  box-shadow: 0 4px 14px rgba(10,40,80,0.08);
 }
-.sections .section-item.active {
-  background: linear-gradient(90deg, #072f62 0%, #0a4aa6 100%);
+.section-item.active {
+  background: linear-gradient(90deg, #072f62, #0a4aa6);
   color: #fff;
-  border: none;
-  font-weight: 700;
-  box-shadow: 0 8px 26px rgba(10,41,93,0.18);
 }
 
-/* Sidebar acciones inferiores */
-.sidebar-actions {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-}
+/* ICONOS + CONTADOR */
+.sidebar-actions { margin-top: auto; text-align: center; }
 .countdown {
+  margin: 10px 0;
   font-weight: 700;
-  color: #0b2a4a;
+  padding: 8px;
+  border-radius: 8px;
   background: #eef4ff;
-  padding: 8px 12px;
-  border-radius: 8px;
-  width: 100%;
-  text-align: center;
-  border: 1px solid #e1ecff;
+  border: 1px solid #d3e3ff;
 }
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  background: #e6e9f2;
-  color: #071029;
-  font-weight: 600;
-  transition: transform .12s, box-shadow .12s;
-}
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(14,45,85,0.06);
-}
-.btn.primary {
-  background: linear-gradient(90deg,#0b4aa6,#0a74ff);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(10,74,255,0.18);
-}
-.btn.danger {
-  background: transparent;
-  border: 1px solid rgba(255,180,180,0.3);
-  color: #ffb4b4;
-}
+
 .socials {
   display: flex;
-  gap: 10px;
-  align-items: center;
   justify-content: center;
+  gap: 12px;
   margin-top: 6px;
 }
-.socials img {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-  border-radius: 6px;
-  background: transparent;
+.socials img { width: 36px; }
+
+/* ============================================================
+   SIDEBAR DERECHA (ADMIN)
+   ============================================================ */
+.admin-sidebar {
+  grid-column: 3 / 4;
+  grid-row: 1 / 3;
+  background: #0f1724;
+  color: #fff;
+  padding: 22px;
+  border-left: 1px solid #1f2a40;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-/* ADMIN SIDEBAR */
-.admin-sidebar {
-  min-width: 280px;
-  max-width: 360px;
-  padding-top: 28px;
+.admin-sidebar.hidden {
+  display: none !important;
+  width: 0 !important;
+  padding: 0 !important;
+  border-left: none !important;
 }
-.admin-title {
-  font-size: 16px;
+
+.admin-sidebar h3 {
+  margin-bottom: 8px;
+  font-size: 17px;
   font-weight: 800;
-  margin-bottom: 6px;
-  color: #e6eefb;
 }
+
 .admin-sidebar .btn {
   width: 100%;
-  justify-content: flex-start;
-  background: transparent;
-  color: #cfe1ff;
-  border: 1px solid rgba(255,255,255,0.04);
+  text-align: left;
   padding: 10px 12px;
+  background: transparent;
+  border: 1px solid #20304d;
+  color: #e8f1ff;
+  border-radius: 8px;
 }
 .admin-sidebar .btn:hover {
   background: rgba(255,255,255,0.06);
-  transform: none;
-  box-shadow: none;
+}
+.btn.danger {
+  border-color: #ffb4b4;
+  color: #ffb4b4;
 }
 
-/* MAIN: CONTENIDO PRINCIPAL */
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+.main {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  overflow-y: auto;
+  padding: 20px;
+}
+
 .screen {
-  width: 100%;
   height: calc(100vh - 56px);
-  overflow: auto;
-  padding-bottom: 80px;
+  overflow-y: auto;
 }
 
-/* Login card centered */
+/* ============================================================
+   LOGIN
+   ============================================================ */
 .card.centered {
   width: 420px;
-  max-width: 100%;
-  margin: 80px auto;
-  padding: 22px;
-  border-radius: 12px;
-  box-shadow: 0 6px 30px rgba(11,18,32,0.06);
+  margin: 70px auto;
+  padding: 24px;
   background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(10,20,40,0.08);
 }
-#loginScreen input {
+.card.centered input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px;
+  margin: 8px 0;
   border-radius: 8px;
-  border: 1px solid #dbe6ff;
+  border: 1px solid #d9e2ef;
+}
+
+/* ============================================================
+   LISTA DE EXÁMENES
+   ============================================================ */
+.examsList {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+}
+
+.examBox {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e6e9f2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.examBox .title { font-weight: 800; font-size: 16px; }
+.examBox .meta { color: #6b7b90; font-size: 13px; }
+
+/* ============================================================
+   EXAMEN
+   ============================================================ */
+.fullScreenExam {
+  padding-bottom: 120px;
+}
+
+.questionBlock {
+  background: #fff;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+.caseText {
+  background: #eef6ff;
+  border-left: 4px solid #0a4aa6;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+
+.options label {
+  display: block;
+  padding: 8px;
+  border-radius: 8px;
+  margin-top: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.options label:hover {
+  background: #f3f8ff;
+}
+
+/* ============================================================
+   BOTONES FLOTANTES
+   ============================================================ */
+.editControls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  background: #d3d8e3;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+.btn.primary {
+  background: #0a74ff;
+  color: white;
+}
+
+/* ============================================================
+   PANEL DE USUARIOS / EDITORES
+   ============================================================ */
+.editor-area {
+  background: #ffffff10;
+  border: 1px solid #1f2a40;
+  padding: 12px;
+  border-radius: 10px;
   margin-top: 10px;
 }
 
-/* General card style */
-.card {
-  background: #fff;
+#usersList .card {
+  padding: 12px;
+  background: #ffffff08;
   border-radius: 10px;
-  padding: 14px;
-  border: 1px solid rgba(11,18,32,0.04);
-  box-shadow: 0 6px 20px rgba(8,20,40,0.03);
+  border: 1px solid #23324d;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
 }
 
-/* Student Screen - Exámenes list full-width */
-#studentTitle {
-  font-size: 20px;
-  font-weight: 800;
-  color: #06223a;
-  margin-bottom: 12px;
-}
-.examsList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 14px;
-  margin-top: 8px;
-}
-.examBox {
-  background:#fff;
-  border-radius:12px;
-  padding:14px;
-  border:1px solid rgba(11,18,32,0.04);
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  box-shadow: 0 6px 20px rgba(8,20,40,0.03);
-}
-.examBox .meta {
-  color:#6b7b90;
-  font-size:13px;
-}
-.examBox .title {
-  font-weight:800;
-  color:#082145;
-}
-.examAttempts {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0b4aa6;
-}
-
-/* EXAM SCREEN (FULL) */
-.fullScreenExam {
-  background:transparent;
-  padding-bottom:120px;
-}
-.examHeader {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:14px;
-  gap:10px;
-}
-.examTimer {
-  background:#081a3a;
-  color:#fff;
-  padding:8px 12px;
-  border-radius:10px;
-  font-weight:800;
-}
-#examForm {
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
-.questionBlock {
-  background:#fff;
-  border-radius:10px;
-  padding:14px;
-  border:1px solid rgba(11,18,32,0.04);
-  box-shadow:0 6px 20px rgba(8,20,40,0.03);
-}
-.questionTitle {
-  font-weight:800;
-  color:#071029;
-  margin-bottom:8px;
-}
-.caseText {
-  background: linear-gradient(90deg,#eef6ff,#f8fbff);
-  padding:10px;
-  border-left:4px solid #0b4aa6;
-  border-radius:8px;
-  color:#08315d;
-  margin-bottom:8px;
-}
-.options label {
-  display:block;
-  padding:8px;
-  border-radius:8px;
-  margin-top:6px;
-  cursor:pointer;
-  border:1px solid transparent;
-  transition:background .12s, border-color .12s;
-}
-.options input[type="radio"] {
-  margin-right:8px;
-  transform: translateY(1px);
-}
-.options label:hover {
-  background:#f3f8ff;
-  border-color: rgba(11,74,166,0.12);
-}
-.examFooter {
-  margin-top:18px;
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-}
-
-/* BOTONES FLOTANTES (EDITAR/GUARDAR) */
-.editControls {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  display:flex;
-  gap:10px;
-  z-index: 999;
-}
-.editControls button {
-  min-width:110px;
-  padding:10px 14px;
-  border-radius:12px;
-  font-weight:800;
-}
-.editControls .btn {
-  background: #fff;
-  color:#0b1220;
-  border:1px solid rgba(3,22,45,0.06);
-  box-shadow: 0 6px 20px rgba(8,20,40,0.04);
-}
-.editControls .btn.primary {
-  background: linear-gradient(90deg,#0b4aa6,#0a74ff);
-  color:#fff;
-  box-shadow: 0 12px 30px rgba(10,74,255,0.18);
-}
-
-/* ADMIN EDITORS */
-.admin-toolbar {
-  display:flex;
-  gap:10px;
-  margin-top:8px;
-}
-.editor .card {
-  padding:12px;
-  border-radius:10px;
-  background:#fff;
-  border:1px solid rgba(10,20,40,0.06);
-  margin-bottom:10px;
-}
-.editor h3, .editor h4 {
-  margin-bottom:8px;
-}
-.editor label {
-  display:block;
-  font-weight:700;
-  margin-top:8px;
-  color:#0b1220;
-}
-.editor input,
-.editor textarea,
-.editor select {
-  padding:10px;
-  border-radius:8px;
-  border:1px solid #e6eefb;
-  background:#fbfdff;
-  color:#071029;
-  width:100%;
-}
-.editor small {
-  font-size:12px;
-}
-
-/* tiny helpers */
-.small { font-size:13px; color:#6b7b90; }
-.muted { color:#7b8899; }
-
-/* SCROLLBAR */
-.screen, .sections {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(11,18,32,0.12) transparent;
-}
-.screen::-webkit-scrollbar,
-.sections::-webkit-scrollbar {
-  width:10px;
-  height:10px;
-}
-.screen::-webkit-scrollbar-thumb {
-  background: rgba(11,18,32,0.08);
-  border-radius:8px;
-}
-a[role="button"], button {
-  outline: none;
-}
-
-/* RESPONSIVE */
-@media (max-width: 1100px) {
-  .app {
-    grid-template-columns: 220px 1fr;
-    grid-template-rows: 56px 1fr;
-  }
-  .admin-sidebar {
-    display:none;
-  }
-}
-@media (max-width: 760px) {
-  .app {
-    grid-template-columns: 1fr;
-    grid-template-rows: 64px 1fr;
-  }
-  .left-sidebar {
-    grid-column: 1 / -1;
-    grid-row: 1 / 2;
-    flex-direction: row;
-    padding: 10px;
-    gap: 8px;
-    overflow: auto;
-    border-right: none;
-    border-bottom: 1px solid #e6e9f2;
-  }
-  .main {
-    grid-column: 1 / -1;
-    grid-row: 2 / -1;
-    padding: 12px;
-  }
-  .brand-text {
-    display:none;
-  }
-  .sections {
-    display:flex;
-    gap:8px;
-  }
-  .sections .section-item {
-    white-space:nowrap;
-    min-width:120px;
-  }
-  .editControls {
-    right:12px;
-    bottom:12px;
-  }
-}
-
-/* MODO OSCURO AUTOMÁTICO */
+/* ============================================================
+   MODO OSCURO AUTOMÁTICO
+   ============================================================ */
 @media (prefers-color-scheme: dark) {
-  body {
-    background:#07101a;
-    color:#e6f0ff;
-  }
-  .left-sidebar {
-    background:#071126;
-    border-right:1px solid rgba(255,255,255,0.04);
-  }
-  .main {
-    background: linear-gradient(180deg,#061426,#07101a);
-  }
-  .admin-sidebar {
-    background:#071126;
-    border-left:1px solid rgba(255,255,255,0.04);
-  }
-  .brand .brand-text {
-    color:#dbeeff;
-  }
-  .sections .section-item {
-    background:#071b2e;
-    color:#cfe4ff;
-    border:1px solid rgba(255,255,255,0.02);
-  }
-  .sections .section-item.active {
-    background: linear-gradient(90deg,#05264f,#073a89);
-    color:#fff;
-    box-shadow:none;
-  }
-  .sidebar-actions .countdown {
-    background: linear-gradient(90deg,#06263d,#04203a);
-    color:#eaf6ff;
-    border:1px solid rgba(255,255,255,0.03);
-  }
-  .card,
-  .card.centered,
-  .editor .card,
-  .questionBlock,
-  .examBox {
-    background: linear-gradient(180deg,#071627,#071b2b);
-    border:1px solid rgba(255,255,255,0.08);
-    color:#e6f0ff;
-    box-shadow: none;
-  }
-  input, select, textarea {
-    background:#041023;
-    color:#dff0ff;
-    border:1px solid rgba(255,255,255,0.09);
-  }
-  .btn {
-    background:transparent;
-    color:#cfe6ff;
-    border:1px solid rgba(255,255,255,0.08);
-  }
-  .btn.primary {
-    background: linear-gradient(90deg,#0a59d4,#0a74ff);
-    color:#fff;
-    box-shadow: 0 8px 28px rgba(10,74,255,0.14);
-  }
-  .examTimer {
-    background: #0a3a73;
-    color:#fff;
-  }
-  .caseText {
-    background: linear-gradient(90deg,#041a35,#061b3a);
-    border-left-color:#0a74ff;
-    color:#dbeeff;
-  }
-  .socials img {
-    filter: brightness(0.95) saturate(0.8);
+  body { background: #0b0f17; color: #e6eefb; }
+  .left-sidebar { background: #08101d; border-right: 1px solid #162033; }
+  .main { background: #0b0f17; }
+  .card.centered { background: #0f1625; color: #e6eefb; }
+  .examBox { background: #0f1625; border-color: #1c2740; }
+  .questionBlock { background: #0f1625; border-color: #1c2740; }
+  input, textarea {
+    background: #091422;
+    border: 1px solid #1c2740;
+    color: #e6eefb;
   }
 }
