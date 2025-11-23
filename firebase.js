@@ -1,26 +1,56 @@
-// firebase.js
-// Configuración e inicialización de Firebase (SDK modular)
-
+// ==========================
+// FIREBASE CONFIG (Tuya)
+// ==========================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import {
-  getAuth
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 import {
-  getFirestore
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-// USA TU CONFIG YA EXISTENTE:
-const firebaseConfig = {
-  apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
-  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
-  projectId: "simulacros-plataforma-enarm",
-  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
-  messagingSenderId: "1012829203040",
-  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+export const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROJECT.firebaseapp.com",
+  projectId: "TU_PROJECT",
+  storageBucket: "TU_PROJECT.appspot.com",
+  messagingSenderId: "XXXXXXX",
+  appId: "XXXXXXXX",
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
 
-export { app, auth, db };
+export {
+  signInWithEmailAndPassword,
+  signOut,
+  createUserWithEmailAndPassword,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+  setDoc
+};
