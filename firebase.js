@@ -1,11 +1,15 @@
 // firebase.js
-// Inicializa Firebase y exporta app, auth, db
+// Configuración e inicialización de Firebase (SDK modular)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+import {
+  getAuth
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import {
+  getFirestore
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-// Usa tu configuración actual
+// USA TU CONFIG YA EXISTENTE:
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
