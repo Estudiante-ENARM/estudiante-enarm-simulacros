@@ -1,234 +1,228 @@
-// ===========================================================
-// APP.JS — Plataforma ENARM (ADMIN + ESTUDIANTE)
-// Código totalmente reescrito y compatible con Firestore
-// ===========================================================
+/*************************************************************
+ *  app.js — Plataforma ENARM
+ *  Versión estable y corregida 2025-11-23
+ *************************************************************/
 
+// =======================
+// IMPORTS FIREBASE (v9)
+// =======================
 import {
   auth,
-  db,
+  db
+} from "./firebase.js";
+
+import {
   signInWithEmailAndPassword,
   signOut,
-  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import {
   collection,
   doc,
+  addDoc,
   getDoc,
   getDocs,
-  addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
-  serverTimestamp,
-  setDoc
-} from "./firebase.js";
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
-// ===========================================================
-// UTILIDADES
-// ===========================================================
-
-function qs(sel) { return document.querySelector(sel); }
-function qsa(sel) { return document.querySelectorAll(sel); }
+// ========================================
+//   UTILIDADES
+// ========================================
+const $ = (id) => document.getElementById(id);
 function show(el) { el.classList.remove("hidden"); }
 function hide(el) { el.classList.add("hidden"); }
-function clear(el) { el.innerHTML = ""; }
-
-function escapeHTML(txt) {
-  if (!txt) return "";
-  return txt.replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[c]));
-}
+function escape(s) { return String(s || "").replace(/</g, "&lt;"); }
 
 
-// ===========================================================
-// REFERENCIAS DOM
-// ===========================================================
+// ========================================
+//   ELEMENTOS DEL DOM
+// ========================================
+const loginScreen         = $("loginScreen");
+const studentScreen       = $("studentScreen");
+const examScreen          = $("examScreen");
+const resultScreen        = $("resultScreen");
 
-const loginScreen = qs("#loginScreen");
-const inputEmail = qs("#inputEmail");
-const inputPassword = qs("#inputPassword");
-const btnLogin = qs("#btnLogin");
-const loginMessage = qs("#loginMessage");
+const adminSidebar        = $("adminSidebar");
 
-const userInfo = qs("#userInfo");
-const authButtons = qs("#authButtons");
+const adminExamsScreen    = $("adminExamsScreen");
+const adminSectionsScreen = $("adminSectionsScreen");
+const adminUsersScreen    = $("adminUsersScreen");
+const adminIconsScreen    = $("adminIconsScreen");
 
-const leftSidebar = qs("#leftSidebar");
-const adminSidebar = qs("#adminSidebar");
+const sectionsList        = $("sectionsList");
+const examsList           = $("examsList");
 
-const sectionsList = qs("#sectionsList");
+const adminExamsTab       = $("adminExamsTab");
+const adminSectionsTab    = $("adminSectionsTab");
+const adminUsersTab       = $("adminUsersTab");
+const adminIconsTab       = $("adminIconsTab");
+const adminLogout         = $("adminLogout");
 
-const examsScreen = qs("#examsScreen");
-const examsList = qs("#examsList");
-const sectionTitle = qs("#sectionTitle");
-const examsAdminControls = qs("#examsAdminControls");
+const userInfo            = $("userInfo");
+const authButtons         = $("authButtons");
 
-const examEditorScreen = qs("#examEditorScreen");
-const examTitleEditor = qs("#examTitleEditor");
-const casesList = qs("#casesList");
-
-const btnAdminAddSection = qs("#btnAdminAddSection");
-const btnAdminUsers = qs("#btnAdminUsers");
-const btnAdminIcons = qs("#btnAdminIcons");
-const btnAdminLogout = qs("#btnAdminLogout");
-
-const linkInstagram = qs("#link-instagram");
-const linkWhatsApp = qs("#link-whatsapp");
-const linkTelegram = qs("#link-telegram");
-const linkTikTok = qs("#link-tiktok");
+// íconos sociales
+const igLink = $("link-instagram");
+const waLink = $("link-whatsapp");
+const tgLink = $("link-telegram");
+const ttLink = $("link-tiktok");
 
 
-// ===========================================================
-// ESTADO GLOBAL
-// ===========================================================
-
+// ========================================
+//   ESTADO GLOBAL
+// ========================================
 let currentUser = null;
-let isAdmin = false;
-let currentSectionId = null;
-let currentExamId = null;
+let currentRole = null;
+let selectedSectionId = null;
+let selectedExamId = null;
 
 
-// ===========================================================
-// AUTENTICACIÓN
-// ===========================================================
+// ========================================
+//   LOGIN
+// ========================================
+$("btnLogin").onclick = async () => {
+  const email = $("inputEmail").value.trim();
+  const pass  = $("inputPassword").value.trim();
 
-// LOGIN
-if (btnLogin) {
-  btnLogin.onclick = async () => {
-    loginMessage.textContent = "";
-
-    const email = inputEmail.value.trim();
-    const pass = inputPassword.value.trim();
-    if (!email || !pass) {
-      loginMessage.textContent = "Ingresa correo y contraseña.";
-      return;
-    }
-
-    try {
-      const res = await signInWithEmailAndPassword(auth, email, pass);
-      await loadUser(res.user.uid);
-    } catch (e) {
-      console.error(e);
-      loginMessage.textContent = "Usuario o contraseña incorrectos.";
-    }
-  };
-}
-
-
-// LOGOUT
-async function doLogout() {
-  await signOut(auth);
-  currentUser = null;
-  isAdmin = false;
-
-  hide(adminSidebar);
-
-  show(loginScreen);
-  hide(examsScreen);
-  hide(examEditorScreen);
-
-  authButtons.innerHTML = "";
-  userInfo.textContent = "";
-}
-
-
-// CARGAR USER + ROLE
-async function loadUser(uid) {
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    // Usuario existe en Auth pero no en users
-    loginMessage.textContent = "Tu usuario no está registrado en la plataforma.";
+  if (!email || !pass) {
+    $("loginMessage").innerText = "Ingrese correo y contraseña";
     return;
   }
 
-  currentUser = { id: uid, ...snap.data() };
-  isAdmin = currentUser.role === "admin";
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    $("loginMessage").innerText = "Accediendo...";
+  } catch (e) {
+    console.error(e);
+    $("loginMessage").innerText = "Credenciales incorrectas";
+  }
+};
 
-  userInfo.textContent = currentUser.name + " (" + currentUser.role + ")";
+$("btnCancel").onclick = () => {
+  $("inputEmail").value = "";
+  $("inputPassword").value = "";
+  $("loginMessage").innerText = "";
+};
 
-  authButtons.innerHTML = `<button class="btn" id="btnLogout">Cerrar sesión</button>`;
-  qs("#btnLogout").onclick = doLogout;
+
+// ========================================
+//   CERRAR SESIÓN
+// ========================================
+async function doLogout() {
+  await signOut(auth);
+}
+
+
+// ========================================
+//   OBSERVADOR AUTH
+// ========================================
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+
+  if (!user) {
+    currentRole = null;
+    userInfo.innerText = "";
+    hide(adminSidebar);
+    hide(studentScreen);
+    hide(examScreen);
+    hide(resultScreen);
+    hide(adminExamsScreen);
+    hide(adminSectionsScreen);
+    hide(adminUsersScreen);
+    hide(adminIconsScreen);
+
+    show(loginScreen);
+    return;
+  }
+
+  // Obtener rol
+  const uRef = doc(db, "users", user.uid);
+  const uSnap = await getDoc(uRef);
+
+  if (!uSnap.exists()) {
+    currentRole = "user";
+  } else {
+    currentRole = uSnap.data().role || "user";
+  }
+
+  userInfo.innerText = `${user.email} (${currentRole})`;
 
   hide(loginScreen);
 
-  if (isAdmin) {
+  if (currentRole === "admin") {
     show(adminSidebar);
   } else {
     hide(adminSidebar);
+
+    // IMPORTANTE: Quitar espacio de layout reservado al admin sidebar
+    document.querySelector(".app").style.gridTemplateColumns = "260px 1fr";
   }
 
+  await loadIcons();
   await loadSections();
-}
+});
 
 
-// ===========================================================
-// SECCIONES
-// ===========================================================
-
+// ========================================
+//   CARGAR SECCIONES
+// ========================================
 async function loadSections() {
-  clear(sectionsList);
+  sectionsList.innerHTML = "Cargando...";
 
-  const q = query(collection(db, "sections"), orderBy("order"));
-  const snap = await getDocs(q);
+  try {
+    const q = query(collection(db, "sections"), orderBy("order", "asc"));
+    const snap = await getDocs(q);
 
-  snap.forEach(docu => {
-    const d = docu.data();
-    const div = document.createElement("div");
-    div.className = "section-item";
-    div.textContent = d.name;
-    div.dataset.id = docu.id;
+    sectionsList.innerHTML = "";
 
-    div.onclick = () => {
-      currentSectionId = docu.id;
-      loadExams(docu.id, d.name);
-    };
-
-    sectionsList.appendChild(div);
-  });
-
-  // Botón admin: agregar sección
-  if (isAdmin && btnAdminAddSection) {
-    btnAdminAddSection.onclick = () => adminAddSection();
+    snap.forEach((docu) => {
+      const d = docu.data();
+      const item = document.createElement("div");
+      item.className = "section-item";
+      item.innerText = d.name;
+      item.onclick = () => openSection(docu.id, d.name);
+      sectionsList.appendChild(item);
+    });
+  } catch (e) {
+    console.error("loadSections", e);
+    sectionsList.innerHTML = "<div>Error cargando secciones</div>";
   }
 }
 
 
-// ===========================================================
-// MÉTODO: AGREGAR SECCIÓN
-// ===========================================================
+// ========================================
+//   ABRIR SECCIÓN (estudiante/admin)
+// ========================================
+async function openSection(sectionId, name) {
+  selectedSectionId = sectionId;
 
-async function adminAddSection() {
-  const name = prompt("Nombre de la sección:");
-  if (!name) return;
+  hide(examScreen);
+  hide(resultScreen);
+  hide(adminExamsScreen);
+  hide(adminSectionsScreen);
+  hide(adminUsersScreen);
+  hide(adminIconsScreen);
 
-  const order = Number(prompt("Orden numérico:") || 1);
+  show(studentScreen);
+  $("studentTitle").innerText = name;
 
-  await addDoc(collection(db, "sections"), {
-    name,
-    order,
-    createdAt: serverTimestamp()
-  });
-
-  alert("Sección agregada.");
-  await loadSections();
+  await loadExams(sectionId);
 }
-// ===========================================================
-// EXÁMENES – LISTADO PRINCIPAL
-// ===========================================================
 
-async function loadExams(sectionId, sectionName) {
-  currentExamId = null;
 
-  show(examsScreen);
-  hide(examEditorScreen);
-
-  sectionTitle.textContent = sectionName;
-
-  clear(examsList);
+// ========================================
+//   CARGAR EXÁMENES
+// ========================================
+async function loadExams(sectionId) {
+  examsList.innerHTML = "Cargando exámenes...";
 
   try {
     const q = query(
@@ -240,727 +234,541 @@ async function loadExams(sectionId, sectionName) {
     const snap = await getDocs(q);
 
     if (snap.empty) {
-      examsList.innerHTML = `<div class="muted">No hay exámenes en esta sección.</div>`;
+      examsList.innerHTML = "<div class='small muted'>Sin exámenes</div>";
       return;
     }
 
-    snap.forEach(examDoc => {
-      const ex = examDoc.data();
+    examsList.innerHTML = "";
 
+    snap.forEach((docu) => {
+      const d = docu.data();
       const box = document.createElement("div");
       box.className = "examBox";
 
       box.innerHTML = `
         <div>
-          <div class="title">${escapeHTML(ex.title)}</div>
-          <div class="meta">${escapeHTML(ex.description || "")}</div>
+          <div class="title">${escape(d.title)}</div>
+          <div class="meta">${escape(d.description || "")}</div>
         </div>
-        <div class="examActions">
-          <button class="btn openExam" data-id="${examDoc.id}">Abrir</button>
-          ${isAdmin ? `<button class="btn danger delExam" data-id="${examDoc.id}">Eliminar</button>` : ""}
-        </div>
+        <button data-id="${docu.id}" class="btn primary">Abrir</button>
       `;
+
+      box.querySelector("button").onclick = () => openExam(docu.id);
 
       examsList.appendChild(box);
     });
-
-    // abrir examen
-    examsList.querySelectorAll(".openExam").forEach(btn => {
-      btn.onclick = () => {
-        const id = btn.dataset.id;
-        openExamEditor(id);
-      };
-    });
-
-    // eliminar examen
-    if (isAdmin) {
-      examsList.querySelectorAll(".delExam").forEach(btn => {
-        btn.onclick = async () => {
-          const id = btn.dataset.id;
-
-          if (!confirm("¿Eliminar examen completo? Esto borra casos y preguntas.")) return;
-
-          await deleteExamCascade(id);
-
-          alert("Examen y todo su contenido eliminado.");
-          loadExams(sectionId, sectionName);
-        };
-      });
-    }
-
   } catch (e) {
-    console.error("loadExams error:", e);
-    examsList.innerHTML = `<div class="muted">Error cargando los exámenes.</div>`;
+    console.error("loadExams", e);
+    examsList.innerHTML = "<div>Error cargando exámenes</div>";
   }
 }
 
 
-// ===========================================================
-// BORRADO COMPLETO DE EXAMEN
-// ===========================================================
+// ========================================
+//   ABRIR EXAMEN (modo estudiante)
+// ========================================
+async function openExam(examId) {
+  selectedExamId = examId;
 
-async function deleteExamCascade(examId) {
+  hide(studentScreen);
+  hide(resultScreen);
 
-  // borrar casos
-  const casosSnap = await getDocs(
-    query(collection(db, "casosClinicos"), where("examId", "==", examId))
-  );
+  $("examForm").innerHTML = "";
+  $("examTitle").innerText = "Cargando...";
 
-  for (const caso of casosSnap.docs) {
-    const casoId = caso.id;
+  show(examScreen);
 
-    // borrar preguntas de cada caso
-    const preguntasSnap = await getDocs(
-      query(collection(db, "preguntas"), where("casoId", "==", casoId))
+  // cargar preguntas → casos + preguntas
+  await loadExamContent(examId);
+}
+
+
+// ========================================
+//   CARGAR CONTENIDO DEL EXAMEN (preguntas)
+// ========================================
+async function loadExamContent(examId) {
+  try {
+    const examRef = doc(db, "exams", examId);
+    const examSnap = await getDoc(examRef);
+    if (!examSnap.exists()) {
+      $("examTitle").innerText = "Examen no encontrado";
+      return;
+    }
+
+    const exam = examSnap.data();
+    $("examTitle").innerText = exam.title;
+
+    const casosQ = query(
+      collection(db, "casosClinicos"),
+      where("examId", "==", examId),
+      orderBy("orden", "asc")
     );
 
-    for (const preg of preguntasSnap.docs) {
-      await deleteDoc(doc(db, "preguntas", preg.id));
-    }
-
-    // borrar caso
-    await deleteDoc(doc(db, "casosClinicos", casoId));
-  }
-
-  // borrar examen
-  await deleteDoc(doc(db, "exams", examId));
-}
-
-
-// ===========================================================
-// ADMIN: CREAR NUEVO EXAMEN
-// ===========================================================
-
-if (qs("#btnAdminAddExam")) {
-  qs("#btnAdminAddExam").onclick = async () => {
-
-    if (!currentSectionId) {
-      alert("Selecciona una sección primero.");
-      return;
-    }
-
-    const title = prompt("Título del examen:");
-    if (!title) return;
-
-    const desc = prompt("Descripción:");
-    const examRef = await addDoc(collection(db, "exams"), {
-      sectionId: currentSectionId,
-      title,
-      description: desc || "",
-      duration: 0, // luego se calcula automáticamente
-      createdAt: serverTimestamp()
-    });
-
-    alert("Examen creado.");
-    loadExams(currentSectionId, sectionTitle.textContent);
-    openExamEditor(examRef.id);
-  };
-}
-
-
-// ===========================================================
-// ABRIR EDITOR DE EXAMEN
-// ===========================================================
-
-async function openExamEditor(examId) {
-  currentExamId = examId;
-
-  hide(examsScreen);
-  show(examEditorScreen);
-
-  clear(casesList);
-
-  const ref = doc(db, "exams", examId);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    alert("Examen no encontrado.");
-    return;
-  }
-
-  const exam = snap.data();
-  examTitleEditor.value = exam.title;
-
-  await loadCases(examId);
-}
-
-
-// ===========================================================
-// GUARDAR CAMBIOS DEL EXAMEN
-// ===========================================================
-
-if (qs("#btnSaveExam")) {
-  qs("#btnSaveExam").onclick = async () => {
-    if (!currentExamId) return;
-
-    const ref = doc(db, "exams", currentExamId);
-    await updateDoc(ref, {
-      title: examTitleEditor.value.trim()
-    });
-
-    alert("Examen actualizado.");
-  };
-}
-
-
-// ===========================================================
-// CASOS CLÍNICOS
-// ===========================================================
-
-async function loadCases(examId) {
-  clear(casesList);
-
-  const q = query(
-    collection(db, "casosClinicos"),
-    where("examId", "==", examId),
-    orderBy("orden")
-  );
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    casesList.innerHTML = `<div class="muted">No hay casos clínicos.</div>`;
-    return;
-  }
-
-  snap.forEach(docu => {
-    const c = docu.data();
-    const wrapper = document.createElement("div");
-    wrapper.className = "caseBlock";
-
-    wrapper.innerHTML = `
-      <h4>Caso clínico</h4>
-
-      <label>Título</label>
-      <input class="case_title" data-id="${docu.id}" value="${escapeHTML(c.titulo)}">
-
-      <label>Texto</label>
-      <textarea class="case_text" data-id="${docu.id}">${escapeHTML(c.texto)}</textarea>
-
-      <div class="small muted">Preguntas:</div>
-      <div class="pregList" id="preg_${docu.id}"></div>
-
-      <div class="caseBtns">
-        <button class="btn addPreg" data-id="${docu.id}">Agregar pregunta</button>
-        <button class="btn danger delCase" data-id="${docu.id}">Eliminar caso</button>
-      </div>
-    `;
-
-    casesList.appendChild(wrapper);
-
-    // cargar preguntas del caso
-    loadPreguntas(docu.id);
-
-    // listeners
-    wrapper.querySelector(".delCase").onclick = () => deleteCase(docu.id);
-    wrapper.querySelector(".addPreg").onclick = () => addPregunta(docu.id);
-
-    wrapper.querySelector(".case_title").onchange = e => updateCase(docu.id, "titulo", e.target.value);
-    wrapper.querySelector(".case_text").onchange = e => updateCase(docu.id, "texto", e.target.value);
-  });
-}
-
-
-async function updateCase(id, field, value) {
-  await updateDoc(doc(db, "casosClinicos", id), { [field]: value });
-}
-
-
-// ===========================================================
-// AGREGAR CASO CLÍNICO
-// ===========================================================
-
-if (qs("#btnAddCase")) {
-  qs("#btnAddCase").onclick = async () => {
-    if (!currentExamId) return;
-
-    const titulo = prompt("Título del caso:");
-    if (!titulo) return;
-
-    await addDoc(collection(db, "casosClinicos"), {
-      examId: currentExamId,
-      titulo,
-      texto: "",
-      orden: Date.now(),
-      createdAt: serverTimestamp()
-    });
-
-    loadCases(currentExamId);
-  };
-}
-
-
-// ===========================================================
-// ELIMINAR CASO (Y PREGUNTAS)
-// ===========================================================
-
-async function deleteCase(casoId) {
-  if (!confirm("¿Eliminar caso clínico y todas sus preguntas?")) return;
-
-  const pregSnap = await getDocs(
-    query(collection(db, "preguntas"), where("casoId", "==", casoId))
-  );
-
-  for (const p of pregSnap.docs) {
-    await deleteDoc(doc(db, "preguntas", p.id));
-  }
-
-  await deleteDoc(doc(db, "casosClinicos", casoId));
-
-  alert("Caso eliminado.");
-  loadCases(currentExamId);
-}
-// ===========================================================
-// PREGUNTAS – CARGAR TODAS LAS PREGUNTAS DE UN CASO
-// ===========================================================
-
-async function loadPreguntas(casoId) {
-  const cont = qs(`#preg_${casoId}`);
-  clear(cont);
-
-  const q = query(
-    collection(db, "preguntas"),
-    where("casoId", "==", casoId),
-    orderBy("orden")
-  );
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    cont.innerHTML = `<div class="small muted">No hay preguntas.</div>`;
-    return;
-  }
-
-  snap.forEach(p => {
-    const d = p.data();
-
-    const block = document.createElement("div");
-    block.className = "pregBlock";
-
-    block.innerHTML = `
-      <label>Pregunta</label>
-      <textarea class="preg_pregunta" data-id="${p.id}">${escapeHTML(d.pregunta)}</textarea>
-
-      <label>Opción A</label>
-      <input class="optA" data-id="${p.id}" value="${escapeHTML(d.opciones[0] || "")}">
-
-      <label>Opción B</label>
-      <input class="optB" data-id="${p.id}" value="${escapeHTML(d.opciones[1] || "")}">
-
-      <label>Opción C</label>
-      <input class="optC" data-id="${p.id}" value="${escapeHTML(d.opciones[2] || "")}">
-
-      <label>Opción D</label>
-      <input class="optD" data-id="${p.id}" value="${escapeHTML(d.opciones[3] || "")}">
-
-      <label>Correcta (0-3)</label>
-      <input type="number" min="0" max="3" class="preg_correcta" data-id="${p.id}" value="${d.correcta}">
-
-      <label>Justificación</label>
-      <textarea class="preg_just" data-id="${p.id}">${escapeHTML(d.justificacion || "")}</textarea>
-
-      <div class="pregBtns">
-        <button class="btn danger delPreg" data-id="${p.id}">Eliminar pregunta</button>
-      </div>
-    `;
-
-    cont.appendChild(block);
-
-    // listeners de edición
-    block.querySelector(".preg_pregunta").onchange = e => updatePregunta(p.id, "pregunta", e.target.value);
-    block.querySelector(".optA").onchange = e => updateOption(p.id, 0, e.target.value);
-    block.querySelector(".optB").onchange = e => updateOption(p.id, 1, e.target.value);
-    block.querySelector(".optC").onchange = e => updateOption(p.id, 2, e.target.value);
-    block.querySelector(".optD").onchange = e => updateOption(p.id, 3, e.target.value);
-    block.querySelector(".preg_correcta").onchange = e => updatePregunta(p.id, "correcta", Number(e.target.value));
-    block.querySelector(".preg_just").onchange = e => updatePregunta(p.id, "justificacion", e.target.value);
-
-    block.querySelector(".delPreg").onclick = () => deletePregunta(p.id);
-  });
-}
-
-
-// ===========================================================
-// AGREGAR UNA NUEVA PREGUNTA
-// ===========================================================
-
-async function addPregunta(casoId) {
-  await addDoc(collection(db, "preguntas"), {
-    examId: currentExamId,
-    casoId,
-    pregunta: "",
-    opciones: ["", "", "", ""],
-    correcta: 0,
-    justificacion: "",
-    orden: Date.now(),
-    createdAt: serverTimestamp()
-  });
-
-  await loadPreguntas(casoId);
-  await recalcDuration(currentExamId);
-}
-
-
-// ===========================================================
-// ACTUALIZAR PREGUNTA
-// ===========================================================
-
-async function updatePregunta(pId, field, value) {
-  await updateDoc(doc(db, "preguntas", pId), { [field]: value });
-  await recalcDuration(currentExamId);
-}
-
-
-// ===========================================================
-// ACTUALIZAR OPCIÓN INDIVIDUAL
-// ===========================================================
-
-async function updateOption(pId, index, value) {
-  const ref = doc(db, "preguntas", pId);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) return;
-
-  const d = snap.data();
-  const arr = d.opciones || ["", "", "", ""];
-
-  arr[index] = value;
-
-  await updateDoc(ref, { opciones: arr });
-}
-
-
-// ===========================================================
-// ELIMINAR PREGUNTA
-// ===========================================================
-
-async function deletePregunta(pId) {
-  if (!confirm("¿Eliminar esta pregunta?")) return;
-
-  await deleteDoc(doc(db, "preguntas", pId));
-
-  // recargar visual
-  const snap = await getDoc(doc(db, "preguntas", pId));
-
-  await loadCases(currentExamId);
-  await recalcDuration(currentExamId);
-}
-
-
-// ===========================================================
-// RECALCULAR DURACIÓN AUTOMÁTICA DEL EXAMEN
-// ===========================================================
-
-async function recalcDuration(examId) {
-  // contar preguntas totales del examen
-  const q = query(
-    collection(db, "preguntas"),
-    where("examId", "==", examId)
-  );
-
-  const snap = await getDocs(q);
-  const numPreguntas = snap.size;
-
-  const totalSegundos = numPreguntas * 75;
-  const minutos = Math.ceil(totalSegundos / 60);
-
-  await updateDoc(doc(db, "exams", examId), {
-    duration: minutos
-  });
-
-  examDurationLabel.textContent = `${minutos} min`;
-}
-// ===========================================================
-// PANEL DE USUARIOS (ADMIN)
-// ===========================================================
-
-qs("#btnUsuarios").onclick = async () => {
-  setMainTitle("Usuarios");
-  const box = qs("#mainBox");
-  clear(box);
-
-  box.innerHTML = `
-    <h3>Administrar usuarios</h3>
-
-    <div class="userForm">
-      <h4>Crear nuevo usuario</h4>
-      <label>Nombre</label>
-      <input id="u_name">
-
-      <label>Email</label>
-      <input id="u_email" type="email">
-
-      <label>Contraseña</label>
-      <input id="u_pass" type="password">
-
-      <label>Estado</label>
-      <select id="u_status">
-        <option value="enabled">Habilitado</option>
-        <option value="disabled">Inhabilitado</option>
-      </select>
-
-      <label>Fecha límite de acceso</label>
-      <input id="u_limit" type="date">
-
-      <button id="u_create" class="btn primary">Crear usuario</button>
-
-      <hr>
-    </div>
-
-    <h4 style="margin-top:10px;">Usuarios existentes</h4>
-    <div id="usersList">Cargando...</div>
-  `;
-
-  const usersList = qs("#usersList");
-
-  // Crear usuario
-  qs("#u_create").onclick = async () => {
-    const name = qs("#u_name").value.trim();
-    const email = qs("#u_email").value.trim();
-    const pass = qs("#u_pass").value.trim();
-    const status = qs("#u_status").value;
-    const limit = qs("#u_limit").value;
-
-    if (!email || !pass) {
-      alert("Falta email o contraseña");
-      return;
-    }
-
-    try {
-      // Crear en Auth
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      const uid = cred.user.uid;
-
-      // Crear en Firestore
-      await setDoc(doc(db, "users", uid), {
-        uid,
-        email,
-        name,
-        role: "user",
-        status,
-        limit,
-        createdAt: serverTimestamp()
+    const casosSnap = await getDocs(casosQ);
+
+    const form = $("examForm");
+    form.innerHTML = "";
+
+    let totalPreguntas = 0;
+
+    for (const casoDoc of casosSnap.docs) {
+      const caso = casoDoc.data();
+
+      const preguntasQ = query(
+        collection(db, "preguntas"),
+        where("casoId", "==", casoDoc.id),
+        orderBy("orden", "asc")
+      );
+
+      const preguntasSnap = await getDocs(preguntasQ);
+
+      // Render del caso
+      const divCaso = document.createElement("div");
+      divCaso.className = "questionBlock";
+      divCaso.innerHTML = `
+        <div class="questionTitle">${escape(caso.titulo)}</div>
+        <div class="caseText">${escape(caso.texto)}</div>
+      `;
+
+      preguntasSnap.forEach((pDoc, i) => {
+        const p = pDoc.data();
+        totalPreguntas++;
+
+        const block = document.createElement("div");
+        block.innerHTML = `
+          <div style="margin-top:10px; font-weight:700;">${escape(p.pregunta)}</div>
+          <div class="options">
+            ${p.opciones.map((op, idx) => `
+              <label>
+                <input type="radio" name="p_${pDoc.id}" value="${idx}" />
+                <span>${escape(op)}</span>
+              </label>
+            `).join("")}
+          </div>
+        `;
+
+        divCaso.appendChild(block);
       });
 
-      alert("Usuario creado");
-      loadUsersList(usersList);
-
-    } catch (err) {
-      console.error(err);
-      alert("Error creando usuario");
-    }
-  };
-
-  // Cargar lista
-  loadUsersList(usersList);
-};
-
-
-// ===========================================================
-// CARGAR LISTA DE USUARIOS
-// ===========================================================
-
-async function loadUsersList(target) {
-  clear(target);
-
-  const snap = await getDocs(collection(db, "users"));
-  if (snap.empty) {
-    target.innerHTML = `<div class="small muted">Sin usuarios registrados.</div>`;
-    return;
-  }
-
-  snap.forEach(u => {
-    const d = u.data();
-
-    const row = document.createElement("div");
-    row.className = "userRow";
-
-    row.innerHTML = `
-      <div>
-        <strong>${escapeHTML(d.name || "")}</strong><br>
-        <span class="small muted">${escapeHTML(d.email)}</span><br>
-        <span class="small">Estado: ${d.status}</span><br>
-        <span class="small">Límite: ${d.limit || "Sin límite"}</span>
-      </div>
-
-      <div class="userActions">
-        <button class="btn u_edit" data-id="${u.id}">Editar</button>
-        <button class="btn danger u_del" data-id="${u.id}">Eliminar</button>
-      </div>
-    `;
-
-    target.appendChild(row);
-  });
-
-  // Editar
-  target.querySelectorAll(".u_edit").forEach(btn => {
-    btn.onclick = () => editUser(btn.dataset.id);
-  });
-
-  // Eliminar
-  target.querySelectorAll(".u_del").forEach(btn => {
-    btn.onclick = () => deleteUser(btn.dataset.id);
-  });
-}
-
-
-// ===========================================================
-// EDITAR USUARIO
-// ===========================================================
-
-async function editUser(uid) {
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) return alert("No existe");
-
-  const d = snap.data();
-
-  const name = prompt("Nombre:", d.name || "");
-  if (name === null) return;
-
-  const status = prompt("Estado (enabled / disabled):", d.status || "enabled");
-  if (status === null) return;
-
-  const limit = prompt("Fecha límite (YYYY-MM-DD):", d.limit || "");
-  if (limit === null) return;
-
-  await updateDoc(ref, { name, status, limit });
-
-  alert("Usuario actualizado");
-  qs("#btnUsuarios").click();
-}
-
-
-// ===========================================================
-// ELIMINAR USUARIO
-// ===========================================================
-
-async function deleteUser(uid) {
-  if (!confirm("¿Eliminar este usuario?")) return;
-
-  await deleteDoc(doc(db, "users", uid));
-
-  alert("Eliminado");
-  qs("#btnUsuarios").click();
-}
-
-
-// ===========================================================
-// PANEL DE ÍCONOS (ADMIN)
-// ===========================================================
-
-qs("#btnIconos").onclick = async () => {
-  setMainTitle("Íconos sociales");
-  const box = qs("#mainBox");
-  clear(box);
-
-  // cargar configuración actual
-  let cfgRef = doc(db, "config", "icons");
-  let cfgSnap = await getDoc(cfgRef);
-  let data = cfgSnap.exists() ? cfgSnap.data() : {};
-
-  box.innerHTML = `
-    <h3>Íconos sociales</h3>
-
-    <label>Instagram</label>
-    <input id="ic_insta" value="${data.instagram || ""}">
-
-    <label>WhatsApp</label>
-    <input id="ic_wa" value="${data.whatsapp || ""}">
-
-    <label>Telegram</label>
-    <input id="ic_tg" value="${data.telegram || ""}">
-
-    <label>TikTok</label>
-    <input id="ic_tt" value="${data.tiktok || ""}">
-
-    <button id="ic_save" class="btn primary" style="margin-top:10px">Guardar</button>
-  `;
-
-  qs("#ic_save").onclick = async () => {
-    await setDoc(cfgRef, {
-      instagram: qs("#ic_insta").value.trim(),
-      whatsapp: qs("#ic_wa").value.trim(),
-      telegram: qs("#ic_tg").value.trim(),
-      tiktok: qs("#ic_tt").value.trim()
-    }, { merge: true });
-
-    alert("Guardado");
-  };
-};
-
-
-// ===========================================================
-// LOGIN Y REDIRECCIÓN SEGÚN ROL
-// ===========================================================
-
-qs("#btnEntrar").onclick = async () => {
-  const email = qs("#loginEmail").value.trim();
-  const pass = qs("#loginPass").value.trim();
-
-  try {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    const uid = cred.user.uid;
-
-    const uSnap = await getDoc(doc(db, "users", uid));
-    if (!uSnap.exists()) return alert("Usuario sin registro en Firestore");
-
-    const d = uSnap.data();
-
-    // validar fecha límite
-    if (d.limit) {
-      const hoy = new Date();
-      const fin = new Date(d.limit + "T23:59:59");
-
-      if (hoy > fin) {
-        alert("Acceso vencido");
-        return;
-      }
+      form.appendChild(divCaso);
     }
 
-    // validar estado
-    if (d.status === "disabled") {
-      alert("Usuario inhabilitado");
-      return;
-    }
-
-    if (d.role === "admin") {
-      enterAdmin();
-    } else {
-      enterUser();
-    }
+    // tiempo = preguntas * 75 s
+    const totalSegundos = totalPreguntas * 75;
+    startTimer(totalSegundos);
 
   } catch (e) {
-    console.error(e);
-    alert("Acceso incorrecto");
+    console.error("loadExamContent", e);
+    $("examTitle").innerText = "Error cargando examen";
   }
+}
+
+
+// ========================================
+//   TIMER
+// ========================================
+let timerInterval = null;
+
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+
+  let t = seconds;
+  const box = $("examTimer");
+
+  timerInterval = setInterval(() => {
+    const min = Math.floor(t / 60);
+    const sec = t % 60;
+    box.innerText = `${min}:${sec.toString().padStart(2, "0")}`;
+
+    if (t <= 0) {
+      clearInterval(timerInterval);
+      finishExam();
+    }
+
+    t--;
+  }, 1000);
+}
+
+
+// ========================================
+//   TERMINAR EXAMEN
+// ========================================
+$("btnFinishExam").onclick = () => finishExam();
+
+function finishExam() {
+  clearInterval(timerInterval);
+
+  hide(examScreen);
+  show(resultScreen);
+
+  $("resultScreen").innerText = "Examen finalizado. (Resultados en desarrollo)";
+}
+
+
+// ========================================
+//   BOTONES DEL PANEL ADMIN
+// ========================================
+
+function clearAdminScreens() {
+  hide(adminExamsScreen);
+  hide(adminSectionsScreen);
+  hide(adminUsersScreen);
+  hide(adminIconsScreen);
+
+  adminExamsScreen.innerHTML = "";
+  adminSectionsScreen.innerHTML = "";
+  adminUsersScreen.innerHTML = "";
+  adminIconsScreen.innerHTML = "";
+}
+
+adminExamsTab.onclick = () => {
+  if (currentRole !== "admin") return;
+  clearAdminScreens();
+  show(adminExamsScreen);
+  adminLoadExamsPanel();
 };
 
+adminSectionsTab.onclick = () => {
+  if (currentRole !== "admin") return;
+  clearAdminScreens();
+  show(adminSectionsScreen);
+  adminLoadSectionsPanel();
+};
 
-// ===========================================================
-// ENTRAR A ADMIN
-// ===========================================================
+adminUsersTab.onclick = () => {
+  if (currentRole !== "admin") return;
+  clearAdminScreens();
+  show(adminUsersScreen);
+  adminLoadUsersPanel();
+};
 
-function enterAdmin() {
-  hide("#loginBox");
-  show("#adminSidebar");
-  qs("#mainTitle").textContent = "Administrador";
+adminIconsTab.onclick = () => {
+  if (currentRole !== "admin") return;
+  clearAdminScreens();
+  show(adminIconsScreen);
+  adminLoadIconsPanel();
+};
 
-  loadSectionsSidebar();
+adminLogout.onclick = doLogout;
+
+
+// ========================================
+//   PANEL — ADMIN: SECCIONES
+// ========================================
+async function adminLoadSectionsPanel() {
+  adminSectionsScreen.innerHTML = `
+    <h2>Secciones</h2>
+    <button class="btn primary" id="addSectionBtn">Agregar sección</button>
+    <div id="sectionsAdminList" style="margin-top:20px;">Cargando...</div>
+  `;
+
+  const list = $("sectionsAdminList");
+
+  const q = query(collection(db, "sections"), orderBy("order", "asc"));
+  const snap = await getDocs(q);
+
+  list.innerHTML = "";
+
+  snap.forEach((docu) => {
+    const d = docu.data();
+
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.marginBottom = "8px";
+
+    row.innerHTML = `
+      <strong>${escape(d.name)}</strong>
+      <div class="small muted">Orden: ${d.order}</div>
+      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
+      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
+    `;
+
+    list.appendChild(row);
+  });
+
+  $("addSectionBtn").onclick = async () => {
+    const name = prompt("Nombre de la sección:");
+    if (!name) return;
+
+    const order = Number(prompt("Orden:"));
+    await addDoc(collection(db, "sections"), {
+      name,
+      order,
+      createdAt: serverTimestamp()
+    });
+
+    adminLoadSectionsPanel();
+  };
+
+  list.querySelectorAll("button[data-edit]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      const ref = doc(db, "sections", id);
+      const snap = await getDoc(ref);
+
+      const data = snap.data();
+
+      const name  = prompt("Editar nombre:", data.name);
+      if (!name) return;
+
+      const order = Number(prompt("Editar orden:", data.order));
+
+      await updateDoc(ref, { name, order });
+      adminLoadSectionsPanel();
+    };
+  });
+
+  list.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm("Eliminar sección?")) return;
+      await deleteDoc(doc(db, "sections", btn.dataset.id));
+      adminLoadSectionsPanel();
+    };
+  });
 }
 
 
-// ===========================================================
-// ENTRAR A USUARIO
-// ===========================================================
+// ========================================
+//   PANEL — ADMIN: EXÁMENES
+// ========================================
+async function adminLoadExamsPanel() {
+  adminExamsScreen.innerHTML = `
+    <h2>Exámenes</h2>
+    <button class="btn primary" id="addExamBtn">Agregar examen</button>
+    <div id="adminExamsList" style="margin-top:20px;">Cargando...</div>
+  `;
 
-function enterUser() {
-  hide("#loginBox");
-  hide("#adminSidebar");        // NO aparece
-  qs("#adminSidebar").style.display = "none"; // NO ocupa espacio
+  const container = $("adminExamsList");
 
-  qs("#mainTitle").textContent = "Exámenes";
+  const snap = await getDocs(collection(db, "exams"));
+  container.innerHTML = "";
 
-  loadSectionsSidebar();
+  snap.forEach((docu) => {
+    const d = docu.data();
+
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.marginBottom = "8px";
+
+    row.innerHTML = `
+      <strong>${escape(d.title)}</strong>
+      <div class="small muted">Sección: ${escape(d.sectionId)}</div>
+      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
+      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
+    `;
+
+    container.appendChild(row);
+  });
+
+  $("addExamBtn").onclick = async () => {
+    const sectionId = prompt("ID sección:");
+    if (!sectionId) return;
+
+    const title = prompt("Título:");
+    if (!title) return;
+
+    const desc  = prompt("Descripción:");
+    const ref = await addDoc(collection(db, "exams"), {
+      sectionId,
+      title,
+      description: desc || "",
+      createdAt: serverTimestamp()
+    });
+
+    adminLoadExamsPanel();
+  };
+
+  container.querySelectorAll("button[data-edit]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      const ref = doc(db, "exams", id);
+      const snap = await getDoc(ref);
+      const ex = snap.data();
+
+      const title = prompt("Editar título:", ex.title);
+      if (!title) return;
+
+      const desc  = prompt("Editar descripción:", ex.description || "");
+
+      await updateDoc(ref, { title, description: desc });
+      adminLoadExamsPanel();
+    };
+  });
+
+  container.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm("Eliminar examen?")) return;
+      await deleteDoc(doc(db, "exams", btn.dataset.id));
+      adminLoadExamsPanel();
+    };
+  });
 }
+
+
+// ========================================
+//   PANEL — ADMIN: USUARIOS
+// ========================================
+async function adminLoadUsersPanel() {
+
+  adminUsersScreen.innerHTML = `
+    <h2>Usuarios</h2>
+    <button class="btn primary" id="addUserBtn">Crear nuevo usuario</button>
+    <div id="usersAdminList" style="margin-top:20px;">Cargando...</div>
+  `;
+
+  const list = $("usersAdminList");
+
+  const snap = await getDocs(collection(db, "users"));
+  list.innerHTML = "";
+
+  snap.forEach((docu) => {
+    const d = docu.data();
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.marginBottom = "8px";
+
+    row.innerHTML = `
+      <strong>${escape(d.email)}</strong>
+      <div class="small muted">${escape(d.name)} – Rol: ${escape(d.role)}</div>
+      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
+      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
+    `;
+
+    list.appendChild(row);
+  });
+
+  // crear usuario
+  $("addUserBtn").onclick = async () => {
+    const email = prompt("Correo:");
+    const name  = prompt("Nombre:");
+    const role  = prompt("Rol (admin/user):", "user");
+
+    if (!email || !name) return;
+
+    const ref = doc(db, "users", crypto.randomUUID());
+
+    await setDoc(ref, {
+      email,
+      name,
+      role: role || "user",
+      createdAt: serverTimestamp(),
+      status: "enabled",
+      expires: ""  // futuro
+    });
+
+    adminLoadUsersPanel();
+  };
+
+  // editar usuario
+  list.querySelectorAll("button[data-edit]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      const ref = doc(db, "users", id);
+      const snap = await getDoc(ref);
+      const d = snap.data();
+
+      const name = prompt("Nombre:", d.name);
+      if (name === null) return;
+
+      const role = prompt("Rol:", d.role);
+      const status = prompt("Estado (enabled/disabled):", d.status || "enabled");
+
+      await updateDoc(ref, { name, role, status });
+      adminLoadUsersPanel();
+    };
+  });
+
+  // eliminar usuario
+  list.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm("Eliminar usuario?")) return;
+      await deleteDoc(doc(db, "users", btn.dataset.id));
+      adminLoadUsersPanel();
+    };
+  });
+}
+
+
+// ========================================
+//   PANEL — ADMIN: ÍCONOS
+// ========================================
+async function loadIcons() {
+  try {
+    const ref  = doc(db, "config", "icons");
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) return;
+
+    const d = snap.data();
+
+    if (igLink) igLink.href = d.instagram || "#";
+    if (waLink) waLink.href = d.whatsapp  || "#";
+    if (tgLink) tgLink.href = d.telegram  || "#";
+    if (ttLink) ttLink.href = d.tiktok    || "#";
+
+  } catch (e) {
+    console.error("loadIcons", e);
+  }
+}
+
+async function adminLoadIconsPanel() {
+  adminIconsScreen.innerHTML = `
+    <h2>Íconos Sociales</h2>
+
+    <label>Instagram</label>
+    <input id="ic_instagram" />
+
+    <label>WhatsApp</label>
+    <input id="ic_whatsapp" />
+
+    <label>Telegram</label>
+    <input id="ic_telegram" />
+
+    <label>TikTok</label>
+    <input id="ic_tiktok" />
+
+    <button class="btn primary" id="saveIconsBtn" style="margin-top:12px;">
+      Guardar
+    </button>
+  `;
+
+  const ref  = doc(db, "config", "icons");
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    const d = snap.data();
+    $("ic_instagram").value = d.instagram || "";
+    $("ic_whatsapp").value  = d.whatsapp  || "";
+    $("ic_telegram").value  = d.telegram  || "";
+    $("ic_tiktok").value    = d.tiktok    || "";
+  }
+
+  $("saveIconsBtn").onclick = async () => {
+    await setDoc(ref, {
+      instagram: $("ic_instagram").value.trim(),
+      whatsapp : $("ic_whatsapp").value.trim(),
+      telegram : $("ic_telegram").value.trim(),
+      tiktok   : $("ic_tiktok").value.trim(),
+    }, { merge: true });
+
+    alert("Íconos actualizados");
+    await loadIcons();
+  };
+}
+
+
+// ========================================
+//   INICIO
+// ========================================
+async function init() {
+  hide(studentScreen);
+  hide(examScreen);
+  hide(resultScreen);
+  hide(adminExamsScreen);
+  hide(adminSectionsScreen);
+  hide(adminUsersScreen);
+  hide(adminIconsScreen);
+  hide(adminSidebar);
+}
+
+init();
