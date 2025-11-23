@@ -5,100 +5,147 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Estudiante ENARM</title>
 
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- Meta Pixel -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  try{ fbq('init', '1146031771035535'); fbq('track', 'PageView'); } catch(e){ console.warn('fbq init failed', e); }
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
+  </noscript>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-<div class="app-container">
 
-  <!-- ============================================================
-       SIDEBAR IZQUIERDA (SECCIONES)
-  ============================================================ -->
-  <aside class="left-sidebar">
+<div id="app" class="app">
+
+  <!-- SIDEBAR IZQUIERDA -->
+  <aside class="sidebar left-sidebar">
     <div class="brand">
-      <h2>Estudiante ENARM</h2>
+      <div class="brand-text">Estudiante ENARM</div>
+      <img src="./logo.png" class="logo" alt="Logo">
     </div>
 
-    <nav id="sectionsList" class="sectionsList">
-      <!-- Secciones dinámicas -->
-    </nav>
+    <nav id="sectionsList" class="sections"></nav>
 
-    <div class="sidebar-footer">
-      <div class="social-icons">
-        <a id="link-instagram" target="_blank"><img src="./instagram.png" /></a>
-        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" /></a>
-        <a id="link-telegram" target="_blank"><img src="./telegram.png" /></a>
-        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" /></a>
+    <div class="sidebar-actions">
+
+      <a id="btnAccesoCompleto"
+         class="btn primary"
+         href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20el%20acceso%20completo"
+         target="_blank" rel="noopener noreferrer">
+         Acceso completo
+      </a>
+
+      <div id="mainCountdown" class="countdown"></div>
+
+      <div class="socials">
+        <a id="link-instagram" target="_blank"><img src="./instagram.png" alt=""></a>
+        <a id="link-whatsapp" target="_blank"><img src="./whatsapp.png" alt=""></a>
+        <a id="link-telegram" target="_blank"><img src="./telegram.png" alt=""></a>
+        <a id="link-tiktok" target="_blank"><img src="./tiktok.png" alt=""></a>
       </div>
+
     </div>
   </aside>
 
-  <!-- ============================================================
-       SIDEBAR DERECHA (ADMIN)
-  ============================================================ -->
-  <aside id="adminSidebar" class="right-sidebar">
-    <h3>Administrador</h3>
 
-    <button id="adminAddSection" class="btn block">Secciones</button>
-    <button id="adminAddExam" class="btn block">Exámenes</button>
-    <button id="adminUsers" class="btn block">Usuarios</button>
-    <button id="adminIcons" class="btn block">Íconos</button>
-    <button id="adminLogout" class="btn block danger">Salir</button>
+  <!-- SIDEBAR DERECHA (ADMIN) -->
+  <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
+    <h3 class="admin-title">Administrador</h3>
 
-    <div id="editButtons" class="admin-floating hidden">
-      <button id="btnSaveExam" class="btn primary">Guardar examen</button>
-      <button id="btnAddCase" class="btn">Agregar caso</button>
-    </div>
+    <button id="adminAddSection" class="btn">Agregar sección</button>
+    <button id="adminAddExam" class="btn">Agregar examen</button>
+    <button id="adminEditQuestions" class="btn">Editar preguntas del examen</button>
+    <button id="adminUsers" class="btn">Ver usuarios</button>
+    <button id="adminLinks" class="btn">Links</button>
 
-    <div id="editExamButtons" class="admin-floating hidden">
-      <button id="btnAddQuestion" class="btn small">Agregar pregunta</button>
-    </div>
+    <hr>
+
+    <button id="adminLogout" class="btn danger">Cerrar sesión</button>
   </aside>
 
-  <!-- ============================================================
-       CONTENIDO PRINCIPAL
-  ============================================================ -->
-  <main id="mainContent">
 
-    <!-- LOGIN -->
-    <section id="loginScreen" class="card login-box">
-      <h2>Acceso</h2>
+  <!-- MAIN CONTENT -->
+  <main class="main">
 
-      <input id="inputEmail" type="email" placeholder="Correo" />
-      <input id="inputPassword" type="password" placeholder="Contraseña" />
+    <header class="topbar">
+      <div id="userInfo" class="user-info"></div>
+      <div id="authButtons" class="auth-buttons"></div>
+    </header>
 
-      <button id="btnLogin" class="btn primary">Entrar</button>
-      <button id="btnCancel" class="btn">Cancelar</button>
+    <section id="mainContent" class="screen">
+        
+        <!-- LOGIN -->
+        <div id="loginScreen" class="card centered">
+          <h2>Acceso</h2>
+          <input id="inputEmail" type="email" placeholder="Correo electrónico" />
+          <input id="inputPassword" type="password" placeholder="Contraseña" />
+          <div class="row" style="margin-top:12px;">
+            <button id="btnLogin" class="btn primary">Entrar</button>
+            <button id="btnCancel" class="btn">Cancelar</button>
+          </div>
+          <div id="loginMessage" class="small muted" style="margin-top:8px;"></div>
+        </div>
 
-      <div id="loginMessage" class="muted small"></div>
+        <!-- LISTA DE EXÁMENES -->
+        <div id="studentScreen" class="hidden">
+          <h2 id="studentTitle">Sección seleccionada</h2>
+          <div id="examsList" class="examsList"></div>
+
+          <div id="editButtons" class="editControls hidden">
+            <button id="btnEdit" class="btn">Editar</button>
+            <button id="btnSave" class="btn primary">Guardar</button>
+          </div>
+        </div>
+
+        <!-- EXAMEN -->
+        <div id="examScreen" class="hidden fullScreenExam">
+          <div class="examHeader">
+            <h3 id="examTitle"></h3>
+            <div id="examTimer" class="examTimer"></div>
+          </div>
+
+          <form id="examForm"></form>
+
+          <div class="examFooter">
+            <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
+          </div>
+
+          <div id="editExamButtons" class="editControls hidden">
+            <button id="btnEditExam" class="btn">Editar</button>
+            <button id="btnSaveExam" class="btn primary">Guardar</button>
+          </div>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div id="resultScreen" class="hidden card"></div>
+
     </section>
-
-    <!-- LISTA DE EXÁMENES PARA ESTUDIANTE -->
-    <section id="studentScreen" class="hidden">
-      <h2>Exámenes</h2>
-      <div id="examsList" class="examsList"></div>
-    </section>
-
-    <!-- EXAMEN -->
-    <section id="examScreen" class="hidden fullExam">
-      <div class="examHeader">
-        <h3 id="examTitle"></h3>
-        <div id="examTimer" class="timer"></div>
-      </div>
-
-      <form id="examForm"></form>
-
-      <button id="btnFinishExam" class="btn primary">Finalizar examen</button>
-    </section>
-
-    <!-- RESULTADOS -->
-    <section id="resultScreen" class="hidden card"></section>
 
   </main>
 
 </div>
 
-<!-- SCRIPTS -->
 <script type="module" src="app.js"></script>
 </body>
 </html>
