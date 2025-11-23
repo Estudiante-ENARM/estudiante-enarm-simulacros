@@ -1,933 +1,734 @@
-/*************************************************************
- *  app.js — Plataforma ENARM
- *  Versión estable y corregida 2025-11-23
- *************************************************************/
-
-// =======================
-// IMPORTS FIREBASE (v9+)
-// =======================
-import { auth, db } from "./firebase.js";
-
+// app.js
+// --------------------------------------------------
+// Inicialización de Firebase (modular v9+)
+// --------------------------------------------------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import {
+  getFirestore,
   collection,
   doc,
-  addDoc,
   getDoc,
   getDocs,
-  updateDoc,
-  deleteDoc,
-  setDoc,
   query,
   where,
   orderBy,
-  serverTimestamp,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
+// Configuración proporcionada
+const firebaseConfig = {
+  apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+  projectId: "simulacros-plataforma-enarm",
+  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  messagingSenderId: "1012829203040",
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+};
 
-// ========================================
-//   CONSTANTE: UID DEL ADMIN PRINCIPAL
-// ========================================
-const ADMIN_UID = "2T2NYl0wkwTu1EH14K82b0IgPiy2";
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
+// --------------------------------------------------
+// Estado global simple
+// --------------------------------------------------
+let currentUser = null; // documento completo del usuario
+let currentRole = null; // "admin" | "estudiante" | null
 
-// ========================================
-//   UTILIDADES
-// ========================================
-const $ = (id) => document.getElementById(id);
-function show(el) { if (el) el.classList.remove("hidden"); }
-function hide(el) { if (el) el.classList.add("hidden"); }
-function escapeHtml(s) { return String(s || "").replace(/</g, "&lt;"); }
+// Referencias DOM básicas
+const loginForm = document.getElementById("login-form");
+const loginErrorEl = document.getElementById("login-error");
+const btnCancelar = document.getElementById("btn-cancelar");
+const mainContent = document.querySelector(".main-content");
 
+// Sidebar
+const sectionsListEl = document.getElementById("sections-list");
+const menuUsersEl = document.getElementById("menu-users");
+const menuIconsEl = document.getElementById("menu-icons");
 
-// ========================================
-//   ELEMENTOS DEL DOM
-// ========================================
-const appLayout          = document.querySelector(".app");
+// Íconos sociales
+const iconInstagram = document.getElementById("icon-instagram");
+const iconWhatsapp = document.getElementById("icon-whatsapp");
+const iconTiktok = document.getElementById("icon-tiktok");
+const iconTelegram = document.getElementById("icon-telegram");
 
-const loginScreen        = $("loginScreen");
-const studentScreen      = $("studentScreen");
-const examScreen         = $("examScreen");
-const resultScreen       = $("resultScreen");
-
-const adminSidebar       = $("adminSidebar");
-
-const adminExamsScreen   = $("adminExamsScreen");
-const adminSectionsScreen= $("adminSectionsScreen");
-const adminUsersScreen   = $("adminUsersScreen");
-const adminIconsScreen   = $("adminIconsScreen");
-
-const sectionsList       = $("sectionsList");
-const examsList          = $("examsList");
-
-const adminExamsTab      = $("adminExamsTab");
-const adminSectionsTab   = $("adminSectionsTab");
-const adminUsersTab      = $("adminUsersTab");
-const adminIconsTab      = $("adminIconsTab");
-const adminLogout        = $("adminLogout");
-
-const userInfo           = $("userInfo");
-const authButtons        = $("authButtons");
-
-// login
-const inputEmail         = $("inputEmail");
-const inputPassword      = $("inputPassword");
-const btnLogin           = $("btnLogin");
-const btnCancel          = $("btnCancel");
-const loginMessage       = $("loginMessage");
-
-// examen
-const examForm           = $("examForm");
-const examTitle          = $("examTitle");
-const examTimer          = $("examTimer");
-const btnFinishExam      = $("btnFinishExam");
-const studentTitle       = $("studentTitle");
-
-// íconos sociales
-const igLink             = $("link-instagram");
-const waLink             = $("link-whatsapp");
-const tgLink             = $("link-telegram");
-const ttLink             = $("link-tiktok");
-
-
-// ========================================
-//   ESTADO GLOBAL
-// ========================================
-let currentUser   = null;
-let currentRole   = null;
-let selectedSectionId = null;
-let selectedExamId    = null;
-
-let timerInterval = null;
-
-
-// ========================================
-//   LOGIN
-// ========================================
-if (btnLogin) {
-  btnLogin.onclick = async () => {
-    const email = inputEmail.value.trim();
-    const pass  = inputPassword.value.trim();
-
-    if (!email || !pass) {
-      loginMessage.innerText = "Ingrese correo y contraseña";
-      return;
-    }
-
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      loginMessage.innerText = "Accediendo...";
-    } catch (e) {
-      console.error("login error", e);
-      loginMessage.innerText = "Credenciales incorrectas";
-    }
-  };
+// --------------------------------------------------
+// Utilidades
+// --------------------------------------------------
+function setLoginError(message) {
+  loginErrorEl.textContent = message || "";
 }
 
-if (btnCancel) {
-  btnCancel.onclick = () => {
-    inputEmail.value = "";
-    inputPassword.value = "";
-    loginMessage.innerText = "";
-  };
+function formatDateFromTimestamp(ts) {
+  if (!ts) return "";
+  const date = ts.toDate();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-
-// ========================================
-//   CERRAR SESIÓN
-// ========================================
-async function doLogout() {
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.error("logout error", e);
-  }
+function parseDateInputToDate(dateStr) {
+  if (!dateStr) return null;
+  // Fin del día para que siga activo todo ese día
+  return new Date(`${dateStr}T23:59:59`);
 }
 
+function clearSidebarActive() {
+  const items = document.querySelectorAll(".sidebar-item");
+  items.forEach(i => i.classList.remove("active"));
+}
 
-// ========================================
-//   OBSERVADOR AUTH
-// ========================================
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
+// --------------------------------------------------
+// LOGIN
+// --------------------------------------------------
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  setLoginError("");
 
-  // Estado inicial si NO hay usuario
-  if (!user) {
-    currentRole = null;
-    if (userInfo) userInfo.innerText = "";
-    if (authButtons) authButtons.innerHTML = "";
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value.trim();
 
-    hide(adminSidebar);
-    hide(studentScreen);
-    hide(examScreen);
-    hide(resultScreen);
-    hide(adminExamsScreen);
-    hide(adminSectionsScreen);
-    hide(adminUsersScreen);
-    hide(adminIconsScreen);
-
-    // layout sin barra admin
-    if (appLayout) appLayout.style.gridTemplateColumns = "260px 1fr";
-
-    show(loginScreen);
+  if (!username || !password) {
+    setLoginError("Ingresa usuario y contraseña.");
     return;
   }
 
   try {
-    // ==========================
-    // 1) Obtener/crear doc de usuario
-    // ==========================
-    const uRef  = doc(db, "users", user.uid);
-    const uSnap = await getDoc(uRef);
+    // Buscar usuario en Firestore
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username));
+    const snapshot = await getDocs(q);
 
-    let data = null;
-
-    if (!uSnap.exists()) {
-      // si no existe, lo creamos como user normal
-      data = {
-        email: user.email || "",
-        name: user.email ? user.email.split("@")[0] : "",
-        role: user.uid === ADMIN_UID ? "admin" : "user",
-        status: "enabled",
-        createdAt: serverTimestamp(),
-        expires: ""
-      };
-      await setDoc(uRef, data, { merge: true });
-    } else {
-      data = uSnap.data();
+    if (snapshot.empty) {
+      setLoginError("Usuario o contraseña incorrectos.");
+      return;
     }
 
-    // ==========================
-    // 2) Determinar rol y estado
-    // ==========================
-    let role   = data.role || "user";
-    let status = data.status || "enabled";
-    let expires = data.expires || "";
+    // Tomamos el primero encontrado
+    const userDoc = snapshot.docs[0];
+    const data = userDoc.data();
 
-    // Forzar admin si UID coincide
-    if (user.uid === ADMIN_UID) {
-      role = "admin";
+    // Validar contraseña
+    if (data.password !== password) {
+      setLoginError("Usuario o contraseña incorrectos.");
+      return;
     }
 
-    // Check expiración
-    if (expires) {
-      try {
-        const now = new Date();
-        const exp = new Date(expires);
-        if (!isNaN(exp.getTime()) && now > exp) {
-          await updateDoc(uRef, { status: "disabled" });
-          alert("Tu acceso ha expirado.");
-          await signOut(auth);
-          return;
-        }
-      } catch (e) {
-        console.warn("Error parseando fecha de expiración", e);
+    // Validar estado
+    if (data.status !== "activo") {
+      setLoginError("Tu acceso está inactivo. Contacta al administrador.");
+      return;
+    }
+
+    // Validar fecha de expiración
+    if (data.expirationDate) {
+      const now = new Date();
+      const exp = data.expirationDate.toDate();
+      // Si hoy ya es posterior a la fecha de expiración, bloqueamos
+      if (now > exp) {
+        setLoginError("Tu acceso ha expirado. Contacta al administrador.");
+        return;
       }
     }
 
-    // Check estado
-    if (status === "disabled") {
-      alert("Tu cuenta está inhabilitada.");
-      await signOut(auth);
+    currentUser = { id: userDoc.id, ...data };
+    currentRole = data.role || "estudiante";
+
+    // Limpiar formulario
+    loginForm.reset();
+
+    // Cargar vistas según rol
+    if (currentRole === "admin") {
+      renderAdminShell();
+    } else {
+      renderStudentShell();
+    }
+
+    // Cargar secciones en sidebar (ambos roles)
+    await loadSectionsSidebar();
+
+  } catch (error) {
+    console.error("Error en login:", error);
+    setLoginError("Ocurrió un error al iniciar sesión. Intenta de nuevo.");
+  }
+}
+
+// Botón cancelar
+function handleCancelar() {
+  loginForm.reset();
+  setLoginError("");
+}
+
+// --------------------------------------------------
+// SHELL / CONTENEDOR ADMIN Y ESTUDIANTE
+// --------------------------------------------------
+function renderAdminShell() {
+  mainContent.innerHTML = `
+    <div class="login-wrapper">
+      <div class="login-card" id="admin-main-card">
+        <h1 class="login-title">Panel de administrador</h1>
+        <p class="login-subtitle">
+          Bienvenido, ${currentUser?.username || ""}. 
+          Usa el menú lateral para gestionar secciones, exámenes, usuarios e íconos.
+        </p>
+        <div id="content-area">
+          <p>Selecciona una sección, <strong>Usuarios</strong> o <strong>Íconos</strong> en la barra lateral.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderStudentShell() {
+  mainContent.innerHTML = `
+    <div class="login-wrapper">
+      <div class="login-card" id="student-main-card">
+        <h1 class="login-title">Panel del estudiante</h1>
+        <p class="login-subtitle">
+          Bienvenido, ${currentUser?.username || ""}. 
+          Selecciona una sección en la barra lateral para ver los exámenes disponibles.
+        </p>
+        <div id="content-area">
+          <p>Selecciona una sección en la barra lateral para comenzar un simulacro.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Obtiene el contenedor de contenido actual
+function getContentArea() {
+  return document.getElementById("content-area");
+}
+
+// --------------------------------------------------
+// SECCIONES (SIDEBAR)
+// --------------------------------------------------
+async function loadSectionsSidebar() {
+  if (!sectionsListEl) return;
+
+  sectionsListEl.innerHTML = "<li class='sidebar-item'>Cargando secciones...</li>";
+
+  try {
+    const colRef = collection(db, "sections");
+    const q = query(colRef, orderBy("order", "asc"));
+    const snapshot = await getDocs(q);
+
+    sectionsListEl.innerHTML = "";
+
+    if (snapshot.empty) {
+      sectionsListEl.innerHTML = "<li class='sidebar-item'>Sin secciones</li>";
       return;
     }
 
-    currentRole = role;
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const li = document.createElement("li");
+      li.className = "sidebar-item";
+      li.textContent = data.name || "Sección sin nombre";
+      li.dataset.sectionId = docSnap.id;
+      li.addEventListener("click", () => handleSectionClick(docSnap.id, data.name));
+      sectionsListEl.appendChild(li);
+    });
+  } catch (error) {
+    console.error("Error cargando secciones:", error);
+    sectionsListEl.innerHTML = "<li class='sidebar-item'>Error al cargar secciones</li>";
+  }
+}
 
-    // ==========================
-    // 3) Config UI según rol
-    // ==========================
-    hide(loginScreen);
-
-    if (userInfo) userInfo.innerText = `${user.email} (${currentRole})`;
-
-    if (authButtons) {
-      authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Cerrar sesión</button>`;
-      const btnLogoutTop = $("btnLogoutTop");
-      if (btnLogoutTop) btnLogoutTop.onclick = doLogout;
+async function handleSectionClick(sectionId, sectionName) {
+  clearSidebarActive();
+  // marcar este elemento como activo
+  const allItems = document.querySelectorAll(".sidebar-item");
+  allItems.forEach(item => {
+    if (item.dataset.sectionId === sectionId) {
+      item.classList.add("active");
     }
+  });
+
+  if (!currentRole) {
+    // No hay sesión iniciada
+    const contentArea = getContentArea();
+    if (contentArea) {
+      contentArea.innerHTML = "<p>Primero inicia sesión para ver los exámenes.</p>";
+    }
+    return;
+  }
+
+  await renderExamsForSection(sectionId, sectionName);
+}
+
+// --------------------------------------------------
+// EXÁMENES POR SECCIÓN
+// (Versión 1: solo listado básico)
+// --------------------------------------------------
+async function renderExamsForSection(sectionId, sectionName) {
+  const contentArea = getContentArea();
+  if (!contentArea) return;
+
+  contentArea.innerHTML = `<p>Cargando exámenes de <strong>${sectionName}</strong>...</p>`;
+
+  try {
+    const examsRef = collection(db, "exams");
+    const qExams = query(examsRef, where("sectionId", "==", sectionId), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(qExams);
+
+    if (snapshot.empty) {
+      contentArea.innerHTML = `
+        <h2>Exámenes de ${sectionName}</h2>
+        <p>No hay exámenes registrados en esta sección.</p>
+      `;
+      return;
+    }
+
+    let html = `
+      <h2>Exámenes de ${sectionName}</h2>
+      <p>Selecciona un examen para comenzar (estudiante) o administrarlo (administrador).</p>
+      <div class="exams-list">
+    `;
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const title = data.title || "Sin título";
+      const questionCount = data.questionCount || 0;
+      const timeLimit = data.timeLimit || 0;
+
+      html += `
+        <div class="exam-card">
+          <h3>${title}</h3>
+          <p>${questionCount} preguntas · ${timeLimit} min</p>
+          <div class="exam-actions">
+            <button class="btn btn-primary" data-exam-id="${docSnap.id}" data-action="start">
+              ${currentRole === "admin" ? "Simular como estudiante" : "Iniciar"}
+            </button>
+            ${
+              currentRole === "admin"
+                ? `<button class="btn btn-secondary" data-exam-id="${docSnap.id}" data-action="admin">
+                     Administrar
+                   </button>`
+                : ""
+            }
+          </div>
+        </div>
+      `;
+    });
+
+    html += "</div>";
 
     if (currentRole === "admin") {
-      show(adminSidebar);
-      if (appLayout) appLayout.style.gridTemplateColumns = "260px 1fr 320px";
-    } else {
-      hide(adminSidebar);
-      if (appLayout) appLayout.style.gridTemplateColumns = "260px 1fr";
-    }
-
-    // cargar iconos + secciones
-    await loadIcons();
-    await loadSections();
-
-  } catch (e) {
-    console.error("onAuthStateChanged error", e);
-    loginMessage.innerText = "Error al cargar tu perfil";
-  }
-});
-
-
-// ========================================
-//   CARGAR SECCIONES
-// ========================================
-async function loadSections() {
-  if (!sectionsList) return;
-
-  sectionsList.innerHTML = "Cargando...";
-
-  try {
-    const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
-    const snap = await getDocs(qSec);
-
-    sectionsList.innerHTML = "";
-
-    if (snap.empty) {
-      sectionsList.innerHTML = `<div class="small muted">Sin secciones</div>`;
-      return;
-    }
-
-    snap.forEach((docu) => {
-      const d = docu.data();
-      const item = document.createElement("div");
-      item.className = "section-item";
-      item.innerText = d.name || "(sin nombre)";
-      item.onclick = () => openSection(docu.id, d.name || "(sin nombre)");
-      sectionsList.appendChild(item);
-    });
-  } catch (e) {
-    console.error("loadSections", e);
-    sectionsList.innerHTML = "<div>Error cargando secciones</div>";
-  }
-}
-
-
-// ========================================
-//   ABRIR SECCIÓN (estudiante/admin)
-// ========================================
-async function openSection(sectionId, name) {
-  selectedSectionId = sectionId;
-
-  hide(examScreen);
-  hide(resultScreen);
-  hide(adminExamsScreen);
-  hide(adminSectionsScreen);
-  hide(adminUsersScreen);
-  hide(adminIconsScreen);
-
-  show(studentScreen);
-  if (studentTitle) studentTitle.innerText = name;
-
-  await loadExams(sectionId);
-}
-
-
-// ========================================
-//   CARGAR EXÁMENES
-// ========================================
-async function loadExams(sectionId) {
-  if (!examsList) return;
-
-  examsList.innerHTML = "Cargando exámenes...";
-
-  try {
-    const qEx = query(
-      collection(db, "exams"),
-      where("sectionId", "==", sectionId),
-      orderBy("createdAt", "asc")
-    );
-
-    const snap = await getDocs(qEx);
-
-    if (snap.empty) {
-      examsList.innerHTML = "<div class='small muted'>Sin exámenes</div>";
-      return;
-    }
-
-    examsList.innerHTML = "";
-
-    snap.forEach((docu) => {
-      const d = docu.data();
-      const box = document.createElement("div");
-      box.className = "examBox";
-
-      box.innerHTML = `
-        <div>
-          <div class="title">${escapeHtml(d.title)}</div>
-          <div class="meta">${escapeHtml(d.description || "")}</div>
-        </div>
-        <button data-id="${docu.id}" class="btn primary">Abrir</button>
+      html += `
+        <p style="margin-top:15px;font-size:13px;color:var(--text-secondary);">
+          Nota: En la siguiente etapa agregaremos la interfaz completa para crear, editar y eliminar exámenes y preguntas.
+        </p>
       `;
+    }
 
-      const btn = box.querySelector("button");
-      if (btn) btn.onclick = () => openExam(docu.id);
+    contentArea.innerHTML = html;
 
-      examsList.appendChild(box);
+    // Listeners básicos (placeholder)
+    const buttons = contentArea.querySelectorAll(".exam-actions button");
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const examId = btn.getAttribute("data-exam-id");
+        const action = btn.getAttribute("data-action");
+
+        if (action === "start") {
+          alert("En la siguiente etapa implementaremos la realización del simulacro completo.\nExamen ID: " + examId);
+        } else if (action === "admin" && currentRole === "admin") {
+          alert("Aquí irá el panel para administrar preguntas y justificaciones del examen.\nExamen ID: " + examId);
+        }
+      });
     });
-  } catch (e) {
-    console.error("loadExams", e);
-    examsList.innerHTML = "<div>Error cargando exámenes</div>";
+
+  } catch (error) {
+    console.error("Error al cargar exámenes:", error);
+    contentArea.innerHTML = "<p>Ocurrió un error al cargar los exámenes.</p>";
   }
 }
 
-
-// ========================================
-//   ABRIR EXAMEN (modo estudiante)
-// ========================================
-async function openExam(examId) {
-  selectedExamId = examId;
-
-  hide(studentScreen);
-  hide(resultScreen);
-
-  if (examForm) examForm.innerHTML = "";
-  if (examTitle) examTitle.innerText = "Cargando...";
-
-  show(examScreen);
-
-  await loadExamContent(examId);
-}
-
-
-// ========================================
-//   CARGAR CONTENIDO DEL EXAMEN (preguntas)
-// ========================================
-async function loadExamContent(examId) {
+// --------------------------------------------------
+// ÍCONOS (ADMIN)
+// --------------------------------------------------
+async function loadSocialLinksForSidebar() {
   try {
-    const examRef = doc(db, "exams", examId);
-    const examSnap = await getDoc(examRef);
-    if (!examSnap.exists()) {
-      if (examTitle) examTitle.innerText = "Examen no encontrado";
+    const iconsDocRef = doc(db, "icons", "socialLinks");
+    const docSnap = await getDoc(iconsDocRef);
+
+    if (!docSnap.exists()) {
+      // Si no existe, dejamos los # por defecto
       return;
     }
 
-    const exam = examSnap.data();
-    if (examTitle) examTitle.innerText = exam.title || "Examen";
+    const data = docSnap.data();
 
-    const casosQ = query(
-      collection(db, "casosClinicos"),
-      where("examId", "==", examId),
-      orderBy("orden", "asc")
-    );
-
-    const casosSnap = await getDocs(casosQ);
-
-    const form = examForm;
-    if (!form) return;
-    form.innerHTML = "";
-
-    let totalPreguntas = 0;
-
-    for (const casoDoc of casosSnap.docs) {
-      const caso = casoDoc.data();
-
-      const preguntasQ = query(
-        collection(db, "preguntas"),
-        where("casoId", "==", casoDoc.id),
-        orderBy("orden", "asc")
-      );
-
-      const preguntasSnap = await getDocs(preguntasQ);
-
-      const divCaso = document.createElement("div");
-      divCaso.className = "questionBlock";
-      divCaso.innerHTML = `
-        <div class="questionTitle">${escapeHtml(caso.titulo)}</div>
-        <div class="caseText">${escapeHtml(caso.texto)}</div>
-      [];
-
-      preguntasSnap.forEach((pDoc) => {
-        const p = pDoc.data();
-        totalPreguntas++;
-
-        const block = document.createElement("div");
-        block.innerHTML = `
-          <div style="margin-top:10px; font-weight:700;">${escapeHtml(p.pregunta)}</div>
-          <div class="options">
-            ${ (p.opciones || []).map((op, idx) => `
-              <label>
-                <input type="radio" name="p_${pDoc.id}" value="${idx}" />
-                <span>${escapeHtml(op)}</span>
-              </label>
-            `).join("") }
-          </div>
-        `;
-
-        divCaso.appendChild(block);
-      });
-
-      form.appendChild(divCaso);
-    }
-
-    const totalSegundos = totalPreguntas * 75;
-    if (totalSegundos > 0) {
-      startTimer(totalSegundos);
-    } else {
-      if (examTimer) examTimer.innerText = "--:--";
-    }
-
-  } catch (e) {
-    console.error("loadExamContent", e);
-    if (examTitle) examTitle.innerText = "Error cargando examen";
+    if (data.instagram) iconInstagram.href = data.instagram;
+    if (data.whatsapp) iconWhatsapp.href = data.whatsapp;
+    if (data.tiktok) iconTiktok.href = data.tiktok;
+    if (data.telegram) iconTelegram.href = data.telegram;
+  } catch (error) {
+    console.error("Error cargando íconos:", error);
   }
 }
 
+async function renderIconsAdmin() {
+  const contentArea = getContentArea();
+  if (!contentArea) return;
 
-// ========================================
-//   TIMER
-// ========================================
-function startTimer(seconds) {
-  clearInterval(timerInterval);
+  if (currentRole !== "admin") {
+    contentArea.innerHTML = "<p>No tienes permisos para editar los íconos.</p>";
+    return;
+  }
 
-  let t = seconds;
-  const box = examTimer;
+  contentArea.innerHTML = "<p>Cargando configuración de íconos...</p>";
 
-  if (!box) return;
+  try {
+    const iconsDocRef = doc(db, "icons", "socialLinks");
+    const docSnap = await getDoc(iconsDocRef);
+    const data = docSnap.exists() ? docSnap.data() : {};
 
-  timerInterval = setInterval(() => {
-    const min = Math.floor(t / 60);
-    const sec = t % 60;
-    box.innerText = `${min}:${sec.toString().padStart(2, "0")}`;
+    const instagram = data.instagram || "";
+    const whatsapp = data.whatsapp || "";
+    const tiktok = data.tiktok || "";
+    const telegram = data.telegram || "";
 
-    if (t <= 0) {
-      clearInterval(timerInterval);
-      finishExam();
-    }
-
-    t--;
-  }, 1000);
-}
-
-
-// ========================================
-//   TERMINAR EXAMEN
-// ========================================
-if (btnFinishExam) {
-  btnFinishExam.onclick = () => finishExam();
-}
-
-function finishExam() {
-  clearInterval(timerInterval);
-
-  hide(examScreen);
-  show(resultScreen);
-
-  if (resultScreen) resultScreen.innerText = "Examen finalizado. (Resultados en desarrollo)";
-}
-
-
-// ========================================
-//   BOTONES DEL PANEL ADMIN (TABS)
-// ========================================
-function clearAdminScreens() {
-  hide(adminExamsScreen);
-  hide(adminSectionsScreen);
-  hide(adminUsersScreen);
-  hide(adminIconsScreen);
-
-  if (adminExamsScreen)   adminExamsScreen.innerHTML = "";
-  if (adminSectionsScreen)adminSectionsScreen.innerHTML = "";
-  if (adminUsersScreen)   adminUsersScreen.innerHTML = "";
-  if (adminIconsScreen)   adminIconsScreen.innerHTML = "";
-}
-
-if (adminExamsTab) {
-  adminExamsTab.onclick = () => {
-    if (currentRole !== "admin") return;
-    clearAdminScreens();
-    show(adminExamsScreen);
-    adminLoadExamsPanel();
-  };
-}
-
-if (adminSectionsTab) {
-  adminSectionsTab.onclick = () => {
-    if (currentRole !== "admin") return;
-    clearAdminScreens();
-    show(adminSectionsScreen);
-    adminLoadSectionsPanel();
-  };
-}
-
-if (adminUsersTab) {
-  adminUsersTab.onclick = () => {
-    if (currentRole !== "admin") return;
-    clearAdminScreens();
-    show(adminUsersScreen);
-    adminLoadUsersPanel();
-  };
-}
-
-if (adminIconsTab) {
-  adminIconsTab.onclick = () => {
-    if (currentRole !== "admin") return;
-    clearAdminScreens();
-    show(adminIconsScreen);
-    adminLoadIconsPanel();
-  };
-}
-
-if (adminLogout) {
-  adminLogout.onclick = doLogout;
-}
-
-
-// ========================================
-//   PANEL — ADMIN: SECCIONES
-// ========================================
-async function adminLoadSectionsPanel() {
-  if (!adminSectionsScreen) return;
-
-  adminSectionsScreen.innerHTML = `
-    <h2>Secciones</h2>
-    <button class="btn primary" id="addSectionBtn">Agregar sección</button>
-    <div id="sectionsAdminList" style="margin-top:20px;">Cargando...</div>
-  `;
-
-  const list = $("sectionsAdminList");
-  if (!list) return;
-
-  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
-  const snap = await getDocs(qSec);
-
-  list.innerHTML = "";
-
-  snap.forEach((docu) => {
-    const d = docu.data();
-
-    const row = document.createElement("div");
-    row.className = "card";
-    row.style.marginBottom = "8px";
-
-    row.innerHTML = `
-      <strong>${escapeHtml(d.name)}</strong>
-      <div class="small muted">Orden: ${d.order}</div>
-      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
-      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
+    contentArea.innerHTML = `
+      <h2>Configuración de íconos</h2>
+      <p>Estos enlaces se usan en los íconos de la barra lateral.</p>
+      <form id="icons-form" style="margin-top:15px;">
+        <div class="form-group">
+          <label for="icon-instagram-input">Instagram (URL)</label>
+          <input type="url" id="icon-instagram-input" value="${instagram}">
+        </div>
+        <div class="form-group">
+          <label for="icon-whatsapp-input">WhatsApp (URL)</label>
+          <input type="url" id="icon-whatsapp-input" value="${whatsapp}">
+        </div>
+        <div class="form-group">
+          <label for="icon-tiktok-input">TikTok (URL)</label>
+          <input type="url" id="icon-tiktok-input" value="${tiktok}">
+        </div>
+        <div class="form-group">
+          <label for="icon-telegram-input">Telegram (URL)</label>
+          <input type="url" id="icon-telegram-input" value="${telegram}">
+        </div>
+        <div class="login-actions">
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+        <div id="icons-msg" class="login-footer-text" style="text-align:left;"></div>
+      </form>
     `;
 
-    list.appendChild(row);
-  });
+    const form = document.getElementById("icons-form");
+    const msgEl = document.getElementById("icons-msg");
 
-  const addBtn = $("addSectionBtn");
-  if (addBtn) {
-    addBtn.onclick = async () => {
-      const name = prompt("Nombre de la sección:");
-      if (!name) return;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msgEl.textContent = "Guardando...";
 
-      const order = Number(prompt("Orden:"));
-      await addDoc(collection(db, "sections"), {
-        name,
-        order,
-        createdAt: serverTimestamp(),
-      });
+      try {
+        await updateDoc(iconsDocRef, {
+          instagram: document.getElementById("icon-instagram-input").value.trim(),
+          whatsapp: document.getElementById("icon-whatsapp-input").value.trim(),
+          tiktok: document.getElementById("icon-tiktok-input").value.trim(),
+          telegram: document.getElementById("icon-telegram-input").value.trim(),
+          updatedAt: serverTimestamp()
+        }).catch(async (error) => {
+          // Si el doc no existe aún, lo creamos con setDoc a través de update (lanzará error)
+          if (error.code === "not-found") {
+            await setDoc(iconsDocRef, {
+              instagram: document.getElementById("icon-instagram-input").value.trim(),
+              whatsapp: document.getElementById("icon-whatsapp-input").value.trim(),
+              tiktok: document.getElementById("icon-tiktok-input").value.trim(),
+              telegram: document.getElementById("icon-telegram-input").value.trim(),
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            throw error;
+          }
+        });
 
-      adminLoadSectionsPanel();
-    };
+        msgEl.textContent = "Íconos actualizados correctamente.";
+        // Recargar íconos en la barra lateral
+        await loadSocialLinksForSidebar();
+      } catch (err) {
+        console.error("Error guardando íconos:", err);
+        msgEl.textContent = "Error al guardar la configuración de íconos.";
+      }
+    });
+
+  } catch (error) {
+    console.error("Error al renderizar íconos:", error);
+    contentArea.innerHTML = "<p>Ocurrió un error al cargar la configuración de íconos.</p>";
   }
-
-  list.querySelectorAll("button[data-edit]").forEach((btn) => {
-    btn.onclick = async () => {
-      const id = btn.dataset.id;
-      const ref = doc(db, "sections", id);
-      const snap = await getDoc(ref);
-      const data = snap.data();
-
-      const name = prompt("Editar nombre:", data.name);
-      if (!name) return;
-
-      const order = Number(prompt("Editar orden:", data.order));
-
-      await updateDoc(ref, { name, order });
-      adminLoadSectionsPanel();
-    };
-  });
-
-  list.querySelectorAll("button[data-del]").forEach((btn) => {
-    btn.onclick = async () => {
-      if (!confirm("Eliminar sección?")) return;
-      await deleteDoc(doc(db, "sections", btn.dataset.id));
-      adminLoadSectionsPanel();
-    };
-  });
 }
 
+// --------------------------------------------------
+// USUARIOS (ADMIN)
+// --------------------------------------------------
+async function renderUsersAdmin() {
+  const contentArea = getContentArea();
+  if (!contentArea) return;
 
-// ========================================
-//   PANEL — ADMIN: EXÁMENES
-// ========================================
-async function adminLoadExamsPanel() {
-  if (!adminExamsScreen) return;
+  if (currentRole !== "admin") {
+    contentArea.innerHTML = "<p>No tienes permisos para administrar usuarios.</p>";
+    return;
+  }
 
-  adminExamsScreen.innerHTML = `
-    <h2>Exámenes</h2>
-    <button class="btn primary" id="addExamBtn">Agregar examen</button>
-    <div id="adminExamsList" style="margin-top:20px;">Cargando...</div>
-  `;
+  contentArea.innerHTML = "<p>Cargando usuarios...</p>";
 
-  const container = $("adminExamsList");
+  try {
+    const usersRef = collection(db, "users");
+    const qUsers = query(usersRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(qUsers);
+
+    let rows = "";
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const username = data.username || "";
+      const role = data.role || "";
+      const status = data.status || "";
+      const expDate = formatDateFromTimestamp(data.expirationDate);
+
+      rows += `
+        <tr data-user-id="${docSnap.id}">
+          <td>${username}</td>
+          <td>${role}</td>
+          <td>${status}</td>
+          <td>${expDate}</td>
+          <td>
+            <button class="btn btn-secondary btn-edit-user" data-user-id="${docSnap.id}">Editar</button>
+            <button class="btn btn-secondary btn-delete-user" data-user-id="${docSnap.id}">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    contentArea.innerHTML = `
+      <h2>Usuarios</h2>
+      <p>Administra los usuarios que pueden acceder a la plataforma.</p>
+      <div style="margin:15px 0;">
+        <button class="btn btn-primary" id="btn-add-user">Agregar usuario</button>
+      </div>
+      <div class="users-table-wrapper" style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--sidebar-border);">
+              <th style="text-align:left;padding:8px;">Usuario</th>
+              <th style="text-align:left;padding:8px;">Rol</th>
+              <th style="text-align:left;padding:8px;">Estado</th>
+              <th style="text-align:left;padding:8px;">Fin de acceso</th>
+              <th style="text-align:left;padding:8px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || "<tr><td colspan='5' style='padding:8px;'>No hay usuarios registrados.</td></tr>"}
+          </tbody>
+        </table>
+      </div>
+      <div id="users-msg" class="login-footer-text" style="text-align:left;margin-top:10px;"></div>
+
+      <!-- Contenedor para formulario agregar/editar -->
+      <div id="user-form-container" style="margin-top:20px;"></div>
+    `;
+
+    const msgEl = document.getElementById("users-msg");
+    const addBtn = document.getElementById("btn-add-user");
+    const tbody = contentArea.querySelector("tbody");
+
+    addBtn.addEventListener("click", () => {
+      renderUserForm(null);
+    });
+
+    tbody.querySelectorAll(".btn-edit-user").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const userId = btn.getAttribute("data-user-id");
+        await renderUserForm(userId);
+      });
+    });
+
+    tbody.querySelectorAll(".btn-delete-user").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const userId = btn.getAttribute("data-user-id");
+        const confirmDelete = confirm("¿Seguro que deseas eliminar este usuario?");
+        if (!confirmDelete) return;
+
+        try {
+          await deleteDoc(doc(db, "users", userId));
+          msgEl.textContent = "Usuario eliminado correctamente.";
+          await renderUsersAdmin(); // recargar lista
+        } catch (err) {
+          console.error("Error eliminando usuario:", err);
+          msgEl.textContent = "Error al eliminar usuario.";
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error("Error renderizando usuarios:", error);
+    contentArea.innerHTML = "<p>Ocurrió un error al cargar los usuarios.</p>";
+  }
+}
+
+// Formulario agregar / editar usuario
+async function renderUserForm(userId) {
+  const container = document.getElementById("user-form-container");
   if (!container) return;
 
-  const snap = await getDocs(collection(db, "exams"));
-  container.innerHTML = "";
+  let isEdit = !!userId;
+  let formTitle = isEdit ? "Editar usuario" : "Agregar usuario";
+  let initialData = {
+    username: "",
+    password: "",
+    role: "estudiante",
+    status: "activo",
+    expirationDate: ""
+  };
 
-  snap.forEach((docu) => {
-    const d = docu.data();
-
-    const row = document.createElement("div");
-    row.className = "card";
-    row.style.marginBottom = "8px";
-
-    row.innerHTML = `
-      <strong>${escapeHtml(d.title)}</strong>
-      <div class="small muted">Sección: ${escapeHtml(d.sectionId)}</div>
-      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
-      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
-    `;
-
-    container.appendChild(row);
-  });
-
-  const addBtn = $("addExamBtn");
-  if (addBtn) {
-    addBtn.onclick = async () => {
-      const sectionId = prompt("ID sección:");
-      if (!sectionId) return;
-
-      const title = prompt("Título:");
-      if (!title) return;
-
-      const desc = prompt("Descripción:");
-
-      await addDoc(collection(db, "exams"), {
-        sectionId,
-        title,
-        description: desc || "",
-        createdAt: serverTimestamp(),
-      });
-
-      adminLoadExamsPanel();
-    };
+  if (isEdit) {
+    try {
+      const docRef = doc(db, "users", userId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        initialData.username = data.username || "";
+        initialData.password = data.password || "";
+        initialData.role = data.role || "estudiante";
+        initialData.status = data.status || "activo";
+        initialData.expirationDate = formatDateFromTimestamp(data.expirationDate);
+      }
+    } catch (error) {
+      console.error("Error obteniendo usuario:", error);
+    }
   }
 
-  container.querySelectorAll("button[data-edit]").forEach((btn) => {
-    btn.onclick = async () => {
-      const id = btn.dataset.id;
-      const ref = doc(db, "exams", id);
-      const snap = await getDoc(ref);
-      const ex = snap.data();
-
-      const title = prompt("Editar título:", ex.title);
-      if (!title) return;
-
-      const desc = prompt("Editar descripción:", ex.description || "");
-
-      await updateDoc(ref, { title, description: desc });
-      adminLoadExamsPanel();
-    };
-  });
-
-  container.querySelectorAll("button[data-del]").forEach((btn) => {
-    btn.onclick = async () => {
-      if (!confirm("Eliminar examen?")) return;
-      await deleteDoc(doc(db, "exams", btn.dataset.id));
-      adminLoadExamsPanel();
-    };
-  });
-}
-
-
-// ========================================
-//   PANEL — ADMIN: USUARIOS
-//   (docId = UID de Firebase Auth)
-// ========================================
-async function adminLoadUsersPanel() {
-  if (!adminUsersScreen) return;
-
-  adminUsersScreen.innerHTML = `
-    <h2>Usuarios</h2>
-    <button class="btn primary" id="addUserBtn">Crear nuevo usuario (doc)</button>
-    <div class="small muted">
-      IMPORTANTE: El UID debe coincidir con el UID del usuario en Firebase Authentication.
-    </div>
-    <div id="usersAdminList" style="margin-top:20px;">Cargando...</div>
-  `;
-
-  const list = $("usersAdminList");
-  if (!list) return;
-
-  const snap = await getDocs(collection(db, "users"));
-  list.innerHTML = "";
-
-  snap.forEach((docu) => {
-    const d = docu.data();
-    const row = document.createElement("div");
-    row.className = "card";
-    row.style.marginBottom = "8px";
-
-    row.innerHTML = `
-      <strong>${escapeHtml(d.email || docu.id)}</strong>
-      <div class="small muted">
-        ${escapeHtml(d.name || "")} – Rol: ${escapeHtml(d.role || "user")} – Estado: ${escapeHtml(d.status || "enabled")}
+  container.innerHTML = `
+    <h3 style="margin-top:15px;">${formTitle}</h3>
+    <form id="user-form" style="margin-top:10px;">
+      <div class="form-group">
+        <label for="user-username">Usuario</label>
+        <input type="text" id="user-username" value="${initialData.username}" required>
       </div>
-      <button class="btn" data-id="${docu.id}" data-edit="1">Editar</button>
-      <button class="btn danger" data-id="${docu.id}" data-del="1">Eliminar</button>
-    `;
-
-    list.appendChild(row);
-  });
-
-  const addBtn = $("addUserBtn");
-  if (addBtn) {
-    addBtn.onclick = async () => {
-      const uid   = prompt("UID de Firebase Auth:");
-      if (!uid) return;
-
-      const email = prompt("Correo:");
-      const name  = prompt("Nombre:");
-      const role  = prompt("Rol (admin/user):", "user");
-      const status= prompt("Estado (enabled/disabled):", "enabled");
-      const exp   = prompt("Fecha límite (YYYY-MM-DD) o vacío si no aplica:", "");
-
-      const uRef = doc(db, "users", uid);
-      await setDoc(uRef, {
-        email: email || "",
-        name : name  || "",
-        role : role  || "user",
-        status: status || "enabled",
-        expires: exp || "",
-        createdAt: serverTimestamp(),
-      }, { merge: true });
-
-      adminLoadUsersPanel();
-    };
-  }
-
-  list.querySelectorAll("button[data-edit]").forEach((btn) => {
-    btn.onclick = async () => {
-      const id = btn.dataset.id;
-      const ref = doc(db, "users", id);
-      const snap = await getDoc(ref);
-      const d = snap.data();
-
-      const name = prompt("Nombre:", d.name || "");
-      if (name === null) return;
-
-      const role   = prompt("Rol (admin/user):", d.role || "user");
-      const status = prompt("Estado (enabled/disabled):", d.status || "enabled");
-      const exp    = prompt("Fecha límite (YYYY-MM-DD):", d.expires || "");
-
-      await updateDoc(ref, {
-        name,
-        role: role || "user",
-        status: status || "enabled",
-        expires: exp || ""
-      });
-
-      adminLoadUsersPanel();
-    };
-  });
-
-  list.querySelectorAll("button[data-del]").forEach((btn) => {
-    btn.onclick = async () => {
-      if (!confirm("Eliminar usuario? (solo doc, no borra Auth)")) return;
-      await deleteDoc(doc(db, "users", btn.dataset.id));
-      adminLoadUsersPanel();
-    };
-  });
-}
-
-
-// ========================================
-//   PANEL — ADMIN: ÍCONOS
-// ========================================
-async function loadIcons() {
-  try {
-    const ref  = doc(db, "config", "icons");
-    const snap = await getDoc(ref);
-
-    if (!snap.exists()) return;
-
-    const d = snap.data();
-
-    if (igLink) igLink.href = d.instagram || "#";
-    if (waLink) waLink.href = d.whatsapp  || "#";
-    if (tgLink) tgLink.href = d.telegram  || "#";
-    if (ttLink) ttLink.href = d.tiktok    || "#";
-
-  } catch (e) {
-    console.error("loadIcons", e);
-  }
-}
-
-async function adminLoadIconsPanel() {
-  if (!adminIconsScreen) return;
-
-  adminIconsScreen.innerHTML = `
-    <h2>Íconos Sociales</h2>
-
-    <label>Instagram</label>
-    <input id="ic_instagram" />
-
-    <label>WhatsApp</label>
-    <input id="ic_whatsapp" />
-
-    <label>Telegram</label>
-    <input id="ic_telegram" />
-
-    <label>TikTok</label>
-    <input id="ic_tiktok" />
-
-    <button class="btn primary" id="saveIconsBtn" style="margin-top:12px;">
-      Guardar
-    </button>
+      <div class="form-group">
+        <label for="user-password">Contraseña</label>
+        <input type="text" id="user-password" value="${initialData.password}" required>
+      </div>
+      <div class="form-group">
+        <label for="user-role">Rol</label>
+        <select id="user-role">
+          <option value="admin" ${initialData.role === "admin" ? "selected" : ""}>Administrador</option>
+          <option value="estudiante" ${initialData.role === "estudiante" ? "selected" : ""}>Estudiante</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="user-status">Estado</label>
+        <select id="user-status">
+          <option value="activo" ${initialData.status === "activo" ? "selected" : ""}>Activo</option>
+          <option value="inactivo" ${initialData.status === "inactivo" ? "selected" : ""}>Inactivo</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="user-expiration">Fecha fin de acceso</label>
+        <input type="date" id="user-expiration" value="${initialData.expirationDate}">
+      </div>
+      <div class="login-actions">
+        <button type="submit" class="btn btn-primary">${isEdit ? "Guardar cambios" : "Crear usuario"}</button>
+        <button type="button" class="btn btn-secondary" id="btn-cancel-user-form">Cancelar</button>
+      </div>
+      <div id="user-form-msg" class="login-footer-text" style="text-align:left;margin-top:5px;"></div>
+    </form>
   `;
 
-  const ref  = doc(db, "config", "icons");
-  const snap = await getDoc(ref);
+  const form = document.getElementById("user-form");
+  const msgEl = document.getElementById("user-form-msg");
+  const btnCancelForm = document.getElementById("btn-cancel-user-form");
 
-  if (snap.exists()) {
-    const d = snap.data();
-    $("ic_instagram").value = d.instagram || "";
-    $("ic_whatsapp").value  = d.whatsapp  || "";
-    $("ic_telegram").value  = d.telegram  || "";
-    $("ic_tiktok").value    = d.tiktok    || "";
-  }
+  btnCancelForm.addEventListener("click", () => {
+    container.innerHTML = "";
+  });
 
-  const btn = $("saveIconsBtn");
-  if (btn) {
-    btn.onclick = async () => {
-      await setDoc(ref, {
-        instagram: $("ic_instagram").value.trim(),
-        whatsapp : $("ic_whatsapp").value.trim(),
-        telegram : $("ic_telegram").value.trim(),
-        tiktok   : $("ic_tiktok").value.trim(),
-      }, { merge: true });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msgEl.textContent = isEdit ? "Guardando cambios..." : "Creando usuario...";
 
-      alert("Íconos actualizados");
-      await loadIcons();
+    const username = document.getElementById("user-username").value.trim();
+    const password = document.getElementById("user-password").value.trim();
+    const role = document.getElementById("user-role").value;
+    const status = document.getElementById("user-status").value;
+    const expirationStr = document.getElementById("user-expiration").value;
+    const expirationDate = expirationStr ? parseDateInputToDate(expirationStr) : null;
+
+    if (!username || !password) {
+      msgEl.textContent = "Usuario y contraseña son obligatorios.";
+      return;
+    }
+
+    const payload = {
+      username,
+      password,
+      role,
+      status,
+      expirationDate: expirationDate ? { seconds: Math.floor(expirationDate.getTime()/1000), nanoseconds: 0 } : null,
+      updatedAt: serverTimestamp()
     };
+
+    try {
+      if (isEdit) {
+        const docRef = doc(db, "users", userId);
+        await updateDoc(docRef, payload);
+        msgEl.textContent = "Usuario actualizado correctamente.";
+      } else {
+        await addDoc(collection(db, "users"), {
+          ...payload,
+          createdAt: serverTimestamp()
+        });
+        msgEl.textContent = "Usuario creado correctamente.";
+      }
+
+      // Recargar tabla de usuarios
+      await renderUsersAdmin();
+    } catch (error) {
+      console.error("Error guardando usuario:", error);
+      msgEl.textContent = "Error al guardar el usuario.";
+    }
+  });
+}
+
+// --------------------------------------------------
+// EVENTOS DE LA BARRA LATERAL (Usuarios / Íconos)
+// --------------------------------------------------
+if (menuUsersEl) {
+  menuUsersEl.addEventListener("click", async () => {
+    clearSidebarActive();
+    menuUsersEl.classList.add("active");
+    await renderUsersAdmin();
+  });
+}
+
+if (menuIconsEl) {
+  menuIconsEl.addEventListener("click", async () => {
+    clearSidebarActive();
+    menuIconsEl.classList.add("active");
+    await renderIconsAdmin();
+  });
+}
+
+// --------------------------------------------------
+// INIT
+// --------------------------------------------------
+function init() {
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLoginSubmit);
   }
+  if (btnCancelar) {
+    btnCancelar.addEventListener("click", handleCancelar);
+  }
+
+  // Cargar íconos para la barra lateral al inicio
+  loadSocialLinksForSidebar();
 }
 
-
-// ========================================
-//   INICIO
-// ========================================
-async function init() {
-  hide(studentScreen);
-  hide(examScreen);
-  hide(resultScreen);
-  hide(adminExamsScreen);
-  hide(adminSectionsScreen);
-  hide(adminUsersScreen);
-  hide(adminIconsScreen);
-  hide(adminSidebar);
-
-  if (appLayout) appLayout.style.gridTemplateColumns = "260px 1fr";
-}
-
-init();
+document.addEventListener("DOMContentLoaded", init);
