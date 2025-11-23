@@ -1,1337 +1,1170 @@
-/************************************************************
- * ESTUDIANTE ENARM - APP.JS
- * Versión completa ADMIN + ESTUDIANTE
- * PARTE 1/6
- ************************************************************/
+// app.js - Plataforma Estudiante ENARM
+// Estructura compatible con Firestore:
+// sections, exams, casosClinicos, preguntas, users
+// preguntas: { examId, casoId, pregunta, opciones[], correcta, justificacion }
+// casosClinicos: { examId, titulo, texto }
 
-// ===========================================================
-// 1. IMPORTS Y CONFIGURACIÓN FIREBASE
-// ===========================================================
+// ---------------------- IMPORTS FIREBASE (modular CDN) ----------------------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import {
-  initializeApp
-} from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 import {
   getFirestore,
   collection,
   doc,
-  addDoc,
-  setDoc,
   getDoc,
-  getDocs,
+  setDoc,
+  addDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
   query,
   where,
   orderBy,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js";
+  limit
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  createUserWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.7.2/firebase-auth.js";
-
-import { firebaseConfig } from "./firebase.js";
-
-// Inicializa Firebase
+// ---------------------- CONFIG FIREBASE ----------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+  projectId: "simulacros-plataforma-enarm",
+  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  messagingSenderId: "1012829203040",
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+};
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-// ===========================================================
-// 2. ELEMENTOS DEL DOM
-// ===========================================================
-const loginScreen = document.getElementById("loginScreen");
-const inputEmail = document.getElementById("inputEmail");
-const inputPassword = document.getElementById("inputPassword");
-const btnLogin = document.getElementById("btnLogin");
-const btnCancel = document.getElementById("btnCancel");
-const loginMessage = document.getElementById("loginMessage");
+// ---------------------- CONSTANTES ----------------------
+const ADMIN_UID = "2T2NYl0wkwTu1EH14K82b0IgPiy2";
+const AUTO_RECONSTRUCT_ENABLED = true;
 
-const mainContent = document.getElementById("mainContent");
-const userInfo = document.getElementById("userInfo");
+// ---------------------- SELECTORES DOM ----------------------
+const $ = id => document.getElementById(id);
 
-const leftSidebar = document.querySelector(".left-sidebar");
-const adminSidebar = document.getElementById("adminSidebar");
+// Left sidebar / main
+const sectionsList   = $('sectionsList');
+const mainContent    = $('mainContent');
+const loginScreen    = $('loginScreen');
+const studentScreen  = $('studentScreen');
+const examsList      = $('examsList');
+const editButtons    = $('editButtons');
+const btnEdit        = $('btnEdit');
+const btnSave        = $('btnSave');
 
-const sectionsList = document.getElementById("sectionsList");
-const studentScreen = document.getElementById("studentScreen");
-const examsList = document.getElementById("examsList");
+// Exam screen
+const examScreen     = $('examScreen');
+const examTitle      = $('examTitle');
+const examTimer      = $('examTimer');
+const examForm       = $('examForm');
+const btnFinishExam  = $('btnFinishExam');
+const editExamButtons= $('editExamButtons');
+const btnEditExam    = $('btnEditExam');
+const btnSaveExam    = $('btnSaveExam');
 
-const examScreen = document.getElementById("examScreen");
-const examTitle = document.getElementById("examTitle");
-const examForm = document.getElementById("examForm");
-const examTimer = document.getElementById("examTimer");
-const btnFinishExam = document.getElementById("btnFinishExam");
+// Results
+const resultScreen   = $('resultScreen');
 
-const resultScreen = document.getElementById("resultScreen");
+// Top / auth
+const inputEmail     = $('inputEmail');
+const inputPassword  = $('inputPassword');
+const btnLogin       = $('btnLogin');
+const btnCancel      = $('btnCancel');
+const loginMessage   = $('loginMessage');
+const userInfo       = $('userInfo');
+const authButtons    = $('authButtons');
 
-const editButtons = document.getElementById("editButtons");
-const editExamButtons = document.getElementById("editExamButtons");
+// Admin right sidebar
+const adminSidebar       = $('adminSidebar');
+const adminAddSection    = $('adminAddSection');
+const adminAddExam       = $('adminAddExam');
+const adminEditQuestions = $('adminEditQuestions');
+const adminUsers         = $('adminUsers');
+const adminLinks         = $('adminLinks');
+const adminLogout        = $('adminLogout');
 
-const adminAddSection = document.getElementById("adminAddSection");
-const adminAddExam = document.getElementById("adminAddExam");
-const adminUsers = document.getElementById("adminUsers");
-const adminLinks = document.getElementById("adminLinks");
-const adminLogout = document.getElementById("adminLogout");
+// Socials / countdown
+const mainCountdownEl = $('mainCountdown');
+const linkInstagram   = $('link-instagram');
+const linkWhatsApp    = $('link-whatsapp');
+const linkTelegram    = $('link-telegram');
+const linkTikTok      = $('link-tiktok');
 
-// Iconos sociales
-const linkInstagram = document.getElementById("link-instagram");
-const linkWhatsApp = document.getElementById("link-whatsapp");
-const linkTelegram = document.getElementById("link-telegram");
-const linkTikTok = document.getElementById("link-tiktok");
+// ---------------------- ESTADO GLOBAL ----------------------
+let currentUser       = null; // {uid, email, role, estado, expiracion}
+let currentSectionId  = null;
+let currentExam       = null; // { id, nombre, ... }
+let examTimerInterval = null;
+let examRemainingSeconds = 0;
 
-// Estado global
-let currentUser = null;
-let currentRole = "guest"; // guest, admin, student
-let selectedSection = null;
-let selectedExam = null;
+// Draft state (para ediciones admin de exámenes/preguntas)
+let draft = {
+  exams: {},      // examId -> { nombre, deleted, new }
+  questions: {},  // questionId -> { examId, ... }
+  newExams: []    // { tempId, nombre, sectionId }
+};
 
-// ===========================================================
-// 3. UTILIDADES
-// ===========================================================
-const show = (el) => el && el.classList.remove("hidden");
-const hide = (el) => el && el.classList.add("hidden");
-
-function escapeHtml(text) {
-  if (!text) return "";
-  return text.replace(/[&<>"']/g, (m) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  }[m]));
+// ---------------------- UTILIDADES ----------------------
+function show(el){ if(!el) return; el.classList.remove('hidden'); }
+function hide(el){ if(!el) return; el.classList.add('hidden'); }
+function escapeHtml(s){
+  if(s===undefined||s===null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
 }
+function qid(){ return 'id_' + Math.random().toString(36).slice(2,9); }
 
-function clearMain() {
-  studentScreen.classList.add("hidden");
-  examScreen.classList.add("hidden");
-  resultScreen.classList.add("hidden");
-  examsList.innerHTML = "";
-  examForm.innerHTML = "";
-}
-
-// ===========================================================
-// 4. LOGIN / AUTH
-// ===========================================================
-btnLogin.onclick = async () => {
-  loginMessage.textContent = "Verificando...";
+// ---------------------- COUNTDOWN ----------------------
+function startMainCountdown(){
   try {
-    const email = inputEmail.value.trim();
-    const password = inputPassword.value.trim();
+    const target = new Date('2026-09-23T00:00:00');
+    const el = mainCountdownEl || document.createElement('div');
+    function tick(){
+      const now = new Date();
+      let diff = Math.floor((target - now)/1000);
+      if (diff <= 0) { el.textContent = 'Evento iniciado'; return; }
+      const days = Math.floor(diff/86400); diff -= days*86400;
+      const hrs  = Math.floor(diff/3600);  diff -= hrs*3600;
+      const mins = Math.floor(diff/60);    const secs = diff%60;
+      el.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
+    }
+    tick();
+    setInterval(tick,1000);
+  } catch(e){ console.warn(e); }
+}
+startMainCountdown();
 
-    if (!email || !password) {
-      loginMessage.textContent = "Ingresa correo y contraseña.";
+// ---------------------- AUTO-RECONSTRUCT ----------------------
+let _autoRan = false;
+async function ensureDefaults(){
+  if (!AUTO_RECONSTRUCT_ENABLED || _autoRan) return;
+  _autoRan = true;
+  try {
+    const sSnap = await getDocs(query(collection(db,'sections'), orderBy('nombre'), limit(1)));
+    if (sSnap.empty) {
+      await addDoc(collection(db,'sections'), {
+        nombre: 'Sección 1',
+        createdAt: new Date().toISOString()
+      });
+    }
+    const uSnap = await getDocs(query(collection(db,'users'), limit(1)));
+    if (uSnap.empty) {
+      await setDoc(doc(db,'users', ADMIN_UID), {
+        usuario:'admin',
+        role:'admin',
+        estado:'habilitado',
+        expiracion: ''
+      });
+    }
+  } catch(e){ console.warn('ensureDefaults', e); }
+}
+
+// ---------------------- CARGA Y RENDER SECCIONES ----------------------
+async function loadSections(){
+  if (sectionsList) sectionsList.innerHTML = '';
+  try {
+    await ensureDefaults();
+    const sSnap = await getDocs(query(collection(db,'sections'), orderBy('nombre')));
+    if (sSnap.empty) {
+      await addDoc(collection(db,'sections'), {
+        nombre:'Sección 1',
+        createdAt: new Date().toISOString()
+      });
+      return loadSections();
+    }
+    sSnap.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'section-item';
+      el.textContent = s.data().nombre || 'Sección';
+      el.dataset.id = s.id;
+      el.onclick = () => selectSection(s.id, s.data().nombre);
+      sectionsList.appendChild(el);
+    });
+    if (!currentSectionId && sSnap.docs.length) {
+      selectSection(sSnap.docs[0].id, sSnap.docs[0].data().nombre);
+    }
+  } catch(e){
+    console.error('loadSections', e);
+    if (sectionsList) sectionsList.innerHTML = '<div class="muted">Error cargando secciones</div>';
+  }
+}
+
+async function selectSection(id, nombre){
+  currentSectionId = id;
+  if (sectionsList) {
+    Array.from(sectionsList.children).forEach(ch =>
+      ch.classList.toggle('active', ch.dataset.id === id)
+    );
+  }
+  show(studentScreen);
+  hide(loginScreen);
+  hide(examScreen);
+  hide(resultScreen);
+  await renderExamsForSection(id);
+}
+
+// ---------------------- RENDER EXÁMENES ----------------------
+async function renderExamsForSection(sectionId){
+  if (!examsList) return;
+  examsList.innerHTML = '';
+  if (!sectionId) {
+    examsList.innerHTML = '<div class="muted">Selecciona una sección</div>';
+    return;
+  }
+  try {
+    const qEx = query(
+      collection(db,'exams'),
+      where('sectionId','==', sectionId),
+      orderBy('nombre')
+    );
+    const snap = await getDocs(qEx);
+    if (snap.empty) {
+      examsList.innerHTML = '<div class="muted">No hay exámenes en esta sección</div>';
       return;
     }
 
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    loginMessage.textContent = "";
+    draft.exams = {};
+    draft.newExams = [];
 
-  } catch (e) {
-    console.error(e);
-    loginMessage.textContent = "Correo o contraseña incorrectos.";
-  }
-};
+    snap.forEach(eDoc => {
+      const data = eDoc.data();
+      const examId = eDoc.id;
 
-btnCancel.onclick = () => {
-  inputEmail.value = "";
-  inputPassword.value = "";
-  loginMessage.textContent = "";
-};
-
-// Listener global
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-
-  if (!user) {
-    currentRole = "guest";
-    userInfo.textContent = "";
-    hide(adminSidebar);
-    show(loginScreen);
-    return;
-  }
-
-  // obtener rol
-  const uref = doc(db, "users", user.uid);
-  const usnap = await getDoc(uref);
-
-  if (usnap.exists()) {
-    currentRole = usnap.data().role || "student";
-  } else {
-    currentRole = "student";
-  }
-
-  userInfo.textContent = `${user.email} (${currentRole})`;
-
-  hide(loginScreen);
-
-  // Modo Admin activa barra derecha
-  if (currentRole === "admin") {
-    adminSidebar.style.display = "flex";
-  } else {
-    adminSidebar.style.display = "none"; // no ocupa espacio
-  }
-
-  await loadSections();
-});
-
-// Logout
-async function doLogout() {
-  await signOut(auth);
-  window.location.reload();
-}
-
-// ===========================================================
-// 5. CARGA DE SECCIONES (SIDEBAR IZQUIERDO)
-// ===========================================================
-async function loadSections() {
-  sectionsList.innerHTML = `<div class="muted small">Cargando secciones...</div>`;
-
-  try {
-    const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
-    const snap = await getDocs(qSec);
-
-    sectionsList.innerHTML = "";
-
-    snap.forEach((sDoc) => {
-      const d = sDoc.data();
-      const item = document.createElement("div");
-      item.className = "section-item";
-      item.dataset.id = sDoc.id;
-
-      item.innerHTML = `
-        <span>${escapeHtml(d.name)}</span>
-      `;
-
-      item.onclick = () => {
-        document.querySelectorAll(".section-item").forEach(i => i.classList.remove("active"));
-        item.classList.add("active");
-        selectedSection = sDoc.id;
-        loadExamsBySection(sDoc.id);
+      draft.exams[examId] = {
+        nombre: data.nombre || '',
+        deleted: false,
+        new: false
       };
 
-      sectionsList.appendChild(item);
-    });
+      const card = document.createElement('div');
+      card.className = 'examBox';
+      card.dataset.eid = examId;
 
-  } catch (e) {
-    console.error("Error cargando secciones", e);
-    sectionsList.innerHTML = `<div class="muted small">Error cargando secciones</div>`;
-  }
-}
-
-// ===========================================================
-// 6. CARGAR EXÁMENES DE UNA SECCIÓN (PANTALLA PRINCIPAL)
-// ===========================================================
-async function loadExamsBySection(sectionId) {
-  clearMain();
-  show(studentScreen);
-
-  examsList.innerHTML = `<div class="muted small">Cargando exámenes...</div>`;
-
-  try {
-    const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId), orderBy("createdAt", "asc"));
-    const snap = await getDocs(qEx);
-
-    examsList.innerHTML = "";
-
-    snap.forEach((eDoc) => {
-      const d = eDoc.data();
-      const box = document.createElement("div");
-      box.className = "examBox";
-      box.dataset.id = eDoc.id;
-
-      box.innerHTML = `
-        <div>
-          <div class="title">${escapeHtml(d.title)}</div>
-          <div class="meta">${escapeHtml(d.description || "")}</div>
-        </div>
-        <button class="openExamBtn">Abrir</button>
+      const left = document.createElement('div');
+      left.innerHTML = `
+        <div class="title" data-title>${escapeHtml(data.nombre || 'Examen')}</div>
+        <div class="meta small">Preguntas: ${data.questionCount || 0}</div>
       `;
 
-      box.querySelector(".openExamBtn").onclick = () => openExam(eDoc.id);
+      const right = document.createElement('div');
+      right.style.display = 'flex';
+      right.style.flexDirection = 'column';
+      right.style.alignItems = 'flex-end';
+      right.style.gap = '8px';
+      right.innerHTML = `
+        <div class="examAttempts" id="attempt_${examId}">0/3</div>
+        <div><button class="btn viewExam" data-open="${examId}">Abrir</button></div>
+      `;
 
-      examsList.appendChild(box);
+      const openBtn = right.querySelector('button[data-open]');
+      openBtn.onclick = () => openExam(examId);
+
+      card.appendChild(left);
+      card.appendChild(right);
+      examsList.appendChild(card);
+
+      updateAttemptsDisplay(examId);
     });
 
-    if (currentRole === "admin") {
+    if (currentUser && currentUser.role === 'admin') {
       show(editButtons);
     } else {
       hide(editButtons);
     }
 
-  } catch (e) {
-    console.error("Error cargando exámenes", e);
-    examsList.innerHTML = `<div class="muted small">Error cargando exámenes</div>`;
+  } catch(e){
+    console.error('renderExamsForSection', e);
+    examsList.innerHTML = '<div class="muted">Error cargando exámenes</div>';
   }
 }
 
-/************************************************************
- * FIN DE PARTE 1
- * RESPONDE: "OK, siguiente"
- ************************************************************/
-/************************************************************
- * ESTUDIANTE ENARM - APP.JS
- * PARTE 2/6
- * EXÁMENES — abrir, cargar casos, cargar preguntas
- ************************************************************/
-
-// ===========================================================
-// 7. ABRIR UN EXAMEN (modo admin o estudiante)
-// ===========================================================
-async function openExam(examId) {
-  clearMain();
-  selectedExam = examId;
-
-  show(examScreen);
-  hide(resultScreen);
-
-  examTitle.textContent = "Cargando examen...";
-  examForm.innerHTML = `<div class="muted small">Cargando casos...</div>`;
-
+// ---------------------- ATTEMPTS DISPLAY ----------------------
+async function updateAttemptsDisplay(examId){
   try {
-    // Obtener información principal del examen
-    const eDoc = await getDoc(doc(db, "exams", examId));
-    if (!eDoc.exists()) {
-      examForm.innerHTML = `<div class="muted">Examen no encontrado.</div>`;
+    const attId = `${currentUser ? currentUser.uid : 'anon'}_${examId}`;
+    const ref = doc(db,'attempts', attId);
+    const aSnap = await getDoc(ref);
+    const used = aSnap.exists() ? (aSnap.data().used || 0) : 0;
+    const el = document.getElementById(`attempt_${examId}`);
+    if (el) el.textContent = `${used}/3`;
+  } catch(e){ console.warn(e); }
+}
+
+// ---------------------- ABRIR EXAMEN (usa casosClinicos + preguntas) ----------------------
+async function openExam(examId){
+  try {
+    const eSnap = await getDoc(doc(db,'exams', examId));
+    if (!eSnap.exists()) {
+      alert('Examen no encontrado');
       return;
     }
+    currentExam = { id: examId, ...eSnap.data() };
 
-    const examData = eDoc.data();
-    examTitle.textContent = examData.title;
-
-    // Cargar casos clínicos
-    const casos = await loadCasos(examId);
-
-    // Cargar preguntas de cada caso
-    const preguntas = await loadPreguntas(examId);
-
-    // Renderizar el examen completo
-    renderExam(casos, preguntas);
-
-    // Si es estudiante → iniciar temporizador
-    if (currentRole !== "admin") {
-      calcExamTimeFromQuestions(preguntas);
-    }
-
-    // Botones flotantes admin
-    if (currentRole === "admin") {
-      show(editExamButtons);
-      hide(btnFinishExam);
-    } else {
-      hide(editExamButtons);
-      show(btnFinishExam);
-    }
-
-  } catch (e) {
-    console.error("openExam error", e);
-    examForm.innerHTML = `<div class="muted small">Error cargando examen.</div>`;
-  }
-}
-
-
-// ===========================================================
-// 8. CARGAR CASOS CLÍNICOS DE UN EXAMEN
-// ===========================================================
-async function loadCasos(examId) {
-  const qCasos = query(
-    collection(db, "casosClinicos"),
-    where("examId", "==", examId),
-    orderBy("orden", "asc")
-  );
-
-  const snap = await getDocs(qCasos);
-  const casos = [];
-
-  snap.forEach((c) =>
-    casos.push({
-      id: c.id,
-      ...c.data()
-    })
-  );
-
-  return casos;
-}
-
-
-// ===========================================================
-// 9. CARGAR PREGUNTAS DE UN EXAMEN
-// ===========================================================
-async function loadPreguntas(examId) {
-  const qPreg = query(
-    collection(db, "preguntas"),
-    where("examId", "==", examId),
-    orderBy("orden", "asc")
-  );
-
-  const snap = await getDocs(qPreg);
-  const preguntas = [];
-
-  snap.forEach((p) =>
-    preguntas.push({
-      id: p.id,
-      ...p.data()
-    })
-  );
-
-  return preguntas;
-}
-
-
-// ===========================================================
-// 10. CALCULAR TIEMPO DE EXAMEN (1 pregunta = 75 segundos)
-// ===========================================================
-function calcExamTimeFromQuestions(preguntas) {
-  const totalPreguntas = preguntas.length;
-  const totalSegundos = totalPreguntas * 75;
-
-  startTimer(totalSegundos);
-}
-
-
-// ===========================================================
-// 11. RENDERIZAR EXAMEN COMPLETO
-// ===========================================================
-function renderExam(casos, preguntas) {
-  examForm.innerHTML = "";
-
-  if (!casos.length) {
-    examForm.innerHTML = `<div class="muted small">No hay casos clínicos.</div>`;
-    return;
-  }
-
-  casos.forEach((caso) => {
-    // Crear contenedor del caso clínico
-    const block = document.createElement("div");
-    block.className = "questionBlock";
-
-    block.innerHTML = `
-      <div class="questionTitle">${escapeHtml(caso.titulo)}</div>
-      <div class="caseText">${escapeHtml(caso.texto)}</div>
-      <div class="preguntasContainer"></div>
-    `;
-
-    const contPreg = block.querySelector(".preguntasContainer");
-
-    // Filtrar preguntas de este caso
-    const pregCaso = preguntas.filter((p) => p.casoId === caso.id);
-
-    pregCaso.forEach((p) => {
-      const q = document.createElement("div");
-      q.className = "qItem";
-
-      // Opciones
-      let opts = "";
-      p.opciones.forEach((op, idx) => {
-        opts += `
-          <label>
-            <input type="radio" name="preg_${p.id}" value="${idx}">
-            <span>${escapeHtml(op)}</span>
-          </label>
-        `;
-      });
-
-      q.innerHTML = `
-        <div class="questionTitle">${escapeHtml(p.pregunta)}</div>
-        <div class="options">${opts}</div>
-      `;
-
-      contPreg.appendChild(q);
+    // Cargar casos clínicos del examen
+    const casosSnap = await getDocs(
+      query(collection(db,'casosClinicos'), where('examId','==', examId))
+    );
+    const casosMap = {};
+    casosSnap.forEach(c => {
+      casosMap[c.id] = { id: c.id, ...c.data() };
     });
 
-    examForm.appendChild(block);
+    // Cargar preguntas del examen (cada una con examId y casoId)
+    const pregSnap = await getDocs(
+      query(collection(db,'preguntas'), where('examId','==', examId))
+    );
+    const preguntas = [];
+    pregSnap.forEach(p => preguntas.push({ id: p.id, ...p.data() }));
+
+    // Ordenar por casoId y luego por pregunta (para agrupar visualmente)
+    preguntas.sort((a,b) => {
+      const ca = a.casoId || '';
+      const cb = b.casoId || '';
+      if (ca < cb) return -1;
+      if (ca > cb) return 1;
+      const pa = a.pregunta || '';
+      const pb = b.pregunta || '';
+      return pa.localeCompare(pb);
+    });
+
+    renderExamScreen(currentExam, preguntas, casosMap);
+
+  } catch(e){
+    console.error('openExam', e);
+    alert('Error al abrir examen');
+  }
+}
+
+function renderExamScreen(exam, preguntas, casosMap){
+  hide(loginScreen);
+  hide(studentScreen);
+  hide(resultScreen);
+  show(examScreen);
+
+  examTitle.textContent = exam.nombre || 'Examen';
+  examForm.innerHTML = '';
+
+  const totalSeconds = Math.max(60, (preguntas.length || 1) * 75);
+  startExamTimer(totalSeconds);
+
+  let lastCasoId = null;
+  let numero = 1;
+
+  preguntas.forEach(p => {
+    const casoId = p.casoId || null;
+    const caso   = casoId ? casosMap[casoId] : null;
+
+    // Si cambia de caso, mostramos el bloque del caso clínico una sola vez
+    if (caso && casoId !== lastCasoId) {
+      lastCasoId = casoId;
+      const caseBlock = document.createElement('div');
+      caseBlock.className = 'caseText';
+      const titulo = caso.titulo ? `<strong>${escapeHtml(caso.titulo)}</strong><br>` : '';
+      const texto  = caso.texto  ? escapeHtml(caso.texto) : '';
+      caseBlock.innerHTML = titulo + texto;
+      examForm.appendChild(caseBlock);
+    }
+
+    // Bloque de pregunta
+    const qBlock = document.createElement('div');
+    qBlock.className = 'questionBlock card';
+    qBlock.dataset.qid = p.id;
+
+    const headerHtml = `
+      <div class="questionTitle">Pregunta ${numero++}</div>
+      <div style="margin-top:8px"><strong>${escapeHtml(p.pregunta || '')}</strong></div>
+    `;
+    qBlock.innerHTML = headerHtml;
+
+    const optsDiv = document.createElement('div');
+    optsDiv.className = 'options';
+
+    (p.opciones || []).forEach((opt, i) => {
+      const optionId = `opt_${p.id}_${i}`;
+      const label = document.createElement('label');
+      // NOTA: usamos <span> para poder aplicar negritas al checked en CSS si quieres
+      label.innerHTML = `
+        <input type="radio" name="${p.id}" value="${i}" id="${optionId}" />
+        <span>${String.fromCharCode(65 + i)}. ${escapeHtml(opt)}</span>
+      `;
+      optsDiv.appendChild(label);
+    });
+
+    qBlock.appendChild(optsDiv);
+
+    const just = document.createElement('div');
+    just.className = 'justification hidden';
+    just.textContent = p.justificacion || '';
+    qBlock.appendChild(just);
+
+    examForm.appendChild(qBlock);
+  });
+
+  // Admin: por ahora la edición de preguntas se hace con el botón
+  // "Editar preguntas del examen" en la barra derecha.
+  hide(editExamButtons);
+
+  btnFinishExam.onclick = async () => {
+    if (!confirm('¿Deseas finalizar el examen? Esto contará como un intento.')) return;
+    await finalizeExamAndGrade(exam.id);
+  };
+}
+
+// ---------------------- EXAM TIMER ----------------------
+function startExamTimer(totalSeconds){
+  clearInterval(examTimerInterval);
+  examRemainingSeconds = totalSeconds;
+
+  function tick(){
+    if (examRemainingSeconds <= 0) {
+      clearInterval(examTimerInterval);
+      examTimer.textContent = '00:00';
+      alert('Tiempo agotado. Se finalizará el examen automáticamente.');
+      btnFinishExam.click();
+      return;
+    }
+    const mm = Math.floor(examRemainingSeconds / 60).toString().padStart(2,'0');
+    const ss = (examRemainingSeconds % 60).toString().padStart(2,'0');
+    examTimer.textContent = `${mm}:${ss}`;
+    examRemainingSeconds--;
+  }
+
+  tick();
+  examTimerInterval = setInterval(tick,1000);
+}
+
+// ---------------------- FINALIZAR Y CALIFICAR ----------------------
+async function finalizeExamAndGrade(examId){
+  try {
+    const answers = {};
+    const inputs = examForm.querySelectorAll('input[type=radio]:checked');
+    inputs.forEach(inp => {
+      answers[inp.name] = Number(inp.value);
+    });
+
+    const qSnap = await getDocs(
+      query(collection(db,'preguntas'), where('examId','==', examId))
+    );
+    const questions = [];
+    qSnap.forEach(q => questions.push({ id: q.id, ...q.data() }));
+
+    let correct = 0;
+    questions.forEach(q => {
+      const sel = answers[q.id];
+      if (typeof sel === 'number' && sel === (q.correcta || 0)) correct++;
+    });
+
+    const percent = questions.length
+      ? Math.round((correct / questions.length) * 100)
+      : 0;
+
+    // Registrar intento
+    if (currentUser) {
+      const attDocId = `${currentUser.uid}_${examId}`;
+      const attRef   = doc(db,'attempts', attDocId);
+      const prev     = await getDoc(attRef);
+      const used     = prev.exists() ? (prev.data().used || 0) + 1 : 1;
+      await setDoc(attRef, {
+        used,
+        last: new Date().toISOString()
+      });
+    }
+
+    renderResultScreen(questions, answers, percent);
+    await renderExamsForSection(currentSectionId);
+    clearInterval(examTimerInterval);
+
+  } catch(e){
+    console.error('finalizeExamAndGrade', e);
+    alert('Error finalizando examen');
+  }
+}
+
+function renderResultScreen(questions, answers, percent){
+  hide(examScreen);
+  hide(loginScreen);
+  hide(studentScreen);
+  show(resultScreen);
+
+  resultScreen.innerHTML = `<h3>Calificación: ${percent}%</h3>`;
+
+  questions.forEach((q, idx) => {
+    const userSel   = answers[q.id];
+    const correctIdx= q.correcta || 0;
+
+    const w = document.createElement('div');
+    w.className = (userSel === correctIdx)
+      ? 'result-correct card'
+      : 'result-wrong card';
+    w.style.marginBottom = '10px';
+
+    w.innerHTML = `
+      <div style="font-weight:700">Pregunta ${idx+1}</div>
+      <div style="margin-top:8px">${escapeHtml(q.pregunta || '')}</div>
+    `;
+
+    const opts = document.createElement('div');
+    (q.opciones || []).forEach((opt, i) => {
+      const divOpt = document.createElement('div');
+      let mark = '';
+      if (i === correctIdx) mark = ' (Correcta)';
+      if (i === userSel && i !== correctIdx) mark = ' (Tu elección)';
+      divOpt.textContent = `${String.fromCharCode(65 + i)}. ${opt}${mark}`;
+      opts.appendChild(divOpt);
+    });
+
+    const just = document.createElement('div');
+    just.className = 'small muted';
+    just.style.marginTop = '8px';
+    just.textContent = q.justificacion || '';
+
+    w.appendChild(opts);
+    w.appendChild(just);
+    resultScreen.appendChild(w);
   });
 }
 
-
-// ===========================================================
-// 12. TEMPORIZADOR EN MODO ESTUDIANTE
-// ===========================================================
-let timerInterval = null;
-
-function startTimer(totalSeconds) {
-  clearInterval(timerInterval);
-
-  let remaining = totalSeconds;
-
-  examTimer.textContent = formatTime(remaining);
-
-  timerInterval = setInterval(() => {
-    remaining--;
-    examTimer.textContent = formatTime(remaining);
-
-    if (remaining <= 0) {
-      clearInterval(timerInterval);
-      finishExam();
+// ---------------------- AUTH ----------------------
+if (btnLogin) {
+  btnLogin.onclick = async () => {
+    const email = (inputEmail.value || '').trim();
+    const pass  = (inputPassword.value || '').trim();
+    if (!email || !pass) {
+      loginMessage.textContent = 'Ingrese credenciales';
+      return;
     }
-  }, 1000);
-}
-
-function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
-
-/************************************************************
- * FIN DE PARTE 2
- * RESPONDE: "OK, siguiente"
- ************************************************************/
-// =======================================================
-// APP.JS — PARTE 3/6
-// ADMIN: USUARIOS + ICONOS + LOGOUT + INIT
-// =======================================================
-
-// ---------------------- ADMIN: USUARIOS ----------------------
-if (adminUsers) {
-  adminUsers.onclick = async () => {
-    clearAdminPanels();
-
-    const area = document.createElement("div");
-    area.className = "editor-area";
-    adminSidebar.appendChild(area);
-
-    area.innerHTML = `
-      <h2>Usuarios</h2>
-
-      <div id="usersList" class="card" style="padding:12px;">Cargando usuarios...</div>
-
-      <h3 style="margin-top:18px;">Crear nuevo usuario</h3>
-      <div id="newUserForm" class="card" style="padding:12px;">
-        <label>Nombre</label><input id="nu_name">
-        <label>Email</label><input id="nu_email">
-        <label>Contraseña</label><input id="nu_pass" type="password">
-        <label>Fecha límite de acceso</label><input id="nu_exp" type="date">
-        
-        <label>Estado</label>
-        <select id="nu_status">
-          <option value="habilitado">Habilitado</option>
-          <option value="inhabilitado">Inhabilitado</option>
-        </select>
-
-        <button id="nu_create" class="btn primary" style="margin-top:10px;">Crear usuario</button>
-      </div>
-    `;
-
-    const usersList = document.getElementById("usersList");
-
-    // Cargar usuarios existentes
     try {
-      const snap = await getDocs(collection(db, "users"));
-      usersList.innerHTML = "";
-
-      if (snap.empty) {
-        usersList.innerHTML = `<div class="muted">No hay usuarios registrados.</div>`;
-      }
-
-      snap.forEach((docu) => {
-        const u = docu.data();
-
-        const row = document.createElement("div");
-        row.className = "card";
-        row.style.padding = "10px";
-        row.style.marginBottom = "8px";
-
-        row.innerHTML = `
-          <strong>${escapeHtml(u.name || "")}</strong>
-          <div class="small">${escapeHtml(u.email || "")}</div>
-          <div class="small muted">Estado: ${escapeHtml(u.estado || "habilitado")}</div>
-          <div class="small muted">Expira: ${escapeHtml(u.expira || "Sin fecha")}</div>
-
-          <button class="btn u_edit" data-id="${docu.id}" style="margin-top:6px;">Editar</button>
-          <button class="btn danger u_delete" data-id="${docu.id}" style="margin-top:6px;">Eliminar</button>
-        `;
-
-        usersList.appendChild(row);
-      });
-
-      // EDITAR USUARIO
-      document.querySelectorAll(".u_edit").forEach((btn) => {
-        btn.onclick = async () => {
-          const uid = btn.getAttribute("data-id");
-          const refUser = doc(db, "users", uid);
-          const snapUser = await getDoc(refUser);
-
-          if (!snapUser.exists()) return alert("Usuario no encontrado");
-
-          const d = snapUser.data();
-
-          const nombre = prompt("Nombre:", d.name || "");
-          if (nombre === null) return;
-
-          const estado = prompt("Estado (habilitado/inhabilitado):", d.estado || "habilitado");
-          if (estado === null) return;
-
-          const expira = prompt("Fecha límite (YYYY-MM-DD):", d.expira || "");
-          if (expira === null) return;
-
-          await updateDoc(refUser, {
-            name: nombre,
-            estado,
-            expira
-          });
-
-          alert("Usuario actualizado");
-          adminUsers.onclick(); // Recargar lista
-        };
-      });
-
-      // ELIMINAR USUARIO
-      document.querySelectorAll(".u_delete").forEach((btn) => {
-        btn.onclick = async () => {
-
-          if (!confirm("¿Eliminar usuario?")) return;
-
-          const uid = btn.getAttribute("data-id");
-
-          await deleteDoc(doc(db, "users", uid));
-
-          alert("Usuario eliminado");
-          adminUsers.onclick();
-        };
-      });
-
-    } catch (e) {
-      console.error("Error cargando usuarios", e);
-      usersList.innerHTML = `<div class="muted">Error cargando usuarios.</div>`;
+      await signInWithEmailAndPassword(auth, email, pass);
+      loginMessage.textContent = '';
+    } catch(e){
+      console.error('login', e);
+      loginMessage.textContent = 'Credenciales inválidas';
     }
-
-    // CREAR NUEVO USUARIO (Firestore)
-    document.getElementById("nu_create").onclick = async () => {
-      const name = document.getElementById("nu_name").value.trim();
-      const email = document.getElementById("nu_email").value.trim();
-      const pass = document.getElementById("nu_pass").value.trim();
-      const exp = document.getElementById("nu_exp").value.trim();
-      const status = document.getElementById("nu_status").value;
-
-      if (!name || !email || !pass) {
-        return alert("Completa nombre, email y contraseña.");
-      }
-
-      const uid = crypto.randomUUID();
-
-      await setDoc(doc(db, "users", uid), {
-        uid,
-        name,
-        email,
-        pass,
-        estado: status,
-        expira: exp || "",
-        createdAt: Date.now()
-      });
-
-      alert("Usuario creado. Recuerda: DEBES crear manualmente el usuario en Firebase Auth para que pueda iniciar sesión.");
-
-      adminUsers.onclick();
-    };
+  };
+}
+if (btnCancel) {
+  btnCancel.onclick = () => {
+    inputEmail.value = '';
+    inputPassword.value = '';
+    loginMessage.textContent = '';
   };
 }
 
-// ---------------------- ADMIN: ICONOS ----------------------
-if (adminIcons) {
-  adminIcons.onclick = async () => {
-    clearAdminPanels();
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    try {
+      const uSnap = await getDoc(doc(db,'users', user.uid));
+      let role = 'estudiante';
+      let estado = 'habilitado';
+      let expiracion = null;
 
-    const area = document.createElement("div");
-    area.className = "editor-area";
-    adminSidebar.appendChild(area);
+      if (uSnap.exists()) {
+        const d = uSnap.data();
+        role       = d.role || role;
+        estado     = d.estado || estado;
+        expiracion = d.expiracion || null;
+      }
 
-    area.innerHTML = `
-      <h2>Íconos sociales</h2>
-      <div class="card" style="padding:12px;">
-        <label>Instagram</label><input id="ic_ig">
-        <label>WhatsApp</label><input id="ic_wa">
-        <label>Telegram</label><input id="ic_tg">
-        <label>TikTok</label><input id="ic_tt">
-        <button id="ic_save" class="btn primary" style="margin-top:12px;">Guardar</button>
-      </div>
-    `;
+      currentUser = {
+        uid: user.uid,
+        email: user.email,
+        role,
+        estado,
+        expiracion
+      };
 
-    const icRef = doc(db, "config", "icons");
-    const snap = await getDoc(icRef);
+      // Expiración
+      if (currentUser.expiracion) {
+        try {
+          const now = new Date();
+          const exp = new Date(currentUser.expiracion);
+          if (now > exp) {
+            await updateDoc(doc(db,'users', user.uid), {
+              estado:'inhabilitado'
+            });
+            alert('Acceso expirado');
+            await signOut(auth);
+            return;
+          }
+        } catch(e){ console.warn('exp parse', e); }
+      }
 
-    if (snap.exists()) {
-      const d = snap.data();
-      ic_ig.value = d.instagram || "";
-      ic_wa.value = d.whatsapp || "";
-      ic_tg.value = d.telegram || "";
-      ic_tt.value = d.tiktok || "";
+      if (currentUser.role === 'admin' || currentUser.uid === ADMIN_UID) {
+        currentUser.role = 'admin';
+        showAdminUI();
+      } else {
+        currentUser.role = 'estudiante';
+        showStudentUI();
+      }
+
+    } catch(e){
+      console.error('onAuthStateChanged', e);
     }
+  } else {
+    currentUser = null;
+    hide(adminSidebar);
+    hide(editButtons);
+    hide(editExamButtons);
+    hide(studentScreen);
+    hide(examScreen);
+    hide(resultScreen);
+    show(loginScreen);
+    if (userInfo) userInfo.textContent = '';
+    if (authButtons) authButtons.innerHTML = '';
+    await loadSections();
+  }
+});
 
-    ic_save.onclick = async () => {
-      await setDoc(icRef, {
-        instagram: ic_ig.value.trim(),
-        whatsapp: ic_wa.value.trim(),
-        telegram: ic_tg.value.trim(),
-        tiktok: ic_tt.value.trim()
-      });
-      alert("Íconos guardados");
-    };
-  };
+async function doLogout(){
+  try {
+    await signOut(auth);
+    location.reload();
+  } catch(e){
+    console.error('logout', e);
+  }
 }
 
-// ---------------------- LOGOUT ----------------------
-function doLogout() {
-  localStorage.removeItem("sessionUser");
-  location.reload();
-}
-
-if (adminLogout) {
-  adminLogout.onclick = doLogout;
-}
-
-// ---------------------- FUNCTION: LIMPIAR PANEL DERECHO ----------------------
-function clearAdminPanels() {
-  const olds = adminSidebar.querySelectorAll(".editor-area");
-  olds.forEach((o) => o.remove());
-}
-
-// ---------------------- INIT ----------------------
-async function init() {
+// ---------------------- UI: STUDENT / ADMIN ----------------------
+async function showStudentUI(){
+  hide(loginScreen);
   hide(adminSidebar);
-  hide(studentScreen);
-  hide(examScreen);
-  hide(resultScreen);
+  show(studentScreen);
+
+  if (userInfo)    userInfo.textContent = currentUser.email || '';
+  if (authButtons) {
+    authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
+    const btnTop = document.getElementById('btnLogoutTop');
+    if (btnTop) btnTop.onclick = doLogout;
+  }
 
   await loadSections();
 }
 
-init().catch((e) => console.error("Error en init()", e));
+async function showAdminUI(){
+  hide(loginScreen);
+  show(studentScreen);
+  show(adminSidebar);
 
-// =====================================================
-//   ADMIN: GESTIÓN DE CASOS CLÍNICOS
-// =====================================================
-
-// Renderiza todos los casos clínicos de un examen
-async function loadCasosClinicos(examId) {
-  const cont = document.getElementById("casesContainer");
-  if (!cont) return;
-
-  cont.innerHTML = `<div class="muted">Cargando casos clínicos...</div>`;
-
-  try {
-    const q = query(
-      collection(db, "casosClinicos"),
-      where("examId", "==", examId),
-      orderBy("orden", "asc")
-    );
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      cont.innerHTML = `<div class="muted">No hay casos clínicos para este examen.</div>`;
-      return;
-    }
-
-    cont.innerHTML = "";
-
-    snap.forEach((cDoc) => {
-      const c = cDoc.data();
-      const div = document.createElement("div");
-      div.className = "case-editor card";
-      div.setAttribute("data-caso-id", cDoc.id);
-
-      div.innerHTML = `
-        <label>Título del caso clínico</label>
-        <input class="case-title" value="${escapeHtml(c.titulo)}">
-
-        <label>Texto del caso</label>
-        <textarea class="case-text">${escapeHtml(c.texto)}</textarea>
-
-        <label>Orden</label>
-        <input class="case-order" type="number" value="${c.orden || 1}">
-
-        <button class="btn small primary add-question-btn">Agregar pregunta</button>
-
-        <div class="questionsContainer"></div>
-
-        <button class="btn danger del-case-btn">Eliminar caso clínico</button>
-      `;
-
-      cont.appendChild(div);
-
-      loadPreguntasCaso(examId, cDoc.id, div.querySelector(".questionsContainer"));
-    });
-
-  } catch (e) {
-    console.error("Error cargando casos clínicos:", e);
-    cont.innerHTML = `<div class="error">Error cargando casos clínicos.</div>`;
+  if (userInfo) userInfo.textContent = `${currentUser.email} (Admin)`;
+  if (authButtons) {
+    authButtons.innerHTML = `<button id="btnLogoutTop" class="btn">Salir</button>`;
+    const btnTop = document.getElementById('btnLogoutTop');
+    if (btnTop) btnTop.onclick = doLogout;
   }
+
+  await loadSections();
 }
 
+// ---------------------- ADMIN: SECCIONES / EXÁMENES / LINKS / USERS ----------------------
+if (adminAddSection) {
+  adminAddSection.onclick = async () => {
+    const nombre = prompt('Nombre de la nueva sección:');
+    if (!nombre) return;
+    try {
+      await addDoc(collection(db,'sections'), {
+        nombre,
+        createdAt: new Date().toISOString()
+      });
+      alert('Sección creada');
+      await loadSections();
+    } catch(e){
+      console.error('adminAddSection', e);
+      alert('Error creando sección');
+    }
+  };
+}
 
-// =====================================================
-//   ADMIN: GESTIÓN DE PREGUNTAS
-// =====================================================
-
-// Cargar preguntas de un caso clínico
-async function loadPreguntasCaso(examId, casoId, container) {
-  container.innerHTML = `<div class="muted">Cargando preguntas...</div>`;
-
-  try {
-    const q = query(
-      collection(db, "preguntas"),
-      where("examId", "==", examId),
-      where("casoId", "==", casoId),
-      orderBy("orden", "asc")
-    );
-
-    const snap = await getDocs(q);
-
-    container.innerHTML = "";
-
-    if (snap.empty) {
-      container.innerHTML = `<div class="muted">Sin preguntas aún.</div>`;
+if (adminAddExam) {
+  adminAddExam.onclick = async () => {
+    if (!currentSectionId) {
+      alert('Selecciona una sección antes');
       return;
     }
+    const nombre = prompt('Nombre del examen nuevo:');
+    if (!nombre) return;
+    try {
+      const exRef = await addDoc(collection(db,'exams'), {
+        nombre,
+        sectionId: currentSectionId,
+        questionCount: 0,
+        createdAt: new Date().toISOString()
+      });
+      alert('Examen creado. Ahora puedes agregar preguntas.');
+      await renderExamsForSection(currentSectionId);
+      openExamEditor(exRef.id);
+    } catch(e){
+      console.error('adminAddExam', e);
+      alert('Error creando examen');
+    }
+  };
+}
 
-    snap.forEach((pDoc) => {
-      const p = pDoc.data();
+// Editor de preguntas (admin) en la barra derecha
+async function openExamEditor(examId){
+  try {
+    const eSnap = await getDoc(doc(db,'exams', examId));
+    if (!eSnap.exists()) {
+      alert('Examen no encontrado');
+      return;
+    }
+    const examData = eSnap.data();
 
-      const qBox = document.createElement("div");
-      qBox.className = "question-editor card";
+    let editorArea = adminSidebar.querySelector('.editor-area');
+    if (!editorArea) {
+      editorArea = document.createElement('div');
+      editorArea.className = 'editor-area';
+      adminSidebar.appendChild(editorArea);
+    }
 
-      qBox.innerHTML = `
+    editorArea.innerHTML = `
+      <h4>Editor: ${escapeHtml(examData.nombre)}</h4>
+      <div id="editorQuestionsList">Cargando preguntas...</div>
+      <hr/>
+      <div id="editorAddQuestion" style="margin-top:8px;">
+        <h5>Agregar nueva pregunta</h5>
+        <label>ID de caso clínico (casoId, opcional)</label>
+        <input id="ed_q_casoId" />
         <label>Pregunta</label>
-        <textarea class="q-text">${escapeHtml(p.pregunta)}</textarea>
+        <input id="ed_q_preg" />
+        <label>Opción A</label><input id="ed_q_a" />
+        <label>Opción B</label><input id="ed_q_b" />
+        <label>Opción C</label><input id="ed_q_c" />
+        <label>Opción D</label><input id="ed_q_d" />
+        <label>Índice correcto (0-3)</label><input id="ed_q_idx" type="number" min="0" max="3" />
+        <label>Justificación</label><textarea id="ed_q_just" rows="2"></textarea>
+        <div style="margin-top:8px;">
+          <button id="ed_q_add" class="btn primary">Agregar pregunta</button>
+        </div>
+      </div>
+    `;
 
-        <label>Opciones</label>
-        <input class="q-opt" value="${escapeHtml(p.opciones[0] || "")}">
-        <input class="q-opt" value="${escapeHtml(p.opciones[1] || "")}">
-        <input class="q-opt" value="${escapeHtml(p.opciones[2] || "")}">
-        <input class="q-opt" value="${escapeHtml(p.opciones[3] || "")}">
+    const editorQuestionsList = document.getElementById('editorQuestionsList');
 
-        <label>Respuesta correcta (0-3)</label>
-        <input class="q-correct" type="number" value="${p.correcta}" min="0" max="3">
+    // Cargar preguntas actuales
+    const qSnap = await getDocs(
+      query(collection(db,'preguntas'), where('examId','==', examId), orderBy('pregunta'))
+    );
+    editorQuestionsList.innerHTML = '';
 
-        <label>Justificación</label>
-        <textarea class="q-just">${escapeHtml(p.justificacion)}</textarea>
-
-        <label>Orden</label>
-        <input class="q-order" type="number" value="${p.orden || 1}">
-
-        <button class="btn danger del-question-btn" data-id="${pDoc.id}">Eliminar pregunta</button>
+    qSnap.forEach(q => {
+      const d = q.data();
+      const row = document.createElement('div');
+      row.className = 'card';
+      row.style.marginBottom = '8px';
+      row.innerHTML = `
+        <div style="font-weight:700">${escapeHtml(d.pregunta || '')}</div>
+        <div class="small muted">ID: ${q.id} | casoId: ${escapeHtml(d.casoId || 'sin caso')}</div>
+        <div style="margin-top:6px;">
+          <button class="btn ed_edit" data-qid="${q.id}">Editar</button>
+          <button class="btn ed_del" data-qid="${q.id}">Eliminar</button>
+        </div>
       `;
-
-      container.appendChild(qBox);
+      editorQuestionsList.appendChild(row);
     });
 
-  } catch (e) {
-    console.error("Error cargando preguntas:", e);
-    container.innerHTML = `<div class="error">Error cargando preguntas.</div>`;
-  }
-}
+    // Agregar nueva pregunta
+    document.getElementById('ed_q_add').onclick = async () => {
+      const casoId = document.getElementById('ed_q_casoId').value.trim();
+      const pregunta = document.getElementById('ed_q_preg').value.trim();
+      const a = document.getElementById('ed_q_a').value.trim();
+      const b = document.getElementById('ed_q_b').value.trim();
+      const c = document.getElementById('ed_q_c').value.trim();
+      const d = document.getElementById('ed_q_d').value.trim();
+      const idx = Number(document.getElementById('ed_q_idx').value || 0);
+      const just = document.getElementById('ed_q_just').value.trim();
+      const opciones = [a,b,c,d].filter(x => x !== '');
 
+      if (!pregunta || opciones.length === 0) {
+        alert('Pregunta y al menos una opción son requeridos');
+        return;
+      }
 
-// ====================================================================
-//   GUARDAR TODO EL EXAMEN (casos + preguntas) DESDE EL EDITOR
-// ====================================================================
+      try {
+        await addDoc(collection(db,'preguntas'), {
+          examId,
+          casoId: casoId || null,
+          pregunta,
+          opciones,
+          correcta: idx,
+          justificacion: just,
+          createdAt: new Date().toISOString()
+        });
 
-async function saveFullExam(examId) {
-  try {
-    // Guardar CASOS
-    const casos = document.querySelectorAll(".case-editor");
+        // Actualizar questionCount
+        const newQSnap = await getDocs(
+          query(collection(db,'preguntas'), where('examId','==', examId))
+        );
+        await updateDoc(doc(db,'exams', examId), { questionCount: newQSnap.size });
 
-    for (const c of casos) {
-      const casoId = c.getAttribute("data-caso-id");
+        alert('Pregunta agregada');
+        openExamEditor(examId); // refrescar editor
+      } catch(e){
+        console.error('ed add', e);
+        alert('Error agregando pregunta');
+      }
+    };
 
-      const titulo = c.querySelector(".case-title").value.trim();
-      const texto = c.querySelector(".case-text").value.trim();
-      const orden = parseInt(c.querySelector(".case-order").value.trim()) || 1;
+    // Editar / Eliminar
+    setTimeout(() => {
+      editorQuestionsList.querySelectorAll('.ed_edit').forEach(btn => {
+        btn.onclick = async () => {
+          const qid = btn.getAttribute('data-qid');
+          const qDoc = await getDoc(doc(db,'preguntas', qid));
+          if (!qDoc.exists()) {
+            alert('Pregunta no encontrada');
+            return;
+          }
+          const data = qDoc.data();
+          const newCasoId   = prompt('ID de caso clínico (casoId, opcional)', data.casoId || '');
+          const newPregunta = prompt('Pregunta', data.pregunta || '');
+          if (!newPregunta) return;
+          const newJust     = prompt('Justificación', data.justificacion || '');
+          const newOptsStr  = prompt(
+            'Opciones separadas por || (A||B||C||D)',
+            (data.opciones || []).join('||')
+          );
+          const newCorrect  = Number(
+            prompt('Índice correcto (0-3)', data.correcta || 0) || 0
+          );
+          const optsArr = newOptsStr
+            ? newOptsStr.split('||').map(s => s.trim()).filter(Boolean)
+            : (data.opciones || []);
 
-      if (!casoId) continue;
-
-      await updateDoc(doc(db, "casosClinicos", casoId), {
-        titulo,
-        texto,
-        orden
+          try {
+            await updateDoc(doc(db,'preguntas', qid), {
+              casoId: newCasoId || null,
+              pregunta: newPregunta,
+              justificacion: newJust,
+              opciones: optsArr,
+              correcta: newCorrect
+            });
+            alert('Pregunta actualizada');
+            openExamEditor(examId);
+          } catch(e){
+            console.error('ed edit', e);
+            alert('Error actualizando pregunta');
+          }
+        };
       });
 
-      // Guardar PREGUNTAS de ese caso
-      const questionsContainer = c.querySelector(".questionsContainer");
-      const qEditors = questionsContainer.querySelectorAll(".question-editor");
+      editorQuestionsList.querySelectorAll('.ed_del').forEach(btn => {
+        btn.onclick = async () => {
+          const qid = btn.getAttribute('data-qid');
+          if (!confirm('¿Eliminar pregunta?')) return;
+          try {
+            await deleteDoc(doc(db,'preguntas', qid));
+            const newQSnap = await getDocs(
+              query(collection(db,'preguntas'), where('examId','==', examId))
+            );
+            await updateDoc(doc(db,'exams', examId), { questionCount: newQSnap.size });
+            alert('Pregunta eliminada');
+            openExamEditor(examId);
+          } catch(e){
+            console.error('ed del', e);
+            alert('Error eliminando pregunta');
+          }
+        };
+      });
+    }, 50);
 
-      let qIndex = 1;
+  } catch(e){
+    console.error('openExamEditor', e);
+    alert('Error abriendo editor');
+  }
+}
 
-      for (const q of qEditors) {
-        const text = q.querySelector(".q-text").value.trim();
-        const opts = Array.from(q.querySelectorAll(".q-opt")).map((e) => e.value.trim());
-        const correct = parseInt(q.querySelector(".q-correct").value.trim()) || 0;
-        const just = q.querySelector(".q-just").value.trim();
-        const order = parseInt(q.querySelector(".q-order").value.trim()) || qIndex++;
+// Botón "Editar preguntas del examen" (admin)
+if (adminEditQuestions) {
+  adminEditQuestions.onclick = () => {
+    if (!currentExam) {
+      alert('Abre un examen primero para editar sus preguntas');
+      return;
+    }
+    openExamEditor(currentExam.id);
+  };
+}
 
-        const qId = q.querySelector(".del-question-btn").getAttribute("data-id");
+// Admin: usuarios
+if (adminUsers) {
+  adminUsers.onclick = async () => {
+    adminSidebar.querySelectorAll('.editor-area').forEach(n => n.remove());
+    const area = document.createElement('div');
+    area.className = 'editor-area';
+    adminSidebar.appendChild(area);
+    area.innerHTML = '<h4>Usuarios</h4><div id="usersList">Cargando...</div>';
 
-        if (qId) {
-          await updateDoc(doc(db, "preguntas", qId), {
-            pregunta: text,
-            opciones: opts,
-            correcta: correct,
-            justificacion: just,
-            orden: order
-          });
+    const usersList = document.getElementById('usersList');
+    try {
+      const uSnap = await getDocs(collection(db,'users'));
+      usersList.innerHTML = '';
+      uSnap.forEach(u => {
+        const d = u.data();
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginBottom = '8px';
+        card.innerHTML = `
+          <div>
+            <strong>${escapeHtml(u.id)}</strong>
+            <div class="small muted">
+              ${escapeHtml(d.usuario || '')} - ${escapeHtml(d.role || 'estudiante')}
+            </div>
+          </div>
+          <div style="margin-top:6px;">
+            <button class="btn u_edit" data-uid="${u.id}">Editar</button>
+            <button class="btn u_del" data-uid="${u.id}">Eliminar</button>
+          </div>
+        `;
+        usersList.appendChild(card);
+      });
+
+      usersList.querySelectorAll('.u_edit').forEach(b => {
+        b.onclick = async () => {
+          const uid = b.getAttribute('data-uid');
+          const docRef = doc(db,'users', uid);
+          const snap   = await getDoc(docRef);
+          const data   = snap.exists() ? snap.data() : {};
+          const nombre = prompt('Nombre visible', data.usuario || '');
+          if (!nombre) return;
+          const role   = prompt('Rol (estudiante/admin)', data.role || 'estudiante');
+          const estado = prompt('Estado (habilitado/inhabilitado)', data.estado || 'habilitado');
+          const expir  = prompt('Fecha expiración (YYYY-MM-DD)', data.expiracion || '');
+          await setDoc(docRef, {
+            usuario: nombre,
+            role,
+            estado,
+            expiracion: expir
+          }, { merge:true });
+          alert('Usuario actualizado');
+          adminUsers.onclick();
+        };
+      });
+
+      usersList.querySelectorAll('.u_del').forEach(b => {
+        b.onclick = async () => {
+          const uid = b.getAttribute('data-uid');
+          if (!confirm('Eliminar registro de usuario en Firestore? (no elimina cuenta Auth)')) return;
+          await deleteDoc(doc(db,'users', uid));
+          alert('Eliminado');
+          adminUsers.onclick();
+        };
+      });
+
+    } catch(e){
+      console.error('adminUsers', e);
+      usersList.innerHTML = '<div class="muted">Error cargando usuarios</div>';
+    }
+  };
+}
+
+// Admin: links redes (solo UI)
+if (adminLinks) {
+  adminLinks.onclick = () => {
+    adminSidebar.querySelectorAll('.editor-area').forEach(n => n.remove());
+    const area = document.createElement('div');
+    area.className = 'editor-area';
+    adminSidebar.appendChild(area);
+    area.innerHTML = `
+      <h4>Links Sociales</h4>
+      <label>Instagram</label><input id="ln_ig" />
+      <label>WhatsApp</label><input id="ln_wa" />
+      <label>Telegram</label><input id="ln_tg" />
+      <label>TikTok</label><input id="ln_tt" />
+      <div style="margin-top:8px;">
+        <button id="ln_save" class="btn primary">Guardar links (UI)</button>
+      </div>
+      <div class="small muted" style="margin-top:6px">
+        Estos links solo se guardan en la UI. Si quieres, luego los persistimos en Firestore.
+      </div>
+    `;
+
+    setTimeout(() => {
+      document.getElementById('ln_ig').value = linkInstagram ? (linkInstagram.href || '') : '';
+      document.getElementById('ln_wa').value = linkWhatsApp ? (linkWhatsApp.href || '') : '';
+      document.getElementById('ln_tg').value = linkTelegram ? (linkTelegram.href || '') : '';
+      document.getElementById('ln_tt').value = linkTikTok ? (linkTikTok.href || '') : '';
+
+      document.getElementById('ln_save').onclick = () => {
+        const ig = document.getElementById('ln_ig').value.trim();
+        const wa = document.getElementById('ln_wa').value.trim();
+        const tg = document.getElementById('ln_tg').value.trim();
+        const tt = document.getElementById('ln_tt').value.trim();
+        if (ig && linkInstagram) linkInstagram.href = ig;
+        if (wa && linkWhatsApp)  linkWhatsApp.href  = wa;
+        if (tg && linkTelegram)  linkTelegram.href  = tg;
+        if (tt && linkTikTok)    linkTikTok.href    = tt;
+        alert('Links actualizados en la interfaz.');
+      };
+    }, 50);
+  };
+}
+
+// Admin Logout (barra derecha)
+if (adminLogout) {
+  adminLogout.onclick = doLogout;
+}
+
+// ---------------------- EDIT MODE EXÁMENES (renombrar / borrar / crear) ----------------------
+if (btnEdit)  btnEdit.onclick  = () => enterEditModeForExams();
+if (btnSave)  btnSave.onclick  = () => saveExamsDraft();
+
+function enterEditModeForExams(){
+  if (!currentUser || currentUser.role !== 'admin') {
+    alert('Solo administradores pueden editar');
+    return;
+  }
+  const cards = examsList.querySelectorAll('.examBox');
+  cards.forEach(card => {
+    const eid = card.dataset.eid;
+    const titleEl = card.querySelector('[data-title]');
+    if (!titleEl) return;
+    const currentTitle = titleEl.textContent || '';
+    const input = document.createElement('input');
+    input.className = 'exam-title-input';
+    input.value = currentTitle;
+    input.dataset.eid = eid;
+
+    const delChk = document.createElement('label');
+    delChk.style.display = 'block';
+    delChk.style.marginTop = '6px';
+    delChk.innerHTML = `<input type="checkbox" data-del="${eid}" /> Eliminar examen`;
+
+    titleEl.parentNode.replaceChild(input, titleEl);
+    const info = card.querySelector('.small');
+    if (info) info.parentNode.appendChild(delChk);
+  });
+
+  const addRow = document.createElement('div');
+  addRow.className = 'card';
+  addRow.id = 'addExamRow';
+  addRow.style.marginTop = '10px';
+  addRow.innerHTML = `
+    <h4>Agregar examen nuevo</h4>
+    <input id="newExamName" placeholder="Nombre del examen" />
+    <div style="margin-top:8px;">
+      <button id="addExamTemp" class="btn primary">Agregar (en borrador)</button>
+    </div>
+  `;
+  examsList.parentNode.insertBefore(addRow, examsList.nextSibling);
+
+  document.getElementById('addExamTemp').onclick = () => {
+    const name = document.getElementById('newExamName').value.trim();
+    if (!name) {
+      alert('Nombre requerido');
+      return;
+    }
+    const tempId = qid();
+    draft.newExams.push({ tempId, nombre: name, sectionId: currentSectionId });
+
+    const preview = document.createElement('div');
+    preview.className = 'examBox';
+    preview.dataset.tempid = tempId;
+    preview.innerHTML = `
+      <div>
+        <div style="font-weight:700">${escapeHtml(name)}</div>
+        <div class="small muted">Nuevo (borrador)</div>
+      </div>
+      <div><button class="btn">---</button></div>
+    `;
+    examsList.appendChild(preview);
+    document.getElementById('newExamName').value = '';
+  };
+
+  show(btnSave);
+  hide(btnEdit);
+}
+
+async function saveExamsDraft(){
+  if (!currentUser || currentUser.role !== 'admin') {
+    alert('Solo administradores');
+    return;
+  }
+  try {
+    const inputs = examsList.querySelectorAll('input.exam-title-input');
+    inputs.forEach(inp => {
+      const eid = inp.dataset.eid;
+      const newTitle = inp.value.trim();
+      if (!eid) return;
+      if (draft.exams[eid]) draft.exams[eid].nombre = newTitle;
+      else draft.exams[eid] = { nombre: newTitle, deleted:false, new:false };
+    });
+
+    const dels = examsList.querySelectorAll('input[type=checkbox][data-del]');
+    dels.forEach(d => {
+      const eid = d.getAttribute('data-del');
+      if (d.checked) {
+        draft.exams[eid] = { ...(draft.exams[eid] || {}), deleted:true };
+      }
+    });
+
+    // Marcar eliminados (soft delete)
+    for (const [eid, eObj] of Object.entries(draft.exams)) {
+      if (eObj.deleted) {
+        try {
+          await updateDoc(doc(db,'exams', eid), { deleted:true });
+        } catch(err){
+          console.warn('failed mark deleted', eid, err);
         }
       }
     }
 
-    alert("Cambios guardados correctamente.");
-  } catch (e) {
-    console.error("Error guardando examen", e);
-    alert("Error guardando examen.");
-  }
-}
-
-// =======================================================
-// APP.JS — PARTE 5/6
-// INTENTOS + TIEMPO AUTOMÁTICO + ICONOS ESTUDIANTE
-// =======================================================
-
-// -----------------------------
-// 1) CARGAR ÍCONOS SOCIALES PARA MODO ESTUDIANTE
-// -----------------------------
-async function loadIcons() {
-  try {
-    const iconsRef = doc(db, "config", "icons");
-    const snap = await getDoc(iconsRef);
-
-    if (!snap.exists()) return;
-
-    const data = snap.data();
-
-    if (linkInstagram) linkInstagram.href = data.instagram || "#";
-    if (linkWhatsApp) linkWhatsApp.href = data.whatsapp || "#";
-    if (linkTelegram) linkTelegram.href = data.telegram || "#";
-    if (linkTikTok) linkTikTok.href = data.tiktok || "#";
-
-  } catch (e) {
-    console.error("Error cargando íconos", e);
-  }
-}
-
-loadIcons();
-
-
-// =======================================================
-// 2) INTENTOS DE EXAMEN (0–3)
-// attempts/{uid_examId}
-// Fields:
-//   uid
-//   examId
-//   used (0–3)
-//   last (timestamp string)
-// =======================================================
-
-async function getAttempts(uid, examId) {
-  const id = `${uid}_${examId}`;
-  const ref = doc(db, "attempts", id);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    return {
-      used: 0,
-      last: ""
-    };
-  }
-  return snap.data();
-}
-
-async function incrementAttempt(uid, examId) {
-  const id = `${uid}_${examId}`;
-  const ref = doc(db, "attempts", id);
-
-  const prev = await getAttempts(uid, examId);
-  const used = (prev.used || 0) + 1;
-
-  await setDoc(ref, {
-    uid,
-    examId,
-    used,
-    last: new Date().toISOString()
-  });
-
-  return used;
-}
-
-async function resetAttempts(uid, examId) {
-  const id = `${uid}_${examId}`;
-  await setDoc(doc(db, "attempts", id), {
-    uid,
-    examId,
-    used: 0,
-    last: ""
-  });
-}
-
-
-// =======================================================
-// 3) CALCULAR TIEMPO DE EXAMEN
-//    75 SEGUNDOS POR PREGUNTA
-// =======================================================
-
-async function calculateExamDuration(examId) {
-  try {
-    const qSnap = await getDocs(
-      query(collection(db, "preguntas"), where("examId", "==", examId))
-    );
-
-    const numPreg = qSnap.size;
-    if (numPreg === 0) return 5; // fallback mínimo
-
-    const seconds = numPreg * 75;
-    const minutes = Math.ceil(seconds / 60);
-    return minutes;
-
-  } catch (e) {
-    console.error("Error calculando tiempo", e);
-    return 5;
-  }
-}
-
-
-// =======================================================
-// 4) MOSTRAR EXAMEN (INCLUYE TIEMPO REAL)
-// =======================================================
-
-let examInterval = null;
-
-async function openExamStudent(examId) {
-  hide(studentScreen);
-  hide(resultScreen);
-  show(examScreen);
-
-  examForm.innerHTML = "Cargando preguntas...";
-
-  try {
-    const examRef = doc(db, "exams", examId);
-    const examSnap = await getDoc(examRef);
-    if (!examSnap.exists()) {
-      examForm.innerHTML = `<div class="muted">Examen no encontrado.</div>`;
-      return;
-    }
-
-    const exam = examSnap.data();
-    examTitle.innerText = exam.title || "Examen";
-
-    // CARGAR CASOS Y PREGUNTAS
-    const casosSnap = await getDocs(
-      query(
-        collection(db, "casosClinicos"),
-        where("examId", "==", examId),
-        orderBy("orden", "asc")
-      )
-    );
-
-    let html = "";
-    for (const caso of casosSnap.docs) {
-      const c = caso.data();
-
-      html += `
-        <div class="questionBlock">
-          <h3 class="questionTitle">${escapeHtml(c.titulo)}</h3>
-          <div class="caseText">${escapeHtml(c.texto)}</div>
-      `;
-
-      const pregSnap = await getDocs(
-        query(
-          collection(db, "preguntas"),
-          where("casoId", "==", caso.id),
-          orderBy("orden", "asc")
-        )
-      );
-
-      pregSnap.forEach((p) => {
-        const q = p.data();
-        html += `
-          <div style="margin-top:10px; font-weight:700;">${escapeHtml(q.pregunta)}</div>
-        `;
-
-        q.opciones.forEach((op, i) => {
-          html += `
-            <label class="options">
-              <input type="radio" name="p_${p.id}" value="${i}">
-              <span>${escapeHtml(op)}</span>
-            </label>
-          `;
-        });
-      });
-
-      html += `</div>`;
-    }
-
-    examForm.innerHTML = html;
-
-    // ============================================
-    // TIEMPO REAL BASADO EN PREGUNTAS
-    // ============================================
-
-    let minutes = await calculateExamDuration(examId);
-    let remaining = minutes * 60;
-
-    examTimer.innerText = formatTime(remaining);
-
-    clearInterval(examInterval);
-    examInterval = setInterval(() => {
-      remaining--;
-      examTimer.innerText = formatTime(remaining);
-      if (remaining <= 0) {
-        clearInterval(examInterval);
-        finishExam(examId);
+    // Actualizar títulos
+    for (const [eid, eObj] of Object.entries(draft.exams)) {
+      if (eObj.deleted) continue;
+      if (eObj.nombre !== undefined) {
+        try {
+          await updateDoc(doc(db,'exams', eid), { nombre: eObj.nombre });
+        } catch(err){
+          console.warn('saveExam title update failed', eid, err);
+        }
       }
-    }, 1000);
-
-  } catch (e) {
-    console.error("Error abriendo examen", e);
-    examForm.innerHTML = `<div class="muted">Error cargando examen.</div>`;
-  }
-}
-
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-}
-
-
-// =======================================================
-// 5) FINALIZAR EXAMEN (STUDENT)
-// =======================================================
-
-async function finishExam(examId) {
-  clearInterval(examInterval);
-
-  const u = currentUser;
-  if (!u) {
-    alert("Sesión inválida");
-    return;
-  }
-
-  // CONTAR INTENTO
-  await incrementAttempt(u.uid, examId);
-
-  hide(examScreen);
-  show(resultScreen);
-
-  resultScreen.innerHTML = `<h2>Examen finalizado</h2><div class="muted">Tus respuestas han sido registradas.</div>`;
-}
-// =======================================================
-// APP.JS — PARTE 6/6
-// CREACIÓN DE USUARIOS (ADMIN) + EDICIÓN + ELIMINAR
-// =======================================================
-
-// --------------- HELPERS VALIDACIÓN -------------------
-function validateEmail(email) {
-  return /\S+@\S+\.\S+/.test(email);
-}
-
-function validatePassword(pwd) {
-  return pwd.length >= 6;
-}
-
-// =======================================================
-// 1) MOSTRAR PANEL DE USUARIOS (ADMIN)
-// =======================================================
-
-async function openUsersPanel() {
-  mainContent.innerHTML = `
-    <h2>Usuarios</h2>
-
-    <div class="card" style="margin-top:12px;">
-      <h3>Crear nuevo usuario</h3>
-
-      <label>Email</label>
-      <input id="newUserEmail" type="email">
-
-      <label>Contraseña</label>
-      <input id="newUserPass" type="password">
-
-      <label>Nombre</label>
-      <input id="newUserName" type="text">
-
-      <label>Rol</label>
-      <select id="newUserRole">
-        <option value="user">Usuario (estudiante)</option>
-        <option value="admin">Administrador</option>
-      </select>
-
-      <label>Fecha límite de acceso</label>
-      <input id="newUserLimit" type="date">
-
-      <button id="btnCreateUser" class="btn primary" style="margin-top:12px;">Crear usuario</button>
-    </div>
-
-    <h3 style="margin-top:24px;">Usuarios registrados</h3>
-    <div id="usersList" class="editor"></div>
-  `;
-
-  document.getElementById("btnCreateUser").onclick = createNewUser;
-
-  loadUsersList();
-}
-
-
-// =======================================================
-// 2) CREAR USUARIO (Firebase Auth + Firestore)
-// =======================================================
-
-async function createNewUser() {
-  const email = document.getElementById("newUserEmail").value.trim();
-  const pass = document.getElementById("newUserPass").value.trim();
-  const name = document.getElementById("newUserName").value.trim();
-  const role = document.getElementById("newUserRole").value;
-  const limit = document.getElementById("newUserLimit").value;
-
-  if (!validateEmail(email)) return alert("Correo inválido.");
-  if (!validatePassword(pass)) return alert("Contraseña mínima de 6 caracteres.");
-
-  try {
-    // Crear en FireAuth
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-
-    // Guardar en Firestore
-    await setDoc(doc(db, "users", cred.user.uid), {
-      email,
-      name,
-      role,
-      limitDate: limit || "",
-      status: "enabled",
-      createdAt: serverTimestamp()
-    });
-
-    alert("Usuario creado correctamente.");
-    openUsersPanel();
-
-  } catch (e) {
-    console.error("Error creando usuario", e);
-    if (e.code === "auth/email-already-in-use") {
-      alert("Este correo ya está registrado.");
-    } else {
-      alert("Error creando usuario.");
-    }
-  }
-}
-
-
-// =======================================================
-// 3) LISTA DE USUARIOS
-// =======================================================
-
-async function loadUsersList() {
-  const list = document.getElementById("usersList");
-  list.innerHTML = "Cargando...";
-
-  try {
-    const snap = await getDocs(collection(db, "users"));
-    list.innerHTML = "";
-
-    if (snap.empty) {
-      list.innerHTML = `<div class="muted">No hay usuarios registrados.</div>`;
-      return;
     }
 
-    snap.forEach((uDoc) => {
-      const u = uDoc.data();
+    // Crear exámenes nuevos
+    for (const nx of draft.newExams) {
+      try {
+        await addDoc(collection(db,'exams'), {
+          nombre: nx.nombre,
+          sectionId: nx.sectionId,
+          questionCount: 0,
+          createdAt: new Date().toISOString()
+        });
+      } catch(err){
+        console.warn('create new exam failed', nx, err);
+      }
+    }
 
-      const box = document.createElement("div");
-      box.className = "card";
-      box.style.marginBottom = "10px";
+    draft.exams = {};
+    draft.newExams = [];
 
-      box.innerHTML = `
-        <div><strong>${escapeHtml(u.email)}</strong></div>
-        <div class="small muted">${escapeHtml(u.name || "")}</div>
-        <div class="small">Rol: ${escapeHtml(u.role)}</div>
-        <div class="small">Estado: ${escapeHtml(u.status)}</div>
-        <div class="small">Límite: ${escapeHtml(u.limitDate || "-")}</div>
+    alert('Cambios guardados');
 
-        <div style="margin-top:10px; display:flex; gap:10px;">
-          <button class="btn u_edit" data-id="${uDoc.id}">Editar</button>
-          <button class="btn danger u_delete" data-id="${uDoc.id}">Eliminar</button>
-        </div>
-      `;
+    hide(btnSave);
+    show(btnEdit);
+    const addRow = document.getElementById('addExamRow');
+    if (addRow) addRow.remove();
 
-      list.appendChild(box);
-    });
+    await renderExamsForSection(currentSectionId);
 
-    // Asignar eventos
-    list.querySelectorAll(".u_edit").forEach((btn) => {
-      btn.onclick = () => editUser(btn.dataset.id);
-    });
-
-    list.querySelectorAll(".u_delete").forEach((btn) => {
-      btn.onclick = () => deleteUser(btn.dataset.id);
-    });
-
-  } catch (e) {
-    console.error("Error list users", e);
-    list.innerHTML = `<div class="muted">Error cargando lista.</div>`;
+  } catch(e){
+    console.error('saveExamsDraft', e);
+    alert('Error guardando cambios');
   }
 }
 
-
-// =======================================================
-// 4) EDITAR USUARIO
-// =======================================================
-
-async function editUser(uid) {
-  const ref = doc(db, "users", uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return alert("Usuario no encontrado.");
-
-  const u = snap.data();
-
-  const name = prompt("Nombre:", u.name);
-  if (name === null) return;
-
-  const role = prompt("Rol (admin/user):", u.role);
-  if (role === null) return;
-
-  const status = prompt("Estado (enabled/disabled):", u.status || "enabled");
-  if (status === null) return;
-
-  const limit = prompt("Fecha límite (YYYY-MM-DD):", u.limitDate || "");
-  if (limit === null) return;
-
-  await setDoc(ref, {
-    ...u,
-    name,
-    role,
-    status,
-    limitDate: limit
-  }, { merge: true });
-
-  alert("Usuario actualizado.");
-  openUsersPanel();
+// ---------------------- INIT ----------------------
+async function init(){
+  hide(editButtons);
+  hide(editExamButtons);
+  hide(btnSave);
+  hide(btnSaveExam);
+  await loadSections();
 }
-
-
-// =======================================================
-// 5) ELIMINAR USUARIO (Firestore + Auth)
-// =======================================================
-
-async function deleteUser(uid) {
-  if (!confirm("¿Eliminar usuario definitivamente?")) return;
-
-  try {
-    // Firestore
-    await deleteDoc(doc(db, "users", uid));
-
-    // Auth solo puede borrarse desde backend o Cloud Function.
-    // Como estás en plan Spark, solo marcamos como disabled.
-    // No existe deleteUser() client-side.
-    alert("Usuario eliminado de Firestore.\n(No se puede borrar de Auth en plan Spark.)");
-
-    openUsersPanel();
-
-  } catch (e) {
-    console.error("Error eliminando usuario", e);
-    alert("Error eliminando usuario.");
-  }
-}
-
-
-// =======================================================
-// FIN PARTE 6/6
-// =======================================================
+init().catch(e => console.error(e));
