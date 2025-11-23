@@ -1,115 +1,71 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plataforma ENARM</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulacros ENARM</title>
 
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Firebase CONFIG -->
-  <script type="module" src="firebase.js"></script>
-
-  <!-- APP -->
-  <script type="module" src="app.js" defer></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
 </head>
 
 <body>
 
-<div class="app">
+  <!-- Barra superior -->
+  <header class="top-header">
+    <div class="logo">ENARM</div>
+    <nav class="social-icons" id="socialIcons">
+      <a id="iconInstagram" target="_blank"><img src="icons/instagram.svg" /></a>
+      <a id="iconWhatsapp" target="_blank"><img src="icons/whatsapp.svg" /></a>
+      <a id="iconTelegram" target="_blank"><img src="icons/telegram.svg" /></a>
+      <a id="iconTiktok" target="_blank"><img src="icons/tiktok.svg" /></a>
+    </nav>
+  </header>
 
-  <!-- =====================================================
-       SIDEBAR IZQUIERDA – SECCIONES
-       ===================================================== -->
-  <aside id="leftSidebar" class="sidebar">
+  <!-- Layout -->
+  <div class="layout">
 
-    <div class="brand">
-      <img src="logo.png" class="logo">
-      <div class="brand-text">ENARM</div>
-    </div>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <h3>Administrador</h3>
 
-    <div id="sectionsList" class="sections"></div>
+      <ul class="menu" id="adminMenu">
+        <li data-view="sections">Secciones</li>
+        <li data-view="exams">Exámenes</li>
+        <li data-view="users">Usuarios</li>
+        <li data-view="icons">Íconos</li>
+      </ul>
 
-    <div class="sidebar-actions">
-      <div id="mainCountdown" class="countdown"></div>
+      <ul class="menu user-only" id="userMenu">
+        <li data-view="sections">Secciones</li>
+        <li data-view="exams">Exámenes</li>
+      </ul>
 
-      <div class="socials">
-        <a id="link-instagram" target="_blank"><img src="instagram.png"></a>
-        <a id="link-whatsapp" target="_blank"><img src="whatsapp.png"></a>
-        <a id="link-telegram" target="_blank"><img src="telegram.png"></a>
-        <a id="link-tiktok" target="_blank"><img src="tiktok.png"></a>
-      </div>
-    </div>
+      <button id="logoutBtn" class="logout-btn">Cerrar sesión</button>
+    </aside>
 
-  </aside>
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="content" id="content">
+      <!-- Aquí se carga dinámicamente TODO el contenido -->
+    </main>
 
+  </div>
 
-  <!-- =====================================================
-       SIDEBAR DERECHA – SOLO ADMIN
-       ===================================================== -->
-  <aside id="adminSidebar" class="sidebar admin-sidebar hidden">
-
-    <h3>ADMINISTRADOR</h3>
-
-    <button id="btnAdminAddSection" class="btn">Agregar sección</button>
-    <button id="btnAdminUsers" class="btn">Usuarios</button>
-    <button id="btnAdminIcons" class="btn">Íconos</button>
-    <button id="btnAdminLogout" class="btn btn-danger">Cerrar sesión</button>
-
-  </aside>
-
-
-  <!-- =====================================================
-       MAIN PANEL
-       ===================================================== -->
-  <main class="main">
-
-    <header class="topbar">
-      <div id="userInfo"></div>
-      <div id="authButtons"></div>
-    </header>
-
-    <!-- LOGIN -->
-    <section id="loginScreen" class="card centered">
+  <!-- LOGIN MODAL -->
+  <div class="login-container" id="loginContainer">
+    <div class="login-box">
       <h2>Acceso</h2>
-      <input id="inputEmail" type="email" placeholder="Correo">
-      <input id="inputPassword" type="password" placeholder="Contraseña">
+      <input type="email" id="loginEmail" placeholder="Correo electrónico" />
+      <input type="password" id="loginPassword" placeholder="Contraseña" />
+      <button id="loginBtn">Entrar</button>
+      <p id="loginError" class="error-msg"></p>
+    </div>
+  </div>
 
-      <div style="margin-top:12px;">
-        <button id="btnLogin" class="btn primary">Entrar</button>
-      </div>
-
-      <div id="loginMessage" class="small muted"></div>
-    </section>
-
-
-    <!-- LISTA DE EXÁMENES -->
-    <section id="examsScreen" class="hidden">
-      <h2 id="sectionTitle"></h2>
-      <div id="examsList" class="examsList"></div>
-
-      <!-- Botones ADMIN -->
-      <div id="examsAdminControls" class="editControls hidden">
-        <button id="btnEditExams" class="btn">Editar</button>
-        <button id="btnSaveExams" class="btn primary">Guardar</button>
-      </div>
-    </section>
-
-
-    <!-- EDITOR COMPLETO DE UN EXAMEN -->
-    <section id="examEditorScreen" class="hidden">
-      <h2 id="examTitleEditor"></h2>
-      <div id="casesList"></div>
-
-      <button id="btnAddCase" class="btn primary">Agregar caso clínico</button>
-
-      <div id="caseEditorContainer"></div>
-    </section>
-
-
-  </main>
-
-</div>
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
 
 </body>
 </html>
