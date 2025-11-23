@@ -671,162 +671,296 @@ async function recalcDuration(examId) {
   examDurationLabel.textContent = `${minutos} min`;
 }
 // ===========================================================
-// PREGUNTAS – CARGAR TODAS LAS PREGUNTAS DE UN CASO
+// PANEL DE USUARIOS (ADMIN)
 // ===========================================================
 
-async function loadPreguntas(casoId) {
-  const cont = qs(`#preg_${casoId}`);
-  clear(cont);
+qs("#btnUsuarios").onclick = async () => {
+  setMainTitle("Usuarios");
+  const box = qs("#mainBox");
+  clear(box);
 
-  const q = query(
-    collection(db, "preguntas"),
-    where("casoId", "==", casoId),
-    orderBy("orden")
-  );
+  box.innerHTML = `
+    <h3>Administrar usuarios</h3>
 
-  const snap = await getDocs(q);
+    <div class="userForm">
+      <h4>Crear nuevo usuario</h4>
+      <label>Nombre</label>
+      <input id="u_name">
 
+      <label>Email</label>
+      <input id="u_email" type="email">
+
+      <label>Contraseña</label>
+      <input id="u_pass" type="password">
+
+      <label>Estado</label>
+      <select id="u_status">
+        <option value="enabled">Habilitado</option>
+        <option value="disabled">Inhabilitado</option>
+      </select>
+
+      <label>Fecha límite de acceso</label>
+      <input id="u_limit" type="date">
+
+      <button id="u_create" class="btn primary">Crear usuario</button>
+
+      <hr>
+    </div>
+
+    <h4 style="margin-top:10px;">Usuarios existentes</h4>
+    <div id="usersList">Cargando...</div>
+  `;
+
+  const usersList = qs("#usersList");
+
+  // Crear usuario
+  qs("#u_create").onclick = async () => {
+    const name = qs("#u_name").value.trim();
+    const email = qs("#u_email").value.trim();
+    const pass = qs("#u_pass").value.trim();
+    const status = qs("#u_status").value;
+    const limit = qs("#u_limit").value;
+
+    if (!email || !pass) {
+      alert("Falta email o contraseña");
+      return;
+    }
+
+    try {
+      // Crear en Auth
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      const uid = cred.user.uid;
+
+      // Crear en Firestore
+      await setDoc(doc(db, "users", uid), {
+        uid,
+        email,
+        name,
+        role: "user",
+        status,
+        limit,
+        createdAt: serverTimestamp()
+      });
+
+      alert("Usuario creado");
+      loadUsersList(usersList);
+
+    } catch (err) {
+      console.error(err);
+      alert("Error creando usuario");
+    }
+  };
+
+  // Cargar lista
+  loadUsersList(usersList);
+};
+
+
+// ===========================================================
+// CARGAR LISTA DE USUARIOS
+// ===========================================================
+
+async function loadUsersList(target) {
+  clear(target);
+
+  const snap = await getDocs(collection(db, "users"));
   if (snap.empty) {
-    cont.innerHTML = `<div class="small muted">No hay preguntas.</div>`;
+    target.innerHTML = `<div class="small muted">Sin usuarios registrados.</div>`;
     return;
   }
 
-  snap.forEach(p => {
-    const d = p.data();
+  snap.forEach(u => {
+    const d = u.data();
 
-    const block = document.createElement("div");
-    block.className = "pregBlock";
+    const row = document.createElement("div");
+    row.className = "userRow";
 
-    block.innerHTML = `
-      <label>Pregunta</label>
-      <textarea class="preg_pregunta" data-id="${p.id}">${escapeHTML(d.pregunta)}</textarea>
+    row.innerHTML = `
+      <div>
+        <strong>${escapeHTML(d.name || "")}</strong><br>
+        <span class="small muted">${escapeHTML(d.email)}</span><br>
+        <span class="small">Estado: ${d.status}</span><br>
+        <span class="small">Límite: ${d.limit || "Sin límite"}</span>
+      </div>
 
-      <label>Opción A</label>
-      <input class="optA" data-id="${p.id}" value="${escapeHTML(d.opciones[0] || "")}">
-
-      <label>Opción B</label>
-      <input class="optB" data-id="${p.id}" value="${escapeHTML(d.opciones[1] || "")}">
-
-      <label>Opción C</label>
-      <input class="optC" data-id="${p.id}" value="${escapeHTML(d.opciones[2] || "")}">
-
-      <label>Opción D</label>
-      <input class="optD" data-id="${p.id}" value="${escapeHTML(d.opciones[3] || "")}">
-
-      <label>Correcta (0-3)</label>
-      <input type="number" min="0" max="3" class="preg_correcta" data-id="${p.id}" value="${d.correcta}">
-
-      <label>Justificación</label>
-      <textarea class="preg_just" data-id="${p.id}">${escapeHTML(d.justificacion || "")}</textarea>
-
-      <div class="pregBtns">
-        <button class="btn danger delPreg" data-id="${p.id}">Eliminar pregunta</button>
+      <div class="userActions">
+        <button class="btn u_edit" data-id="${u.id}">Editar</button>
+        <button class="btn danger u_del" data-id="${u.id}">Eliminar</button>
       </div>
     `;
 
-    cont.appendChild(block);
+    target.appendChild(row);
+  });
 
-    // listeners de edición
-    block.querySelector(".preg_pregunta").onchange = e => updatePregunta(p.id, "pregunta", e.target.value);
-    block.querySelector(".optA").onchange = e => updateOption(p.id, 0, e.target.value);
-    block.querySelector(".optB").onchange = e => updateOption(p.id, 1, e.target.value);
-    block.querySelector(".optC").onchange = e => updateOption(p.id, 2, e.target.value);
-    block.querySelector(".optD").onchange = e => updateOption(p.id, 3, e.target.value);
-    block.querySelector(".preg_correcta").onchange = e => updatePregunta(p.id, "correcta", Number(e.target.value));
-    block.querySelector(".preg_just").onchange = e => updatePregunta(p.id, "justificacion", e.target.value);
+  // Editar
+  target.querySelectorAll(".u_edit").forEach(btn => {
+    btn.onclick = () => editUser(btn.dataset.id);
+  });
 
-    block.querySelector(".delPreg").onclick = () => deletePregunta(p.id);
+  // Eliminar
+  target.querySelectorAll(".u_del").forEach(btn => {
+    btn.onclick = () => deleteUser(btn.dataset.id);
   });
 }
 
 
 // ===========================================================
-// AGREGAR UNA NUEVA PREGUNTA
+// EDITAR USUARIO
 // ===========================================================
 
-async function addPregunta(casoId) {
-  await addDoc(collection(db, "preguntas"), {
-    examId: currentExamId,
-    casoId,
-    pregunta: "",
-    opciones: ["", "", "", ""],
-    correcta: 0,
-    justificacion: "",
-    orden: Date.now(),
-    createdAt: serverTimestamp()
-  });
-
-  await loadPreguntas(casoId);
-  await recalcDuration(currentExamId);
-}
-
-
-// ===========================================================
-// ACTUALIZAR PREGUNTA
-// ===========================================================
-
-async function updatePregunta(pId, field, value) {
-  await updateDoc(doc(db, "preguntas", pId), { [field]: value });
-  await recalcDuration(currentExamId);
-}
-
-
-// ===========================================================
-// ACTUALIZAR OPCIÓN INDIVIDUAL
-// ===========================================================
-
-async function updateOption(pId, index, value) {
-  const ref = doc(db, "preguntas", pId);
+async function editUser(uid) {
+  const ref = doc(db, "users", uid);
   const snap = await getDoc(ref);
 
-  if (!snap.exists()) return;
+  if (!snap.exists()) return alert("No existe");
 
   const d = snap.data();
-  const arr = d.opciones || ["", "", "", ""];
 
-  arr[index] = value;
+  const name = prompt("Nombre:", d.name || "");
+  if (name === null) return;
 
-  await updateDoc(ref, { opciones: arr });
+  const status = prompt("Estado (enabled / disabled):", d.status || "enabled");
+  if (status === null) return;
+
+  const limit = prompt("Fecha límite (YYYY-MM-DD):", d.limit || "");
+  if (limit === null) return;
+
+  await updateDoc(ref, { name, status, limit });
+
+  alert("Usuario actualizado");
+  qs("#btnUsuarios").click();
 }
 
 
 // ===========================================================
-// ELIMINAR PREGUNTA
+// ELIMINAR USUARIO
 // ===========================================================
 
-async function deletePregunta(pId) {
-  if (!confirm("¿Eliminar esta pregunta?")) return;
+async function deleteUser(uid) {
+  if (!confirm("¿Eliminar este usuario?")) return;
 
-  await deleteDoc(doc(db, "preguntas", pId));
+  await deleteDoc(doc(db, "users", uid));
 
-  // recargar visual
-  const snap = await getDoc(doc(db, "preguntas", pId));
-
-  await loadCases(currentExamId);
-  await recalcDuration(currentExamId);
+  alert("Eliminado");
+  qs("#btnUsuarios").click();
 }
 
 
 // ===========================================================
-// RECALCULAR DURACIÓN AUTOMÁTICA DEL EXAMEN
+// PANEL DE ÍCONOS (ADMIN)
 // ===========================================================
 
-async function recalcDuration(examId) {
-  // contar preguntas totales del examen
-  const q = query(
-    collection(db, "preguntas"),
-    where("examId", "==", examId)
-  );
+qs("#btnIconos").onclick = async () => {
+  setMainTitle("Íconos sociales");
+  const box = qs("#mainBox");
+  clear(box);
 
-  const snap = await getDocs(q);
-  const numPreguntas = snap.size;
+  // cargar configuración actual
+  let cfgRef = doc(db, "config", "icons");
+  let cfgSnap = await getDoc(cfgRef);
+  let data = cfgSnap.exists() ? cfgSnap.data() : {};
 
-  const totalSegundos = numPreguntas * 75;
-  const minutos = Math.ceil(totalSegundos / 60);
+  box.innerHTML = `
+    <h3>Íconos sociales</h3>
 
-  await updateDoc(doc(db, "exams", examId), {
-    duration: minutos
-  });
+    <label>Instagram</label>
+    <input id="ic_insta" value="${data.instagram || ""}">
 
-  examDurationLabel.textContent = `${minutos} min`;
+    <label>WhatsApp</label>
+    <input id="ic_wa" value="${data.whatsapp || ""}">
+
+    <label>Telegram</label>
+    <input id="ic_tg" value="${data.telegram || ""}">
+
+    <label>TikTok</label>
+    <input id="ic_tt" value="${data.tiktok || ""}">
+
+    <button id="ic_save" class="btn primary" style="margin-top:10px">Guardar</button>
+  `;
+
+  qs("#ic_save").onclick = async () => {
+    await setDoc(cfgRef, {
+      instagram: qs("#ic_insta").value.trim(),
+      whatsapp: qs("#ic_wa").value.trim(),
+      telegram: qs("#ic_tg").value.trim(),
+      tiktok: qs("#ic_tt").value.trim()
+    }, { merge: true });
+
+    alert("Guardado");
+  };
+};
+
+
+// ===========================================================
+// LOGIN Y REDIRECCIÓN SEGÚN ROL
+// ===========================================================
+
+qs("#btnEntrar").onclick = async () => {
+  const email = qs("#loginEmail").value.trim();
+  const pass = qs("#loginPass").value.trim();
+
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    const uid = cred.user.uid;
+
+    const uSnap = await getDoc(doc(db, "users", uid));
+    if (!uSnap.exists()) return alert("Usuario sin registro en Firestore");
+
+    const d = uSnap.data();
+
+    // validar fecha límite
+    if (d.limit) {
+      const hoy = new Date();
+      const fin = new Date(d.limit + "T23:59:59");
+
+      if (hoy > fin) {
+        alert("Acceso vencido");
+        return;
+      }
+    }
+
+    // validar estado
+    if (d.status === "disabled") {
+      alert("Usuario inhabilitado");
+      return;
+    }
+
+    if (d.role === "admin") {
+      enterAdmin();
+    } else {
+      enterUser();
+    }
+
+  } catch (e) {
+    console.error(e);
+    alert("Acceso incorrecto");
+  }
+};
+
+
+// ===========================================================
+// ENTRAR A ADMIN
+// ===========================================================
+
+function enterAdmin() {
+  hide("#loginBox");
+  show("#adminSidebar");
+  qs("#mainTitle").textContent = "Administrador";
+
+  loadSectionsSidebar();
+}
+
+
+// ===========================================================
+// ENTRAR A USUARIO
+// ===========================================================
+
+function enterUser() {
+  hide("#loginBox");
+  hide("#adminSidebar");        // NO aparece
+  qs("#adminSidebar").style.display = "none"; // NO ocupa espacio
+
+  qs("#mainTitle").textContent = "Exámenes";
+
+  loadSectionsSidebar();
 }
