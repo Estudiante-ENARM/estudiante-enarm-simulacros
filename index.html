@@ -168,31 +168,44 @@
             <!-- Tabla de usuarios generada por JS -->
           </div>
         </div>
-
-        <!-- Vista detalle de examen / preguntas -->
-        <div id="exam-detail-view" class="hidden">
-          <div class="panel-header">
-            <button id="btn-back-to-exams" class="btn btn-outline">
-              ← Volver a exámenes
-            </button>
-            <div>
-              <h2 id="exam-detail-title">Examen</h2>
-              <p class="panel-subtitle">
-                Gestiona las preguntas, respuestas correctas y justificaciones.
-              </p>
-            </div>
-            <button id="btn-new-question" class="btn btn-primary">
-              + Nueva pregunta
-            </button>
-          </div>
-
-          <div id="questions-list" class="cards-list">
-            <!-- Preguntas del examen -->
+        
+      <!-- Vista detalle de examen / preguntas -->
+      <div id="exam-detail-view" class="hidden">
+        <div class="panel-header">
+          <button id="btn-back-to-exams" class="btn btn-outline">
+            ← Volver a exámenes
+          </button>
+          <div>
+            <h2>Editar examen</h2>
+            <p class="panel-subtitle">
+              Modifica el nombre del examen y gestiona las preguntas directamente en esta pantalla.
+            </p>
           </div>
         </div>
-      </section>
-    </main>
-  </div>
+
+        <!-- Card para editar el nombre del examen -->
+        <div id="exam-meta-card" class="card" style="margin-bottom:14px;">
+          <form id="exam-meta-form" class="form">
+            <label class="field">
+              <span>Nombre del examen</span>
+              <input type="text" id="exam-name-input" required />
+            </label>
+            <div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;">
+              <button type="button" id="btn-save-exam-meta" class="btn btn-secondary">
+                Guardar nombre
+              </button>
+              <button type="button" id="btn-new-question" class="btn btn-primary">
+                + Nueva pregunta
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Lista de preguntas, todas editables en la pantalla -->
+        <div id="questions-list" class="cards-list">
+          <!-- Tarjetas de preguntas generadas por JS -->
+        </div>
+      </div>
 
   <!-- Modal genérico -->
   <div id="modal-overlay" class="modal-overlay hidden">
