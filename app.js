@@ -1105,7 +1105,18 @@ function openUserModal(id = null) {
   });
 }
 
-btnNewUser.addEventListener("click", () => openUserModal());
+// --- FIX CRÍTICO PARA QUE FUNCIONE EL MODAL DE USUARIOS ---
+if (btnNewUser) {
+  btnNewUser.addEventListener("click", () => {
+    openUserModal(null); // abre modal en modo "nuevo usuario"
+  });
+}
+// Refuerza funcionalidad para que siempre abra el modal después de cualquier reload
+document.addEventListener("click", (e) => {
+  if (e.target.id === "btn-new-user") {
+    openUserModal(null);
+  }
+});
 
 btnUsersView.addEventListener("click", () => {
   hide(sectionsView);
