@@ -36,16 +36,13 @@ const db = getFirestore(app);
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
-// Layout principal
 const sidebar = document.getElementById("sidebar");
 const sidebarSections = document.getElementById("student-sidebar-sections");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
-// Encabezado
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
-// Vistas
 const examsView = document.getElementById("student-exams-view");
 const examsList = document.getElementById("student-exams-list");
 const sectionTitle = document.getElementById("student-current-section-title");
@@ -60,16 +57,13 @@ const questionsList = document.getElementById("student-questions-list");
 const btnBackToExams = document.getElementById("student-btn-back-to-exams");
 const btnSubmitExam = document.getElementById("student-btn-submit-exam");
 
-// Iconos redes (si quieres mantenerlos funcionales más adelante)
-const socialButtons = document.querySelectorAll(".social-icon");
-
 /***********************************************
  * ESTADO
  ***********************************************/
 let currentUser = null;
 let examRules = {
   maxAttempts: 3,
-  timePerQuestion: 75, // segundos
+  timePerQuestion: 75,
 };
 
 let currentSectionId = null;
@@ -77,21 +71,16 @@ let currentSectionName = "Exámenes disponibles";
 
 let currentExamId = null;
 let currentExamName = "";
-let currentExamQuestions = []; // arreglo de {caseText, questionText, optionA,B,C,D, correctOption, justification}
+let currentExamQuestions = [];
 let currentExamTotalSeconds = 0;
 let currentExamTimerId = null;
-
 let currentExamPreviousAttempts = 0;
 
 /***********************************************
  * UTILIDADES
  ***********************************************/
-function show(el) {
-  if (el) el.classList.remove("hidden");
-}
-function hide(el) {
-  if (el) el.classList.add("hidden");
-}
+function show(el) { if (el) el.classList.remove("hidden"); }
+function hide(el) { if (el) el.classList.add("hidden"); }
 
 function renderEmptyMessage(container, text) {
   if (!container) return;
@@ -123,7 +112,7 @@ if (btnToggleSidebar && sidebar) {
 }
 
 /***********************************************
- * AUTENTICACIÓN Y CARGA INICIAL
+ * LOGOUT
  ***********************************************/
 btnLogout.addEventListener("click", async () => {
   try {
@@ -134,9 +123,11 @@ btnLogout.addEventListener("click", async () => {
   }
 });
 
+/***********************************************
+ * AUTENTICACIÓN Y ROL
+ ***********************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    // Si no está autenticado, regresar al login principal
     window.location.href = "index.html";
     return;
   }
@@ -145,7 +136,6 @@ onAuthStateChanged(auth, async (user) => {
   studentUserEmailSpan.textContent = currentUser.email || "";
 
   try {
-    // Verificamos rol del usuario
     const userDocRef = doc(db, "users", currentUser.email);
     const userSnap = await getDoc(userDocRef);
 
@@ -158,17 +148,29 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = userSnap.data();
 
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.expiryDate && data.expiryDate < today) {
+      await setDoc(userDocRef, { status: "inactivo" }, { merge: true });
+      alert("Tu acceso ha vencido. Contacta al administrador.");
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
+    }
+
+    if (data.status !== "activo") {
+      alert("Tu usuario está inactivo. Contacta al administrador.");
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
+    }
+
     if (data.role !== "usuario") {
-      // Si no es rol "usuario", preferible regresar al index (panel admin u otro flujo).
       alert("Este panel es solo para estudiantes.");
       window.location.href = "index.html";
       return;
     }
 
-    // Cargamos configuración global de exámenes
     await loadExamRules();
-
-    // Cargamos secciones
     await loadSectionsForStudent();
 
   } catch (err) {
@@ -178,12 +180,11 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /***********************************************
- * CONFIGURACIÓN GLOBAL DE EXÁMENES
- * settings/examRules: { maxAttempts, timePerQuestion }
+ * REGLAS GLOBALES DE EXÁMENES
  ***********************************************/
 async function loadExamRules() {
   try {
-    const snap = await getDoc(doc(db, "settings", "examRules"));
+    const snap = await getDoc(doc(db, "examRules", "defaultRules"));
     if (snap.exists()) {
       const data = snap.data();
       if (typeof data.maxAttempts === "number") {
@@ -194,7 +195,7 @@ async function loadExamRules() {
       }
     }
   } catch (err) {
-    console.error("No se pudo leer settings/examRules, usando valores por defecto.", err);
+    console.error("No se pudo leer examRules/defaultRules, usando valores por defecto.", err);
   }
 }
 
@@ -222,9 +223,7 @@ async function loadSectionsForStudent() {
 
     const li = document.createElement("li");
     li.className = "sidebar__section-item";
-    li.innerHTML = `
-      <div class="sidebar__section-name">${name}</div>
-    `;
+    li.innerHTML = `<div class="sidebar__section-name">${name}</div>`;
 
     li.addEventListener("click", () => {
       document
@@ -243,7 +242,6 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
-  // Por defecto, mostramos mensaje
   renderEmptyMessage(
     examsList,
     "Selecciona una sección en la barra lateral para ver sus exámenes."
@@ -251,7 +249,44 @@ async function loadSectionsForStudent() {
 }
 
 /***********************************************
- * EXÁMENES (LISTA ESTUDIANTE CON PUNTOS CLAVE)
+ * SVG ICONOS (PREMIUM)
+ ***********************************************/
+function svgIcon(type) {
+  if (type === "questions") {
+    return `
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+        <line x1="8" y1="9" x2="16" y2="9"></line>
+        <line x1="8" y1="13" x2="13" y2="13"></line>
+        <circle cx="9" cy="17" r="0.8"></circle>
+      </svg>
+    `;
+  }
+  if (type === "time") {
+    return `
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="13" r="7"></circle>
+        <polyline points="12 10 12 13 15 15"></polyline>
+        <line x1="9" y1="4" x2="15" y2="4"></line>
+      </svg>
+    `;
+  }
+  if (type === "attempts") {
+    return `
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v3"></path>
+        <path d="M5.2 5.2l2.1 2.1"></path>
+        <path d="M18.8 5.2l-2.1 2.1"></path>
+        <circle cx="12" cy="14" r="6"></circle>
+        <path d="M10 14l2 2 3-3"></path>
+      </svg>
+    `;
+  }
+  return "";
+}
+
+/***********************************************
+ * EXÁMENES (LISTA ESTUDIANTE, TARJETAS PREMIUM)
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   examsList.innerHTML = "";
@@ -270,13 +305,12 @@ async function loadExamsForSectionForStudent(sectionId) {
     return;
   }
 
-  // Recorremos exámenes y calculamos info por cada uno
   for (const docSnap of snap.docs) {
     const exData = docSnap.data();
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
 
-    // 1) Intentos previos del estudiante
+    // Intentos previos
     const attemptRef = doc(
       db,
       "users",
@@ -289,7 +323,7 @@ async function loadExamsForSectionForStudent(sectionId) {
       ? attemptSnap.data().attempts || 0
       : 0;
 
-    // 2) Número total de preguntas (sumando todas las preguntas de todos los casos clínicos del examen)
+    // Número total de preguntas
     const qQuestions = query(
       collection(db, "questions"),
       where("examId", "==", examId)
@@ -303,11 +337,9 @@ async function loadExamsForSectionForStudent(sectionId) {
       totalQuestions += arr.length;
     });
 
-    // Si no hay preguntas, no vale la pena que el alumno lo pueda hacer
     if (totalQuestions === 0) {
-      // Puedes mostrarlo como "en preparación"
       const card = document.createElement("div");
-      card.className = "card";
+      card.className = "card-item";
       card.innerHTML = `
         <div class="card-item__title-row">
           <div class="card-item__title">${examName}</div>
@@ -324,65 +356,77 @@ async function loadExamsForSectionForStudent(sectionId) {
     }
 
     const maxAttempts = examRules.maxAttempts;
-    const timePerQuestion = examRules.timePerQuestion; // segundos
+    const timePerQuestion = examRules.timePerQuestion;
     const totalSeconds = totalQuestions * timePerQuestion;
     const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
 
-    const status =
-      attemptsUsed >= maxAttempts ? "Agotado" : "Disponible";
+    const disabled = attemptsUsed >= maxAttempts;
+    const statusText = disabled ? "Intentos agotados" : "Disponible";
 
-    // Tarjeta premium estilo ENARM
+    const lastAttemptText = attemptSnap.exists()
+      ? (attemptSnap.data().lastAttempt
+        ? attemptSnap.data().lastAttempt.toDate().toLocaleDateString()
+        : "—")
+      : "Sin intentos previos.";
+
     const card = document.createElement("div");
     card.className = "card-item";
-
-    const disabled = attemptsUsed >= maxAttempts;
+    if (disabled) {
+      card.style.opacity = "0.7";
+    }
 
     card.innerHTML = `
-      <div class="card-item__title-row">
-        <div>
-          <div class="card-item__title">${examName}</div>
-          <div class="panel-subtitle" style="margin-top:4px;">
-            <span style="opacity:0.9;">Simulacro ENARM</span>
+      <div class="card-item__title-row" style="align-items:flex-start;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="15" rx="2"></rect>
+              <path d="M7 9h10"></path>
+              <path d="M7 13h5"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="card-item__title">${examName}</div>
+            <div class="panel-subtitle" style="margin-top:3px;">
+              Simulacro ENARM · ${currentSectionName}
+            </div>
           </div>
         </div>
         <div style="text-align:right;">
           <span class="badge">
             <span class="badge-dot"></span>
-            ${status === "Disponible" ? "Disponible" : "Intentos agotados"}
+            ${statusText}
           </span>
         </div>
       </div>
 
-      <div class="card-item__badge-row" style="margin-top:10px;font-size:13px;">
-        <div style="display:flex;flex-wrap:wrap;gap:10px;">
-          <span style="display:inline-flex;align-items:center;gap:4px;">
-            📘 <strong>${totalQuestions}</strong> preguntas
-          </span>
-          <span style="display:inline-flex;align-items:center;gap:4px;">
-            🕒 ${totalTimeFormatted}
-          </span>
-          <span style="display:inline-flex;align-items:center;gap:4px;">
-            🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
-          </span>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${svgIcon("questions")}
+          <div>
+            <div style="font-weight:600;">${totalQuestions} preguntas</div>
+            <div class="panel-subtitle">Casos clínicos de la sección</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${svgIcon("time")}
+          <div>
+            <div style="font-weight:600;">${totalTimeFormatted}</div>
+            <div class="panel-subtitle">Tiempo estimado total</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${svgIcon("attempts")}
+          <div>
+            <div style="font-weight:600;">Intentos: ${attemptsUsed} de ${maxAttempts}</div>
+            <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
+          </div>
         </div>
       </div>
 
-      <div style="margin-top:10px;font-size:13px;color:#6b7280;">
-        ${
-          attemptSnap.exists()
-            ? `Último intento: ${
-                attemptSnap.data().lastAttempt
-                  ? attemptSnap
-                      .data()
-                      .lastAttempt.toDate()
-                      .toLocaleDateString()
-                  : "—"
-              }`
-            : "Sin intentos previos."
-        }
-      </div>
-
-      <div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;">
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
         ${
           disabled
             ? `<button type="button" class="btn btn-outline" disabled>Intentos agotados</button>`
@@ -422,7 +466,6 @@ async function startExamForStudent({
   attemptsUsed,
   maxAttempts,
 }) {
-  // Validar intentos
   if (attemptsUsed >= maxAttempts) {
     alert("Has agotado tus intentos para este examen.");
     return;
@@ -434,7 +477,6 @@ async function startExamForStudent({
   currentExamPreviousAttempts = attemptsUsed;
   currentExamQuestions = [];
 
-  // Cambiar vista
   hide(examsView);
   show(examDetailView);
 
@@ -447,15 +489,13 @@ async function startExamForStudent({
     🔁 Intentos usados: <strong>${attemptsUsed} de ${maxAttempts}</strong>
   `;
 
-  // Cargar preguntas del examen
   await loadQuestionsForExam(examId);
 
-  // Iniciar cronómetro
   startExamTimer();
 }
 
 /***********************************************
- * CARGAR PREGUNTAS DEL EXAMEN (ESTUDIANTE)
+ * CARGAR PREGUNTAS DEL EXAMEN
  ***********************************************/
 async function loadQuestionsForExam(examId) {
   questionsList.innerHTML = "";
@@ -505,7 +545,6 @@ async function loadQuestionsForExam(examId) {
     return;
   }
 
-  // Renderizar preguntas
   currentExamQuestions.forEach((q, index) => {
     const card = document.createElement("div");
     card.className = "card";
@@ -560,7 +599,6 @@ async function loadQuestionsForExam(examId) {
  * CRONÓMETRO
  ***********************************************/
 function startExamTimer() {
-  // Reiniciar si ya había un timer
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
     currentExamTimerId = null;
@@ -576,7 +614,7 @@ function startExamTimer() {
       currentExamTimerId = null;
       examTimerEl.textContent = "00:00";
       alert("El tiempo se ha agotado. Se enviará tu examen automáticamente.");
-      submitExamForStudent(true); // auto
+      submitExamForStudent(true);
     } else {
       examTimerEl.textContent = formatTimer(remaining);
     }
@@ -584,7 +622,7 @@ function startExamTimer() {
 }
 
 /***********************************************
- * ENVIAR EXAMEN (EVALUACIÓN + GUARDADO)
+ * ENVÍO DE EXAMEN (EVALUACIÓN Y GUARDADO)
  ***********************************************/
 btnSubmitExam.addEventListener("click", () => {
   submitExamForStudent(false);
@@ -596,7 +634,6 @@ async function submitExamForStudent(auto = false) {
     return;
   }
 
-  // Evitar doble envío
   btnSubmitExam.disabled = true;
 
   if (currentExamTimerId) {
@@ -606,10 +643,8 @@ async function submitExamForStudent(auto = false) {
 
   const total = currentExamQuestions.length;
   let correctCount = 0;
-
   const detail = {};
 
-  // Evaluar
   currentExamQuestions.forEach((q, index) => {
     const selectedInput = document.querySelector(
       `input[name="q_${index}"]:checked`
@@ -626,10 +661,8 @@ async function submitExamForStudent(auto = false) {
       result,
     };
 
-    // Marcar visualmente
     const card = questionsList.querySelector(`[data-q-index="${index}"]`);
     if (card) {
-      // Mostrar justificación
       const justArea = card.querySelector(".q-justification");
       if (justArea) justArea.style.display = "block";
 
@@ -638,18 +671,16 @@ async function submitExamForStudent(auto = false) {
         const input = lab.querySelector("input[type='radio']");
         if (!input) return;
         const val = input.value;
-        // Limpiamos estilo previo
+
         lab.style.background = "transparent";
         lab.style.border = "1px solid transparent";
         lab.style.borderRadius = "6px";
         lab.style.padding = "4px 6px";
 
-        // Correcta en verde
         if (val === correct) {
           lab.style.borderColor = "#16a34a";
           lab.style.background = "#dcfce7";
         }
-        // Marcada incorrecta en rojo
         if (selected && val === selected && selected !== correct) {
           lab.style.borderColor = "#b91c1c";
           lab.style.background = "#fee2e2";
@@ -660,7 +691,6 @@ async function submitExamForStudent(auto = false) {
 
   const score = Math.round((correctCount / total) * 100);
 
-  // Guardar en Firestore: users/{email}/examAttempts/{examId}
   try {
     const attemptRef = doc(
       db,
@@ -711,7 +741,6 @@ btnBackToExams.addEventListener("click", () => {
   hide(examDetailView);
   show(examsView);
 
-  // Volver a cargar exámenes de la sección actual para refrescar intentos
   if (currentSectionId) {
     loadExamsForSectionForStudent(currentSectionId);
   }
