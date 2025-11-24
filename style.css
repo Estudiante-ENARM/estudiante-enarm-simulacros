@@ -369,7 +369,7 @@ th, td {
 }
 
 /* ---------------------------------------------------
-   MODAL
+   MODAL (CORREGIDO)
 --------------------------------------------------- */
 
 .modal-overlay {
@@ -379,6 +379,7 @@ th, td {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 9999; /* ← CORRECCIÓN CLAVE */
 }
 
 .modal {
@@ -387,6 +388,7 @@ th, td {
   border-radius: 14px;
   padding: 20px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  z-index: 10000; /* ← CORRECCIÓN CLAVE */
 }
 
 .modal h3 {
