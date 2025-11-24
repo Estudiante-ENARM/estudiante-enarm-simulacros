@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudiante | Estudiante ENARM</title>
+
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ESTILOS COMPARTIDOS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- VISTA ESTUDIANTE -->
+  <section id="student-view" class="view">
+
+    <!-- SIDEBAR (MISMAS CLASES PARA APROVECHAR DISEÑO) -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <img src="logo.png" alt="Logo" class="sidebar-logo-img">
+        <h2 class="sidebar-title">Estudiante ENARM</h2>
+      </div>
+
+      <ul id="student-sidebar-sections" class="sidebar-sections">
+        <!-- Secciones dinámicas para el estudiante -->
+      </ul>
+
+      <!-- No mostramos botones admin -->
+      <div class="sidebar-social">
+        <img src="instagram.png" class="social-icon" data-network="instagram">
+        <img src="whatsapp.png" class="social-icon" data-network="whatsapp">
+        <img src="tiktok.png" class="social-icon" data-network="tiktok">
+        <img src="telegram.png" class="social-icon" data-network="telegram">
+      </div>
+    </aside>
+
+    <!-- HEADER -->
+    <header class="header">
+      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+
+      <div class="header-right">
+        <span id="student-user-email"></span>
+        <button id="student-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content">
+
+      <!-- VISTA LISTA DE EXÁMENES -->
+      <div id="student-exams-view" class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="student-current-section-title">Exámenes disponibles</h2>
+            <p id="student-current-section-subtitle" class="panel-subtitle">
+              Elige una sección en la barra lateral para ver los simulacros correspondientes.
+            </p>
+          </div>
+        </div>
+
+        <div id="student-exams-list" class="cards-list"></div>
+      </div>
+
+      <!-- VISTA DETALLE DE EXAMEN (RESOLVER EXAMEN) -->
+      <div id="student-exam-detail-view" class="panel hidden">
+        <div class="panel-header">
+          <button id="student-btn-back-to-exams" class="btn btn-outline">← Volver a exámenes</button>
+          <div>
+            <h2 id="student-exam-title">Examen</h2>
+            <p id="student-exam-subtitle" class="panel-subtitle">
+              Resuelve las preguntas y envía tus respuestas antes de que termine el tiempo.
+            </p>
+          </div>
+          <div style="margin-left:auto;text-align:right;">
+            <span class="panel-subtitle">Tiempo restante</span>
+            <div id="student-exam-timer" style="font-weight:600;font-size:16px;">--:--</div>
+          </div>
+        </div>
+
+        <!-- RESUMEN DEL EXAMEN -->
+        <div id="student-exam-meta-card" class="card">
+          <div id="student-exam-meta-text" class="panel-subtitle">
+            <!-- Aquí se insertan puntos clave: preguntas, tiempo, intentos, etc. -->
+          </div>
+        </div>
+
+        <!-- PREGUNTAS -->
+        <div id="student-questions-list" class="cards-list"></div>
+
+        <!-- BOTÓN ENVIAR -->
+        <div class="flex-row" style="margin-top:16px;">
+          <button id="student-btn-submit-exam" class="btn btn-primary">
+            Enviar examen
+          </button>
+        </div>
+
+      </div>
+
+    </main>
+  </section>
+
+  <!-- JS -->
+  <script type="module" src="student.js"></script>
+
+</body>
+</html>
