@@ -39,10 +39,10 @@
 
 <body>
 
-  <!-- LOGIN -->
+  <!-- LOGIN (ACCESSO ÚNICO) -->
   <section id="login-view" class="view">
     <div class="login-card">
-      <h1>Acceso Administrador</h1>
+      <h1>Acceso</h1>
       <form id="login-form">
         <label class="field">
           <span>Correo</span>
@@ -113,7 +113,7 @@
       <div id="users-view" class="panel hidden">
         <h2>Usuarios</h2>
 
-        <!-- FORMULARIO NUEVO USUARIO -->
+        <!-- FORMULARIO NUEVO USUARIO (FIJO EN LA PARTE SUPERIOR) -->
         <div id="create-user-card" class="card">
           <h3 style="margin-bottom:12px;">Crear nuevo usuario</h3>
 
@@ -121,22 +121,22 @@
 
             <label class="field">
               <span>Nombre</span>
-              <input type="text" id="newuser-name">
+              <input type="text" id="new-user-name">
             </label>
 
             <label class="field">
               <span>Email (ID del documento)</span>
-              <input type="email" id="newuser-email">
+              <input type="email" id="new-user-email">
             </label>
 
             <label class="field">
               <span>Contraseña</span>
-              <input type="text" id="newuser-password">
+              <input type="text" id="new-user-password">
             </label>
 
             <label class="field">
               <span>Estado</span>
-              <select id="newuser-status">
+              <select id="new-user-status">
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
               </select>
@@ -144,7 +144,7 @@
 
             <label class="field">
               <span>Rol</span>
-              <select id="newuser-role">
+              <select id="new-user-role">
                 <option value="usuario">Usuario</option>
                 <option value="admin">Administrador</option>
               </select>
@@ -152,7 +152,7 @@
 
             <label class="field">
               <span>Fecha límite</span>
-              <input type="date" id="newuser-expiry">
+              <input type="date" id="new-user-expiry">
             </label>
 
           </div>
@@ -210,7 +210,7 @@
   </div>
 
   <!-- JS -->
-  <script type="module" src="app.js" defer></script>
+  <script type="module" src="app.js"></script>
 
 </body>
 </html>
