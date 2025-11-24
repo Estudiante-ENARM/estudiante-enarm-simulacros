@@ -20,6 +20,7 @@ import {
   query,
   where,
   serverTimestamp,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 // --- Configuración Firebase ---
@@ -191,7 +192,7 @@ loginForm.addEventListener("submit", async (e) => {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
-    // Validar en colección users
+    // Validar en colección users (ID = email)
     const userDocRef = doc(db, "users", user.email);
     const userSnap = await getDoc(userDocRef);
 
@@ -267,6 +268,7 @@ onAuthStateChanged(auth, async (user) => {
     loginForm.reset();
   }
 });
+
 /***********************************************
  * SECCIONES
  ***********************************************/
@@ -512,7 +514,6 @@ async function loadExamsForSection(sectionId) {
       );
       if (!ok) return;
 
-      // Borrar casos clínicos (questions) de este examen
       const qCases = query(collection(db, "questions"), where("examId", "==", id));
       const caseSnap = await getDocs(qCases);
       for (const cDoc of caseSnap.docs) {
@@ -657,19 +658,6 @@ btnSaveExamMeta.addEventListener("click", async () => {
 
 /***********************************************
  * CASOS CLÍNICOS CON VARIAS PREGUNTAS
- * Colección: questions
- * Cada documento = 1 caso clínico
- * Campos:
- *  - examId
- *  - caseText
- *  - questions: [
- *      {
- *        questionText,
- *        optionA, optionB, optionC, optionD,
- *        correctOption,
- *        justification
- *      }, ...
- *    ]
  ***********************************************/
 async function loadCasesForExam(examId) {
   const q = query(collection(db, "questions"), where("examId", "==", examId));
@@ -721,7 +709,6 @@ function renderCaseBlock(caseId, data) {
   const questionsArray = Array.isArray(data.questions) ? data.questions : [];
 
   if (questionsArray.length === 0) {
-    // Renderizamos al menos una pregunta en blanco
     questionsContainer.appendChild(renderQuestionBlock());
   } else {
     questionsArray.forEach((qData) => {
@@ -729,21 +716,18 @@ function renderCaseBlock(caseId, data) {
     });
   }
 
-  // Agregar nueva pregunta
   caseCard
     .querySelector(".btn-add-question")
     .addEventListener("click", () => {
       questionsContainer.appendChild(renderQuestionBlock());
     });
 
-  // Guardar caso
   caseCard
     .querySelector(".btn-save-case")
     .addEventListener("click", async () => {
       await saveCaseBlock(caseId, caseCard);
     });
 
-  // Eliminar caso
   caseCard
     .querySelector(".btn-delete-case")
     .addEventListener("click", async () => {
@@ -758,7 +742,6 @@ function renderCaseBlock(caseId, data) {
   questionsList.appendChild(caseCard);
 }
 
-// Bloque de una PREGUNTA dentro de un caso clínico
 function renderQuestionBlock(qData = {}) {
   const {
     questionText = "",
@@ -831,7 +814,6 @@ function renderQuestionBlock(qData = {}) {
   return card;
 }
 
-// Guardar un caso clínico completo con TODAS sus preguntas
 async function saveCaseBlock(caseId, caseCard) {
   if (!currentExamId) return;
 
@@ -901,7 +883,6 @@ async function saveCaseBlock(caseId, caseCard) {
   }
 }
 
-// Botón "Nueva pregunta" del header → crear NUEVO CASO CLÍNICO
 btnNewQuestion.addEventListener("click", async () => {
   if (!currentExamId) {
     alert("Primero selecciona o crea un examen.");
@@ -921,6 +902,7 @@ btnNewQuestion.addEventListener("click", async () => {
     alert("No se pudo crear el nuevo caso clínico.");
   }
 });
+
 /***********************************************
  * USUARIOS (ADMIN)
  ***********************************************/
@@ -956,13 +938,14 @@ async function loadUsers() {
     const status = data.status || "inactivo";
     const role = data.role || "usuario";
     const expiry = data.expiryDate || "";
+    const id = docSnap.id;
 
     const chipStatusClass =
       status === "activo" ? "chip--activo" : "chip--inactivo";
     const chipRoleClass = role === "admin" ? "chip--admin" : "chip--user";
 
     html += `
-      <tr data-id="${docSnap.id}">
+      <tr data-id="${id}">
         <td>${data.name || ""}</td>
         <td>${data.email || ""}</td>
         <td><span class="chip ${chipStatusClass}">${status}</span></td>
@@ -1008,6 +991,8 @@ function openUserModal(id = null) {
   }
 
   dataPromise.then((data = {}) => {
+    const docId = isEdit ? id : (data.email || "");
+
     openModal({
       title: isEdit ? "Editar usuario" : "Nuevo usuario",
       fieldsHtml: `
@@ -1017,8 +1002,13 @@ function openUserModal(id = null) {
         </label>
 
         <label class="field">
-          <span>Correo</span>
-          <input type="email" id="field-user-email" required value="${data.email || ""}" />
+          <span>Correo (este será también el ID del documento)</span>
+          <input type="email" id="field-user-email" ${isEdit ? "readonly" : ""} value="${data.email || ""}" />
+        </label>
+
+        <label class="field">
+          <span>ID del documento en Firestore</span>
+          <input type="text" id="field-user-docid" readonly value="${docId || ""}" />
         </label>
 
         <label class="field">
@@ -1062,7 +1052,12 @@ function openUserModal(id = null) {
         const expiryDate =
           document.getElementById("field-user-expiry").value || "";
 
-        if (!name || !email || !password) return;
+        if (!name || !email || !password) {
+          alert("Nombre, correo y contraseña son obligatorios.");
+          return;
+        }
+
+        const docIdFinal = email; // ID = email SIEMPRE
 
         const submitBtn = modalSubmit;
         setLoading(submitBtn, true);
@@ -1079,16 +1074,10 @@ function openUserModal(id = null) {
           };
 
           if (isEdit) {
-            // Si cambia el correo, creamos nuevo doc y borramos el anterior
-            if (email !== id) {
-              await setDoc(doc(db, "users", email), payload);
-              await deleteDoc(doc(db, "users", id));
-            } else {
-              await updateDoc(doc(db, "users", id), payload);
-            }
+            await updateDoc(doc(db, "users", docIdFinal), payload);
           } else {
             payload.createdAt = serverTimestamp();
-            await setDoc(doc(db, "users", email), payload);
+            await setDoc(doc(db, "users", docIdFinal), payload);
             alert(
               "Usuario creado en Firestore.\nRecuerda: también debes crearlo en Firebase Authentication con el mismo correo y contraseña para que pueda iniciar sesión."
             );
@@ -1104,6 +1093,15 @@ function openUserModal(id = null) {
         }
       },
     });
+
+    // Sincronizar ID de documento con correo al escribir (solo en modo nuevo)
+    if (!isEdit) {
+      const emailInput = document.getElementById("field-user-email");
+      const docIdInput = document.getElementById("field-user-docid");
+      emailInput.addEventListener("input", () => {
+        docIdInput.value = emailInput.value.trim();
+      });
+    }
   });
 }
 
@@ -1191,7 +1189,6 @@ btnEditSocial.addEventListener("click", async () => {
           updatedAt: serverTimestamp(),
         });
       } catch (err) {
-        // Si no existe el doc, lo creamos
         try {
           await setDoc(doc(db, "settings", "socialLinks"), {
             instagram,
