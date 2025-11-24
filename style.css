@@ -267,6 +267,36 @@ body {
 }
 
 /* ---------------------------------------------------
+   FORMULARIO NUEVO USUARIO (NUEVO)
+--------------------------------------------------- */
+
+#create-user-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 20px;
+}
+
+.create-user-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media(max-width: 900px) {
+  .create-user-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media(max-width: 600px) {
+  .create-user-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------
    CARDS
 --------------------------------------------------- */
 
@@ -324,7 +354,7 @@ body {
 }
 
 /* ---------------------------------------------------
-   TABLAS (USUARIOS)
+   TABLAS USUARIOS
 --------------------------------------------------- */
 
 table {
@@ -369,7 +399,7 @@ th, td {
 }
 
 /* ---------------------------------------------------
-   MODAL (CORREGIDO)
+   MODAL
 --------------------------------------------------- */
 
 .modal-overlay {
@@ -379,7 +409,6 @@ th, td {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999; /* ← CORRECCIÓN CLAVE */
 }
 
 .modal {
@@ -388,7 +417,6 @@ th, td {
   border-radius: 14px;
   padding: 20px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  z-index: 10000; /* ← CORRECCIÓN CLAVE */
 }
 
 .modal h3 {
@@ -427,7 +455,6 @@ th, td {
   }
 }
 
-/* Oculto por defecto */
 .hidden {
   display: none;
 }
