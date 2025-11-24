@@ -57,6 +57,10 @@ const questionsList = document.getElementById("student-questions-list");
 const btnBackToExams = document.getElementById("student-btn-back-to-exams");
 const btnSubmitExam = document.getElementById("student-btn-submit-exam");
 
+// Banner de resultados
+const resultBanner = document.getElementById("student-result-banner");
+const resultValues = document.getElementById("student-result-values");
+
 /***********************************************
  * ESTADO
  ***********************************************/
@@ -480,6 +484,12 @@ async function startExamForStudent({
   hide(examsView);
   show(examDetailView);
 
+  // Reset banner de resultados
+  if (resultBanner && resultValues) {
+    resultBanner.style.display = "none";
+    resultValues.innerHTML = "";
+  }
+
   examTitle.textContent = examName;
   examSubtitle.textContent =
     "Resuelve con calma, pero cuidando el tiempo. Una vez enviado, se registrará tu intento.";
@@ -496,6 +506,7 @@ async function startExamForStudent({
 
 /***********************************************
  * CARGAR PREGUNTAS DEL EXAMEN
+ * (AGRUPADO POR CASO CLÍNICO)
  ***********************************************/
 async function loadQuestionsForExam(examId) {
   questionsList.innerHTML = "";
@@ -514,30 +525,30 @@ async function loadQuestionsForExam(examId) {
     return;
   }
 
-  const temp = [];
-
+  // Construimos estructura por casos
+  const cases = [];
   snap.forEach((docSnap) => {
     const data = docSnap.data();
     const caseText = data.caseText || "";
     const arr = Array.isArray(data.questions) ? data.questions : [];
 
-    arr.forEach((q) => {
-      temp.push({
+    if (arr.length > 0) {
+      cases.push({
         caseText,
-        questionText: q.questionText || "",
-        optionA: q.optionA || "",
-        optionB: q.optionB || "",
-        optionC: q.optionC || "",
-        optionD: q.optionD || "",
-        correctOption: q.correctOption || "",
-        justification: q.justification || "",
+        questions: arr.map((q) => ({
+          questionText: q.questionText || "",
+          optionA: q.optionA || "",
+          optionB: q.optionB || "",
+          optionC: q.optionC || "",
+          optionD: q.optionD || "",
+          correctOption: q.correctOption || "",
+          justification: q.justification || "",
+        })),
       });
-    });
+    }
   });
 
-  currentExamQuestions = temp;
-
-  if (currentExamQuestions.length === 0) {
+  if (cases.length === 0) {
     renderEmptyMessage(
       questionsList,
       "Este examen aún no tiene preguntas configuradas."
@@ -545,53 +556,77 @@ async function loadQuestionsForExam(examId) {
     return;
   }
 
-  currentExamQuestions.forEach((q, index) => {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.dataset.qIndex = index.toString();
+  // Limpiamos y armamos lista plana para evaluación
+  currentExamQuestions = [];
+  let globalIndex = 0;
 
-    card.innerHTML = `
-      <div style="font-size:13px;color:#6b7280;margin-bottom:8px;">
-        Caso clínico:
-      </div>
-      <div style="font-size:14px;margin-bottom:10px;">
-        ${q.caseText || "Caso clínico no especificado."}
-      </div>
+  questionsList.innerHTML = "";
 
-      <label class="field">
-        <span>Pregunta ${index + 1}</span>
-        <textarea class="q-question-student" rows="2" readonly>${q.questionText}</textarea>
-      </label>
+  cases.forEach((caseData, caseIndex) => {
+    const caseBlock = document.createElement("div");
+    caseBlock.className = "case-block";
 
-      <div class="field">
-        <span>Opciones</span>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:14px;">
-            <input type="radio" name="q_${index}" value="A">
-            <span>A) ${q.optionA}</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:14px;">
-            <input type="radio" name="q_${index}" value="B">
-            <span>B) ${q.optionB}</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:14px;">
-            <input type="radio" name="q_${index}" value="C">
-            <span>C) ${q.optionC}</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:14px;">
-            <input type="radio" name="q_${index}" value="D">
-            <span>D) ${q.optionD}</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="field">
-        <span>Justificación</span>
-        <textarea class="q-justification" rows="2" readonly style="display:none;">${q.justification}</textarea>
-      </div>
+    caseBlock.innerHTML = `
+      <h4>Caso clínico ${caseIndex + 1}</h4>
+      <div class="case-text">${caseData.caseText || "Caso clínico no especificado."}</div>
     `;
 
-    questionsList.appendChild(card);
+    const questionsWrapper = document.createElement("div");
+
+    caseData.questions.forEach((qData, localIndex) => {
+      const questionGlobalIndex = globalIndex;
+
+      // Guardamos en lista plana para corrección
+      currentExamQuestions.push({
+        caseText: caseData.caseText,
+        questionText: qData.questionText,
+        optionA: qData.optionA,
+        optionB: qData.optionB,
+        optionC: qData.optionC,
+        optionD: qData.optionD,
+        correctOption: qData.correctOption,
+        justification: qData.justification,
+      });
+
+      const qBlock = document.createElement("div");
+      qBlock.className = "question-block";
+      qBlock.dataset.qIndex = questionGlobalIndex.toString();
+
+      qBlock.innerHTML = `
+        <h5>Pregunta ${localIndex + 1}</h5>
+        <p>${qData.questionText || ""}</p>
+
+        <div class="question-options">
+          <label>
+            <input type="radio" name="q_${questionGlobalIndex}" value="A">
+            <span>A) ${qData.optionA || ""}</span>
+          </label>
+          <label>
+            <input type="radio" name="q_${questionGlobalIndex}" value="B">
+            <span>B) ${qData.optionB || ""}</span>
+          </label>
+          <label>
+            <input type="radio" name="q_${questionGlobalIndex}" value="C">
+            <span>C) ${qData.optionC || ""}</span>
+          </label>
+          <label>
+            <input type="radio" name="q_${questionGlobalIndex}" value="D">
+            <span>D) ${qData.optionD || ""}</span>
+          </label>
+        </div>
+
+        <div class="justification-box">
+          <strong>Justificación:</strong><br>
+          ${qData.justification || ""}
+        </div>
+      `;
+
+      questionsWrapper.appendChild(qBlock);
+      globalIndex++;
+    });
+
+    caseBlock.appendChild(questionsWrapper);
+    questionsList.appendChild(caseBlock);
   });
 }
 
@@ -663,8 +698,8 @@ async function submitExamForStudent(auto = false) {
 
     const card = questionsList.querySelector(`[data-q-index="${index}"]`);
     if (card) {
-      const justArea = card.querySelector(".q-justification");
-      if (justArea) justArea.style.display = "block";
+      const justBox = card.querySelector(".justification-box");
+      if (justBox) justBox.style.display = "block";
 
       const labels = card.querySelectorAll("label");
       labels.forEach((lab) => {
@@ -713,9 +748,25 @@ async function submitExamForStudent(auto = false) {
       { merge: true }
     );
 
-    alert(
-      `Examen enviado.\n\nAciertos: ${correctCount} de ${total}\nCalificación: ${score}%`
-    );
+    // Banner premium de resultados
+    if (resultBanner && resultValues) {
+      const message = auto
+        ? "El examen fue enviado automáticamente al agotarse el tiempo."
+        : "Tu examen se envió correctamente.";
+
+      resultValues.innerHTML = `
+        ${message}<br>
+        <strong>Aciertos:</strong> ${correctCount} de ${total}<br>
+        <strong>Calificación:</strong> ${score}%
+      `;
+      resultBanner.style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      // Fallback por si algo falla con el DOM
+      alert(
+        `Examen enviado.\n\nAciertos: ${correctCount} de ${total}\nCalificación: ${score}%`
+      );
+    }
   } catch (err) {
     console.error(err);
     alert("No se pudo registrar el intento en la base de datos, pero el examen ya fue evaluado localmente.");
@@ -737,6 +788,12 @@ btnBackToExams.addEventListener("click", () => {
   currentExamQuestions = [];
   questionsList.innerHTML = "";
   examTimerEl.textContent = "--:--";
+
+  // Ocultar banner al salir del examen
+  if (resultBanner && resultValues) {
+    resultBanner.style.display = "none";
+    resultValues.innerHTML = "";
+  }
 
   hide(examDetailView);
   show(examsView);
