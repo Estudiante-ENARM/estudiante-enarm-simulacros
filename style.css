@@ -794,6 +794,12 @@ tr:last-child td {
   color: var(--text-main);
 }
 
+.question-block p {
+  font-size: 14px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
 .question-options {
   display: flex;
   flex-direction: column;
