@@ -20,7 +20,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-// --- Configuración Firebase (tu bloque tal cual) ---
+// --- Configuración Firebase ---
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -30,7 +30,6 @@ const firebaseConfig = {
   appId: "1:1012829203040:web:71de568ff8606a1c8d7105",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -66,21 +65,23 @@ const btnNewExam = document.getElementById("btn-new-exam");
 const usersList = document.getElementById("users-list");
 const btnNewUser = document.getElementById("btn-new-user");
 
-const examDetailTitle = document.getElementById("exam-detail-title");
+// NUEVOS elementos para edición directa del examen
+const examNameInput = document.getElementById("exam-name-input");
+const btnSaveExamMeta = document.getElementById("btn-save-exam-meta");
 const questionsList = document.getElementById("questions-list");
 const btnBackToExams = document.getElementById("btn-back-to-exams");
 const btnNewQuestion = document.getElementById("btn-new-question");
 
 const socialButtons = document.querySelectorAll(".social-icon");
 
-// Modal genérico
+// Modal genérico (se sigue usando para secciones, usuarios, redes)
 const modalOverlay = document.getElementById("modal-overlay");
 const modalTitle = document.getElementById("modal-title");
 const modalFields = document.getElementById("modal-fields");
 const modalForm = document.getElementById("modal-form");
 const modalCancel = document.getElementById("modal-cancel");
 
-// Estado global simple
+// Estado
 let currentSectionId = null;
 let currentExamId = null;
 let modalSubmitHandler = null;
@@ -89,43 +90,29 @@ let modalSubmitHandler = null;
 const colSections = collection(db, "sections");
 const colExams = collection(db, "exams");
 const colUsers = collection(db, "users");
-const docSettingsSocial = doc(db, "settings", "socialLinks");
 const colQuestions = collection(db, "questions");
+const docSettingsSocial = doc(db, "settings", "socialLinks");
 
-// --- Utilidades de UI ---
-function show(element) {
-  element.classList.remove("hidden");
+// --- Utilidades UI ---
+function show(el) {
+  el.classList.remove("hidden");
 }
-function hide(element) {
-  element.classList.add("hidden");
+function hide(el) {
+  el.classList.add("hidden");
 }
 
-function setLoading(btn, isLoading, text = "Guardar") {
+function setLoading(btn, isLoading, textDefault = "Guardar") {
   if (!btn) return;
   if (isLoading) {
     btn.dataset.originalText = btn.textContent;
     btn.textContent = "Guardando...";
     btn.disabled = true;
   } else {
-    btn.textContent = btn.dataset.originalText || text;
+    btn.textContent = btn.dataset.originalText || textDefault;
     btn.disabled = false;
   }
 }
 
-function openModal({ title, fieldsHtml, onSubmit }) {
-  modalTitle.textContent = title;
-  modalFields.innerHTML = fieldsHtml;
-  modalSubmitHandler = onSubmit;
-  show(modalOverlay);
-}
-
-function closeModal() {
-  modalFields.innerHTML = "";
-  modalSubmitHandler = null;
-  hide(modalOverlay);
-}
-
-// Mensaje simple en contenedores vacíos
 function renderEmptyMessage(container, text) {
   container.innerHTML = `
     <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
@@ -134,7 +121,20 @@ function renderEmptyMessage(container, text) {
   `;
 }
 
-// --- Auth ---
+// Modal genérico
+function openModal({ title, fieldsHtml, onSubmit }) {
+  modalTitle.textContent = title;
+  modalFields.innerHTML = fieldsHtml;
+  modalSubmitHandler = onSubmit;
+  show(modalOverlay);
+}
+function closeModal() {
+  modalFields.innerHTML = "";
+  modalSubmitHandler = null;
+  hide(modalOverlay);
+}
+
+// --- AUTH / LOGIN ---
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   loginError.textContent = "";
@@ -142,7 +142,6 @@ loginForm.addEventListener("submit", async (e) => {
 
   const email = loginEmail.value.trim();
   const password = loginPassword.value.trim();
-
   const btn = document.getElementById("btn-login");
   setLoading(btn, true);
 
@@ -150,28 +149,26 @@ loginForm.addEventListener("submit", async (e) => {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
-    // Validar rol y estado en colección "users"
-    const q = query(colUsers, where("email", "==", user.email));
-    const snap = await getDocs(q);
+    // Buscar en colección users por email
+    const qUsers = query(colUsers, where("email", "==", user.email));
+    const snap = await getDocs(qUsers);
 
     if (snap.empty) {
       throw new Error(
-        "Tu usuario no está registrado en la colección de usuarios."
+        "Tu usuario no está registrado en la colección 'users'."
       );
     }
 
     const userDoc = snap.docs[0];
     const userData = userDoc.data();
 
-    // Verificar rol administrador
     if (userData.role !== "admin") {
       throw new Error("Tu usuario no tiene rol de administrador.");
     }
 
-    // Verificar fecha límite y estado
-    const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    if (userData.expiryDate && userData.expiryDate < todayStr) {
-      // Forzar a inactivo si ya expiró
+    // Fecha límite
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    if (userData.expiryDate && userData.expiryDate < today) {
       await updateDoc(userDoc.ref, { status: "inactivo" });
       throw new Error(
         "Tu acceso ha vencido. Contacta al administrador para renovarlo."
@@ -183,11 +180,10 @@ loginForm.addEventListener("submit", async (e) => {
         "Tu usuario está inactivo. Contacta al administrador para activarlo."
       );
     }
-
-    // Si pasa todas las validaciones, el estado onAuthStateChanged hará el resto.
   } catch (err) {
     console.error(err);
-    loginError.textContent = err.message || "No se pudo iniciar sesión.";
+    loginError.textContent =
+      err.message || "No se pudo iniciar sesión. Revisa tus datos.";
     show(loginError);
     await signOut(auth).catch(() => {});
   } finally {
@@ -205,13 +201,12 @@ btnLogout.addEventListener("click", async () => {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Autenticado
-    currentUserEmailSpan.textContent = user.email;
+    currentUserEmailSpan.textContent = user.email || "";
     hide(loginView);
     show(adminView);
     show(btnLogout);
 
-    // Vista por defecto: secciones / exámenes
+    // Vista por defecto: secciones
     show(sectionsView);
     hide(usersView);
     hide(examDetailView);
@@ -231,7 +226,6 @@ onAuthStateChanged(auth, async (user) => {
 
     await Promise.all([loadSections(), loadSocialLinks()]);
   } else {
-    // No autenticado
     show(loginView);
     hide(adminView);
     hide(btnLogout);
@@ -245,9 +239,7 @@ btnToggleSidebar.addEventListener("click", () => {
   sidebar.classList.toggle("sidebar--open");
 });
 
-// Cerrar sidebar al seleccionar sección en móvil (se manejará en el evento de sección)
-
-// --- Secciones ---
+// --- SECCIONES ---
 async function loadSections() {
   const snap = await getDocs(colSections);
   sidebarSections.innerHTML = "";
@@ -263,12 +255,14 @@ async function loadSections() {
 
   snap.forEach((docSnap) => {
     const data = docSnap.data();
+    const id = docSnap.id;
+
     const li = document.createElement("li");
     li.className = "sidebar__section-item";
-    if (docSnap.id === currentSectionId) {
+    if (id === currentSectionId) {
       li.classList.add("sidebar__section-item--active");
     }
-    li.dataset.id = docSnap.id;
+    li.dataset.id = id;
 
     const left = document.createElement("div");
     left.className = "sidebar__section-name";
@@ -293,17 +287,18 @@ async function loadSections() {
     li.appendChild(left);
     li.appendChild(actions);
 
-    // Click en toda la fila -> seleccionar sección
+    // Seleccionar sección (click en el nombre)
     left.addEventListener("click", () => {
-      currentSectionId = docSnap.id;
+      currentSectionId = id;
       currentExamId = null;
-      // Marcar activa
+
       document
         .querySelectorAll(".sidebar__section-item")
-        .forEach((el) => el.classList.remove("sidebar__section-item--active"));
+        .forEach((el) =>
+          el.classList.remove("sidebar__section-item--active")
+        );
       li.classList.add("sidebar__section-item--active");
 
-      // Vista exámenes
       show(sectionsView);
       hide(usersView);
       hide(examDetailView);
@@ -316,12 +311,12 @@ async function loadSections() {
       currentSectionSubtitle.textContent =
         "Gestiona los exámenes de esta sección.";
       show(btnNewExam);
-      loadExamsForSection(docSnap.id);
+      loadExamsForSection(id);
     });
 
     btnEdit.addEventListener("click", (e) => {
       e.stopPropagation();
-      openEditSectionModal(docSnap.id, data);
+      openEditSectionModal(id, data);
     });
 
     btnDelete.addEventListener("click", async (e) => {
@@ -330,9 +325,8 @@ async function loadSections() {
         "¿Eliminar esta sección y todos sus exámenes?"
       );
       if (!confirmDelete) return;
-
-      await deleteSectionWithExams(docSnap.id);
-      if (currentSectionId === docSnap.id) {
+      await deleteSectionWithExams(id);
+      if (currentSectionId === id) {
         currentSectionId = null;
         currentExamId = null;
         currentSectionTitle.textContent = "Selecciona una sección";
@@ -352,24 +346,19 @@ async function loadSections() {
 }
 
 async function deleteSectionWithExams(sectionId) {
-  // Borrar exámenes asociados
   const qExams = query(colExams, where("sectionId", "==", sectionId));
   const examsSnap = await getDocs(qExams);
-  for (const examDoc of examsSnap.docs) {
-    // Borrar preguntas asociadas
-    const qQuestions = query(
-      colQuestions,
-      where("examId", "==", examDoc.id)
-    );
-    const questionsSnap = await getDocs(qQuestions);
-    for (const qDoc of questionsSnap.docs) {
+
+  for (const exDoc of examsSnap.docs) {
+    const exId = exDoc.id;
+    const qQuestions = query(colQuestions, where("examId", "==", exId));
+    const qSnap = await getDocs(qQuestions);
+    for (const qDoc of qSnap.docs) {
       await deleteDoc(qDoc.ref);
     }
-
-    await deleteDoc(examDoc.ref);
+    await deleteDoc(exDoc.ref);
   }
 
-  // Borrar sección
   await deleteDoc(doc(db, "sections", sectionId));
 }
 
@@ -391,10 +380,11 @@ function openNewSectionModal() {
       setLoading(submitBtn, true);
 
       try {
-        await addDoc(colSections, {
+        const docRef = await addDoc(colSections, {
           name,
           createdAt: serverTimestamp(),
         });
+        currentSectionId = docRef.id;
         await loadSections();
         closeModal();
       } catch (err) {
@@ -445,7 +435,7 @@ function openEditSectionModal(id, data) {
 
 btnNewSection.addEventListener("click", openNewSectionModal);
 
-// --- Exámenes ---
+// --- EXÁMENES ---
 async function loadExamsForSection(sectionId) {
   const qEx = query(colExams, where("sectionId", "==", sectionId));
   const snap = await getDocs(qEx);
@@ -462,6 +452,8 @@ async function loadExamsForSection(sectionId) {
 
   snap.forEach((docSnap) => {
     const data = docSnap.data();
+    const id = docSnap.id;
+
     const card = document.createElement("div");
     card.className = "card-item";
 
@@ -499,7 +491,6 @@ async function loadExamsForSection(sectionId) {
 
     const badgeRow = document.createElement("div");
     badgeRow.className = "card-item__badge-row";
-
     const attempts = document.createElement("div");
     attempts.className = "badge";
     attempts.innerHTML = `<span class="badge-dot"></span> ${
@@ -512,14 +503,11 @@ async function loadExamsForSection(sectionId) {
     card.appendChild(badgeRow);
 
     btnOpen.addEventListener("click", () => {
-      currentExamId = docSnap.id;
-      examDetailTitle.textContent = data.name || "Examen";
-      showExamDetailView();
-      loadQuestionsForExam(currentExamId);
+      openExamDetail(id, data);
     });
 
     btnEdit.addEventListener("click", () => {
-      openEditExamModal(docSnap.id, data);
+      openEditExamModal(id, data);
     });
 
     btnDelete.addEventListener("click", async () => {
@@ -528,17 +516,17 @@ async function loadExamsForSection(sectionId) {
       );
       if (!confirmDelete) return;
 
-      // Borrar preguntas
+      // Borrar preguntas del examen
       const qQuestions = query(
         colQuestions,
-        where("examId", "==", docSnap.id)
+        where("examId", "==", id)
       );
-      const questionsSnap = await getDocs(qQuestions);
-      for (const qDoc of questionsSnap.docs) {
+      const qSnap = await getDocs(qQuestions);
+      for (const qDoc of qSnap.docs) {
         await deleteDoc(qDoc.ref);
       }
 
-      await deleteDoc(doc(db, "exams", docSnap.id));
+      await deleteDoc(doc(db, "exams", id));
       loadExamsForSection(sectionId);
     });
 
@@ -566,13 +554,14 @@ function openNewExamModal() {
       setLoading(submitBtn, true);
 
       try {
-        await addDoc(colExams, {
+        const docRef = await addDoc(colExams, {
           name,
           sectionId: currentSectionId,
           attemptsCount: 0,
           createdAt: serverTimestamp(),
         });
         await loadExamsForSection(currentSectionId);
+        openExamDetail(docRef.id, { name });
         closeModal();
       } catch (err) {
         console.error(err);
@@ -605,11 +594,12 @@ function openEditExamModal(id, data) {
 
       try {
         await updateDoc(doc(db, "exams", id), { name });
-        if (currentExamId === id) {
-          examDetailTitle.textContent = name;
-        }
         if (currentSectionId) {
           await loadExamsForSection(currentSectionId);
+        }
+        // si estás en el detalle de este examen, actualizamos el input
+        if (currentExamId === id && examNameInput) {
+          examNameInput.value = name;
         }
         closeModal();
       } catch (err) {
@@ -624,17 +614,53 @@ function openEditExamModal(id, data) {
 
 btnNewExam.addEventListener("click", openNewExamModal);
 
-// --- Vista detalle de examen / preguntas ---
-function showExamDetailView() {
+// --- DETALLE DE EXAMEN + PREGUNTAS (EDICIÓN EN PANTALLA) ---
+function openExamDetail(examId, examData) {
+  currentExamId = examId;
+
+  show(examDetailView);
   hide(sectionsView);
   hide(usersView);
-  show(examDetailView);
+
+  if (examNameInput) {
+    examNameInput.value = examData.name || "";
+  }
+
+  loadQuestionsForExam(examId);
 }
 
 btnBackToExams.addEventListener("click", () => {
   show(sectionsView);
   hide(usersView);
   hide(examDetailView);
+  currentExamId = null;
+});
+
+btnSaveExamMeta.addEventListener("click", async () => {
+  if (!currentExamId) return;
+  const name = examNameInput.value.trim();
+  if (!name) {
+    alert("Escribe un nombre para el examen.");
+    return;
+  }
+
+  const btn = btnSaveExamMeta;
+  setLoading(btn, true, "Guardar nombre");
+  try {
+    await updateDoc(doc(db, "exams", currentExamId), {
+      name,
+      updatedAt: serverTimestamp(),
+    });
+    if (currentSectionId) {
+      await loadExamsForSection(currentSectionId);
+    }
+    alert("Nombre del examen actualizado.");
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo actualizar el examen.");
+  } finally {
+    setLoading(btn, false, "Guardar nombre");
+  }
 });
 
 async function loadQuestionsForExam(examId) {
@@ -644,7 +670,7 @@ async function loadQuestionsForExam(examId) {
   if (snap.empty) {
     renderEmptyMessage(
       questionsList,
-      "No hay preguntas en este examen. Crea la primera con el botón “Nueva pregunta”."
+      "No hay preguntas en este examen. Usa “Nueva pregunta” para agregar."
     );
     return;
   }
@@ -653,203 +679,275 @@ async function loadQuestionsForExam(examId) {
 
   snap.forEach((docSnap) => {
     const data = docSnap.data();
-    const card = document.createElement("div");
-    card.className = "card-item";
-
-    const titleRow = document.createElement("div");
-    titleRow.className = "card-item__title-row";
-
-    const title = document.createElement("div");
-    title.className = "card-item__title";
-    const textPreview =
-      (data.caseText || "").length > 90
-        ? data.caseText.slice(0, 90) + "..."
-        : data.caseText || "Caso clínico sin texto";
-    title.textContent = textPreview;
-
-    const actions = document.createElement("div");
-    actions.className = "card-item__actions";
-
-    const btnEdit = document.createElement("button");
-    btnEdit.className = "icon-btn";
-    btnEdit.textContent = "✏";
-    btnEdit.title = "Editar pregunta";
-
-    const btnDelete = document.createElement("button");
-    btnDelete.className = "icon-btn";
-    btnDelete.textContent = "🗑";
-    btnDelete.title = "Eliminar pregunta";
-
-    actions.appendChild(btnEdit);
-    actions.appendChild(btnDelete);
-
-    titleRow.appendChild(title);
-    titleRow.appendChild(actions);
-
-    const badgeRow = document.createElement("div");
-    badgeRow.className = "card-item__badge-row";
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.innerHTML = `<span class="badge-dot"></span> Respuesta correcta: ${
-      data.correctOption || "—"
-    }`;
-
-    badgeRow.appendChild(badge);
-
-    card.appendChild(titleRow);
-    card.appendChild(badgeRow);
-
-    btnEdit.addEventListener("click", () => {
-      openQuestionModal(docSnap.id, data);
-    });
-
-    btnDelete.addEventListener("click", async () => {
-      const confirmDelete = window.confirm("¿Eliminar esta pregunta?");
-      if (!confirmDelete) return;
-      await deleteDoc(doc(db, "questions", docSnap.id));
-      loadQuestionsForExam(examId);
-    });
-
-    questionsList.appendChild(card);
+    renderQuestionCard(docSnap.id, data);
   });
 }
 
-function openQuestionModal(id = null, data = {}) {
-  const isEdit = Boolean(id);
+// Render de una tarjeta de pregunta editable en la pantalla
+function renderQuestionCard(id, data) {
+  const card = document.createElement("div");
+  card.className = "card-item";
+  card.dataset.id = id;
 
-  openModal({
-    title: isEdit ? "Editar pregunta" : "Nueva pregunta",
-    fieldsHtml: `
-      <label class="field">
-        <span>Caso clínico</span>
-        <textarea id="field-case-text" required>${
-          data.caseText || ""
-        }</textarea>
-      </label>
+  card.innerHTML = `
+    <div class="field">
+      <span>Caso clínico</span>
+      <textarea class="q-case" required></textarea>
+    </div>
 
-      <label class="field">
-        <span>Inciso A</span>
-        <input type="text" id="field-option-a" required value="${
-          data.optionA || ""
-        }" />
-      </label>
+    <div class="field">
+      <span>Inciso A</span>
+      <input type="text" class="q-a" required />
+    </div>
 
-      <label class="field">
-        <span>Inciso B</span>
-        <input type="text" id="field-option-b" required value="${
-          data.optionB || ""
-        }" />
-      </label>
+    <div class="field">
+      <span>Inciso B</span>
+      <input type="text" class="q-b" required />
+    </div>
 
-      <label class="field">
-        <span>Inciso C</span>
-        <input type="text" id="field-option-c" required value="${
-          data.optionC || ""
-        }" />
-      </label>
+    <div class="field">
+      <span>Inciso C</span>
+      <input type="text" class="q-c" required />
+    </div>
 
-      <label class="field">
-        <span>Inciso D</span>
-        <input type="text" id="field-option-d" required value="${
-          data.optionD || ""
-        }" />
-      </label>
+    <div class="field">
+      <span>Inciso D</span>
+      <input type="text" class="q-d" required />
+    </div>
 
-      <label class="field">
-        <span>Respuesta correcta</span>
-        <select id="field-correct-option" required>
-          <option value="">Selecciona una opción</option>
-          <option value="A" ${
-            data.correctOption === "A" ? "selected" : ""
-          }>A</option>
-          <option value="B" ${
-            data.correctOption === "B" ? "selected" : ""
-          }>B</option>
-          <option value="C" ${
-            data.correctOption === "C" ? "selected" : ""
-          }>C</option>
-          <option value="D" ${
-            data.correctOption === "D" ? "selected" : ""
-          }>D</option>
-        </select>
-      </label>
+    <div class="field">
+      <span>Respuesta correcta</span>
+      <select class="q-correct" required>
+        <option value="">Selecciona</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+        <option value="D">D</option>
+      </select>
+    </div>
 
-      <label class="field">
-        <span>Justificación</span>
-        <textarea id="field-justification" required>${
-          data.justification || ""
-        }</textarea>
-      </label>
-    `,
-    onSubmit: async () => {
-      const caseText = document
-        .getElementById("field-case-text")
-        .value.trim();
-      const optionA = document.getElementById("field-option-a").value.trim();
-      const optionB = document.getElementById("field-option-b").value.trim();
-      const optionC = document.getElementById("field-option-c").value.trim();
-      const optionD = document.getElementById("field-option-d").value.trim();
-      const correctOption = document.getElementById(
-        "field-correct-option"
-      ).value;
-      const justification = document
-        .getElementById("field-justification")
-        .value.trim();
+    <div class="field">
+      <span>Justificación</span>
+      <textarea class="q-just" required></textarea>
+    </div>
 
-      if (
-        !caseText ||
-        !optionA ||
-        !optionB ||
-        !optionC ||
-        !optionD ||
-        !correctOption ||
-        !justification
-      ) {
-        return;
-      }
+    <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+      <button type="button" class="btn btn-outline btn-sm q-delete">Eliminar</button>
+      <button type="button" class="btn btn-secondary btn-sm q-save">Guardar</button>
+    </div>
+  `;
 
-      const submitBtn = document.getElementById("modal-submit");
-      setLoading(submitBtn, true);
+  // Asignar valores
+  card.querySelector(".q-case").value = data.caseText || "";
+  card.querySelector(".q-a").value = data.optionA || "";
+  card.querySelector(".q-b").value = data.optionB || "";
+  card.querySelector(".q-c").value = data.optionC || "";
+  card.querySelector(".q-d").value = data.optionD || "";
+  card.querySelector(".q-correct").value = data.correctOption || "";
+  card.querySelector(".q-just").value = data.justification || "";
 
-      try {
-        if (!currentExamId) {
-          throw new Error("No hay examen seleccionado.");
-        }
+  const btnSave = card.querySelector(".q-save");
+  const btnDelete = card.querySelector(".q-delete");
 
-        const payload = {
-          examId: currentExamId,
-          caseText,
-          optionA,
-          optionB,
-          optionC,
-          optionD,
-          correctOption,
-          justification,
-          updatedAt: serverTimestamp(),
-        };
+  btnSave.addEventListener("click", async () => {
+    if (!currentExamId) return;
 
-        if (isEdit) {
-          await updateDoc(doc(db, "questions", id), payload);
-        } else {
-          payload.createdAt = serverTimestamp();
-          await addDoc(colQuestions, payload);
-        }
+    const caseText = card.querySelector(".q-case").value.trim();
+    const optionA = card.querySelector(".q-a").value.trim();
+    const optionB = card.querySelector(".q-b").value.trim();
+    const optionC = card.querySelector(".q-c").value.trim();
+    const optionD = card.querySelector(".q-d").value.trim();
+    const correctOption = card.querySelector(".q-correct").value;
+    const justification = card.querySelector(".q-just").value.trim();
 
-        await loadQuestionsForExam(currentExamId);
-        closeModal();
-      } catch (err) {
-        console.error(err);
-        alert("No se pudo guardar la pregunta.");
-      } finally {
-        setLoading(submitBtn, false);
-      }
-    },
+    if (
+      !caseText ||
+      !optionA ||
+      !optionB ||
+      !optionC ||
+      !optionD ||
+      !correctOption ||
+      !justification
+    ) {
+      alert("Completa todos los campos de la pregunta.");
+      return;
+    }
+
+    btnSave.disabled = true;
+    btnSave.textContent = "Guardando...";
+
+    try {
+      await updateDoc(doc(db, "questions", id), {
+        examId: currentExamId,
+        caseText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        justification,
+        updatedAt: serverTimestamp(),
+      });
+      alert("Pregunta actualizada.");
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo guardar la pregunta.");
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = "Guardar";
+    }
   });
+
+  btnDelete.addEventListener("click", async () => {
+    const confirmDelete = window.confirm("¿Eliminar esta pregunta?");
+    if (!confirmDelete) return;
+    try {
+      await deleteDoc(doc(db, "questions", id));
+      await loadQuestionsForExam(currentExamId);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo eliminar la pregunta.");
+    }
+  });
+
+  questionsList.appendChild(card);
 }
 
-btnNewQuestion.addEventListener("click", () => openQuestionModal());
+// Nueva tarjeta en blanco (para crear pregunta)
+function renderNewQuestionCard() {
+  const card = document.createElement("div");
+  card.className = "card-item";
 
-// --- Usuarios ---
+  card.innerHTML = `
+    <div class="field">
+      <span>Caso clínico</span>
+      <textarea class="q-case" required></textarea>
+    </div>
+
+    <div class="field">
+      <span>Inciso A</span>
+      <input type="text" class="q-a" required />
+    </div>
+
+    <div class="field">
+      <span>Inciso B</span>
+      <input type="text" class="q-b" required />
+    </div>
+
+    <div class="field">
+      <span>Inciso C</span>
+      <input type="text" class="q-c" required />
+    </div>
+
+    <div class="field">
+      <span>Inciso D</span>
+      <input type="text" class="q-d" required />
+    </div>
+
+    <div class="field">
+      <span>Respuesta correcta</span>
+      <select class="q-correct" required>
+        <option value="">Selecciona</option>
+        <option value="A">A</option>
+        <option value="B">B</option>
+        <option value="C">C</option>
+        <option value="D">D</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <span>Justificación</span>
+      <textarea class="q-just" required></textarea>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:6px;">
+      <button type="button" class="btn btn-outline btn-sm q-cancel">Cancelar</button>
+      <button type="button" class="btn btn-primary btn-sm q-create">Crear</button>
+    </div>
+  `;
+
+  const btnCreate = card.querySelector(".q-create");
+  const btnCancel = card.querySelector(".q-cancel");
+
+  btnCreate.addEventListener("click", async () => {
+    if (!currentExamId) return;
+
+    const caseText = card.querySelector(".q-case").value.trim();
+    const optionA = card.querySelector(".q-a").value.trim();
+    const optionB = card.querySelector(".q-b").value.trim();
+    const optionC = card.querySelector(".q-c").value.trim();
+    const optionD = card.querySelector(".q-d").value.trim();
+    const correctOption = card.querySelector(".q-correct").value;
+    const justification = card.querySelector(".q-just").value.trim();
+
+    if (
+      !caseText ||
+      !optionA ||
+      !optionB ||
+      !optionC ||
+      !optionD ||
+      !correctOption ||
+      !justification
+    ) {
+      alert("Completa todos los campos de la pregunta.");
+      return;
+    }
+
+    btnCreate.disabled = true;
+    btnCreate.textContent = "Creando...";
+
+    try {
+      await addDoc(colQuestions, {
+        examId: currentExamId,
+        caseText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        justification,
+        createdAt: serverTimestamp(),
+      });
+      await loadQuestionsForExam(currentExamId);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo crear la pregunta.");
+    } finally {
+      btnCreate.disabled = false;
+      btnCreate.textContent = "Crear";
+    }
+  });
+
+  btnCancel.addEventListener("click", () => {
+    card.remove();
+    if (!questionsList.children.length) {
+      renderEmptyMessage(
+        questionsList,
+        "No hay preguntas en este examen. Usa “Nueva pregunta” para agregar."
+      );
+    }
+  });
+
+  questionsList.appendChild(card);
+}
+
+btnNewQuestion.addEventListener("click", () => {
+  if (!currentExamId) {
+    alert("Primero selecciona o crea un examen.");
+    return;
+  }
+  // Si antes había mensaje vacío, limpiamos
+  const hasEmptyMessage =
+    questionsList.children.length === 1 &&
+    questionsList.querySelector(".card") &&
+    questionsList.querySelector(".card").textContent.includes("No hay preguntas");
+  if (hasEmptyMessage) {
+    questionsList.innerHTML = "";
+  }
+  renderNewQuestionCard();
+});
+
+// --- USUARIOS ---
 async function loadUsers() {
   const snap = await getDocs(colUsers);
 
@@ -877,7 +975,7 @@ async function loadUsers() {
       <tbody>
   `;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
   const updates = [];
 
   snap.forEach((docSnap) => {
@@ -885,8 +983,7 @@ async function loadUsers() {
     let status = data.status || "inactivo";
     const expiry = data.expiryDate || "";
 
-    // Si tiene fecha y ya pasó, forzamos a inactivo
-    if (expiry && expiry < todayStr && status === "activo") {
+    if (expiry && expiry < today && status === "activo") {
       status = "inactivo";
       updates.push(updateDoc(docSnap.ref, { status: "inactivo" }));
     }
@@ -914,12 +1011,10 @@ async function loadUsers() {
   html += "</tbody></table>";
   usersList.innerHTML = html;
 
-  // Ejecutar actualizaciones de estado inactivo
   if (updates.length) {
     Promise.all(updates).catch((e) => console.error(e));
   }
 
-  // Listeners
   usersList.querySelectorAll("tr[data-id]").forEach((row) => {
     const id = row.dataset.id;
     const btnEdit = row.querySelector('button[data-action="edit"]');
@@ -942,15 +1037,15 @@ async function loadUsers() {
 
 function openUserModal(id = null) {
   const isEdit = Boolean(id);
+  let dataPromise = Promise.resolve(null);
 
-  let existingDataPromise = Promise.resolve(null);
   if (isEdit) {
-    existingDataPromise = getDoc(doc(db, "users", id)).then((d) =>
+    dataPromise = getDoc(doc(db, "users", id)).then((d) =>
       d.exists() ? d.data() : null
     );
   }
 
-  existingDataPromise.then((data = {}) => {
+  dataPromise.then((data = {}) => {
     openModal({
       title: isEdit ? "Editar usuario" : "Nuevo usuario",
       fieldsHtml: `
@@ -1042,6 +1137,9 @@ function openUserModal(id = null) {
           } else {
             payload.createdAt = serverTimestamp();
             await addDoc(colUsers, payload);
+            alert(
+              "Usuario creado en Firestore.\nRecuerda: si quieres que pueda iniciar sesión, también debes crearlo en Firebase Authentication con el mismo correo y contraseña."
+            );
           }
 
           await loadUsers();
@@ -1059,7 +1157,6 @@ function openUserModal(id = null) {
 
 btnNewUser.addEventListener("click", () => openUserModal());
 
-// Cambiar vista a usuarios
 btnUsersView.addEventListener("click", () => {
   hide(sectionsView);
   hide(examDetailView);
@@ -1069,7 +1166,7 @@ btnUsersView.addEventListener("click", () => {
   loadUsers();
 });
 
-// --- Redes sociales ---
+// --- REDES SOCIALES ---
 async function loadSocialLinks() {
   try {
     const snap = await getDoc(docSettingsSocial);
@@ -1143,26 +1240,25 @@ btnEditSocial.addEventListener("click", () => {
               tiktok,
               telegram,
               updatedAt: serverTimestamp(),
-            }).catch(async (err) => {
-              // Si no existe el doc, lo creamos
-              if (err.code === "not-found") {
-                await addDoc(collection(db, "settings"), {
-                  instagram,
-                  whatsapp,
-                  tiktok,
-                  telegram,
-                  createdAt: serverTimestamp(),
-                });
-              } else {
-                throw err;
-              }
             });
-
             await loadSocialLinks();
             closeModal();
           } catch (err) {
-            console.error(err);
-            alert("No se pudieron guardar los enlaces.");
+            // Si el doc no existe, lo creamos
+            try {
+              await addDoc(collection(db, "settings"), {
+                instagram,
+                whatsapp,
+                tiktok,
+                telegram,
+                createdAt: serverTimestamp(),
+              });
+              await loadSocialLinks();
+              closeModal();
+            } catch (err2) {
+              console.error(err2);
+              alert("No se pudieron guardar los enlaces.");
+            }
           } finally {
             setLoading(submitBtn, false);
           }
@@ -1182,7 +1278,7 @@ socialButtons.forEach((btn) => {
   });
 });
 
-// --- Modal: eventos globales ---
+// --- MODAL GENÉRICO ---
 modalCancel.addEventListener("click", closeModal);
 modalOverlay.addEventListener("click", (e) => {
   if (e.target === modalOverlay) {
