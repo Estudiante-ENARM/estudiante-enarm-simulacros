@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Panel administrador | Estudiante ENARM</title>
+  <title>Administrador | Estudiante ENARM</title>
 
-  <!-- Fuente moderna -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Estilos principales -->
+  <!-- ESTILOS -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Google tag (gtag.js) -->
+  <!-- GOOGLE ANALYTICS -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -19,213 +19,164 @@
     gtag('js', new Date());
     gtag('config', 'G-B43LFZV7MR');
   </script>
-</head>
-<body>
-  <!-- Meta Pixel Code -->
+
+  <!-- META PIXEL -->
   <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];
+      t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)
+    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '1146031771035535');
     fbq('track', 'PageView');
   </script>
-  <noscript>
-    <img height="1" width="1" style="display:none"
-         src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
-  </noscript>
-  <!-- End Meta Pixel Code -->
+</head>
 
-  <div class="app">
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar__top">
-        <div class="logo-area">
-          <div class="logo-circle">E</div>
-          <div>
-            <div class="logo-title">Estudiante ENARM</div>
-            <div class="logo-subtitle">Panel administrador</div>
-          </div>
-        </div>
+<body>
 
-        <nav class="sidebar__sections">
-          <div class="sidebar__section-header">
-            <span>Secciones</span>
-          </div>
-          <ul id="sidebar-sections" class="sidebar__sections-list">
-            <!-- Secciones cargadas por JS -->
-          </ul>
+  <!-- LOGIN -->
+  <section id="login-view" class="view">
+    <div class="login-card">
+      <h1>Acceso Administrador</h1>
+      <form id="login-form">
+        <label class="field">
+          <span>Correo</span>
+          <input type="email" id="login-email" required>
+        </label>
+        <label class="field">
+          <span>Contraseña</span>
+          <input type="password" id="login-password" required>
+        </label>
+        <button id="btn-login" class="btn btn-primary" type="submit">
+          Entrar
+        </button>
+        <p id="login-error" class="error hidden"></p>
+      </form>
+    </div>
+  </section>
 
-          <button id="btn-new-section" class="btn btn-secondary btn-full">
-            + Crear nueva sección
-          </button>
+  <!-- PANEL ADMIN -->
+  <section id="admin-view" class="view hidden">
 
-          <button id="btn-users-view" class="btn btn-outline btn-full">
-            Usuarios
-          </button>
-        </nav>
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <img src="logo.png" alt="Logo" class="sidebar-logo-img">
+        <h2 class="sidebar-title">Estudiante ENARM</h2>
       </div>
 
-      <div class="sidebar__bottom">
-        <div class="sidebar__social-title">Redes</div>
-        <div class="sidebar__social-icons">
-          <button class="social-icon" data-network="instagram">IG</button>
-          <button class="social-icon" data-network="whatsapp">WA</button>
-          <button class="social-icon" data-network="tiktok">TT</button>
-          <button class="social-icon" data-network="telegram">TG</button>
-        </div>
-        <button id="btn-edit-social" class="btn-link">Editar enlaces</button>
+      <ul id="sidebar-sections" class="sidebar-sections">
+        <!-- Secciones dinámicas -->
+      </ul>
+
+      <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
+      <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
+      <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
+
+      <!-- ICONOS SOCIALES -->
+      <div class="sidebar-social">
+        <img src="instagram.png" class="social-icon" data-network="instagram">
+        <img src="whatsapp.png" class="social-icon" data-network="whatsapp">
+        <img src="tiktok.png" class="social-icon" data-network="tiktok">
+        <img src="telegram.png" class="social-icon" data-network="telegram">
       </div>
     </aside>
 
-    <!-- Main -->
-    <main class="main">
-      <header class="main__header">
-        <button id="btn-toggle-sidebar" class="burger">
-          <span></span><span></span><span></span>
+    <!-- HEADER -->
+    <header class="header">
+      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+      <div class="header-right">
+        <span id="current-user-email"></span>
+        <button id="btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content">
+
+      <!-- VISTA DE SECCIONES -->
+      <div id="sections-view" class="panel">
+
+        <h2 id="current-section-title">Selecciona una sección</h2>
+        <p id="current-section-subtitle" class="panel-subtitle">
+          Elige una sección en la barra lateral para ver sus exámenes.
+        </p>
+
+        <button id="btn-new-exam" class="btn btn-primary hidden">
+          + Nuevo examen
         </button>
-        <h1 class="main__title">Panel administrador</h1>
-        <div class="main__user-area">
-          <span id="current-user-email" class="user-email"></span>
-          <button id="btn-logout" class="btn btn-text hidden">
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
 
-      <!-- Vista de login -->
-      <section id="login-view" class="main__content main__content--center">
-        <div class="card card-login">
-          <h2>Acceso administrador</h2>
-          <p class="card-subtitle">
-            Usa tu correo y contraseña registrados en la plataforma.
-          </p>
+        <div id="exams-list" class="cards-list"></div>
+      </div>
 
-          <form id="login-form" class="form">
-            <label class="field">
-              <span>Correo electrónico</span>
-              <input type="email" id="login-email" required />
-            </label>
-
-            <label class="field">
-              <span>Contraseña</span>
-              <input type="password" id="login-password" required />
-            </label>
-
-            <button type="submit" class="btn btn-primary btn-full" id="btn-login">
-              Entrar
-            </button>
-
-            <p id="login-error" class="form-error hidden"></p>
-          </form>
-
-          <p class="card-note">
-            Solo administradores con estado activo y fecha vigente pueden ingresar.
-          </p>
-        </div>
-      </section>
-
-      <!-- Vista admin -->
-      <section id="admin-view" class="main__content hidden">
-        <!-- Vista Secciones / Exámenes -->
-        <div id="sections-view">
-          <div class="panel-header">
-            <div>
-              <h2 id="current-section-title">Selecciona una sección</h2>
-              <p id="current-section-subtitle" class="panel-subtitle">
-                Elige una sección en la barra lateral para ver sus exámenes.
-              </p>
-            </div>
-            <button id="btn-new-exam" class="btn btn-primary hidden">
-              + Nuevo examen
-            </button>
-          </div>
-
-          <div id="exams-list" class="cards-list">
-            <!-- Exámenes por sección -->
-          </div>
-        </div>
-
-        <!-- Vista Usuarios -->
-        <div id="users-view" class="hidden">
-          <div class="panel-header">
-            <div>
-              <h2>Usuarios</h2>
-              <p class="panel-subtitle">
-                Gestiona accesos, roles, estados y fecha límite de cada usuario.
-              </p>
-            </div>
-            <button id="btn-new-user" class="btn btn-primary">
-              + Nuevo usuario
-            </button>
-          </div>
-
-          <div id="users-list" class="table-wrapper">
-            <!-- Tabla de usuarios generada por JS -->
-          </div>
-        </div>
-        
-      <!-- Vista detalle de examen / preguntas -->
-      <div id="exam-detail-view" class="hidden">
+      <!-- VISTA DE USUARIOS -->
+      <div id="users-view" class="panel hidden">
         <div class="panel-header">
-          <button id="btn-back-to-exams" class="btn btn-outline">
-            ← Volver a exámenes
-          </button>
+          <h2>Usuarios</h2>
+          <button id="btn-new-user" class="btn btn-primary">+ Nuevo usuario</button>
+        </div>
+        <div id="users-list"></div>
+      </div>
+
+      <!-- VISTA DETALLE DE EXAMEN (EDICIÓN EN PANTALLA) -->
+      <div id="exam-detail-view" class="panel hidden">
+        <div class="panel-header">
+          <button id="btn-back-to-exams" class="btn btn-outline">← Volver a exámenes</button>
           <div>
             <h2>Editar examen</h2>
             <p class="panel-subtitle">
-              Modifica el nombre del examen y gestiona las preguntas directamente en esta pantalla.
+              Modifica el examen y todas sus preguntas directamente aquí.
             </p>
           </div>
         </div>
 
-        <!-- Card para editar el nombre del examen -->
-        <div id="exam-meta-card" class="card" style="margin-bottom:14px;">
-          <form id="exam-meta-form" class="form">
-            <label class="field">
-              <span>Nombre del examen</span>
-              <input type="text" id="exam-name-input" required />
-            </label>
-            <div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;">
-              <button type="button" id="btn-save-exam-meta" class="btn btn-secondary">
-                Guardar nombre
-              </button>
-              <button type="button" id="btn-new-question" class="btn btn-primary">
-                + Nueva pregunta
-              </button>
-            </div>
-          </form>
+        <!-- Editar nombre -->
+        <div id="exam-meta-card" class="card">
+          <label class="field">
+            <span>Nombre del examen</span>
+            <input type="text" id="exam-name-input" required>
+          </label>
+
+          <div class="flex-row">
+            <button id="btn-save-exam-meta" class="btn btn-secondary">
+              Guardar nombre
+            </button>
+            <button id="btn-new-question" class="btn btn-primary">
+              + Nueva pregunta
+            </button>
+          </div>
         </div>
 
-        <!-- Lista de preguntas, todas editables en la pantalla -->
-        <div id="questions-list" class="cards-list">
-          <!-- Tarjetas de preguntas generadas por JS -->
-        </div>
+        <!-- Lista de preguntas -->
+        <div id="questions-list" class="cards-list"></div>
+
       </div>
 
-  <!-- Modal genérico -->
+    </main>
+
+  </section>
+
+  <!-- MODAL -->
   <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal" id="modal-generic">
+    <div class="modal">
       <h3 id="modal-title"></h3>
       <form id="modal-form">
         <div id="modal-fields"></div>
-        <div class="modal__actions">
-          <button type="button" id="modal-cancel" class="btn btn-outline">
-            Cancelar
-          </button>
-          <button type="submit" id="modal-submit" class="btn btn-primary">
-            Guardar
-          </button>
+        <div class="modal-actions">
+          <button id="modal-cancel" type="button" class="btn btn-outline">Cancelar</button>
+          <button id="modal-submit" type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Lógica principal -->
+  <!-- APP JS -->
   <script type="module" src="app.js"></script>
+
 </body>
 </html>
