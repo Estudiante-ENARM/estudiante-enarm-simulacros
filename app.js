@@ -1,734 +1,1198 @@
-// app.js
-// --------------------------------------------------
-// Inicialización de Firebase (modular v9+)
-// --------------------------------------------------
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+// --- Firebase modular (v9+) desde CDN ---
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 import {
   getFirestore,
   collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
   addDoc,
+  doc,
+  getDocs,
+  getDoc,
   updateDoc,
   deleteDoc,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  query,
+  where,
+  serverTimestamp,
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-// Configuración proporcionada
+// --- Configuración Firebase (tu bloque tal cual) ---
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
   projectId: "simulacros-plataforma-enarm",
   storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
   messagingSenderId: "1012829203040",
-  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105",
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --------------------------------------------------
-// Estado global simple
-// --------------------------------------------------
-let currentUser = null; // documento completo del usuario
-let currentRole = null; // "admin" | "estudiante" | null
+// --- DOM ---
+const sidebar = document.getElementById("sidebar");
+const sidebarSections = document.getElementById("sidebar-sections");
+const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+const btnNewSection = document.getElementById("btn-new-section");
+const btnUsersView = document.getElementById("btn-users-view");
+const btnEditSocial = document.getElementById("btn-edit-social");
 
-// Referencias DOM básicas
+const loginView = document.getElementById("login-view");
+const adminView = document.getElementById("admin-view");
 const loginForm = document.getElementById("login-form");
-const loginErrorEl = document.getElementById("login-error");
-const btnCancelar = document.getElementById("btn-cancelar");
-const mainContent = document.querySelector(".main-content");
+const loginEmail = document.getElementById("login-email");
+const loginPassword = document.getElementById("login-password");
+const loginError = document.getElementById("login-error");
+const btnLogout = document.getElementById("btn-logout");
+const currentUserEmailSpan = document.getElementById("current-user-email");
 
-// Sidebar
-const sectionsListEl = document.getElementById("sections-list");
-const menuUsersEl = document.getElementById("menu-users");
-const menuIconsEl = document.getElementById("menu-icons");
+const sectionsView = document.getElementById("sections-view");
+const usersView = document.getElementById("users-view");
+const examDetailView = document.getElementById("exam-detail-view");
 
-// Íconos sociales
-const iconInstagram = document.getElementById("icon-instagram");
-const iconWhatsapp = document.getElementById("icon-whatsapp");
-const iconTiktok = document.getElementById("icon-tiktok");
-const iconTelegram = document.getElementById("icon-telegram");
+const currentSectionTitle = document.getElementById("current-section-title");
+const currentSectionSubtitle = document.getElementById(
+  "current-section-subtitle"
+);
+const examsList = document.getElementById("exams-list");
+const btnNewExam = document.getElementById("btn-new-exam");
 
-// --------------------------------------------------
-// Utilidades
-// --------------------------------------------------
-function setLoginError(message) {
-  loginErrorEl.textContent = message || "";
+const usersList = document.getElementById("users-list");
+const btnNewUser = document.getElementById("btn-new-user");
+
+const examDetailTitle = document.getElementById("exam-detail-title");
+const questionsList = document.getElementById("questions-list");
+const btnBackToExams = document.getElementById("btn-back-to-exams");
+const btnNewQuestion = document.getElementById("btn-new-question");
+
+const socialButtons = document.querySelectorAll(".social-icon");
+
+// Modal genérico
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalFields = document.getElementById("modal-fields");
+const modalForm = document.getElementById("modal-form");
+const modalCancel = document.getElementById("modal-cancel");
+
+// Estado global simple
+let currentSectionId = null;
+let currentExamId = null;
+let modalSubmitHandler = null;
+
+// Colecciones
+const colSections = collection(db, "sections");
+const colExams = collection(db, "exams");
+const colUsers = collection(db, "users");
+const docSettingsSocial = doc(db, "settings", "socialLinks");
+const colQuestions = collection(db, "questions");
+
+// --- Utilidades de UI ---
+function show(element) {
+  element.classList.remove("hidden");
+}
+function hide(element) {
+  element.classList.add("hidden");
 }
 
-function formatDateFromTimestamp(ts) {
-  if (!ts) return "";
-  const date = ts.toDate();
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function parseDateInputToDate(dateStr) {
-  if (!dateStr) return null;
-  // Fin del día para que siga activo todo ese día
-  return new Date(`${dateStr}T23:59:59`);
-}
-
-function clearSidebarActive() {
-  const items = document.querySelectorAll(".sidebar-item");
-  items.forEach(i => i.classList.remove("active"));
-}
-
-// --------------------------------------------------
-// LOGIN
-// --------------------------------------------------
-async function handleLoginSubmit(event) {
-  event.preventDefault();
-  setLoginError("");
-
-  const username = document.getElementById("login-username").value.trim();
-  const password = document.getElementById("login-password").value.trim();
-
-  if (!username || !password) {
-    setLoginError("Ingresa usuario y contraseña.");
-    return;
+function setLoading(btn, isLoading, text = "Guardar") {
+  if (!btn) return;
+  if (isLoading) {
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = "Guardando...";
+    btn.disabled = true;
+  } else {
+    btn.textContent = btn.dataset.originalText || text;
+    btn.disabled = false;
   }
+}
+
+function openModal({ title, fieldsHtml, onSubmit }) {
+  modalTitle.textContent = title;
+  modalFields.innerHTML = fieldsHtml;
+  modalSubmitHandler = onSubmit;
+  show(modalOverlay);
+}
+
+function closeModal() {
+  modalFields.innerHTML = "";
+  modalSubmitHandler = null;
+  hide(modalOverlay);
+}
+
+// Mensaje simple en contenedores vacíos
+function renderEmptyMessage(container, text) {
+  container.innerHTML = `
+    <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
+      ${text}
+    </div>
+  `;
+}
+
+// --- Auth ---
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  loginError.textContent = "";
+  hide(loginError);
+
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value.trim();
+
+  const btn = document.getElementById("btn-login");
+  setLoading(btn, true);
 
   try {
-    // Buscar usuario en Firestore
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("username", "==", username));
-    const snapshot = await getDocs(q);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const user = cred.user;
 
-    if (snapshot.empty) {
-      setLoginError("Usuario o contraseña incorrectos.");
-      return;
+    // Validar rol y estado en colección "users"
+    const q = query(colUsers, where("email", "==", user.email));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      throw new Error(
+        "Tu usuario no está registrado en la colección de usuarios."
+      );
     }
 
-    // Tomamos el primero encontrado
-    const userDoc = snapshot.docs[0];
-    const data = userDoc.data();
+    const userDoc = snap.docs[0];
+    const userData = userDoc.data();
 
-    // Validar contraseña
-    if (data.password !== password) {
-      setLoginError("Usuario o contraseña incorrectos.");
-      return;
+    // Verificar rol administrador
+    if (userData.role !== "admin") {
+      throw new Error("Tu usuario no tiene rol de administrador.");
     }
 
-    // Validar estado
-    if (data.status !== "activo") {
-      setLoginError("Tu acceso está inactivo. Contacta al administrador.");
-      return;
+    // Verificar fecha límite y estado
+    const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    if (userData.expiryDate && userData.expiryDate < todayStr) {
+      // Forzar a inactivo si ya expiró
+      await updateDoc(userDoc.ref, { status: "inactivo" });
+      throw new Error(
+        "Tu acceso ha vencido. Contacta al administrador para renovarlo."
+      );
     }
 
-    // Validar fecha de expiración
-    if (data.expirationDate) {
-      const now = new Date();
-      const exp = data.expirationDate.toDate();
-      // Si hoy ya es posterior a la fecha de expiración, bloqueamos
-      if (now > exp) {
-        setLoginError("Tu acceso ha expirado. Contacta al administrador.");
-        return;
-      }
+    if (userData.status !== "activo") {
+      throw new Error(
+        "Tu usuario está inactivo. Contacta al administrador para activarlo."
+      );
     }
 
-    currentUser = { id: userDoc.id, ...data };
-    currentRole = data.role || "estudiante";
+    // Si pasa todas las validaciones, el estado onAuthStateChanged hará el resto.
+  } catch (err) {
+    console.error(err);
+    loginError.textContent = err.message || "No se pudo iniciar sesión.";
+    show(loginError);
+    await signOut(auth).catch(() => {});
+  } finally {
+    setLoading(btn, false);
+  }
+});
 
-    // Limpiar formulario
+btnLogout.addEventListener("click", async () => {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    // Autenticado
+    currentUserEmailSpan.textContent = user.email;
+    hide(loginView);
+    show(adminView);
+    show(btnLogout);
+
+    // Vista por defecto: secciones / exámenes
+    show(sectionsView);
+    hide(usersView);
+    hide(examDetailView);
+    btnUsersView.classList.remove("btn-secondary");
+    btnUsersView.classList.add("btn-outline");
+
+    currentSectionId = null;
+    currentExamId = null;
+    currentSectionTitle.textContent = "Selecciona una sección";
+    currentSectionSubtitle.textContent =
+      "Elige una sección en la barra lateral para ver sus exámenes.";
+    hide(btnNewExam);
+    renderEmptyMessage(
+      examsList,
+      "Aún no has seleccionado ninguna sección."
+    );
+
+    await Promise.all([loadSections(), loadSocialLinks()]);
+  } else {
+    // No autenticado
+    show(loginView);
+    hide(adminView);
+    hide(btnLogout);
+    currentUserEmailSpan.textContent = "";
     loginForm.reset();
-
-    // Cargar vistas según rol
-    if (currentRole === "admin") {
-      renderAdminShell();
-    } else {
-      renderStudentShell();
-    }
-
-    // Cargar secciones en sidebar (ambos roles)
-    await loadSectionsSidebar();
-
-  } catch (error) {
-    console.error("Error en login:", error);
-    setLoginError("Ocurrió un error al iniciar sesión. Intenta de nuevo.");
   }
-}
+});
 
-// Botón cancelar
-function handleCancelar() {
-  loginForm.reset();
-  setLoginError("");
-}
+// --- Sidebar móvil ---
+btnToggleSidebar.addEventListener("click", () => {
+  sidebar.classList.toggle("sidebar--open");
+});
 
-// --------------------------------------------------
-// SHELL / CONTENEDOR ADMIN Y ESTUDIANTE
-// --------------------------------------------------
-function renderAdminShell() {
-  mainContent.innerHTML = `
-    <div class="login-wrapper">
-      <div class="login-card" id="admin-main-card">
-        <h1 class="login-title">Panel de administrador</h1>
-        <p class="login-subtitle">
-          Bienvenido, ${currentUser?.username || ""}. 
-          Usa el menú lateral para gestionar secciones, exámenes, usuarios e íconos.
-        </p>
-        <div id="content-area">
-          <p>Selecciona una sección, <strong>Usuarios</strong> o <strong>Íconos</strong> en la barra lateral.</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
+// Cerrar sidebar al seleccionar sección en móvil (se manejará en el evento de sección)
 
-function renderStudentShell() {
-  mainContent.innerHTML = `
-    <div class="login-wrapper">
-      <div class="login-card" id="student-main-card">
-        <h1 class="login-title">Panel del estudiante</h1>
-        <p class="login-subtitle">
-          Bienvenido, ${currentUser?.username || ""}. 
-          Selecciona una sección en la barra lateral para ver los exámenes disponibles.
-        </p>
-        <div id="content-area">
-          <p>Selecciona una sección en la barra lateral para comenzar un simulacro.</p>
-        </div>
-      </div>
-    </div>
-  `;
-}
+// --- Secciones ---
+async function loadSections() {
+  const snap = await getDocs(colSections);
+  sidebarSections.innerHTML = "";
 
-// Obtiene el contenedor de contenido actual
-function getContentArea() {
-  return document.getElementById("content-area");
-}
-
-// --------------------------------------------------
-// SECCIONES (SIDEBAR)
-// --------------------------------------------------
-async function loadSectionsSidebar() {
-  if (!sectionsListEl) return;
-
-  sectionsListEl.innerHTML = "<li class='sidebar-item'>Cargando secciones...</li>";
-
-  try {
-    const colRef = collection(db, "sections");
-    const q = query(colRef, orderBy("order", "asc"));
-    const snapshot = await getDocs(q);
-
-    sectionsListEl.innerHTML = "";
-
-    if (snapshot.empty) {
-      sectionsListEl.innerHTML = "<li class='sidebar-item'>Sin secciones</li>";
-      return;
-    }
-
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const li = document.createElement("li");
-      li.className = "sidebar-item";
-      li.textContent = data.name || "Sección sin nombre";
-      li.dataset.sectionId = docSnap.id;
-      li.addEventListener("click", () => handleSectionClick(docSnap.id, data.name));
-      sectionsListEl.appendChild(li);
-    });
-  } catch (error) {
-    console.error("Error cargando secciones:", error);
-    sectionsListEl.innerHTML = "<li class='sidebar-item'>Error al cargar secciones</li>";
-  }
-}
-
-async function handleSectionClick(sectionId, sectionName) {
-  clearSidebarActive();
-  // marcar este elemento como activo
-  const allItems = document.querySelectorAll(".sidebar-item");
-  allItems.forEach(item => {
-    if (item.dataset.sectionId === sectionId) {
-      item.classList.add("active");
-    }
-  });
-
-  if (!currentRole) {
-    // No hay sesión iniciada
-    const contentArea = getContentArea();
-    if (contentArea) {
-      contentArea.innerHTML = "<p>Primero inicia sesión para ver los exámenes.</p>";
-    }
+  if (snap.empty) {
+    sidebarSections.innerHTML = `
+      <li style="font-size:12px;color:#6b7280;padding:4px 6px;">
+        No hay secciones aún.
+      </li>
+    `;
     return;
   }
 
-  await renderExamsForSection(sectionId, sectionName);
-}
-
-// --------------------------------------------------
-// EXÁMENES POR SECCIÓN
-// (Versión 1: solo listado básico)
-// --------------------------------------------------
-async function renderExamsForSection(sectionId, sectionName) {
-  const contentArea = getContentArea();
-  if (!contentArea) return;
-
-  contentArea.innerHTML = `<p>Cargando exámenes de <strong>${sectionName}</strong>...</p>`;
-
-  try {
-    const examsRef = collection(db, "exams");
-    const qExams = query(examsRef, where("sectionId", "==", sectionId), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(qExams);
-
-    if (snapshot.empty) {
-      contentArea.innerHTML = `
-        <h2>Exámenes de ${sectionName}</h2>
-        <p>No hay exámenes registrados en esta sección.</p>
-      `;
-      return;
-    }
-
-    let html = `
-      <h2>Exámenes de ${sectionName}</h2>
-      <p>Selecciona un examen para comenzar (estudiante) o administrarlo (administrador).</p>
-      <div class="exams-list">
-    `;
-
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const title = data.title || "Sin título";
-      const questionCount = data.questionCount || 0;
-      const timeLimit = data.timeLimit || 0;
-
-      html += `
-        <div class="exam-card">
-          <h3>${title}</h3>
-          <p>${questionCount} preguntas · ${timeLimit} min</p>
-          <div class="exam-actions">
-            <button class="btn btn-primary" data-exam-id="${docSnap.id}" data-action="start">
-              ${currentRole === "admin" ? "Simular como estudiante" : "Iniciar"}
-            </button>
-            ${
-              currentRole === "admin"
-                ? `<button class="btn btn-secondary" data-exam-id="${docSnap.id}" data-action="admin">
-                     Administrar
-                   </button>`
-                : ""
-            }
-          </div>
-        </div>
-      `;
-    });
-
-    html += "</div>";
-
-    if (currentRole === "admin") {
-      html += `
-        <p style="margin-top:15px;font-size:13px;color:var(--text-secondary);">
-          Nota: En la siguiente etapa agregaremos la interfaz completa para crear, editar y eliminar exámenes y preguntas.
-        </p>
-      `;
-    }
-
-    contentArea.innerHTML = html;
-
-    // Listeners básicos (placeholder)
-    const buttons = contentArea.querySelectorAll(".exam-actions button");
-    buttons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        const examId = btn.getAttribute("data-exam-id");
-        const action = btn.getAttribute("data-action");
-
-        if (action === "start") {
-          alert("En la siguiente etapa implementaremos la realización del simulacro completo.\nExamen ID: " + examId);
-        } else if (action === "admin" && currentRole === "admin") {
-          alert("Aquí irá el panel para administrar preguntas y justificaciones del examen.\nExamen ID: " + examId);
-        }
-      });
-    });
-
-  } catch (error) {
-    console.error("Error al cargar exámenes:", error);
-    contentArea.innerHTML = "<p>Ocurrió un error al cargar los exámenes.</p>";
-  }
-}
-
-// --------------------------------------------------
-// ÍCONOS (ADMIN)
-// --------------------------------------------------
-async function loadSocialLinksForSidebar() {
-  try {
-    const iconsDocRef = doc(db, "icons", "socialLinks");
-    const docSnap = await getDoc(iconsDocRef);
-
-    if (!docSnap.exists()) {
-      // Si no existe, dejamos los # por defecto
-      return;
-    }
-
+  snap.forEach((docSnap) => {
     const data = docSnap.data();
+    const li = document.createElement("li");
+    li.className = "sidebar__section-item";
+    if (docSnap.id === currentSectionId) {
+      li.classList.add("sidebar__section-item--active");
+    }
+    li.dataset.id = docSnap.id;
 
-    if (data.instagram) iconInstagram.href = data.instagram;
-    if (data.whatsapp) iconWhatsapp.href = data.whatsapp;
-    if (data.tiktok) iconTiktok.href = data.tiktok;
-    if (data.telegram) iconTelegram.href = data.telegram;
-  } catch (error) {
-    console.error("Error cargando íconos:", error);
-  }
+    const left = document.createElement("div");
+    left.className = "sidebar__section-name";
+    left.textContent = data.name || "Sección sin título";
+
+    const actions = document.createElement("div");
+    actions.className = "sidebar__section-actions";
+
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "icon-btn";
+    btnEdit.title = "Editar sección";
+    btnEdit.textContent = "✏";
+
+    const btnDelete = document.createElement("button");
+    btnDelete.className = "icon-btn";
+    btnDelete.title = "Eliminar sección";
+    btnDelete.textContent = "🗑";
+
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnDelete);
+
+    li.appendChild(left);
+    li.appendChild(actions);
+
+    // Click en toda la fila -> seleccionar sección
+    left.addEventListener("click", () => {
+      currentSectionId = docSnap.id;
+      currentExamId = null;
+      // Marcar activa
+      document
+        .querySelectorAll(".sidebar__section-item")
+        .forEach((el) => el.classList.remove("sidebar__section-item--active"));
+      li.classList.add("sidebar__section-item--active");
+
+      // Vista exámenes
+      show(sectionsView);
+      hide(usersView);
+      hide(examDetailView);
+      btnUsersView.classList.remove("btn-secondary");
+      btnUsersView.classList.add("btn-outline");
+
+      sidebar.classList.remove("sidebar--open");
+
+      currentSectionTitle.textContent = data.name || "Sección";
+      currentSectionSubtitle.textContent =
+        "Gestiona los exámenes de esta sección.";
+      show(btnNewExam);
+      loadExamsForSection(docSnap.id);
+    });
+
+    btnEdit.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditSectionModal(docSnap.id, data);
+    });
+
+    btnDelete.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const confirmDelete = window.confirm(
+        "¿Eliminar esta sección y todos sus exámenes?"
+      );
+      if (!confirmDelete) return;
+
+      await deleteSectionWithExams(docSnap.id);
+      if (currentSectionId === docSnap.id) {
+        currentSectionId = null;
+        currentExamId = null;
+        currentSectionTitle.textContent = "Selecciona una sección";
+        currentSectionSubtitle.textContent =
+          "Elige una sección en la barra lateral para ver sus exámenes.";
+        hide(btnNewExam);
+        renderEmptyMessage(
+          examsList,
+          "Aún no has seleccionado ninguna sección."
+        );
+      }
+      await loadSections();
+    });
+
+    sidebarSections.appendChild(li);
+  });
 }
 
-async function renderIconsAdmin() {
-  const contentArea = getContentArea();
-  if (!contentArea) return;
+async function deleteSectionWithExams(sectionId) {
+  // Borrar exámenes asociados
+  const qExams = query(colExams, where("sectionId", "==", sectionId));
+  const examsSnap = await getDocs(qExams);
+  for (const examDoc of examsSnap.docs) {
+    // Borrar preguntas asociadas
+    const qQuestions = query(
+      colQuestions,
+      where("examId", "==", examDoc.id)
+    );
+    const questionsSnap = await getDocs(qQuestions);
+    for (const qDoc of questionsSnap.docs) {
+      await deleteDoc(qDoc.ref);
+    }
 
-  if (currentRole !== "admin") {
-    contentArea.innerHTML = "<p>No tienes permisos para editar los íconos.</p>";
-    return;
+    await deleteDoc(examDoc.ref);
   }
 
-  contentArea.innerHTML = "<p>Cargando configuración de íconos...</p>";
+  // Borrar sección
+  await deleteDoc(doc(db, "sections", sectionId));
+}
 
-  try {
-    const iconsDocRef = doc(db, "icons", "socialLinks");
-    const docSnap = await getDoc(iconsDocRef);
-    const data = docSnap.exists() ? docSnap.data() : {};
+function openNewSectionModal() {
+  openModal({
+    title: "Nueva sección",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre de la sección</span>
+        <input type="text" id="field-section-name" required />
+      </label>
+    `,
+    onSubmit: async () => {
+      const input = document.getElementById("field-section-name");
+      const name = input.value.trim();
+      if (!name) return;
 
-    const instagram = data.instagram || "";
-    const whatsapp = data.whatsapp || "";
-    const tiktok = data.tiktok || "";
-    const telegram = data.telegram || "";
-
-    contentArea.innerHTML = `
-      <h2>Configuración de íconos</h2>
-      <p>Estos enlaces se usan en los íconos de la barra lateral.</p>
-      <form id="icons-form" style="margin-top:15px;">
-        <div class="form-group">
-          <label for="icon-instagram-input">Instagram (URL)</label>
-          <input type="url" id="icon-instagram-input" value="${instagram}">
-        </div>
-        <div class="form-group">
-          <label for="icon-whatsapp-input">WhatsApp (URL)</label>
-          <input type="url" id="icon-whatsapp-input" value="${whatsapp}">
-        </div>
-        <div class="form-group">
-          <label for="icon-tiktok-input">TikTok (URL)</label>
-          <input type="url" id="icon-tiktok-input" value="${tiktok}">
-        </div>
-        <div class="form-group">
-          <label for="icon-telegram-input">Telegram (URL)</label>
-          <input type="url" id="icon-telegram-input" value="${telegram}">
-        </div>
-        <div class="login-actions">
-          <button type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-        <div id="icons-msg" class="login-footer-text" style="text-align:left;"></div>
-      </form>
-    `;
-
-    const form = document.getElementById("icons-form");
-    const msgEl = document.getElementById("icons-msg");
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      msgEl.textContent = "Guardando...";
+      const submitBtn = document.getElementById("modal-submit");
+      setLoading(submitBtn, true);
 
       try {
-        await updateDoc(iconsDocRef, {
-          instagram: document.getElementById("icon-instagram-input").value.trim(),
-          whatsapp: document.getElementById("icon-whatsapp-input").value.trim(),
-          tiktok: document.getElementById("icon-tiktok-input").value.trim(),
-          telegram: document.getElementById("icon-telegram-input").value.trim(),
-          updatedAt: serverTimestamp()
-        }).catch(async (error) => {
-          // Si el doc no existe aún, lo creamos con setDoc a través de update (lanzará error)
-          if (error.code === "not-found") {
-            await setDoc(iconsDocRef, {
-              instagram: document.getElementById("icon-instagram-input").value.trim(),
-              whatsapp: document.getElementById("icon-whatsapp-input").value.trim(),
-              tiktok: document.getElementById("icon-tiktok-input").value.trim(),
-              telegram: document.getElementById("icon-telegram-input").value.trim(),
-              updatedAt: serverTimestamp()
-            });
-          } else {
-            throw error;
-          }
+        await addDoc(colSections, {
+          name,
+          createdAt: serverTimestamp(),
         });
-
-        msgEl.textContent = "Íconos actualizados correctamente.";
-        // Recargar íconos en la barra lateral
-        await loadSocialLinksForSidebar();
+        await loadSections();
+        closeModal();
       } catch (err) {
-        console.error("Error guardando íconos:", err);
-        msgEl.textContent = "Error al guardar la configuración de íconos.";
+        console.error(err);
+        alert("No se pudo crear la sección.");
+      } finally {
+        setLoading(submitBtn, false);
       }
-    });
-
-  } catch (error) {
-    console.error("Error al renderizar íconos:", error);
-    contentArea.innerHTML = "<p>Ocurrió un error al cargar la configuración de íconos.</p>";
-  }
+    },
+  });
 }
 
-// --------------------------------------------------
-// USUARIOS (ADMIN)
-// --------------------------------------------------
-async function renderUsersAdmin() {
-  const contentArea = getContentArea();
-  if (!contentArea) return;
+function openEditSectionModal(id, data) {
+  openModal({
+    title: "Editar sección",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre de la sección</span>
+        <input type="text" id="field-section-name" required value="${
+          data.name || ""
+        }" />
+      </label>
+    `,
+    onSubmit: async () => {
+      const input = document.getElementById("field-section-name");
+      const name = input.value.trim();
+      if (!name) return;
 
-  if (currentRole !== "admin") {
-    contentArea.innerHTML = "<p>No tienes permisos para administrar usuarios.</p>";
+      const submitBtn = document.getElementById("modal-submit");
+      setLoading(submitBtn, true);
+
+      try {
+        await updateDoc(doc(db, "sections", id), { name });
+        if (currentSectionId === id) {
+          currentSectionTitle.textContent = name;
+        }
+        await loadSections();
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo actualizar la sección.");
+      } finally {
+        setLoading(submitBtn, false);
+      }
+    },
+  });
+}
+
+btnNewSection.addEventListener("click", openNewSectionModal);
+
+// --- Exámenes ---
+async function loadExamsForSection(sectionId) {
+  const qEx = query(colExams, where("sectionId", "==", sectionId));
+  const snap = await getDocs(qEx);
+
+  if (snap.empty) {
+    renderEmptyMessage(
+      examsList,
+      "No hay exámenes en esta sección. Crea el primero con el botón “Nuevo examen”."
+    );
     return;
   }
 
-  contentArea.innerHTML = "<p>Cargando usuarios...</p>";
+  examsList.innerHTML = "";
 
-  try {
-    const usersRef = collection(db, "users");
-    const qUsers = query(usersRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(qUsers);
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const card = document.createElement("div");
+    card.className = "card-item";
 
-    let rows = "";
+    const titleRow = document.createElement("div");
+    titleRow.className = "card-item__title-row";
 
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const username = data.username || "";
-      const role = data.role || "";
-      const status = data.status || "";
-      const expDate = formatDateFromTimestamp(data.expirationDate);
+    const title = document.createElement("div");
+    title.className = "card-item__title";
+    title.textContent = data.name || "Examen sin título";
 
-      rows += `
-        <tr data-user-id="${docSnap.id}">
-          <td>${username}</td>
-          <td>${role}</td>
-          <td>${status}</td>
-          <td>${expDate}</td>
-          <td>
-            <button class="btn btn-secondary btn-edit-user" data-user-id="${docSnap.id}">Editar</button>
-            <button class="btn btn-secondary btn-delete-user" data-user-id="${docSnap.id}">Eliminar</button>
-          </td>
-        </tr>
-      `;
+    const actions = document.createElement("div");
+    actions.className = "card-item__actions";
+
+    const btnOpen = document.createElement("button");
+    btnOpen.className = "btn btn-secondary";
+    btnOpen.style.fontSize = "12px";
+    btnOpen.textContent = "Abrir";
+
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "icon-btn";
+    btnEdit.textContent = "✏";
+    btnEdit.title = "Editar nombre";
+
+    const btnDelete = document.createElement("button");
+    btnDelete.className = "icon-btn";
+    btnDelete.textContent = "🗑";
+    btnDelete.title = "Eliminar examen";
+
+    actions.appendChild(btnOpen);
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnDelete);
+
+    titleRow.appendChild(title);
+    titleRow.appendChild(actions);
+
+    const badgeRow = document.createElement("div");
+    badgeRow.className = "card-item__badge-row";
+
+    const attempts = document.createElement("div");
+    attempts.className = "badge";
+    attempts.innerHTML = `<span class="badge-dot"></span> ${
+      data.attemptsCount || 0
+    } intentos`;
+
+    badgeRow.appendChild(attempts);
+
+    card.appendChild(titleRow);
+    card.appendChild(badgeRow);
+
+    btnOpen.addEventListener("click", () => {
+      currentExamId = docSnap.id;
+      examDetailTitle.textContent = data.name || "Examen";
+      showExamDetailView();
+      loadQuestionsForExam(currentExamId);
     });
 
-    contentArea.innerHTML = `
-      <h2>Usuarios</h2>
-      <p>Administra los usuarios que pueden acceder a la plataforma.</p>
-      <div style="margin:15px 0;">
-        <button class="btn btn-primary" id="btn-add-user">Agregar usuario</button>
-      </div>
-      <div class="users-table-wrapper" style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--sidebar-border);">
-              <th style="text-align:left;padding:8px;">Usuario</th>
-              <th style="text-align:left;padding:8px;">Rol</th>
-              <th style="text-align:left;padding:8px;">Estado</th>
-              <th style="text-align:left;padding:8px;">Fin de acceso</th>
-              <th style="text-align:left;padding:8px;">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || "<tr><td colspan='5' style='padding:8px;'>No hay usuarios registrados.</td></tr>"}
-          </tbody>
-        </table>
-      </div>
-      <div id="users-msg" class="login-footer-text" style="text-align:left;margin-top:10px;"></div>
-
-      <!-- Contenedor para formulario agregar/editar -->
-      <div id="user-form-container" style="margin-top:20px;"></div>
-    `;
-
-    const msgEl = document.getElementById("users-msg");
-    const addBtn = document.getElementById("btn-add-user");
-    const tbody = contentArea.querySelector("tbody");
-
-    addBtn.addEventListener("click", () => {
-      renderUserForm(null);
+    btnEdit.addEventListener("click", () => {
+      openEditExamModal(docSnap.id, data);
     });
 
-    tbody.querySelectorAll(".btn-edit-user").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const userId = btn.getAttribute("data-user-id");
-        await renderUserForm(userId);
-      });
+    btnDelete.addEventListener("click", async () => {
+      const confirmDelete = window.confirm(
+        "¿Eliminar este examen y todas sus preguntas?"
+      );
+      if (!confirmDelete) return;
+
+      // Borrar preguntas
+      const qQuestions = query(
+        colQuestions,
+        where("examId", "==", docSnap.id)
+      );
+      const questionsSnap = await getDocs(qQuestions);
+      for (const qDoc of questionsSnap.docs) {
+        await deleteDoc(qDoc.ref);
+      }
+
+      await deleteDoc(doc(db, "exams", docSnap.id));
+      loadExamsForSection(sectionId);
     });
 
-    tbody.querySelectorAll(".btn-delete-user").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const userId = btn.getAttribute("data-user-id");
-        const confirmDelete = confirm("¿Seguro que deseas eliminar este usuario?");
-        if (!confirmDelete) return;
-
-        try {
-          await deleteDoc(doc(db, "users", userId));
-          msgEl.textContent = "Usuario eliminado correctamente.";
-          await renderUsersAdmin(); // recargar lista
-        } catch (err) {
-          console.error("Error eliminando usuario:", err);
-          msgEl.textContent = "Error al eliminar usuario.";
-        }
-      });
-    });
-
-  } catch (error) {
-    console.error("Error renderizando usuarios:", error);
-    contentArea.innerHTML = "<p>Ocurrió un error al cargar los usuarios.</p>";
-  }
+    examsList.appendChild(card);
+  });
 }
 
-// Formulario agregar / editar usuario
-async function renderUserForm(userId) {
-  const container = document.getElementById("user-form-container");
-  if (!container) return;
+function openNewExamModal() {
+  if (!currentSectionId) return;
 
-  let isEdit = !!userId;
-  let formTitle = isEdit ? "Editar usuario" : "Agregar usuario";
-  let initialData = {
-    username: "",
-    password: "",
-    role: "estudiante",
-    status: "activo",
-    expirationDate: ""
-  };
+  openModal({
+    title: "Nuevo examen",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre del examen</span>
+        <input type="text" id="field-exam-name" required />
+      </label>
+    `,
+    onSubmit: async () => {
+      const input = document.getElementById("field-exam-name");
+      const name = input.value.trim();
+      if (!name) return;
 
-  if (isEdit) {
-    try {
-      const docRef = doc(db, "users", userId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        initialData.username = data.username || "";
-        initialData.password = data.password || "";
-        initialData.role = data.role || "estudiante";
-        initialData.status = data.status || "activo";
-        initialData.expirationDate = formatDateFromTimestamp(data.expirationDate);
+      const submitBtn = document.getElementById("modal-submit");
+      setLoading(submitBtn, true);
+
+      try {
+        await addDoc(colExams, {
+          name,
+          sectionId: currentSectionId,
+          attemptsCount: 0,
+          createdAt: serverTimestamp(),
+        });
+        await loadExamsForSection(currentSectionId);
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo crear el examen.");
+      } finally {
+        setLoading(submitBtn, false);
       }
-    } catch (error) {
-      console.error("Error obteniendo usuario:", error);
-    }
+    },
+  });
+}
+
+function openEditExamModal(id, data) {
+  openModal({
+    title: "Editar examen",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre del examen</span>
+        <input type="text" id="field-exam-name" required value="${
+          data.name || ""
+        }" />
+      </label>
+    `,
+    onSubmit: async () => {
+      const input = document.getElementById("field-exam-name");
+      const name = input.value.trim();
+      if (!name) return;
+
+      const submitBtn = document.getElementById("modal-submit");
+      setLoading(submitBtn, true);
+
+      try {
+        await updateDoc(doc(db, "exams", id), { name });
+        if (currentExamId === id) {
+          examDetailTitle.textContent = name;
+        }
+        if (currentSectionId) {
+          await loadExamsForSection(currentSectionId);
+        }
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo actualizar el examen.");
+      } finally {
+        setLoading(submitBtn, false);
+      }
+    },
+  });
+}
+
+btnNewExam.addEventListener("click", openNewExamModal);
+
+// --- Vista detalle de examen / preguntas ---
+function showExamDetailView() {
+  hide(sectionsView);
+  hide(usersView);
+  show(examDetailView);
+}
+
+btnBackToExams.addEventListener("click", () => {
+  show(sectionsView);
+  hide(usersView);
+  hide(examDetailView);
+});
+
+async function loadQuestionsForExam(examId) {
+  const q = query(colQuestions, where("examId", "==", examId));
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    renderEmptyMessage(
+      questionsList,
+      "No hay preguntas en este examen. Crea la primera con el botón “Nueva pregunta”."
+    );
+    return;
   }
 
-  container.innerHTML = `
-    <h3 style="margin-top:15px;">${formTitle}</h3>
-    <form id="user-form" style="margin-top:10px;">
-      <div class="form-group">
-        <label for="user-username">Usuario</label>
-        <input type="text" id="user-username" value="${initialData.username}" required>
-      </div>
-      <div class="form-group">
-        <label for="user-password">Contraseña</label>
-        <input type="text" id="user-password" value="${initialData.password}" required>
-      </div>
-      <div class="form-group">
-        <label for="user-role">Rol</label>
-        <select id="user-role">
-          <option value="admin" ${initialData.role === "admin" ? "selected" : ""}>Administrador</option>
-          <option value="estudiante" ${initialData.role === "estudiante" ? "selected" : ""}>Estudiante</option>
+  questionsList.innerHTML = "";
+
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const card = document.createElement("div");
+    card.className = "card-item";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "card-item__title-row";
+
+    const title = document.createElement("div");
+    title.className = "card-item__title";
+    const textPreview =
+      (data.caseText || "").length > 90
+        ? data.caseText.slice(0, 90) + "..."
+        : data.caseText || "Caso clínico sin texto";
+    title.textContent = textPreview;
+
+    const actions = document.createElement("div");
+    actions.className = "card-item__actions";
+
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "icon-btn";
+    btnEdit.textContent = "✏";
+    btnEdit.title = "Editar pregunta";
+
+    const btnDelete = document.createElement("button");
+    btnDelete.className = "icon-btn";
+    btnDelete.textContent = "🗑";
+    btnDelete.title = "Eliminar pregunta";
+
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnDelete);
+
+    titleRow.appendChild(title);
+    titleRow.appendChild(actions);
+
+    const badgeRow = document.createElement("div");
+    badgeRow.className = "card-item__badge-row";
+    const badge = document.createElement("div");
+    badge.className = "badge";
+    badge.innerHTML = `<span class="badge-dot"></span> Respuesta correcta: ${
+      data.correctOption || "—"
+    }`;
+
+    badgeRow.appendChild(badge);
+
+    card.appendChild(titleRow);
+    card.appendChild(badgeRow);
+
+    btnEdit.addEventListener("click", () => {
+      openQuestionModal(docSnap.id, data);
+    });
+
+    btnDelete.addEventListener("click", async () => {
+      const confirmDelete = window.confirm("¿Eliminar esta pregunta?");
+      if (!confirmDelete) return;
+      await deleteDoc(doc(db, "questions", docSnap.id));
+      loadQuestionsForExam(examId);
+    });
+
+    questionsList.appendChild(card);
+  });
+}
+
+function openQuestionModal(id = null, data = {}) {
+  const isEdit = Boolean(id);
+
+  openModal({
+    title: isEdit ? "Editar pregunta" : "Nueva pregunta",
+    fieldsHtml: `
+      <label class="field">
+        <span>Caso clínico</span>
+        <textarea id="field-case-text" required>${
+          data.caseText || ""
+        }</textarea>
+      </label>
+
+      <label class="field">
+        <span>Inciso A</span>
+        <input type="text" id="field-option-a" required value="${
+          data.optionA || ""
+        }" />
+      </label>
+
+      <label class="field">
+        <span>Inciso B</span>
+        <input type="text" id="field-option-b" required value="${
+          data.optionB || ""
+        }" />
+      </label>
+
+      <label class="field">
+        <span>Inciso C</span>
+        <input type="text" id="field-option-c" required value="${
+          data.optionC || ""
+        }" />
+      </label>
+
+      <label class="field">
+        <span>Inciso D</span>
+        <input type="text" id="field-option-d" required value="${
+          data.optionD || ""
+        }" />
+      </label>
+
+      <label class="field">
+        <span>Respuesta correcta</span>
+        <select id="field-correct-option" required>
+          <option value="">Selecciona una opción</option>
+          <option value="A" ${
+            data.correctOption === "A" ? "selected" : ""
+          }>A</option>
+          <option value="B" ${
+            data.correctOption === "B" ? "selected" : ""
+          }>B</option>
+          <option value="C" ${
+            data.correctOption === "C" ? "selected" : ""
+          }>C</option>
+          <option value="D" ${
+            data.correctOption === "D" ? "selected" : ""
+          }>D</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label for="user-status">Estado</label>
-        <select id="user-status">
-          <option value="activo" ${initialData.status === "activo" ? "selected" : ""}>Activo</option>
-          <option value="inactivo" ${initialData.status === "inactivo" ? "selected" : ""}>Inactivo</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="user-expiration">Fecha fin de acceso</label>
-        <input type="date" id="user-expiration" value="${initialData.expirationDate}">
-      </div>
-      <div class="login-actions">
-        <button type="submit" class="btn btn-primary">${isEdit ? "Guardar cambios" : "Crear usuario"}</button>
-        <button type="button" class="btn btn-secondary" id="btn-cancel-user-form">Cancelar</button>
-      </div>
-      <div id="user-form-msg" class="login-footer-text" style="text-align:left;margin-top:5px;"></div>
-    </form>
+      </label>
+
+      <label class="field">
+        <span>Justificación</span>
+        <textarea id="field-justification" required>${
+          data.justification || ""
+        }</textarea>
+      </label>
+    `,
+    onSubmit: async () => {
+      const caseText = document
+        .getElementById("field-case-text")
+        .value.trim();
+      const optionA = document.getElementById("field-option-a").value.trim();
+      const optionB = document.getElementById("field-option-b").value.trim();
+      const optionC = document.getElementById("field-option-c").value.trim();
+      const optionD = document.getElementById("field-option-d").value.trim();
+      const correctOption = document.getElementById(
+        "field-correct-option"
+      ).value;
+      const justification = document
+        .getElementById("field-justification")
+        .value.trim();
+
+      if (
+        !caseText ||
+        !optionA ||
+        !optionB ||
+        !optionC ||
+        !optionD ||
+        !correctOption ||
+        !justification
+      ) {
+        return;
+      }
+
+      const submitBtn = document.getElementById("modal-submit");
+      setLoading(submitBtn, true);
+
+      try {
+        if (!currentExamId) {
+          throw new Error("No hay examen seleccionado.");
+        }
+
+        const payload = {
+          examId: currentExamId,
+          caseText,
+          optionA,
+          optionB,
+          optionC,
+          optionD,
+          correctOption,
+          justification,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (isEdit) {
+          await updateDoc(doc(db, "questions", id), payload);
+        } else {
+          payload.createdAt = serverTimestamp();
+          await addDoc(colQuestions, payload);
+        }
+
+        await loadQuestionsForExam(currentExamId);
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo guardar la pregunta.");
+      } finally {
+        setLoading(submitBtn, false);
+      }
+    },
+  });
+}
+
+btnNewQuestion.addEventListener("click", () => openQuestionModal());
+
+// --- Usuarios ---
+async function loadUsers() {
+  const snap = await getDocs(colUsers);
+
+  if (snap.empty) {
+    usersList.innerHTML = "";
+    renderEmptyMessage(
+      usersList,
+      "No hay usuarios registrados. Crea el primero con el botón “Nuevo usuario”."
+    );
+    return;
+  }
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Estado</th>
+          <th>Rol</th>
+          <th>Fecha límite</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
   `;
 
-  const form = document.getElementById("user-form");
-  const msgEl = document.getElementById("user-form-msg");
-  const btnCancelForm = document.getElementById("btn-cancel-user-form");
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const updates = [];
 
-  btnCancelForm.addEventListener("click", () => {
-    container.innerHTML = "";
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    let status = data.status || "inactivo";
+    const expiry = data.expiryDate || "";
+
+    // Si tiene fecha y ya pasó, forzamos a inactivo
+    if (expiry && expiry < todayStr && status === "activo") {
+      status = "inactivo";
+      updates.push(updateDoc(docSnap.ref, { status: "inactivo" }));
+    }
+
+    const chipStatusClass =
+      status === "activo" ? "chip--activo" : "chip--inactivo";
+    const chipRoleClass =
+      data.role === "admin" ? "chip--admin" : "chip--user";
+
+    html += `
+      <tr data-id="${docSnap.id}">
+        <td>${data.name || ""}</td>
+        <td>${data.email || ""}</td>
+        <td><span class="chip ${chipStatusClass}">${status}</span></td>
+        <td><span class="chip ${chipRoleClass}">${data.role || ""}</span></td>
+        <td>${expiry || "—"}</td>
+        <td>
+          <button class="icon-btn" data-action="edit">✏</button>
+          <button class="icon-btn" data-action="delete">🗑</button>
+        </td>
+      </tr>
+    `;
   });
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    msgEl.textContent = isEdit ? "Guardando cambios..." : "Creando usuario...";
+  html += "</tbody></table>";
+  usersList.innerHTML = html;
 
-    const username = document.getElementById("user-username").value.trim();
-    const password = document.getElementById("user-password").value.trim();
-    const role = document.getElementById("user-role").value;
-    const status = document.getElementById("user-status").value;
-    const expirationStr = document.getElementById("user-expiration").value;
-    const expirationDate = expirationStr ? parseDateInputToDate(expirationStr) : null;
+  // Ejecutar actualizaciones de estado inactivo
+  if (updates.length) {
+    Promise.all(updates).catch((e) => console.error(e));
+  }
 
-    if (!username || !password) {
-      msgEl.textContent = "Usuario y contraseña son obligatorios.";
+  // Listeners
+  usersList.querySelectorAll("tr[data-id]").forEach((row) => {
+    const id = row.dataset.id;
+    const btnEdit = row.querySelector('button[data-action="edit"]');
+    const btnDelete = row.querySelector('button[data-action="delete"]');
+
+    btnEdit.addEventListener("click", () => {
+      openUserModal(id);
+    });
+
+    btnDelete.addEventListener("click", async () => {
+      const confirmDelete = window.confirm(
+        "¿Eliminar este usuario de la plataforma?"
+      );
+      if (!confirmDelete) return;
+      await deleteDoc(doc(db, "users", id));
+      loadUsers();
+    });
+  });
+}
+
+function openUserModal(id = null) {
+  const isEdit = Boolean(id);
+
+  let existingDataPromise = Promise.resolve(null);
+  if (isEdit) {
+    existingDataPromise = getDoc(doc(db, "users", id)).then((d) =>
+      d.exists() ? d.data() : null
+    );
+  }
+
+  existingDataPromise.then((data = {}) => {
+    openModal({
+      title: isEdit ? "Editar usuario" : "Nuevo usuario",
+      fieldsHtml: `
+        <label class="field">
+          <span>Nombre</span>
+          <input type="text" id="field-user-name" required value="${
+            data.name || ""
+          }" />
+        </label>
+
+        <label class="field">
+          <span>Correo</span>
+          <input type="email" id="field-user-email" required value="${
+            data.email || ""
+          }" />
+        </label>
+
+        <label class="field">
+          <span>Contraseña (visible solo para admin)</span>
+          <input type="text" id="field-user-password" required value="${
+            data.password || ""
+          }" />
+        </label>
+
+        <label class="field">
+          <span>Estado</span>
+          <select id="field-user-status">
+            <option value="activo" ${
+              data.status === "activo" ? "selected" : ""
+            }>Activo</option>
+            <option value="inactivo" ${
+              data.status === "inactivo" ? "selected" : ""
+            }>Inactivo</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Rol</span>
+          <select id="field-user-role">
+            <option value="admin" ${
+              data.role === "admin" ? "selected" : ""
+            }>Administrador</option>
+            <option value="usuario" ${
+              data.role === "usuario" ? "selected" : ""
+            }>Usuario</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Fecha límite de acceso (YYYY-MM-DD)</span>
+          <input type="date" id="field-user-expiry" value="${
+            data.expiryDate || ""
+          }" />
+        </label>
+      `,
+      onSubmit: async () => {
+        const name = document
+          .getElementById("field-user-name")
+          .value.trim();
+        const email = document
+          .getElementById("field-user-email")
+          .value.trim();
+        const password = document
+          .getElementById("field-user-password")
+          .value.trim();
+        const status = document.getElementById("field-user-status").value;
+        const role = document.getElementById("field-user-role").value;
+        const expiryDate =
+          document.getElementById("field-user-expiry").value || "";
+
+        if (!name || !email || !password) return;
+
+        const submitBtn = document.getElementById("modal-submit");
+        setLoading(submitBtn, true);
+
+        try {
+          const payload = {
+            name,
+            email,
+            password,
+            status,
+            role,
+            expiryDate,
+            updatedAt: serverTimestamp(),
+          };
+
+          if (isEdit) {
+            await updateDoc(doc(db, "users", id), payload);
+          } else {
+            payload.createdAt = serverTimestamp();
+            await addDoc(colUsers, payload);
+          }
+
+          await loadUsers();
+          closeModal();
+        } catch (err) {
+          console.error(err);
+          alert("No se pudo guardar el usuario.");
+        } finally {
+          setLoading(submitBtn, false);
+        }
+      },
+    });
+  });
+}
+
+btnNewUser.addEventListener("click", () => openUserModal());
+
+// Cambiar vista a usuarios
+btnUsersView.addEventListener("click", () => {
+  hide(sectionsView);
+  hide(examDetailView);
+  show(usersView);
+  btnUsersView.classList.remove("btn-outline");
+  btnUsersView.classList.add("btn-secondary");
+  loadUsers();
+});
+
+// --- Redes sociales ---
+async function loadSocialLinks() {
+  try {
+    const snap = await getDoc(docSettingsSocial);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    socialButtons.forEach((btn) => {
+      const network = btn.dataset.network;
+      if (data[network]) {
+        btn.dataset.url = data[network];
+      } else {
+        delete btn.dataset.url;
+      }
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+btnEditSocial.addEventListener("click", () => {
+  getDoc(docSettingsSocial)
+    .then((snap) => (snap.exists() ? snap.data() : {}))
+    .then((data = {}) => {
+      openModal({
+        title: "Enlaces de redes sociales",
+        fieldsHtml: `
+          <label class="field">
+            <span>Instagram (URL)</span>
+            <input type="url" id="field-instagram" value="${
+              data.instagram || ""
+            }" />
+          </label>
+          <label class="field">
+            <span>WhatsApp (URL)</span>
+            <input type="url" id="field-whatsapp" value="${
+              data.whatsapp || ""
+            }" />
+          </label>
+          <label class="field">
+            <span>TikTok (URL)</span>
+            <input type="url" id="field-tiktok" value="${
+              data.tiktok || ""
+            }" />
+          </label>
+          <label class="field">
+            <span>Telegram (URL)</span>
+            <input type="url" id="field-telegram" value="${
+              data.telegram || ""
+            }" />
+          </label>
+        `,
+        onSubmit: async () => {
+          const instagram =
+            document.getElementById("field-instagram").value.trim();
+          const whatsapp =
+            document.getElementById("field-whatsapp").value.trim();
+          const tiktok = document
+            .getElementById("field-tiktok")
+            .value.trim();
+          const telegram = document
+            .getElementById("field-telegram")
+            .value.trim();
+
+          const submitBtn = document.getElementById("modal-submit");
+          setLoading(submitBtn, true);
+
+          try {
+            await updateDoc(docSettingsSocial, {
+              instagram,
+              whatsapp,
+              tiktok,
+              telegram,
+              updatedAt: serverTimestamp(),
+            }).catch(async (err) => {
+              // Si no existe el doc, lo creamos
+              if (err.code === "not-found") {
+                await addDoc(collection(db, "settings"), {
+                  instagram,
+                  whatsapp,
+                  tiktok,
+                  telegram,
+                  createdAt: serverTimestamp(),
+                });
+              } else {
+                throw err;
+              }
+            });
+
+            await loadSocialLinks();
+            closeModal();
+          } catch (err) {
+            console.error(err);
+            alert("No se pudieron guardar los enlaces.");
+          } finally {
+            setLoading(submitBtn, false);
+          }
+        },
+      });
+    });
+});
+
+socialButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const url = btn.dataset.url;
+    if (!url) {
+      alert("No se ha configurado el enlace de esta red social.");
       return;
     }
-
-    const payload = {
-      username,
-      password,
-      role,
-      status,
-      expirationDate: expirationDate ? { seconds: Math.floor(expirationDate.getTime()/1000), nanoseconds: 0 } : null,
-      updatedAt: serverTimestamp()
-    };
-
-    try {
-      if (isEdit) {
-        const docRef = doc(db, "users", userId);
-        await updateDoc(docRef, payload);
-        msgEl.textContent = "Usuario actualizado correctamente.";
-      } else {
-        await addDoc(collection(db, "users"), {
-          ...payload,
-          createdAt: serverTimestamp()
-        });
-        msgEl.textContent = "Usuario creado correctamente.";
-      }
-
-      // Recargar tabla de usuarios
-      await renderUsersAdmin();
-    } catch (error) {
-      console.error("Error guardando usuario:", error);
-      msgEl.textContent = "Error al guardar el usuario.";
-    }
+    window.open(url, "_blank", "noopener,noreferrer");
   });
-}
+});
 
-// --------------------------------------------------
-// EVENTOS DE LA BARRA LATERAL (Usuarios / Íconos)
-// --------------------------------------------------
-if (menuUsersEl) {
-  menuUsersEl.addEventListener("click", async () => {
-    clearSidebarActive();
-    menuUsersEl.classList.add("active");
-    await renderUsersAdmin();
-  });
-}
-
-if (menuIconsEl) {
-  menuIconsEl.addEventListener("click", async () => {
-    clearSidebarActive();
-    menuIconsEl.classList.add("active");
-    await renderIconsAdmin();
-  });
-}
-
-// --------------------------------------------------
-// INIT
-// --------------------------------------------------
-function init() {
-  if (loginForm) {
-    loginForm.addEventListener("submit", handleLoginSubmit);
+// --- Modal: eventos globales ---
+modalCancel.addEventListener("click", closeModal);
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) {
+    closeModal();
   }
-  if (btnCancelar) {
-    btnCancelar.addEventListener("click", handleCancelar);
+});
+
+modalForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (typeof modalSubmitHandler === "function") {
+    await modalSubmitHandler();
   }
-
-  // Cargar íconos para la barra lateral al inicio
-  loadSocialLinksForSidebar();
-}
-
-document.addEventListener("DOMContentLoaded", init);
+});
