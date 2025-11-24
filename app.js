@@ -75,8 +75,6 @@ const btnNewExam = document.getElementById("btn-new-exam");
 const examsList = document.getElementById("exams-list");
 
 const usersList = document.getElementById("users-list");
-
-// Formulario fijo de creación de usuario
 const btnCreateUser = document.getElementById("btn-create-user");
 
 // Detalle examen
@@ -86,7 +84,7 @@ const btnSaveExamMeta = document.getElementById("btn-save-exam-meta");
 const btnNewQuestion = document.getElementById("btn-new-question");
 const questionsList = document.getElementById("questions-list");
 
-// Modal genérico (para editar usuario, redes, etc.)
+// Modal genérico
 const modalOverlay = document.getElementById("modal-overlay");
 const modalTitle = document.getElementById("modal-title");
 const modalFields = document.getElementById("modal-fields");
@@ -178,7 +176,7 @@ if (btnToggleSidebar && sidebar) {
 }
 
 /***********************************************
- * LOGIN ADMIN
+ * LOGIN (ADMIN / ESTUDIANTE)
  ***********************************************/
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -204,10 +202,7 @@ loginForm.addEventListener("submit", async (e) => {
 
     const data = userSnap.data();
 
-    if (data.role !== "admin") {
-      throw new Error("Tu usuario no tiene rol de administrador.");
-    }
-
+    // Validar vigencia y estado (aplica para admin y usuario)
     const today = new Date().toISOString().slice(0, 10);
     if (data.expiryDate && data.expiryDate < today) {
       await updateDoc(userDocRef, { status: "inactivo" });
@@ -217,6 +212,20 @@ loginForm.addEventListener("submit", async (e) => {
     if (data.status !== "activo") {
       throw new Error("Tu usuario está inactivo. Contacta al administrador para activarlo.");
     }
+
+    // Redirección según rol
+    if (data.role === "usuario") {
+      // Rol estudiante → panel estudiante
+      window.location.href = "student.html";
+      return;
+    }
+
+    if (data.role !== "admin") {
+      throw new Error("Tu usuario no tiene un rol válido para esta plataforma.");
+    }
+
+    // Si es admin, el onAuthStateChanged se encargará de mostrar panel admin
+
   } catch (err) {
     console.error(err);
     loginError.textContent = err.message || "No se pudo iniciar sesión. Revisa tus datos.";
@@ -240,32 +249,85 @@ btnLogout.addEventListener("click", async () => {
  ***********************************************/
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Autenticado
-    currentUserEmailSpan.textContent = user.email || "";
-    hide(loginView);
-    show(adminView);
-    show(btnLogout);
+    try {
+      const userDocRef = doc(db, "users", user.email);
+      const userSnap = await getDoc(userDocRef);
 
-    // Vista por defecto: secciones
-    show(sectionsView);
-    hide(usersView);
-    hide(examDetailView);
+      if (!userSnap.exists()) {
+        await signOut(auth);
+        show(loginView);
+        hide(adminView);
+        currentUserEmailSpan.textContent = "";
+        return;
+      }
 
-    btnUsersView.classList.remove("btn-secondary");
-    btnUsersView.classList.add("btn-outline");
+      const data = userSnap.data();
+      const today = new Date().toISOString().slice(0, 10);
 
-    currentSectionId = null;
-    currentExamId = null;
-    currentSectionName = "";
-    currentSectionTitle.textContent = "Selecciona una sección";
-    currentSectionSubtitle.textContent =
-      "Elige una sección en la barra lateral para ver sus exámenes.";
-    hide(btnNewExam);
-    renderEmptyMessage(examsList, "Aún no has seleccionado ninguna sección.");
+      // Vigencia y estado
+      if (data.expiryDate && data.expiryDate < today) {
+        await updateDoc(userDocRef, { status: "inactivo" });
+        await signOut(auth);
+        show(loginView);
+        hide(adminView);
+        currentUserEmailSpan.textContent = "";
+        return;
+      }
 
-    await Promise.all([loadSections(), loadSocialLinks()]);
+      if (data.status !== "activo") {
+        await signOut(auth);
+        show(loginView);
+        hide(adminView);
+        currentUserEmailSpan.textContent = "";
+        return;
+      }
+
+      // Redirección si es usuario (estudiante)
+      if (data.role === "usuario") {
+        window.location.href = "student.html";
+        return;
+      }
+
+      if (data.role !== "admin") {
+        await signOut(auth);
+        show(loginView);
+        hide(adminView);
+        currentUserEmailSpan.textContent = "";
+        return;
+      }
+
+      // Rol admin → mostrar panel admin
+      currentUserEmailSpan.textContent = user.email || "";
+      hide(loginView);
+      show(adminView);
+      show(btnLogout);
+
+      // Vista por defecto: secciones
+      show(sectionsView);
+      hide(usersView);
+      hide(examDetailView);
+      btnUsersView.classList.remove("btn-secondary");
+      btnUsersView.classList.add("btn-outline");
+
+      currentSectionId = null;
+      currentExamId = null;
+      currentSectionName = "";
+      currentSectionTitle.textContent = "Selecciona una sección";
+      currentSectionSubtitle.textContent =
+        "Elige una sección en la barra lateral para ver sus exámenes.";
+      hide(btnNewExam);
+      renderEmptyMessage(examsList, "Aún no has seleccionado ninguna sección.");
+
+      await Promise.all([loadSections(), loadSocialLinks()]);
+
+    } catch (err) {
+      console.error(err);
+      await signOut(auth);
+      show(loginView);
+      hide(adminView);
+      currentUserEmailSpan.textContent = "";
+    }
   } else {
-    // No autenticado
     show(loginView);
     hide(adminView);
     hide(btnLogout);
@@ -275,7 +337,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /***********************************************
- * SECCIONES
+ * SECCIONES (ADMIN)
  ***********************************************/
 async function loadSections() {
   const snap = await getDocs(collection(db, "sections"));
@@ -357,7 +419,6 @@ function handleSelectSection(id, name, li) {
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
   li.classList.add("sidebar__section-item--active");
 
-  // Vista: secciones
   show(sectionsView);
   hide(usersView);
   hide(examDetailView);
@@ -374,12 +435,10 @@ function handleSelectSection(id, name, li) {
 }
 
 async function deleteSectionWithAllData(sectionId) {
-  // Borrar exámenes y sus casos/preguntas
   const qExams = query(collection(db, "exams"), where("sectionId", "==", sectionId));
   const examsSnap = await getDocs(qExams);
   for (const exDoc of examsSnap.docs) {
     const exId = exDoc.id;
-    // Borrar todos los casos clínicos del examen
     const qCases = query(collection(db, "questions"), where("examId", "==", exId));
     const caseSnap = await getDocs(qCases);
     for (const cDoc of caseSnap.docs) {
@@ -464,7 +523,7 @@ function openEditSectionModal(id, currentName) {
 btnNewSection.addEventListener("click", openNewSectionModal);
 
 /***********************************************
- * EXÁMENES
+ * EXÁMENES (ADMIN)
  ***********************************************/
 async function loadExamsForSection(sectionId) {
   const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
@@ -612,7 +671,7 @@ function openEditExamModal(id, currentName) {
 btnNewExam.addEventListener("click", openNewExamModal);
 
 /***********************************************
- * DETALLE DE EXAMEN
+ * DETALLE DE EXAMEN (ADMIN)
  ***********************************************/
 function openExamDetail(examId, examName) {
   currentExamId = examId;
@@ -630,8 +689,8 @@ function openExamDetail(examId, examName) {
 
 btnBackToExams.addEventListener("click", () => {
   show(sectionsView);
-  hide(examDetailView);
   hide(usersView);
+  hide(examDetailView);
   currentExamId = null;
 });
 
@@ -661,8 +720,9 @@ btnSaveExamMeta.addEventListener("click", async () => {
     setLoading(btn, false, "Guardar nombre");
   }
 });
+
 /***********************************************
- * CASOS CLÍNICOS CON VARIAS PREGUNTAS
+ * CASOS CLÍNICOS CON VARIAS PREGUNTAS (ADMIN)
  ***********************************************/
 async function loadCasesForExam(examId) {
   const q = query(collection(db, "questions"), where("examId", "==", examId));
@@ -854,7 +914,9 @@ async function saveCaseBlock(caseId, caseCard) {
       !correctOption ||
       !justification
     ) {
-      alert("Completa todos los campos de cada pregunta.");
+      alert(
+        "Completa todos los campos de cada pregunta (pregunta, incisos, respuesta correcta y justificación)."
+      );
       return;
     }
 
@@ -877,7 +939,9 @@ async function saveCaseBlock(caseId, caseCard) {
       updatedAt: serverTimestamp(),
     });
     alert("Caso clínico guardado correctamente.");
-    await loadCasesForExam(currentExamId);
+    if (currentExamId) {
+      await loadCasesForExam(currentExamId);
+    }
   } catch (err) {
     console.error(err);
     alert("No se pudo guardar el caso clínico.");
@@ -903,52 +967,9 @@ btnNewQuestion.addEventListener("click", async () => {
     alert("No se pudo crear el nuevo caso clínico.");
   }
 });
-/***********************************************
- * USUARIOS — FORMULARIO FIJO (Crear usuario)
- ***********************************************/
-btnCreateUser.addEventListener("click", async () => {
-  const name = document.getElementById("newuser-name").value.trim();
-  const email = document.getElementById("newuser-email").value.trim();
-  const password = document.getElementById("newuser-password").value.trim();
-  const status = document.getElementById("newuser-status").value;
-  const role = document.getElementById("newuser-role").value;
-  const expiryDate = document.getElementById("newuser-expiry").value || "";
-
-  if (!name || !email || !password) {
-    alert("Nombre, correo y contraseña son obligatorios.");
-    return;
-  }
-
-  const docId = email;
-
-  try {
-    await setDoc(doc(db, "users", docId), {
-      name,
-      email,
-      password,
-      status,
-      role,
-      expiryDate,
-      createdAt: serverTimestamp(),
-    });
-
-    alert("Usuario creado correctamente en Firestore.\n" +
-          "Recuerda: también debes crearlo en Firebase Authentication para que pueda iniciar sesión.");
-
-    document.getElementById("newuser-name").value = "";
-    document.getElementById("newuser-email").value = "";
-    document.getElementById("newuser-password").value = "";
-    document.getElementById("newuser-expiry").value = "";
-
-    await loadUsers();
-  } catch (err) {
-    console.error(err);
-    alert("No se pudo crear el usuario.");
-  }
-});
 
 /***********************************************
- * USUARIOS — LISTAR, EDITAR, BORRAR
+ * USUARIOS (ADMIN) CON FORMULARIO FIJO ARRIBA
  ***********************************************/
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
@@ -957,7 +978,7 @@ async function loadUsers() {
     usersList.innerHTML = "";
     renderEmptyMessage(
       usersList,
-      "No hay usuarios registrados."
+      "No hay usuarios registrados. Crea el primero con el formulario superior."
     );
     return;
   }
@@ -979,17 +1000,22 @@ async function loadUsers() {
 
   snap.forEach((docSnap) => {
     const data = docSnap.data();
-    const id = docSnap.id;
     const status = data.status || "inactivo";
     const role = data.role || "usuario";
+    const expiry = data.expiryDate || "";
+    const id = docSnap.id;
+
+    const chipStatusClass =
+      status === "activo" ? "chip--activo" : "chip--inactivo";
+    const chipRoleClass = role === "admin" ? "chip--admin" : "chip--user";
 
     html += `
       <tr data-id="${id}">
         <td>${data.name || ""}</td>
         <td>${data.email || ""}</td>
-        <td><span class="chip ${status === "activo" ? "chip--activo" : "chip--inactivo"}">${status}</span></td>
-        <td><span class="chip ${role === "admin" ? "chip--admin" : "chip--user"}">${role}</span></td>
-        <td>${data.expiryDate || "—"}</td>
+        <td><span class="chip ${chipStatusClass}">${status}</span></td>
+        <td><span class="chip ${chipRoleClass}">${role}</span></td>
+        <td>${expiry || "—"}</td>
         <td>
           <button class="icon-btn" data-action="edit">✏</button>
           <button class="icon-btn" data-action="delete">🗑</button>
@@ -1003,116 +1029,203 @@ async function loadUsers() {
 
   usersList.querySelectorAll("tr[data-id]").forEach((row) => {
     const id = row.dataset.id;
-    const btnEdit = row.querySelector("button[data-action='edit']");
-    const btnDelete = row.querySelector("button[data-action='delete']");
+    const btnEdit = row.querySelector('button[data-action="edit"]');
+    const btnDelete = row.querySelector('button[data-action="delete"]');
 
-    btnEdit.addEventListener("click", () => openEditUserModal(id));
-    btnDelete.addEventListener("click", () => deleteUser(id));
+    btnEdit.addEventListener("click", () => {
+      openUserModal(id);
+    });
+
+    btnDelete.addEventListener("click", async () => {
+      const ok = window.confirm("¿Eliminar este usuario de la plataforma?");
+      if (!ok) return;
+      await deleteDoc(doc(db, "users", id));
+      loadUsers();
+    });
   });
 }
 
-/***********************************************
- * EDITAR USUARIO (modal)
- ***********************************************/
-async function openEditUserModal(id) {
-  const snap = await getDoc(doc(db, "users", id));
-  if (!snap.exists()) return alert("Usuario no encontrado.");
+// Modal para editar usuario existente
+function openUserModal(id = null) {
+  const isEdit = Boolean(id);
+  let dataPromise = Promise.resolve(null);
 
-  const data = snap.data();
+  if (isEdit) {
+    dataPromise = getDoc(doc(db, "users", id)).then((d) =>
+      d.exists() ? d.data() : null
+    );
+  }
 
-  openModal({
-    title: "Editar usuario",
-    fieldsHtml: `
-      <label class="field">
-        <span>Nombre</span>
-        <input type="text" id="edit-name" value="${data.name || ""}" />
-      </label>
+  dataPromise.then((data = {}) => {
+    const docId = isEdit ? id : (data.email || "");
 
-      <label class="field">
-        <span>Correo</span>
-        <input type="email" id="edit-email" value="${data.email || ""}" readonly />
-      </label>
+    openModal({
+      title: isEdit ? "Editar usuario" : "Nuevo usuario",
+      fieldsHtml: `
+        <label class="field">
+          <span>Nombre</span>
+          <input type="text" id="field-user-name" required value="${data.name || ""}" />
+        </label>
 
-      <label class="field">
-        <span>Contraseña</span>
-        <input type="text" id="edit-password" value="${data.password || ""}" />
-      </label>
+        <label class="field">
+          <span>Correo (este será también el ID del documento)</span>
+          <input type="email" id="field-user-email" ${isEdit ? "readonly" : ""} value="${data.email || ""}" />
+        </label>
 
-      <label class="field">
-        <span>Estado</span>
-        <select id="edit-status">
-          <option value="activo" ${data.status === "activo" ? "selected" : ""}>Activo</option>
-          <option value="inactivo" ${data.status === "inactivo" ? "selected" : ""}>Inactivo</option>
-        </select>
-      </label>
+        <label class="field">
+          <span>ID del documento en Firestore</span>
+          <input type="text" id="field-user-docid" readonly value="${docId || ""}" />
+        </label>
 
-      <label class="field">
-        <span>Rol</span>
-        <select id="edit-role">
-          <option value="admin" ${data.role === "admin" ? "selected" : ""}>Administrador</option>
-          <option value="usuario" ${data.role === "usuario" ? "selected" : ""}>Usuario</option>
-        </select>
-      </label>
+        <label class="field">
+          <span>Contraseña (solo visible para admin)</span>
+          <input type="text" id="field-user-password" required value="${data.password || ""}" />
+        </label>
 
-      <label class="field">
-        <span>Fecha límite</span>
-        <input type="date" id="edit-expiry" value="${data.expiryDate || ""}" />
-      </label>
-    `,
-    onSubmit: async () => {
-      const name = document.getElementById("edit-name").value.trim();
-      const password = document.getElementById("edit-password").value.trim();
-      const status = document.getElementById("edit-status").value;
-      const role = document.getElementById("edit-role").value;
-      const expiryDate = document.getElementById("edit-expiry").value || "";
+        <label class="field">
+          <span>Estado</span>
+          <select id="field-user-status">
+            <option value="activo" ${data.status === "activo" ? "selected" : ""}>Activo</option>
+            <option value="inactivo" ${data.status === "inactivo" ? "selected" : ""}>Inactivo</option>
+          </select>
+        </label>
 
-      try {
-        await updateDoc(doc(db, "users", id), {
-          name,
-          password,
-          status,
-          role,
-          expiryDate,
-          updatedAt: serverTimestamp(),
-        });
+        <label class="field">
+          <span>Rol</span>
+          <select id="field-user-role">
+            <option value="admin" ${data.role === "admin" ? "selected" : ""}>Administrador</option>
+            <option value="usuario" ${data.role === "usuario" ? "selected" : ""}>Usuario</option>
+          </select>
+        </label>
 
-        closeModal();
-        await loadUsers();
-      } catch (err) {
-        console.error(err);
-        alert("No se pudo actualizar el usuario.");
-      }
+        <label class="field">
+          <span>Fecha límite de acceso</span>
+          <input type="date" id="field-user-expiry" value="${data.expiryDate || ""}" />
+        </label>
+      `,
+      onSubmit: async () => {
+        const name = document
+          .getElementById("field-user-name")
+          .value.trim();
+        const email = document
+          .getElementById("field-user-email")
+          .value.trim();
+        const password = document
+          .getElementById("field-user-password")
+          .value.trim();
+        const status = document.getElementById("field-user-status").value;
+        const role = document.getElementById("field-user-role").value;
+        const expiryDate =
+          document.getElementById("field-user-expiry").value || "";
+
+        if (!name || !email || !password) {
+          alert("Nombre, correo y contraseña son obligatorios.");
+          return;
+        }
+
+        const docIdFinal = email; // ID = email SIEMPRE
+
+        const submitBtn = modalSubmit;
+        setLoading(submitBtn, true);
+
+        try {
+          const payload = {
+            name,
+            email,
+            password,
+            status,
+            role,
+            expiryDate,
+            updatedAt: serverTimestamp(),
+          };
+
+          if (isEdit) {
+            await updateDoc(doc(db, "users", docIdFinal), payload);
+          } else {
+            payload.createdAt = serverTimestamp();
+            await setDoc(doc(db, "users", docIdFinal), payload);
+            alert(
+              "Usuario creado en Firestore.\nRecuerda: también debes crearlo en Firebase Authentication con el mismo correo y contraseña para que pueda iniciar sesión."
+            );
+          }
+
+          await loadUsers();
+          closeModal();
+        } catch (err) {
+          console.error(err);
+          alert("No se pudo guardar el usuario.");
+        } finally {
+          setLoading(submitBtn, false);
+        }
+      },
+    });
+
+    // Sincronizar ID de documento con correo al escribir (solo en modo nuevo)
+    if (!isEdit) {
+      const emailInput = document.getElementById("field-user-email");
+      const docIdInput = document.getElementById("field-user-docid");
+      emailInput.addEventListener("input", () => {
+        docIdInput.value = emailInput.value.trim();
+      });
     }
   });
 }
 
-/***********************************************
- * ELIMINAR USUARIO
- ***********************************************/
-async function deleteUser(id) {
-  const ok = window.confirm("¿Eliminar este usuario?");
-  if (!ok) return;
+// Crear usuario desde el formulario fijo
+btnCreateUser.addEventListener("click", async () => {
+  const name = document.getElementById("new-user-name").value.trim();
+  const email = document.getElementById("new-user-email").value.trim();
+  const password = document.getElementById("new-user-password").value.trim();
+  const status = document.getElementById("new-user-status").value;
+  const role = document.getElementById("new-user-role").value;
+  const expiryDate =
+    document.getElementById("new-user-expiry").value || "";
+
+  if (!name || !email || !password) {
+    alert("Nombre, correo y contraseña son obligatorios.");
+    return;
+  }
+
+  const docIdFinal = email;
 
   try {
-    await deleteDoc(doc(db, "users", id));
+    await setDoc(doc(db, "users", docIdFinal), {
+      name,
+      email,
+      password,
+      status,
+      role,
+      expiryDate,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    alert(
+      "Usuario creado en Firestore.\nRecuerda: también debes crearlo en Firebase Authentication con el mismo correo y contraseña para que pueda iniciar sesión."
+    );
+
+    // Limpiar formulario
+    document.getElementById("new-user-name").value = "";
+    document.getElementById("new-user-email").value = "";
+    document.getElementById("new-user-password").value = "";
+    document.getElementById("new-user-status").value = "activo";
+    document.getElementById("new-user-role").value = "usuario";
+    document.getElementById("new-user-expiry").value = "";
+
     await loadUsers();
+
   } catch (err) {
     console.error(err);
-    alert("No se pudo eliminar.");
+    alert("No se pudo crear el usuario.");
   }
-}
+});
 
-/***********************************************
- * CAMBIO A VISTA USUARIOS
- ***********************************************/
 btnUsersView.addEventListener("click", () => {
   hide(sectionsView);
   hide(examDetailView);
   show(usersView);
-
   btnUsersView.classList.remove("btn-outline");
   btnUsersView.classList.add("btn-secondary");
-
   loadUsers();
 });
 
@@ -1150,16 +1263,35 @@ btnEditSocial.addEventListener("click", async () => {
   openModal({
     title: "Enlaces de redes sociales",
     fieldsHtml: `
-      <label class="field"><span>Instagram</span><input type="url" id="field-instagram" value="${data.instagram || ""}"></label>
-      <label class="field"><span>WhatsApp</span><input type="url" id="field-whatsapp" value="${data.whatsapp || ""}"></label>
-      <label class="field"><span>TikTok</span><input type="url" id="field-tiktok" value="${data.tiktok || ""}"></label>
-      <label class="field"><span>Telegram</span><input type="url" id="field-telegram" value="${data.telegram || ""}"></label>
+      <label class="field">
+        <span>Instagram (URL)</span>
+        <input type="url" id="field-instagram" value="${data.instagram || ""}" />
+      </label>
+      <label class="field">
+        <span>WhatsApp (URL)</span>
+        <input type="url" id="field-whatsapp" value="${data.whatsapp || ""}" />
+      </label>
+      <label class="field">
+        <span>TikTok (URL)</span>
+        <input type="url" id="field-tiktok" value="${data.tiktok || ""}" />
+      </label>
+      <label class="field">
+        <span>Telegram (URL)</span>
+        <input type="url" id="field-telegram" value="${data.telegram || ""}" />
+      </label>
     `,
     onSubmit: async () => {
-      const instagram = document.getElementById("field-instagram").value.trim();
-      const whatsapp = document.getElementById("field-whatsapp").value.trim();
-      const tiktok = document.getElementById("field-tiktok").value.trim();
-      const telegram = document.getElementById("field-telegram").value.trim();
+      const instagram =
+        document.getElementById("field-instagram").value.trim();
+      const whatsapp =
+        document.getElementById("field-whatsapp").value.trim();
+      const tiktok =
+        document.getElementById("field-tiktok").value.trim();
+      const telegram =
+        document.getElementById("field-telegram").value.trim();
+
+      const submitBtn = modalSubmit;
+      setLoading(submitBtn, true);
 
       try {
         await updateDoc(doc(db, "settings", "socialLinks"), {
@@ -1170,18 +1302,24 @@ btnEditSocial.addEventListener("click", async () => {
           updatedAt: serverTimestamp(),
         });
       } catch (err) {
-        await setDoc(doc(db, "settings", "socialLinks"), {
-          instagram,
-          whatsapp,
-          tiktok,
-          telegram,
-          createdAt: serverTimestamp(),
-        });
+        try {
+          await setDoc(doc(db, "settings", "socialLinks"), {
+            instagram,
+            whatsapp,
+            tiktok,
+            telegram,
+            createdAt: serverTimestamp(),
+          });
+        } catch (err2) {
+          console.error(err2);
+          alert("No se pudieron guardar los enlaces.");
+        }
+      } finally {
+        await loadSocialLinks();
+        setLoading(submitBtn, false);
+        closeModal();
       }
-
-      closeModal();
-      loadSocialLinks();
-    }
+    },
   });
 });
 
