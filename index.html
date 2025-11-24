@@ -1,32 +1,26 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Simulacros Estudiante ENARM</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel administrador | Estudiante ENARM</title>
 
   <!-- Fuente moderna -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Iconos (para Instagram, WhatsApp, TikTok, Telegram) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-
-  <!-- Hoja de estilos principal -->
+  <!-- Estilos principales -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Google Analytics -->
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-B43LFZV7MR');
   </script>
-
+</head>
+<body>
   <!-- Meta Pixel Code -->
   <script>
     !function(f,b,e,v,n,t,s)
@@ -42,126 +36,183 @@
   </script>
   <noscript>
     <img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"
-    />
+         src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
   </noscript>
   <!-- End Meta Pixel Code -->
-</head>
 
-<body>
-  <div class="layout">
-    <!-- SIDEBAR IZQUIERDA -->
-    <aside class="sidebar">
-      <!-- Logo y título -->
-      <div class="sidebar-header">
-        <!-- REEMPLAZA LA RUTA DEL SRC POR LA URL DE TU LOGO EN GITHUB -->
-        <img src="logo-light.png" alt="Logo Estudiante ENARM" class="logo-img">
-        <div class="logo-text">
-          <span class="logo-title">ESTUDIANTE</span>
-          <span class="logo-subtitle">ENARM</span>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__top">
+        <div class="logo-area">
+          <div class="logo-circle">E</div>
+          <div>
+            <div class="logo-title">Estudiante ENARM</div>
+            <div class="logo-subtitle">Panel administrador</div>
+          </div>
         </div>
+
+        <nav class="sidebar__sections">
+          <div class="sidebar__section-header">
+            <span>Secciones</span>
+          </div>
+          <ul id="sidebar-sections" class="sidebar__sections-list">
+            <!-- Secciones cargadas por JS -->
+          </ul>
+
+          <button id="btn-new-section" class="btn btn-secondary btn-full">
+            + Crear nueva sección
+          </button>
+
+          <button id="btn-users-view" class="btn btn-outline btn-full">
+            Usuarios
+          </button>
+        </nav>
       </div>
 
-      <!-- Secciones (luego se llenan dinámicamente desde Firestore) -->
-      <nav class="sidebar-nav">
-        <h2 class="sidebar-section-title">Secciones</h2>
-        <ul id="sections-list">
-          <!-- Ejemplo de item estático mientras se conecta Firestore -->
-          <!-- Estos se reemplazarán dinámicamente en app.js -->
-          <!--
-          <li class="sidebar-item active">Medicina Interna</li>
-          -->
-        </ul>
-
-        <!-- Usuarios -->
-        <h2 class="sidebar-section-title">Administración</h2>
-        <ul>
-          <li class="sidebar-item" id="menu-users">Usuarios</li>
-          <li class="sidebar-item" id="menu-icons">Íconos</li>
-        </ul>
-      </nav>
-
-      <!-- Botón Adquirir acceso -->
-      <div class="sidebar-acceso">
-        <a
-          href="https://wa.me/525515656316?text=Me%20gustar%C3%ADa%20adquirir%20la%20plataforma"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-acceso"
-        >
-          Adquirir acceso
-        </a>
-      </div>
-
-      <!-- Íconos inferiores -->
-      <div class="sidebar-social">
-        <a href="#" id="icon-instagram" class="social-link" aria-label="Instagram">
-          <i class="fab fa-instagram"></i>
-        </a>
-        <a href="#" id="icon-whatsapp" class="social-link" aria-label="WhatsApp">
-          <i class="fab fa-whatsapp"></i>
-        </a>
-        <a href="#" id="icon-tiktok" class="social-link" aria-label="TikTok">
-          <i class="fab fa-tiktok"></i>
-        </a>
-        <a href="#" id="icon-telegram" class="social-link" aria-label="Telegram">
-          <i class="fab fa-telegram"></i>
-        </a>
+      <div class="sidebar__bottom">
+        <div class="sidebar__social-title">Redes</div>
+        <div class="sidebar__social-icons">
+          <button class="social-icon" data-network="instagram">IG</button>
+          <button class="social-icon" data-network="whatsapp">WA</button>
+          <button class="social-icon" data-network="tiktok">TT</button>
+          <button class="social-icon" data-network="telegram">TG</button>
+        </div>
+        <button id="btn-edit-social" class="btn-link">Editar enlaces</button>
       </div>
     </aside>
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <main class="main-content">
-      <div class="login-wrapper">
-        <div class="login-card">
-          <h1 class="login-title">Iniciar sesión</h1>
-          <p class="login-subtitle">
-            Ingresa con tu usuario y contraseña para acceder a la plataforma.
+    <!-- Main -->
+    <main class="main">
+      <header class="main__header">
+        <button id="btn-toggle-sidebar" class="burger">
+          <span></span><span></span><span></span>
+        </button>
+        <h1 class="main__title">Panel administrador</h1>
+        <div class="main__user-area">
+          <span id="current-user-email" class="user-email"></span>
+          <button id="btn-logout" class="btn btn-text hidden">
+            Cerrar sesión
+          </button>
+        </div>
+      </header>
+
+      <!-- Vista de login -->
+      <section id="login-view" class="main__content main__content--center">
+        <div class="card card-login">
+          <h2>Acceso administrador</h2>
+          <p class="card-subtitle">
+            Usa tu correo y contraseña registrados en la plataforma.
           </p>
 
-          <form id="login-form">
-            <div class="form-group">
-              <label for="login-username">Usuario</label>
-              <input
-                type="text"
-                id="login-username"
-                name="username"
-                autocomplete="username"
-                required
-              />
-            </div>
+          <form id="login-form" class="form">
+            <label class="field">
+              <span>Correo electrónico</span>
+              <input type="email" id="login-email" required />
+            </label>
 
-            <div class="form-group">
-              <label for="login-password">Contraseña</label>
-              <input
-                type="password"
-                id="login-password"
-                name="password"
-                autocomplete="current-password"
-                required
-              />
-            </div>
+            <label class="field">
+              <span>Contraseña</span>
+              <input type="password" id="login-password" required />
+            </label>
 
-            <div id="login-error" class="login-error" aria-live="polite"></div>
+            <button type="submit" class="btn btn-primary btn-full" id="btn-login">
+              Entrar
+            </button>
 
-            <div class="login-actions">
-              <button type="submit" class="btn btn-primary">Entrar</button>
-              <button type="button" class="btn btn-secondary" id="btn-cancelar">
-                Cancelar
-              </button>
-            </div>
+            <p id="login-error" class="form-error hidden"></p>
           </form>
 
-          <p class="login-footer-text">
-            El tipo de acceso (Administrador o Estudiante) dependerá de tu usuario.
+          <p class="card-note">
+            Solo administradores con estado activo y fecha vigente pueden ingresar.
           </p>
         </div>
-      </div>
+      </section>
+
+      <!-- Vista admin -->
+      <section id="admin-view" class="main__content hidden">
+        <!-- Vista Secciones / Exámenes -->
+        <div id="sections-view">
+          <div class="panel-header">
+            <div>
+              <h2 id="current-section-title">Selecciona una sección</h2>
+              <p id="current-section-subtitle" class="panel-subtitle">
+                Elige una sección en la barra lateral para ver sus exámenes.
+              </p>
+            </div>
+            <button id="btn-new-exam" class="btn btn-primary hidden">
+              + Nuevo examen
+            </button>
+          </div>
+
+          <div id="exams-list" class="cards-list">
+            <!-- Exámenes por sección -->
+          </div>
+        </div>
+
+        <!-- Vista Usuarios -->
+        <div id="users-view" class="hidden">
+          <div class="panel-header">
+            <div>
+              <h2>Usuarios</h2>
+              <p class="panel-subtitle">
+                Gestiona accesos, roles, estados y fecha límite de cada usuario.
+              </p>
+            </div>
+            <button id="btn-new-user" class="btn btn-primary">
+              + Nuevo usuario
+            </button>
+          </div>
+
+          <div id="users-list" class="table-wrapper">
+            <!-- Tabla de usuarios generada por JS -->
+          </div>
+        </div>
+
+        <!-- Vista detalle de examen / preguntas -->
+        <div id="exam-detail-view" class="hidden">
+          <div class="panel-header">
+            <button id="btn-back-to-exams" class="btn btn-outline">
+              ← Volver a exámenes
+            </button>
+            <div>
+              <h2 id="exam-detail-title">Examen</h2>
+              <p class="panel-subtitle">
+                Gestiona las preguntas, respuestas correctas y justificaciones.
+              </p>
+            </div>
+            <button id="btn-new-question" class="btn btn-primary">
+              + Nueva pregunta
+            </button>
+          </div>
+
+          <div id="questions-list" class="cards-list">
+            <!-- Preguntas del examen -->
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
-  <!-- Lógica principal: Firebase + Firestore + login -->
-  <!-- app.js será un módulo ES6 -->
+  <!-- Modal genérico -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" id="modal-generic">
+      <h3 id="modal-title"></h3>
+      <form id="modal-form">
+        <div id="modal-fields"></div>
+        <div class="modal__actions">
+          <button type="button" id="modal-cancel" class="btn btn-outline">
+            Cancelar
+          </button>
+          <button type="submit" id="modal-submit" class="btn btn-primary">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Lógica principal -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
