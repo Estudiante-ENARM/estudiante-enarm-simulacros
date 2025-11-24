@@ -40,6 +40,7 @@ const db = getFirestore(app);
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
+// Vistas
 const loginView = document.getElementById("login-view");
 const adminView = document.getElementById("admin-view");
 
@@ -74,7 +75,9 @@ const btnNewExam = document.getElementById("btn-new-exam");
 const examsList = document.getElementById("exams-list");
 
 const usersList = document.getElementById("users-list");
-const btnNewUser = document.getElementById("btn-new-user");
+
+// Formulario fijo de creación de usuario
+const btnCreateUser = document.getElementById("btn-create-user");
 
 // Detalle examen
 const btnBackToExams = document.getElementById("btn-back-to-exams");
@@ -83,7 +86,7 @@ const btnSaveExamMeta = document.getElementById("btn-save-exam-meta");
 const btnNewQuestion = document.getElementById("btn-new-question");
 const questionsList = document.getElementById("questions-list");
 
-// Modal genérico
+// Modal genérico (para editar usuario, redes, etc.)
 const modalOverlay = document.getElementById("modal-overlay");
 const modalTitle = document.getElementById("modal-title");
 const modalFields = document.getElementById("modal-fields");
@@ -232,14 +235,18 @@ btnLogout.addEventListener("click", async () => {
   }
 });
 
-// Cambio de estado de autenticación
+/***********************************************
+ * CAMBIO DE ESTADO DE AUTENTICACIÓN
+ ***********************************************/
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    // Autenticado
     currentUserEmailSpan.textContent = user.email || "";
     hide(loginView);
     show(adminView);
     show(btnLogout);
 
+    // Vista por defecto: secciones
     show(sectionsView);
     hide(usersView);
     hide(examDetailView);
@@ -251,12 +258,14 @@ onAuthStateChanged(auth, async (user) => {
     currentExamId = null;
     currentSectionName = "";
     currentSectionTitle.textContent = "Selecciona una sección";
-    currentSectionSubtitle.textContent = "Elige una sección en la barra lateral para ver sus exámenes.";
+    currentSectionSubtitle.textContent =
+      "Elige una sección en la barra lateral para ver sus exámenes.";
     hide(btnNewExam);
     renderEmptyMessage(examsList, "Aún no has seleccionado ninguna sección.");
 
     await Promise.all([loadSections(), loadSocialLinks()]);
   } else {
+    // No autenticado
     show(loginView);
     hide(adminView);
     hide(btnLogout);
@@ -264,6 +273,7 @@ onAuthStateChanged(auth, async (user) => {
     loginForm.reset();
   }
 });
+
 /***********************************************
  * SECCIONES
  ***********************************************/
@@ -275,7 +285,8 @@ async function loadSections() {
     sidebarSections.innerHTML = `
       <li style="font-size:12px;color:#6b7280;padding:4px 6px;">
         No hay secciones aún.
-      </li>`;
+      </li>
+    `;
     return;
   }
 
@@ -290,14 +301,14 @@ async function loadSections() {
     }
 
     li.innerHTML = `
-      <div class="sidebar__section-name">${data.name}</div>
+      <div class="sidebar__section-name">${data.name || "Sección sin título"}</div>
       <div class="sidebar__section-actions">
-        <button class="icon-btn edit-section">✏</button>
-        <button class="icon-btn delete-section">🗑</button>
+        <button class="icon-btn edit-section" title="Editar sección">✏</button>
+        <button class="icon-btn delete-section" title="Eliminar sección">🗑</button>
       </div>
     `;
 
-    // Selección de sección
+    // Click en todo el recuadro → seleccionar sección
     li.addEventListener("click", () => {
       handleSelectSection(id, data.name, li);
     });
@@ -305,22 +316,29 @@ async function loadSections() {
     // Editar sección
     li.querySelector(".edit-section").addEventListener("click", (e) => {
       e.stopPropagation();
-      openEditSectionModal(id, data.name);
+      openEditSectionModal(id, data.name || "");
     });
 
     // Eliminar sección
     li.querySelector(".delete-section").addEventListener("click", async (e) => {
       e.stopPropagation();
-      const ok = confirm("¿Eliminar esta sección y TODO su contenido?");
+      const ok = window.confirm(
+        "¿Eliminar esta sección y TODOS sus exámenes y casos clínicos asociados?"
+      );
       if (!ok) return;
       await deleteSectionWithAllData(id);
-
       if (currentSectionId === id) {
         currentSectionId = null;
         currentExamId = null;
+        currentSectionName = "";
         currentSectionTitle.textContent = "Selecciona una sección";
+        currentSectionSubtitle.textContent =
+          "Elige una sección en la barra lateral para ver sus exámenes.";
         hide(btnNewExam);
-        renderEmptyMessage(examsList, "Aún no has seleccionado ninguna sección.");
+        renderEmptyMessage(
+          examsList,
+          "Aún no has seleccionado ninguna sección."
+        );
       }
       await loadSections();
     });
@@ -331,17 +349,20 @@ async function loadSections() {
 
 function handleSelectSection(id, name, li) {
   currentSectionId = id;
-  currentSectionName = name;
+  currentSectionName = name || "Sección";
   currentExamId = null;
 
-  document.querySelectorAll(".sidebar__section-item")
+  document
+    .querySelectorAll(".sidebar__section-item")
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
-
   li.classList.add("sidebar__section-item--active");
 
+  // Vista: secciones
   show(sectionsView);
   hide(usersView);
   hide(examDetailView);
+  btnUsersView.classList.remove("btn-secondary");
+  btnUsersView.classList.add("btn-outline");
 
   sidebar.classList.remove("sidebar--open");
 
@@ -353,25 +374,22 @@ function handleSelectSection(id, name, li) {
 }
 
 async function deleteSectionWithAllData(sectionId) {
-  const exQ = query(collection(db, "exams"), where("sectionId", "==", sectionId));
-  const examsSnap = await getDocs(exQ);
-
-  for (const ex of examsSnap.docs) {
-    const examId = ex.id;
-
-    const qCases = query(collection(db, "questions"), where("examId", "==", examId));
-    const casesSnap = await getDocs(qCases);
-
-    for (const c of casesSnap.docs) {
-      await deleteDoc(c.ref);
+  // Borrar exámenes y sus casos/preguntas
+  const qExams = query(collection(db, "exams"), where("sectionId", "==", sectionId));
+  const examsSnap = await getDocs(qExams);
+  for (const exDoc of examsSnap.docs) {
+    const exId = exDoc.id;
+    // Borrar todos los casos clínicos del examen
+    const qCases = query(collection(db, "questions"), where("examId", "==", exId));
+    const caseSnap = await getDocs(qCases);
+    for (const cDoc of caseSnap.docs) {
+      await deleteDoc(cDoc.ref);
     }
-
-    await deleteDoc(ex.ref);
+    await deleteDoc(exDoc.ref);
   }
   await deleteDoc(doc(db, "sections", sectionId));
 }
 
-// Modal crear sección
 function openNewSectionModal() {
   openModal({
     title: "Nueva sección",
@@ -382,17 +400,19 @@ function openNewSectionModal() {
       </label>
     `,
     onSubmit: async () => {
-      const name = document.getElementById("field-section-name").value.trim();
+      const input = document.getElementById("field-section-name");
+      const name = input.value.trim();
       if (!name) return;
-      const btn = modalSubmit;
-      setLoading(btn, true);
+
+      const submitBtn = modalSubmit;
+      setLoading(submitBtn, true);
 
       try {
-        const ref = await addDoc(collection(db, "sections"), {
+        const docRef = await addDoc(collection(db, "sections"), {
           name,
           createdAt: serverTimestamp(),
         });
-        currentSectionId = ref.id;
+        currentSectionId = docRef.id;
         currentSectionName = name;
         await loadSections();
         closeModal();
@@ -400,26 +420,28 @@ function openNewSectionModal() {
         console.error(err);
         alert("No se pudo crear la sección.");
       } finally {
-        setLoading(btn, false);
+        setLoading(submitBtn, false);
       }
     },
   });
 }
 
-function openEditSectionModal(id, nameCurrent) {
+function openEditSectionModal(id, currentName) {
   openModal({
     title: "Editar sección",
     fieldsHtml: `
       <label class="field">
         <span>Nombre de la sección</span>
-        <input type="text" id="field-section-name" value="${nameCurrent}" required />
+        <input type="text" id="field-section-name" required value="${currentName}" />
       </label>
     `,
     onSubmit: async () => {
-      const name = document.getElementById("field-section-name").value.trim();
+      const input = document.getElementById("field-section-name");
+      const name = input.value.trim();
       if (!name) return;
-      const btn = modalSubmit;
-      setLoading(btn, true);
+
+      const submitBtn = modalSubmit;
+      setLoading(submitBtn, true);
 
       try {
         await updateDoc(doc(db, "sections", id), { name });
@@ -433,7 +455,7 @@ function openEditSectionModal(id, nameCurrent) {
         console.error(err);
         alert("No se pudo actualizar la sección.");
       } finally {
-        setLoading(btn, false);
+        setLoading(submitBtn, false);
       }
     },
   });
@@ -451,7 +473,7 @@ async function loadExamsForSection(sectionId) {
   if (snap.empty) {
     renderEmptyMessage(
       examsList,
-      "No hay exámenes en esta sección. Usa “Nuevo examen”."
+      "No hay exámenes en esta sección. Crea el primero con el botón “Nuevo examen”."
     );
     return;
   }
@@ -467,11 +489,11 @@ async function loadExamsForSection(sectionId) {
 
     card.innerHTML = `
       <div class="card-item__title-row">
-        <div class="card-item__title">${data.name}</div>
+        <div class="card-item__title">${data.name || "Examen sin título"}</div>
         <div class="card-item__actions">
           <button class="btn btn-secondary btn-sm open-exam">Abrir</button>
-          <button class="icon-btn edit-exam">✏</button>
-          <button class="icon-btn delete-exam">🗑</button>
+          <button class="icon-btn edit-exam" title="Editar nombre">✏</button>
+          <button class="icon-btn delete-exam" title="Eliminar examen">🗑</button>
         </div>
       </div>
       <div class="card-item__badge-row">
@@ -483,22 +505,24 @@ async function loadExamsForSection(sectionId) {
     `;
 
     card.querySelector(".open-exam").addEventListener("click", () => {
-      openExamDetail(id, data.name);
+      openExamDetail(id, data.name || "Examen");
     });
 
     card.querySelector(".edit-exam").addEventListener("click", (e) => {
       e.stopPropagation();
-      openEditExamModal(id, data.name);
+      openEditExamModal(id, data.name || "");
     });
 
     card.querySelector(".delete-exam").addEventListener("click", async (e) => {
       e.stopPropagation();
-      const ok = confirm("¿Eliminar este examen y TODOS sus casos clínicos?");
+      const ok = window.confirm(
+        "¿Eliminar este examen y todos sus casos clínicos y preguntas?"
+      );
       if (!ok) return;
 
       const qCases = query(collection(db, "questions"), where("examId", "==", id));
-      const casesSnap = await getDocs(qCases);
-      for (const cDoc of casesSnap.docs) {
+      const caseSnap = await getDocs(qCases);
+      for (const cDoc of caseSnap.docs) {
         await deleteDoc(cDoc.ref);
       }
 
@@ -522,27 +546,64 @@ function openNewExamModal() {
       </label>
     `,
     onSubmit: async () => {
-      const name = document.getElementById("field-exam-name").value.trim();
+      const input = document.getElementById("field-exam-name");
+      const name = input.value.trim();
       if (!name) return;
 
-      const btn = modalSubmit;
-      setLoading(btn, true);
+      const submitBtn = modalSubmit;
+      setLoading(submitBtn, true);
 
       try {
-        const ref = await addDoc(collection(db, "exams"), {
+        const docRef = await addDoc(collection(db, "exams"), {
           name,
           sectionId: currentSectionId,
           attemptsCount: 0,
           createdAt: serverTimestamp(),
         });
-        loadExamsForSection(currentSectionId);
-        openExamDetail(ref.id, name);
+        await loadExamsForSection(currentSectionId);
+        openExamDetail(docRef.id, name);
         closeModal();
       } catch (err) {
         console.error(err);
         alert("No se pudo crear el examen.");
       } finally {
-        setLoading(btn, false);
+        setLoading(submitBtn, false);
+      }
+    },
+  });
+}
+
+function openEditExamModal(id, currentName) {
+  openModal({
+    title: "Editar examen",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre del examen</span>
+        <input type="text" id="field-exam-name" required value="${currentName}" />
+      </label>
+    `,
+    onSubmit: async () => {
+      const input = document.getElementById("field-exam-name");
+      const name = input.value.trim();
+      if (!name) return;
+
+      const submitBtn = modalSubmit;
+      setLoading(submitBtn, true);
+
+      try {
+        await updateDoc(doc(db, "exams", id), { name, updatedAt: serverTimestamp() });
+        if (currentSectionId) {
+          await loadExamsForSection(currentSectionId);
+        }
+        if (currentExamId === id && examNameInput) {
+          examNameInput.value = name;
+        }
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo actualizar el examen.");
+      } finally {
+        setLoading(submitBtn, false);
       }
     },
   });
@@ -551,7 +612,7 @@ function openNewExamModal() {
 btnNewExam.addEventListener("click", openNewExamModal);
 
 /***********************************************
- * DETALLE DEL EXAMEN
+ * DETALLE DE EXAMEN
  ***********************************************/
 function openExamDetail(examId, examName) {
   currentExamId = examId;
@@ -560,7 +621,9 @@ function openExamDetail(examId, examName) {
   hide(sectionsView);
   hide(usersView);
 
-  examNameInput.value = examName;
+  if (examNameInput) {
+    examNameInput.value = examName || "";
+  }
 
   loadCasesForExam(examId);
 }
@@ -568,12 +631,12 @@ function openExamDetail(examId, examName) {
 btnBackToExams.addEventListener("click", () => {
   show(sectionsView);
   hide(examDetailView);
+  hide(usersView);
   currentExamId = null;
 });
 
 btnSaveExamMeta.addEventListener("click", async () => {
   if (!currentExamId) return;
-
   const name = examNameInput.value.trim();
   if (!name) {
     alert("Escribe un nombre para el examen.");
@@ -581,24 +644,25 @@ btnSaveExamMeta.addEventListener("click", async () => {
   }
 
   const btn = btnSaveExamMeta;
-  setLoading(btn, true);
-
+  setLoading(btn, true, "Guardar nombre");
   try {
     await updateDoc(doc(db, "exams", currentExamId), {
       name,
       updatedAt: serverTimestamp(),
     });
-    loadExamsForSection(currentSectionId);
-    alert("Nombre actualizado.");
+    if (currentSectionId) {
+      await loadExamsForSection(currentSectionId);
+    }
+    alert("Nombre del examen actualizado.");
   } catch (err) {
     console.error(err);
-    alert("Error al actualizar.");
+    alert("No se pudo actualizar el examen.");
   } finally {
-    setLoading(btn, false);
+    setLoading(btn, false, "Guardar nombre");
   }
 });
 /***********************************************
- * CASOS CLÍNICOS (VARIAS PREGUNTAS)
+ * CASOS CLÍNICOS CON VARIAS PREGUNTAS
  ***********************************************/
 async function loadCasesForExam(examId) {
   const q = query(collection(db, "questions"), where("examId", "==", examId));
@@ -609,13 +673,14 @@ async function loadCasesForExam(examId) {
   if (snap.empty) {
     renderEmptyMessage(
       questionsList,
-      "No hay casos clínicos. Usa “+ Nueva pregunta” para crear el primero."
+      "No hay casos clínicos ni preguntas en este examen. Crea el primer caso clínico."
     );
     return;
   }
 
   snap.forEach((docSnap) => {
-    renderCaseBlock(docSnap.id, docSnap.data());
+    const data = docSnap.data();
+    renderCaseBlock(docSnap.id, data);
   });
 }
 
@@ -632,86 +697,131 @@ function renderCaseBlock(caseId, data) {
 
     <div class="cards-list case-questions"></div>
 
-    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
-      <button class="btn btn-sm btn-primary btn-add-question">+ Agregar pregunta</button>
-      <button class="btn btn-sm btn-secondary btn-save-case">Guardar caso</button>
-      <button class="btn btn-sm btn-outline btn-delete-case">Eliminar caso</button>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-sm btn-primary btn-add-question">
+        + Agregar pregunta
+      </button>
+      <button type="button" class="btn btn-sm btn-secondary btn-save-case">
+        Guardar caso clínico
+      </button>
+      <button type="button" class="btn btn-sm btn-outline btn-delete-case">
+        Eliminar caso clínico
+      </button>
     </div>
   `;
 
   const questionsContainer = caseCard.querySelector(".case-questions");
-  const questions = Array.isArray(data.questions) ? data.questions : [];
+  const questionsArray = Array.isArray(data.questions) ? data.questions : [];
 
-  if (questions.length === 0) {
+  if (questionsArray.length === 0) {
     questionsContainer.appendChild(renderQuestionBlock());
   } else {
-    questions.forEach((q) => questionsContainer.appendChild(renderQuestionBlock(q)));
+    questionsArray.forEach((qData) => {
+      questionsContainer.appendChild(renderQuestionBlock(qData));
+    });
   }
 
-  // Agregar pregunta
-  caseCard.querySelector(".btn-add-question").addEventListener("click", () => {
-    questionsContainer.appendChild(renderQuestionBlock());
-  });
+  caseCard
+    .querySelector(".btn-add-question")
+    .addEventListener("click", () => {
+      questionsContainer.appendChild(renderQuestionBlock());
+    });
 
-  // Guardar caso
-  caseCard.querySelector(".btn-save-case").addEventListener("click", async () => {
-    saveCaseBlock(caseId, caseCard);
-  });
+  caseCard
+    .querySelector(".btn-save-case")
+    .addEventListener("click", async () => {
+      await saveCaseBlock(caseId, caseCard);
+    });
 
-  // Eliminar caso
-  caseCard.querySelector(".btn-delete-case").addEventListener("click", async () => {
-    if (!confirm("¿Eliminar este caso clínico y todas sus preguntas?")) return;
-    await deleteDoc(doc(db, "questions", caseId));
-    await loadCasesForExam(currentExamId);
-  });
+  caseCard
+    .querySelector(".btn-delete-case")
+    .addEventListener("click", async () => {
+      const ok = window.confirm("¿Eliminar este caso clínico y todas sus preguntas?");
+      if (!ok) return;
+      await deleteDoc(doc(db, "questions", caseId));
+      if (currentExamId) {
+        await loadCasesForExam(currentExamId);
+      }
+    });
 
   questionsList.appendChild(caseCard);
 }
 
 function renderQuestionBlock(qData = {}) {
+  const {
+    questionText = "",
+    optionA = "",
+    optionB = "",
+    optionC = "",
+    optionD = "",
+    correctOption = "",
+    justification = "",
+  } = qData;
+
   const card = document.createElement("div");
   card.className = "card-item";
 
   card.innerHTML = `
     <label class="field">
       <span>Pregunta</span>
-      <textarea class="q-question" rows="2">${qData.questionText || ""}</textarea>
+      <textarea class="q-question" rows="2">${questionText}</textarea>
     </label>
 
-    <label class="field"><span>Inciso A</span><input class="q-a" value="${qData.optionA || ""}"></label>
-    <label class="field"><span>Inciso B</span><input class="q-b" value="${qData.optionB || ""}"></label>
-    <label class="field"><span>Inciso C</span><input class="q-c" value="${qData.optionC || ""}"></label>
-    <label class="field"><span>Inciso D</span><input class="q-d" value="${qData.optionD || ""}"></label>
+    <label class="field">
+      <span>Inciso A</span>
+      <input type="text" class="q-a" value="${optionA}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso B</span>
+      <input type="text" class="q-b" value="${optionB}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso C</span>
+      <input type="text" class="q-c" value="${optionC}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso D</span>
+      <input type="text" class="q-d" value="${optionD}" />
+    </label>
 
     <label class="field">
       <span>Respuesta correcta</span>
       <select class="q-correct">
         <option value="">Selecciona</option>
-        <option value="A" ${qData.correctOption === "A" ? "selected" : ""}>A</option>
-        <option value="B" ${qData.correctOption === "B" ? "selected" : ""}>B</option>
-        <option value="C" ${qData.correctOption === "C" ? "selected" : ""}>C</option>
-        <option value="D" ${qData.correctOption === "D" ? "selected" : ""}>D</option>
+        <option value="A" ${correctOption === "A" ? "selected" : ""}>A</option>
+        <option value="B" ${correctOption === "B" ? "selected" : ""}>B</option>
+        <option value="C" ${correctOption === "C" ? "selected" : ""}>C</option>
+        <option value="D" ${correctOption === "D" ? "selected" : ""}>D</option>
       </select>
     </label>
 
     <label class="field">
       <span>Justificación</span>
-      <textarea class="q-just" rows="2">${qData.justification || ""}</textarea>
+      <textarea class="q-just" rows="2">${justification}</textarea>
     </label>
 
-    <div style="display:flex; justify-content:flex-end;">
-      <button class="btn btn-sm btn-outline btn-delete-question">Eliminar pregunta</button>
+    <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+      <button type="button" class="btn btn-sm btn-outline btn-delete-question">
+        Eliminar pregunta
+      </button>
     </div>
   `;
 
-  card.querySelector(".btn-delete-question").addEventListener("click", () => {
-    card.remove();
-  });
+  card
+    .querySelector(".btn-delete-question")
+    .addEventListener("click", () => {
+      card.remove();
+    });
 
   return card;
 }
 
 async function saveCaseBlock(caseId, caseCard) {
+  if (!currentExamId) return;
+
   const caseText = caseCard.querySelector(".case-text").value.trim();
   const questionCards = caseCard.querySelectorAll(".case-questions .card-item");
 
@@ -721,12 +831,11 @@ async function saveCaseBlock(caseId, caseCard) {
   }
 
   if (questionCards.length === 0) {
-    alert("Agrega al menos una pregunta.");
+    alert("Agrega al menos una pregunta para este caso clínico.");
     return;
   }
 
   const questions = [];
-
   for (const card of questionCards) {
     const questionText = card.querySelector(".q-question").value.trim();
     const optionA = card.querySelector(".q-a").value.trim();
@@ -736,8 +845,16 @@ async function saveCaseBlock(caseId, caseCard) {
     const correctOption = card.querySelector(".q-correct").value;
     const justification = card.querySelector(".q-just").value.trim();
 
-    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctOption || !justification) {
-      alert("Completa todos los campos antes de guardar.");
+    if (
+      !questionText ||
+      !optionA ||
+      !optionB ||
+      !optionC ||
+      !optionD ||
+      !correctOption ||
+      !justification
+    ) {
+      alert("Completa todos los campos de cada pregunta.");
       return;
     }
 
@@ -752,33 +869,86 @@ async function saveCaseBlock(caseId, caseCard) {
     });
   }
 
-  await updateDoc(doc(db, "questions", caseId), {
-    examId: currentExamId,
-    caseText,
-    questions,
-    updatedAt: serverTimestamp(),
-  });
-
-  alert("Caso clínico guardado.");
-  loadCasesForExam(currentExamId);
+  try {
+    await updateDoc(doc(db, "questions", caseId), {
+      examId: currentExamId,
+      caseText,
+      questions,
+      updatedAt: serverTimestamp(),
+    });
+    alert("Caso clínico guardado correctamente.");
+    await loadCasesForExam(currentExamId);
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo guardar el caso clínico.");
+  }
 }
 
-// Crear caso vacío
 btnNewQuestion.addEventListener("click", async () => {
-  if (!currentExamId) return alert("Selecciona un examen primero.");
+  if (!currentExamId) {
+    alert("Primero selecciona o crea un examen.");
+    return;
+  }
 
-  await addDoc(collection(db, "questions"), {
-    examId: currentExamId,
-    caseText: "",
-    questions: [],
-    createdAt: serverTimestamp(),
-  });
+  try {
+    await addDoc(collection(db, "questions"), {
+      examId: currentExamId,
+      caseText: "",
+      questions: [],
+      createdAt: serverTimestamp(),
+    });
+    await loadCasesForExam(currentExamId);
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo crear el nuevo caso clínico.");
+  }
+});
+/***********************************************
+ * USUARIOS — FORMULARIO FIJO (Crear usuario)
+ ***********************************************/
+btnCreateUser.addEventListener("click", async () => {
+  const name = document.getElementById("newuser-name").value.trim();
+  const email = document.getElementById("newuser-email").value.trim();
+  const password = document.getElementById("newuser-password").value.trim();
+  const status = document.getElementById("newuser-status").value;
+  const role = document.getElementById("newuser-role").value;
+  const expiryDate = document.getElementById("newuser-expiry").value || "";
 
-  loadCasesForExam(currentExamId);
+  if (!name || !email || !password) {
+    alert("Nombre, correo y contraseña son obligatorios.");
+    return;
+  }
+
+  const docId = email;
+
+  try {
+    await setDoc(doc(db, "users", docId), {
+      name,
+      email,
+      password,
+      status,
+      role,
+      expiryDate,
+      createdAt: serverTimestamp(),
+    });
+
+    alert("Usuario creado correctamente en Firestore.\n" +
+          "Recuerda: también debes crearlo en Firebase Authentication para que pueda iniciar sesión.");
+
+    document.getElementById("newuser-name").value = "";
+    document.getElementById("newuser-email").value = "";
+    document.getElementById("newuser-password").value = "";
+    document.getElementById("newuser-expiry").value = "";
+
+    await loadUsers();
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo crear el usuario.");
+  }
 });
 
 /***********************************************
- * USUARIOS
+ * USUARIOS — LISTAR, EDITAR, BORRAR
  ***********************************************/
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
@@ -787,161 +957,167 @@ async function loadUsers() {
     usersList.innerHTML = "";
     renderEmptyMessage(
       usersList,
-      "No hay usuarios. Usa “+ Nuevo usuario”."
+      "No hay usuarios registrados."
     );
     return;
   }
 
   let html = `
     <table>
-      <thead><tr>
-        <th>Nombre</th><th>Correo</th><th>Estado</th><th>Rol</th><th>Fecha límite</th><th></th>
-      </tr></thead><tbody>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Estado</th>
+          <th>Rol</th>
+          <th>Fecha límite</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
   `;
 
   snap.forEach((docSnap) => {
-    const d = docSnap.data();
+    const data = docSnap.data();
+    const id = docSnap.id;
+    const status = data.status || "inactivo";
+    const role = data.role || "usuario";
+
     html += `
-      <tr data-id="${docSnap.id}">
-        <td>${d.name}</td>
-        <td>${d.email}</td>
-        <td><span class="chip ${d.status === "activo" ? "chip--activo" : "chip--inactivo"}">${d.status}</span></td>
-        <td><span class="chip ${d.role === "admin" ? "chip--admin" : "chip--user"}">${d.role}</span></td>
-        <td>${d.expiryDate || "---"}</td>
+      <tr data-id="${id}">
+        <td>${data.name || ""}</td>
+        <td>${data.email || ""}</td>
+        <td><span class="chip ${status === "activo" ? "chip--activo" : "chip--inactivo"}">${status}</span></td>
+        <td><span class="chip ${role === "admin" ? "chip--admin" : "chip--user"}">${role}</span></td>
+        <td>${data.expiryDate || "—"}</td>
         <td>
           <button class="icon-btn" data-action="edit">✏</button>
           <button class="icon-btn" data-action="delete">🗑</button>
         </td>
-      </tr>`;
+      </tr>
+    `;
   });
 
   html += "</tbody></table>";
   usersList.innerHTML = html;
 
-  // Eventos
   usersList.querySelectorAll("tr[data-id]").forEach((row) => {
     const id = row.dataset.id;
+    const btnEdit = row.querySelector("button[data-action='edit']");
+    const btnDelete = row.querySelector("button[data-action='delete']");
 
-    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
-      openUserModal(id);
-    });
-
-    row.querySelector('[data-action="delete"]').addEventListener("click", async () => {
-      if (!confirm("¿Eliminar este usuario?")) return;
-      await deleteDoc(doc(db, "users", id));
-      loadUsers();
-    });
+    btnEdit.addEventListener("click", () => openEditUserModal(id));
+    btnDelete.addEventListener("click", () => deleteUser(id));
   });
 }
 
 /***********************************************
- * MODAL DE USUARIOS (CREAR / EDITAR)
+ * EDITAR USUARIO (modal)
  ***********************************************/
-function openUserModal(id = null) {
-  const isEdit = Boolean(id);
+async function openEditUserModal(id) {
+  const snap = await getDoc(doc(db, "users", id));
+  if (!snap.exists()) return alert("Usuario no encontrado.");
 
-  const dataPromise = isEdit
-    ? getDoc(doc(db, "users", id)).then((d) => (d.exists() ? d.data() : {}))
-    : Promise.resolve({});
+  const data = snap.data();
 
-  dataPromise.then((data) => {
-    openModal({
-      title: isEdit ? "Editar usuario" : "Nuevo usuario",
-      fieldsHtml: `
-        <label class="field"><span>Nombre</span>
-          <input type="text" id="field-user-name" value="${data.name || ""}" required>
-        </label>
+  openModal({
+    title: "Editar usuario",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre</span>
+        <input type="text" id="edit-name" value="${data.name || ""}" />
+      </label>
 
-        <label class="field"><span>Correo (ID)</span>
-          <input type="email" id="field-user-email" value="${data.email || ""}" ${isEdit ? "readonly" : ""} required>
-        </label>
+      <label class="field">
+        <span>Correo</span>
+        <input type="email" id="edit-email" value="${data.email || ""}" readonly />
+      </label>
 
-        <label class="field"><span>Contraseña</span>
-          <input type="text" id="field-user-password" value="${data.password || ""}" required>
-        </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="text" id="edit-password" value="${data.password || ""}" />
+      </label>
 
-        <label class="field"><span>Estado</span>
-          <select id="field-user-status">
-            <option value="activo" ${data.status === "activo" ? "selected" : ""}>Activo</option>
-            <option value="inactivo" ${data.status === "inactivo" ? "selected" : ""}>Inactivo</option>
-          </select>
-        </label>
+      <label class="field">
+        <span>Estado</span>
+        <select id="edit-status">
+          <option value="activo" ${data.status === "activo" ? "selected" : ""}>Activo</option>
+          <option value="inactivo" ${data.status === "inactivo" ? "selected" : ""}>Inactivo</option>
+        </select>
+      </label>
 
-        <label class="field"><span>Rol</span>
-          <select id="field-user-role">
-            <option value="admin" ${data.role === "admin" ? "selected" : ""}>Administrador</option>
-            <option value="usuario" ${data.role === "usuario" ? "selected" : ""}>Usuario</option>
-          </select>
-        </label>
+      <label class="field">
+        <span>Rol</span>
+        <select id="edit-role">
+          <option value="admin" ${data.role === "admin" ? "selected" : ""}>Administrador</option>
+          <option value="usuario" ${data.role === "usuario" ? "selected" : ""}>Usuario</option>
+        </select>
+      </label>
 
-        <label class="field"><span>Fecha límite</span>
-          <input type="date" id="field-user-expiry" value="${data.expiryDate || ""}">
-        </label>
-      `,
-      onSubmit: async () => {
-        const name = document.getElementById("field-user-name").value.trim();
-        const email = document.getElementById("field-user-email").value.trim();
-        const password = document.getElementById("field-user-password").value.trim();
-        const status = document.getElementById("field-user-status").value;
-        const role = document.getElementById("field-user-role").value;
-        const expiryDate = document.getElementById("field-user-expiry").value;
+      <label class="field">
+        <span>Fecha límite</span>
+        <input type="date" id="edit-expiry" value="${data.expiryDate || ""}" />
+      </label>
+    `,
+    onSubmit: async () => {
+      const name = document.getElementById("edit-name").value.trim();
+      const password = document.getElementById("edit-password").value.trim();
+      const status = document.getElementById("edit-status").value;
+      const role = document.getElementById("edit-role").value;
+      const expiryDate = document.getElementById("edit-expiry").value || "";
 
-        if (!name || !email || !password) {
-          alert("Todos los campos son obligatorios.");
-          return;
-        }
-
-        const payload = {
+      try {
+        await updateDoc(doc(db, "users", id), {
           name,
-          email,
           password,
           status,
           role,
           expiryDate,
           updatedAt: serverTimestamp(),
-        };
+        });
 
-        const btn = modalSubmit;
-        setLoading(btn, true);
-
-        try {
-          if (isEdit) {
-            await updateDoc(doc(db, "users", email), payload);
-          } else {
-            payload.createdAt = serverTimestamp();
-            await setDoc(doc(db, "users", email), payload);
-            alert("Usuario creado. RECUERDA crear también este usuario en Firebase Authentication.");
-          }
-
-          loadUsers();
-          closeModal();
-        } catch (err) {
-          console.error(err);
-          alert("No se pudo guardar el usuario.");
-        } finally {
-          setLoading(btn, false);
-        }
-      },
-    });
+        closeModal();
+        await loadUsers();
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo actualizar el usuario.");
+      }
+    }
   });
 }
 
 /***********************************************
- * EVENTO CORREGIDO PARA "NUEVO USUARIO"
+ * ELIMINAR USUARIO
  ***********************************************/
-if (btnNewUser) {
-  btnNewUser.addEventListener("click", () => openUserModal(null));
+async function deleteUser(id) {
+  const ok = window.confirm("¿Eliminar este usuario?");
+  if (!ok) return;
+
+  try {
+    await deleteDoc(doc(db, "users", id));
+    await loadUsers();
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo eliminar.");
+  }
 }
 
-// Refuerzo adicional por si el DOM recarga secciones dinámicamente
-document.addEventListener("click", (e) => {
-  if (e.target.id === "btn-new-user") {
-    openUserModal(null);
-  }
+/***********************************************
+ * CAMBIO A VISTA USUARIOS
+ ***********************************************/
+btnUsersView.addEventListener("click", () => {
+  hide(sectionsView);
+  hide(examDetailView);
+  show(usersView);
+
+  btnUsersView.classList.remove("btn-outline");
+  btnUsersView.classList.add("btn-secondary");
+
+  loadUsers();
 });
 
 /***********************************************
- * REDES SOCIALES
+ * REDES SOCIALES (settings/socialLinks)
  ***********************************************/
 async function loadSocialLinks() {
   try {
@@ -951,7 +1127,11 @@ async function loadSocialLinks() {
     const data = snap.data();
     socialButtons.forEach((btn) => {
       const network = btn.dataset.network;
-      if (data[network]) btn.dataset.url = data[network];
+      if (data[network]) {
+        btn.dataset.url = data[network];
+      } else {
+        delete btn.dataset.url;
+      }
     });
   } catch (err) {
     console.error(err);
@@ -963,24 +1143,23 @@ btnEditSocial.addEventListener("click", async () => {
   try {
     const snap = await getDoc(doc(db, "settings", "socialLinks"));
     if (snap.exists()) data = snap.data();
-  } catch {}
+  } catch (err) {
+    console.error(err);
+  }
 
   openModal({
-    title: "Redes sociales",
+    title: "Enlaces de redes sociales",
     fieldsHtml: `
-      <label class="field"><span>Instagram</span><input id="field-instagram" value="${data.instagram || ""}"></label>
-      <label class="field"><span>WhatsApp</span><input id="field-whatsapp" value="${data.whatsapp || ""}"></label>
-      <label class="field"><span>TikTok</span><input id="field-tiktok" value="${data.tiktok || ""}"></label>
-      <label class="field"><span>Telegram</span><input id="field-telegram" value="${data.telegram || ""}"></label>
+      <label class="field"><span>Instagram</span><input type="url" id="field-instagram" value="${data.instagram || ""}"></label>
+      <label class="field"><span>WhatsApp</span><input type="url" id="field-whatsapp" value="${data.whatsapp || ""}"></label>
+      <label class="field"><span>TikTok</span><input type="url" id="field-tiktok" value="${data.tiktok || ""}"></label>
+      <label class="field"><span>Telegram</span><input type="url" id="field-telegram" value="${data.telegram || ""}"></label>
     `,
     onSubmit: async () => {
       const instagram = document.getElementById("field-instagram").value.trim();
       const whatsapp = document.getElementById("field-whatsapp").value.trim();
       const tiktok = document.getElementById("field-tiktok").value.trim();
       const telegram = document.getElementById("field-telegram").value.trim();
-
-      const btn = modalSubmit;
-      setLoading(btn, true);
 
       try {
         await updateDoc(doc(db, "settings", "socialLinks"), {
@@ -990,7 +1169,7 @@ btnEditSocial.addEventListener("click", async () => {
           telegram,
           updatedAt: serverTimestamp(),
         });
-      } catch {
+      } catch (err) {
         await setDoc(doc(db, "settings", "socialLinks"), {
           instagram,
           whatsapp,
@@ -1000,17 +1179,19 @@ btnEditSocial.addEventListener("click", async () => {
         });
       }
 
-      await loadSocialLinks();
-      setLoading(btn, false);
       closeModal();
-    },
+      loadSocialLinks();
+    }
   });
 });
 
 socialButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     const url = btn.dataset.url;
-    if (!url) return alert("No se ha configurado esta red social.");
-    window.open(url, "_blank");
+    if (!url) {
+      alert("No se ha configurado el enlace de esta red social.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   });
 });
