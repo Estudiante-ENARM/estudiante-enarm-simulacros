@@ -48,13 +48,14 @@
           <span>Correo</span>
           <input type="email" id="login-email" required>
         </label>
+
         <label class="field">
           <span>Contraseña</span>
           <input type="password" id="login-password" required>
         </label>
-        <button id="btn-login" class="btn btn-primary" type="submit">
-          Entrar
-        </button>
+
+        <button id="btn-login" class="btn btn-primary" type="submit">Entrar</button>
+
         <p id="login-error" class="error hidden"></p>
       </form>
     </div>
@@ -87,52 +88,98 @@
     <!-- HEADER -->
     <header class="header">
       <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+
       <div class="header-right">
         <span id="current-user-email"></span>
         <button id="btn-logout" class="btn btn-secondary">Cerrar sesión</button>
       </div>
     </header>
 
-    <!-- CONTENIDO PRINCIPAL -->
     <main id="content">
 
-      <!-- SECCIONES -->
+      <!-- PANEL DE SECCIONES -->
       <div id="sections-view" class="panel">
         <h2 id="current-section-title">Selecciona una sección</h2>
         <p id="current-section-subtitle" class="panel-subtitle">
-          Elige una sección en la barra lateral para ver sus exámenes.
+          Elige una sección para ver sus exámenes.
         </p>
 
-        <button id="btn-new-exam" class="btn btn-primary hidden">
-          + Nuevo examen
-        </button>
+        <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
 
         <div id="exams-list" class="cards-list"></div>
       </div>
 
-      <!-- USUARIOS -->
+      <!-- PANEL DE USUARIOS -->
       <div id="users-view" class="panel hidden">
-        <div class="panel-header">
-          <h2>Usuarios</h2>
-          <button id="btn-new-user" class="btn btn-primary">+ Nuevo usuario</button>
+        <h2>Usuarios</h2>
+
+        <!-- FORMULARIO NUEVO USUARIO -->
+        <div id="create-user-card" class="card">
+          <h3 style="margin-bottom:12px;">Crear nuevo usuario</h3>
+
+          <div class="create-user-grid">
+
+            <label class="field">
+              <span>Nombre</span>
+              <input type="text" id="new-user-name">
+            </label>
+
+            <label class="field">
+              <span>Email (ID del documento)</span>
+              <input type="email" id="new-user-email">
+            </label>
+
+            <label class="field">
+              <span>Contraseña</span>
+              <input type="text" id="new-user-password">
+            </label>
+
+            <label class="field">
+              <span>Estado</span>
+              <select id="new-user-status">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Rol</span>
+              <select id="new-user-role">
+                <option value="usuario">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Fecha límite</span>
+              <input type="date" id="new-user-expiry">
+            </label>
+
+          </div>
+
+          <button id="btn-create-user" class="btn btn-primary" style="margin-top:12px;">
+            Guardar usuario
+          </button>
         </div>
+
+        <!-- LISTA DE USUARIOS -->
         <div id="users-list"></div>
       </div>
 
       <!-- DETALLE DE EXAMEN -->
       <div id="exam-detail-view" class="panel hidden">
         <div class="panel-header">
-          <button id="btn-back-to-exams" class="btn btn-outline">← Volver a exámenes</button>
+          <button id="btn-back-to-exams" class="btn btn-outline">← Volver</button>
           <div>
             <h2>Editar examen</h2>
-            <p class="panel-subtitle">Modifica el examen y todas sus preguntas directamente aquí.</p>
+            <p class="panel-subtitle">Modifica preguntas y casos clínicos aquí.</p>
           </div>
         </div>
 
         <div id="exam-meta-card" class="card">
           <label class="field">
             <span>Nombre del examen</span>
-            <input type="text" id="exam-name-input" required>
+            <input id="exam-name-input" type="text">
           </label>
 
           <div class="flex-row">
@@ -145,6 +192,7 @@
       </div>
 
     </main>
+
   </section>
 
   <!-- MODAL -->
@@ -161,7 +209,7 @@
     </div>
   </div>
 
-  <!-- APP JS (CORREGIDO CON defer) -->
+  <!-- JS -->
   <script type="module" src="app.js" defer></script>
 
 </body>
