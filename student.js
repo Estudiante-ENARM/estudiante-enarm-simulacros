@@ -34,6 +34,34 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 /***********************************************
+ * CONSTANTES (ESPECIALIDADES, DIFICULTAD, SUBTIPOS)
+ ***********************************************/
+const SPECIALTIES = {
+  medicina_interna: "Medicina interna",
+  pediatria: "Pediatría",
+  gine_obstetricia: "Ginecología y Obstetricia",
+  cirugia_general: "Cirugía general",
+};
+
+const SUBTYPES = {
+  salud_publica: "Salud pública",
+  medicina_familiar: "Medicina familiar",
+  urgencias: "Urgencias",
+};
+
+const DIFFICULTIES = {
+  baja: "Baja",
+  media: "Media",
+  alta: "Alta",
+};
+
+const DIFFICULTY_WEIGHTS = {
+  baja: 1,
+  media: 2,
+  alta: 3,
+};
+
+/***********************************************
  * REFERENCIAS DOM
  ***********************************************/
 const sidebar = document.getElementById("sidebar");
@@ -43,6 +71,10 @@ const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
+// Social
+const socialButtons = document.querySelectorAll(".social-icon");
+
+// Vistas principales
 const examsView = document.getElementById("student-exams-view");
 const examsList = document.getElementById("student-exams-list");
 const sectionTitle = document.getElementById("student-current-section-title");
@@ -61,10 +93,22 @@ const btnSubmitExam = document.getElementById("student-btn-submit-exam");
 const resultBanner = document.getElementById("student-result-banner");
 const resultValues = document.getElementById("student-result-values");
 
+// Vista progreso
+const progressView = document.getElementById("student-progress-view");
+const btnProgressView = document.getElementById("student-progress-btn");
+const progressUsername = document.getElementById("student-progress-username");
+const progressSectionsContainer = document.getElementById("student-progress-sections");
+const progressGlobalEl = document.getElementById("student-progress-global");
+const progressChartCanvas = document.getElementById("student-progress-chart");
+
+let progressChartInstance = null;
+
 /***********************************************
  * ESTADO
  ***********************************************/
 let currentUser = null;
+let currentUserProfile = null;
+
 let examRules = {
   maxAttempts: 3,
   timePerQuestion: 75,
@@ -104,6 +148,11 @@ function formatTimer(seconds) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
+function toFixedNice(num, decimals = 2) {
+  if (!isFinite(num)) return "0";
+  return Number(num.toFixed(decimals)).toString();
 }
 
 /***********************************************
@@ -151,6 +200,7 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     const data = userSnap.data();
+    currentUserProfile = data;
 
     const today = new Date().toISOString().slice(0, 10);
     if (data.expiryDate && data.expiryDate < today) {
@@ -176,6 +226,7 @@ onAuthStateChanged(auth, async (user) => {
 
     await loadExamRules();
     await loadSectionsForStudent();
+    await loadSocialLinksForStudent();
 
   } catch (err) {
     console.error(err);
@@ -201,6 +252,38 @@ async function loadExamRules() {
   } catch (err) {
     console.error("No se pudo leer examRules/defaultRules, usando valores por defecto.", err);
   }
+}
+
+/***********************************************
+ * REDES SOCIALES (ESTUDIANTE)
+ ***********************************************/
+async function loadSocialLinksForStudent() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "socialLinks"));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    socialButtons.forEach((btn) => {
+      const network = btn.dataset.network;
+      if (data[network]) {
+        btn.dataset.url = data[network];
+      } else {
+        delete btn.dataset.url;
+      }
+    });
+  } catch (err) {
+    console.error(err);
+  }
+
+  socialButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.url;
+      if (!url) {
+        alert("No se ha configurado el enlace de esta red social.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+  });
 }
 
 /***********************************************
@@ -241,6 +324,11 @@ async function loadSectionsForStudent() {
       sectionSubtitle.textContent = "Simulacros de esta sección.";
       loadExamsForSectionForStudent(id);
       sidebar.classList.remove("sidebar--open");
+
+      // Volver a vista de exámenes
+      show(examsView);
+      hide(examDetailView);
+      hide(progressView);
     });
 
     sidebarSections.appendChild(li);
@@ -482,6 +570,7 @@ async function startExamForStudent({
   currentExamQuestions = [];
 
   hide(examsView);
+  hide(progressView);
   show(examDetailView);
 
   // Reset banner de resultados
@@ -505,8 +594,7 @@ async function startExamForStudent({
 }
 
 /***********************************************
- * CARGAR PREGUNTAS DEL EXAMEN
- * (AGRUPADO POR CASO CLÍNICO)
+ * CARGAR PREGUNTAS DEL EXAMEN (AGRUPADO POR CASO)
  ***********************************************/
 async function loadQuestionsForExam(examId) {
   questionsList.innerHTML = "";
@@ -525,16 +613,17 @@ async function loadQuestionsForExam(examId) {
     return;
   }
 
-  // Construimos estructura por casos
   const cases = [];
   snap.forEach((docSnap) => {
     const data = docSnap.data();
     const caseText = data.caseText || "";
     const arr = Array.isArray(data.questions) ? data.questions : [];
+    const specialtyKey = data.specialty || null;
 
     if (arr.length > 0) {
       cases.push({
         caseText,
+        specialty: specialtyKey,
         questions: arr.map((q) => ({
           questionText: q.questionText || "",
           optionA: q.optionA || "",
@@ -543,6 +632,8 @@ async function loadQuestionsForExam(examId) {
           optionD: q.optionD || "",
           correctOption: q.correctOption || "",
           justification: q.justification || "",
+          difficulty: q.difficulty || null,
+          subtype: q.subtype || null,
         })),
       });
     }
@@ -556,18 +647,23 @@ async function loadQuestionsForExam(examId) {
     return;
   }
 
-  // Limpiamos y armamos lista plana para evaluación
   currentExamQuestions = [];
   let globalIndex = 0;
-
   questionsList.innerHTML = "";
 
   cases.forEach((caseData, caseIndex) => {
     const caseBlock = document.createElement("div");
     caseBlock.className = "case-block";
 
+    const specialtyLabel = caseData.specialty
+      ? (SPECIALTIES[caseData.specialty] || caseData.specialty)
+      : "Sin especialidad especificada";
+
     caseBlock.innerHTML = `
       <h4>Caso clínico ${caseIndex + 1}</h4>
+      <div class="panel-subtitle" style="margin-bottom:6px;font-size:12px;">
+        Especialidad: <strong>${specialtyLabel}</strong>
+      </div>
       <div class="case-text">${caseData.caseText || "Caso clínico no especificado."}</div>
     `;
 
@@ -576,7 +672,6 @@ async function loadQuestionsForExam(examId) {
     caseData.questions.forEach((qData, localIndex) => {
       const questionGlobalIndex = globalIndex;
 
-      // Guardamos en lista plana para corrección
       currentExamQuestions.push({
         caseText: caseData.caseText,
         questionText: qData.questionText,
@@ -586,7 +681,18 @@ async function loadQuestionsForExam(examId) {
         optionD: qData.optionD,
         correctOption: qData.correctOption,
         justification: qData.justification,
+        specialty: caseData.specialty,
+        difficulty: qData.difficulty,
+        subtype: qData.subtype,
       });
+
+      const difficultyLabel = qData.difficulty
+        ? (DIFFICULTIES[qData.difficulty] || qData.difficulty)
+        : "No definida";
+
+      const subtypeLabel = qData.subtype
+        ? (SUBTYPES[qData.subtype] || qData.subtype)
+        : "General";
 
       const qBlock = document.createElement("div");
       qBlock.className = "question-block";
@@ -595,6 +701,10 @@ async function loadQuestionsForExam(examId) {
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
         <p>${qData.questionText || ""}</p>
+
+        <div class="panel-subtitle" style="font-size:12px;margin-bottom:8px;">
+          Dificultad: <strong>${difficultyLabel}</strong> · Tipo: <strong>${subtypeLabel}</strong>
+        </div>
 
         <div class="question-options">
           <label>
@@ -619,7 +729,7 @@ async function loadQuestionsForExam(examId) {
           <strong>Justificación:</strong><br>
           ${qData.justification || ""}
         </div>
-      `;
+      ";
 
       questionsWrapper.appendChild(qBlock);
       globalIndex++;
@@ -676,9 +786,31 @@ async function submitExamForStudent(auto = false) {
     currentExamTimerId = null;
   }
 
-  const total = currentExamQuestions.length;
-  let correctCount = 0;
+  const totalQuestions = currentExamQuestions.length;
   const detail = {};
+
+  // Inicializar estructuras de conteo
+  const specStats = {};
+  Object.keys(SPECIALTIES).forEach((key) => {
+    specStats[key] = {
+      name: SPECIALTIES[key],
+      correct: 0,
+      total: 0,
+      subtypes: {},
+    };
+    Object.keys(SUBTYPES).forEach((stKey) => {
+      specStats[key].subtypes[stKey] = { correct: 0, total: 0 };
+    });
+  });
+
+  const difficultyStats = {};
+  Object.keys(DIFFICULTIES).forEach((dKey) => {
+    difficultyStats[dKey] = { correct: 0, total: 0 };
+  });
+
+  let globalCorrect = 0;
+  let globalWeightedCorrect = 0;
+  let globalWeightedTotal = 0;
 
   currentExamQuestions.forEach((q, index) => {
     const selectedInput = document.querySelector(
@@ -688,12 +820,45 @@ async function submitExamForStudent(auto = false) {
     const correct = q.correctOption || "";
     const result = selected === correct ? "correct" : "incorrect";
 
-    if (result === "correct") correctCount++;
+    const specialtyKey = q.specialty && SPECIALTIES[q.specialty] ? q.specialty : null;
+    const difficultyKey = q.difficulty && DIFFICULTY_WEIGHTS[q.difficulty] ? q.difficulty : "baja";
+    const subtypeKey = q.subtype && SUBTYPES[q.subtype] ? q.subtype : "salud_publica";
+
+    const weight = DIFFICULTY_WEIGHTS[difficultyKey] || 1;
+    globalWeightedTotal += weight;
+
+    if (result === "correct") {
+      globalCorrect++;
+      globalWeightedCorrect += weight;
+    }
+
+    // Contadores por especialidad
+    if (specialtyKey && specStats[specialtyKey]) {
+      specStats[specialtyKey].total++;
+      if (result === "correct") specStats[specialtyKey].correct++;
+
+      if (specStats[specialtyKey].subtypes[subtypeKey]) {
+        specStats[specialtyKey].subtypes[subtypeKey].total++;
+        if (result === "correct") {
+          specStats[specialtyKey].subtypes[subtypeKey].correct++;
+        }
+      }
+    }
+
+    // Contadores por dificultad
+    if (difficultyStats[difficultyKey]) {
+      difficultyStats[difficultyKey].total++;
+      if (result === "correct") difficultyStats[difficultyKey].correct++;
+    }
 
     detail[`q${index}`] = {
       selected,
       correctOption: correct,
       result,
+      specialty: specialtyKey,
+      difficulty: difficultyKey,
+      subtype: subtypeKey,
+      weight,
     };
 
     const card = questionsList.querySelector(`[data-q-index="${index}"]`);
@@ -724,7 +889,10 @@ async function submitExamForStudent(auto = false) {
     }
   });
 
-  const score = Math.round((correctCount / total) * 100);
+  const scoreRaw = Math.round((globalCorrect / totalQuestions) * 100);
+  const scoreWeighted = globalWeightedTotal > 0
+    ? (globalWeightedCorrect / globalWeightedTotal) * 100
+    : 0;
 
   try {
     const attemptRef = doc(
@@ -735,36 +903,148 @@ async function submitExamForStudent(auto = false) {
       currentExamId
     );
 
-    const newAttempts = currentExamPreviousAttempts + 1;
+    const prevSnap = await getDoc(attemptRef);
+    const previousAttempts = prevSnap.exists()
+      ? prevSnap.data().attempts || 0
+      : currentExamPreviousAttempts;
+
+    const newAttempts = previousAttempts + 1;
 
     await setDoc(
       attemptRef,
       {
         attempts: newAttempts,
         lastAttempt: serverTimestamp(),
-        score,
+        score: scoreWeighted,          // principal (ponderado)
+        scoreRaw,                      // % simple por número de aciertos
+        correctCount: globalCorrect,
+        totalQuestions,
+        weightedPoints: globalWeightedCorrect,
+        weightedTotal: globalWeightedTotal,
         detail,
+        breakdown: {
+          specialties: specStats,
+          difficulties: difficultyStats,
+        },
       },
       { merge: true }
     );
 
-    // Banner premium de resultados
+    // Banner premium de resultados con TABLAS
     if (resultBanner && resultValues) {
       const message = auto
         ? "El examen fue enviado automáticamente al agotarse el tiempo."
         : "Tu examen se envió correctamente.";
 
+      const totalSummaryHtml = `
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total de aciertos</td>
+              <td>${globalCorrect} de ${totalQuestions}</td>
+            </tr>
+            <tr>
+              <td>Total ponderado</td>
+              <td>${globalWeightedCorrect} de ${globalWeightedTotal}</td>
+            </tr>
+            <tr>
+              <td>Calificación (ponderada)</td>
+              <td>${toFixedNice(scoreWeighted)}%</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table class="result-table result-table--compact">
+          <thead>
+            <tr>
+              <th>Especialidad</th>
+              <th>Aciertos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(SPECIALTIES).map((key) => {
+              const st = specStats[key] || { correct: 0, total: 0 };
+              return `
+                <tr>
+                  <td>${SPECIALTIES[key]}</td>
+                  <td>${st.correct} de ${st.total}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
+      const bySubtypeHtml = `
+        <table class="result-table result-table--compact">
+          <thead>
+            <tr>
+              <th>Especialidad</th>
+              <th>Salud pública</th>
+              <th>Medicina familiar</th>
+              <th>Urgencias</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.keys(SPECIALTIES).map((key) => {
+              const st = specStats[key];
+              const sp = st?.subtypes?.salud_publica || { correct: 0, total: 0 };
+              const mf = st?.subtypes?.medicina_familiar || { correct: 0, total: 0 };
+              const ur = st?.subtypes?.urgencias || { correct: 0, total: 0 };
+              return `
+                <tr>
+                  <td>${SPECIALTIES[key]}</td>
+                  <td>${sp.correct} / ${sp.total}</td>
+                  <td>${mf.correct} / ${mf.total}</td>
+                  <td>${ur.correct} / ${ur.total}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
+      const byDifficultyHtml = `
+        <table class="result-table result-table--compact">
+          <thead>
+            <tr>
+              <th>Dificultad</th>
+              <th>Aciertos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${["alta", "media", "baja"].map((key) => {
+              const st = difficultyStats[key] || { correct: 0, total: 0 };
+              return `
+                <tr>
+                  <td>${DIFFICULTIES[key]}</td>
+                  <td>${st.correct} de ${st.total}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
       resultValues.innerHTML = `
-        ${message}<br>
-        <strong>Aciertos:</strong> ${correctCount} de ${total}<br>
-        <strong>Calificación:</strong> ${score}%
+        <div class="result-message">${message}</div>
+        <div class="result-tables">
+          ${totalSummaryHtml}
+          ${bySubtypeHtml}
+          ${byDifficultyHtml}
+        </div>
       `;
       resultBanner.style.display = "block";
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      // Fallback por si algo falla con el DOM
       alert(
-        `Examen enviado.\n\nAciertos: ${correctCount} de ${total}\nCalificación: ${score}%`
+        `Examen enviado.\n\nAciertos: ${globalCorrect} de ${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`
       );
     }
   } catch (err) {
@@ -796,9 +1076,220 @@ btnBackToExams.addEventListener("click", () => {
   }
 
   hide(examDetailView);
+  hide(progressView);
   show(examsView);
 
   if (currentSectionId) {
     loadExamsForSectionForStudent(currentSectionId);
   }
 });
+
+/***********************************************
+ * VISTA PROGRESO (BOTÓN SIDEBAR)
+ ***********************************************/
+if (btnProgressView) {
+  btnProgressView.addEventListener("click", () => {
+    // Quitar selección de secciones
+    document
+      .querySelectorAll(".sidebar__section-item")
+      .forEach((el) => el.classList.remove("sidebar__section-item--active"));
+
+    hide(examsView);
+    hide(examDetailView);
+    show(progressView);
+    sidebar.classList.remove("sidebar--open");
+
+    loadStudentProgress();
+  });
+}
+
+/***********************************************
+ * CARGAR PROGRESO DEL ESTUDIANTE
+ ***********************************************/
+async function loadStudentProgress() {
+  if (!currentUser) return;
+
+  // Nombre / encabezado
+  const displayName = currentUserProfile?.name || currentUser.email;
+  if (progressUsername) {
+    progressUsername.textContent = `Estudiante: ${displayName}`;
+  }
+
+  // Secciones
+  const sectionsSnap = await getDocs(collection(db, "sections"));
+  const sectionsMap = {};
+  sectionsSnap.forEach((docSnap) => {
+    sectionsMap[docSnap.id] = {
+      id: docSnap.id,
+      name: docSnap.data().name || "Sección",
+    };
+  });
+
+  // Exámenes
+  const examsSnap = await getDocs(collection(db, "exams"));
+  const sectionStats = {};
+  Object.values(sectionsMap).forEach((s) => {
+    sectionStats[s.id] = {
+      id: s.id,
+      name: s.name,
+      totalScore: 0,
+      examsCount: 0,
+      correct: 0,
+      totalQuestions: 0,
+    };
+  });
+
+  const examResults = [];
+
+  for (const exDoc of examsSnap.docs) {
+    const exData = exDoc.data();
+    const examId = exDoc.id;
+    const examName = exData.name || "Examen";
+    const sectionId = exData.sectionId || null;
+
+    const attemptRef = doc(
+      db,
+      "users",
+      currentUser.email,
+      "examAttempts",
+      examId
+    );
+    const attemptSnap = await getDoc(attemptRef);
+    if (!attemptSnap.exists()) continue;
+
+    const atData = attemptSnap.data();
+    const score = typeof atData.score === "number" ? atData.score : 0;
+    const detail = atData.detail || {};
+    let correctCount = typeof atData.correctCount === "number" ? atData.correctCount : 0;
+    let totalQ = typeof atData.totalQuestions === "number" ? atData.totalQuestions : 0;
+
+    if (!totalQ || !correctCount) {
+      totalQ = Object.keys(detail).length;
+      correctCount = Object.values(detail).filter((d) => d.result === "correct").length;
+    }
+
+    examResults.push({
+      examId,
+      examName,
+      sectionId,
+      sectionName: sectionId && sectionsMap[sectionId] ? sectionsMap[sectionId].name : "Sin sección",
+      score,
+      correctCount,
+      totalQuestions: totalQ,
+      lastAttempt: atData.lastAttempt ? atData.lastAttempt.toDate() : null,
+    });
+
+    if (sectionId && sectionStats[sectionId]) {
+      sectionStats[sectionId].totalScore += score;
+      sectionStats[sectionId].examsCount += 1;
+      sectionStats[sectionId].correct += correctCount;
+      sectionStats[sectionId].totalQuestions += totalQ;
+    }
+  }
+
+  // Render tarjetas de secciones
+  if (progressSectionsContainer) {
+    progressSectionsContainer.innerHTML = "";
+
+    Object.values(sectionsMap).forEach((s) => {
+      const st = sectionStats[s.id];
+      const examsCount = st?.examsCount || 0;
+
+      const card = document.createElement("div");
+      card.className = "progress-section-card";
+
+      if (!examsCount) {
+        card.innerHTML = `
+          <div class="progress-section-title">${s.name}</div>
+          <div class="progress-section-body">
+            <div class="progress-section-line">Sin intentos aún.</div>
+          </div>
+        `;
+      } else {
+        const avgScore = st.totalScore / examsCount;
+        card.innerHTML = `
+          <div class="progress-section-title">${s.name}</div>
+          <div class="progress-section-body">
+            <div class="progress-section-line"><strong>Promedio:</strong> ${toFixedNice(avgScore, 1)}%</div>
+            <div class="progress-section-line"><strong>Aciertos:</strong> ${st.correct} de ${st.totalQuestions}</div>
+            <div class="progress-section-line"><strong>Exámenes resueltos:</strong> ${examsCount}</div>
+          </div>
+        `;
+      }
+
+      progressSectionsContainer.appendChild(card);
+    });
+  }
+
+  // Totales globales
+  if (progressGlobalEl) {
+    const totalExamsDone = examResults.length;
+    const totalCorrect = examResults.reduce((acc, r) => acc + r.correctCount, 0);
+    const totalQuestions = examResults.reduce((acc, r) => acc + r.totalQuestions, 0);
+
+    progressGlobalEl.innerHTML = `
+      <div><strong>Total de exámenes realizados:</strong> ${totalExamsDone}</div>
+      <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
+    `;
+  }
+
+  // Gráfica de progreso (orden cronológico por último intento)
+  if (progressChartCanvas) {
+    const sorted = examResults
+      .slice()
+      .sort((a, b) => {
+        const ta = a.lastAttempt ? a.lastAttempt.getTime() : 0;
+        const tb = b.lastAttempt ? b.lastAttempt.getTime() : 0;
+        return ta - tb;
+      });
+
+    const labels = sorted.map((r, idx) => `${idx + 1}. ${r.examName}`);
+    const data = sorted.map((r) => r.score);
+
+    if (progressChartInstance) {
+      progressChartInstance.destroy();
+    }
+
+    const ctx = progressChartCanvas.getContext("2d");
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+    gradient.addColorStop(0, "rgba(37,99,235,0.25)");
+    gradient.addColorStop(1, "rgba(37,99,235,0.00)");
+
+    progressChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Calificación ponderada",
+            data,
+            borderColor: "#2563eb",
+            backgroundColor: gradient,
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: "#1d4ed8",
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            min: 0,
+            max: 100,
+            ticks: { stepSize: 10 },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+        },
+      },
+    });
+  }
+}
