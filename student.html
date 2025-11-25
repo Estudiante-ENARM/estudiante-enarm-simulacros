@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Administrador | Estudiante ENARM</title>
+  <title>Estudiante | Estudiante ENARM</title>
 
   <!-- TIPOGRAFÍA -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -11,295 +11,105 @@
   <!-- ESTILOS -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- GOOGLE ANALYTICS -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-B43LFZV7MR');
-  </script>
-
-  <!-- META PIXEL -->
-  <script>
-    !function(f,b,e,v,n,t,s){
-      if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;
-      n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];
-      t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)
-    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1146031771035535');
-    fbq('track', 'PageView');
-  </script>
+  <!-- CHART.JS (Para progreso) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
 
-  <!-- LOGIN -->
-  <section id="login-view" class="view">
+  <!-- ============================
+       HEADER
+  ============================= -->
+  <header class="header">
+    <h2 style="font-size:18px; font-weight:600;">Panel del estudiante</h2>
 
-    <!-- TITULO + LOGO -->
-    <div style="text-align:center; margin-bottom:20px;">
-      <img src="logo.png" alt="logo" style="width:90px; margin-bottom:8px;">
-      <h2 style="font-size:22px; font-weight:700; color:var(--text-main); text-transform:uppercase;">
-        Estudiante ENARM Simulacros
-      </h2>
+    <div class="header-right">
+      <span id="student-email"></span>
+      <button id="btn-logout" class="btn btn-secondary">Salir</button>
+    </div>
+  </header>
+
+
+  <!-- ============================
+       SIDEBAR
+  ============================= -->
+  <aside id="sidebar">
+
+    <div class="sidebar-logo">
+      <img src="logo.png" class="sidebar-logo-img">
+      <h2 class="sidebar-title">Estudiante ENARM</h2>
     </div>
 
-    <div class="login-card">
-      <h1>Acceso</h1>
-      <form id="login-form">
-        <label class="field">
-          <span>Correo</span>
-          <input type="email" id="login-email" required>
-        </label>
+    <ul id="student-sections" class="sidebar-sections"></ul>
 
-        <label class="field">
-          <span>Contraseña</span>
-          <input type="password" id="login-password" required>
-        </label>
+    <button id="btn-progress" class="sidebar-btn btn-outline">Mi progreso</button>
 
-        <button id="btn-login" class="btn btn-primary" type="submit">Entrar</button>
-
-        <p id="login-error" class="error hidden"></p>
-      </form>
-
-      <!-- BOTÓN PRUEBA GRATUITA (OCULTO PARA NO ROMPER JS) -->
-      <button id="btn-free-access" class="btn btn-outline hidden" style="margin-top:16px;">
-        Prueba gratuita
-      </button>
-
-      <!-- BLOQUE PROMOCIONAL / PANTALLA PRINCIPAL -->
-      <div id="landing-card" class="card" style="margin-top:22px; text-align:center;">
-        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;">
-          <!-- Texto promocional dinámico desde Firestore -->
-        </p>
-
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <!-- Estos textos y/o precios se llenarán desde Firestore -->
-          <button id="btn-price-month" class="btn btn-primary">
-            Precio mensual
-          </button>
-
-          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">
-            Acceso completo
-          </button>
-        </div>
-      </div>
-
+    <div class="sidebar-social">
+      <img src="instagram.png" class="social-icon" id="student-instagram">
+      <img src="whatsapp.png" class="social-icon" id="student-whatsapp">
+      <img src="tiktok.png" class="social-icon" id="student-tiktok">
+      <img src="telegram.png" class="social-icon" id="student-telegram">
     </div>
-  </section>
+  </aside>
 
-  <!-- PANEL ADMIN -->
-  <section id="admin-view" class="view hidden">
 
-    <!-- SIDEBAR -->
-    <aside id="sidebar">
-      <div class="sidebar-logo">
-        <img src="logo.png" alt="Logo" class="sidebar-logo-img">
-        <h2 class="sidebar-title">Estudiante ENARM</h2>
-      </div>
+  <!-- ============================
+       CONTENIDO PRINCIPAL
+  ============================= -->
+  <main id="content">
 
-      <ul id="sidebar-sections" class="sidebar-sections"></ul>
+    <!-- ======================
+         VISTA EXÁMENES
+    ======================= -->
+    <div id="student-exams-view" class="panel">
+      <h2 id="student-section-title">Selecciona una sección</h2>
+      <p class="panel-subtitle">Elige un simulacro para comenzar.</p>
 
-      <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
-      <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
-      <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
-
-      <!-- PANEL PANTALLA PRINCIPAL (ID AJUSTADO PARA COINCIDIR CON app.js) -->
-      <button id="btn-landing-view" class="sidebar-btn btn-outline">
-        Pantalla principal
-      </button>
-
-      <div class="sidebar-social">
-        <img src="instagram.png" class="social-icon" data-network="instagram">
-        <img src="whatsapp.png" class="social-icon" data-network="whatsapp">
-        <img src="tiktok.png" class="social-icon" data-network="tiktok">
-        <img src="telegram.png" class="social-icon" data-network="telegram">
-      </div>
-    </aside>
-
-    <!-- HEADER -->
-    <header class="header">
-      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
-
-      <div class="header-right">
-        <span id="current-user-email"></span>
-        <button id="btn-logout" class="btn btn-secondary">Cerrar sesión</button>
-      </div>
-    </header>
-
-    <main id="content">
-
-      <!-- VISTA SECCIONES -->
-      <div id="sections-view" class="panel">
-        <h2 id="current-section-title">Selecciona una sección</h2>
-        <p id="current-section-subtitle" class="panel-subtitle">
-          Elige una sección para ver sus exámenes.
-        </p>
-
-        <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
-        <div id="exams-list" class="cards-list"></div>
-      </div>
-
-      <!-- VISTA USUARIOS -->
-      <div id="users-view" class="panel hidden">
-        <h2>Usuarios</h2>
-
-        <!-- FORM NUEVO USUARIO -->
-        <div id="create-user-card" class="card">
-          <h3 style="margin-bottom:12px;">Crear nuevo usuario</h3>
-
-          <div class="create-user-grid">
-
-            <label class="field">
-              <span>Nombre</span>
-              <input type="text" id="new-user-name">
-            </label>
-
-            <label class="field">
-              <span>Email (ID del documento)</span>
-              <input type="email" id="new-user-email">
-            </label>
-
-            <label class="field">
-              <span>Contraseña</span>
-              <input type="text" id="new-user-password">
-            </label>
-
-            <label class="field">
-              <span>Estado</span>
-              <select id="new-user-status">
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Rol</span>
-              <select id="new-user-role">
-                <option value="usuario">Usuario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Fecha límite</span>
-              <input type="date" id="new-user-expiry">
-            </label>
-
-          </div>
-
-          <button id="btn-create-user" class="btn btn-primary" style="margin-top:12px;">
-            Guardar usuario
-          </button>
-        </div>
-
-        <!-- LISTA USUARIOS -->
-        <div id="users-list"></div>
-      </div>
-
-      <!-- DETALLE DE EXAMEN -->
-      <div id="exam-detail-view" class="panel hidden">
-        <div class="panel-header">
-          <button id="btn-back-to-exams" class="btn btn-outline">← Volver</button>
-          <div>
-            <h2>Editar examen</h2>
-            <p class="panel-subtitle">Modifica preguntas y casos clínicos aquí.</p>
-          </div>
-        </div>
-
-        <div id="exam-meta-card" class="card">
-          <label class="field">
-            <span>Nombre del examen</span>
-            <input id="exam-name-input" type="text">
-          </label>
-
-          <div class="flex-row">
-            <button id="btn-save-exam-meta" class="btn btn-secondary">Guardar nombre</button>
-            <button id="btn-new-question" class="btn btn-primary">+ Nueva pregunta</button>
-          </div>
-        </div>
-
-        <div id="questions-list" class="cards-list"></div>
-      </div>
-
-      <!-- VISTA PANTALLA PRINCIPAL (ADMIN) -->
-      <div id="landing-settings-view" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Pantalla principal</h2>
-            <p class="panel-subtitle">
-              Edita el texto del recuadro y los datos que se muestran en la pantalla inicial.
-            </p>
-          </div>
-        </div>
-
-        <div id="landing-settings-panel">
-
-          <!-- Texto principal / descriptivo -->
-          <div class="landing-admin-card">
-            <h3 style="margin-bottom:8px;">Texto de la plataforma</h3>
-
-            <label class="field">
-              <span>Título principal (opcional)</span>
-              <input id="landing-hero-title" type="text" class="landing-admin-input" />
-            </label>
-
-            <label class="field">
-              <span>Subtítulo / frase corta (opcional)</span>
-              <textarea id="landing-hero-subtitle"></textarea>
-            </label>
-
-            <label class="field">
-              <span>Texto del recuadro (se muestra debajo del login)</span>
-              <textarea id="landing-cta-text"></textarea>
-            </label>
-          </div>
-
-          <!-- Enlace general (por ejemplo WhatsApp) -->
-          <div class="landing-admin-card">
-            <h3 style="margin-bottom:8px;">Enlace principal (WhatsApp u otro)</h3>
-
-            <label class="field">
-              <span>URL principal (por ejemplo enlace de WhatsApp con mensaje)</span>
-              <input id="landing-cta-url" type="url" class="landing-admin-input" placeholder="https://wa.me/..." />
-            </label>
-
-            <button id="btn-save-landing" class="btn btn-primary" style="margin-top:12px;">
-              Guardar configuración
-            </button>
-
-            <div id="saveMsg"></div>
-          </div>
-
-        </div>
-      </div>
-
-    </main>
-
-  </section>
-
-  <!-- MODAL -->
-  <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal">
-      <h3 id="modal-title"></h3>
-      <form id="modal-form">
-        <div id="modal-fields"></div>
-        <div class="modal-actions">
-          <button id="modal-cancel" type="button" class="btn btn-outline">Cancelar</button>
-          <button id="modal-submit" type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-      </form>
+      <div id="student-exams-list" class="cards-list"></div>
     </div>
-  </div>
 
-  <!-- JS -->
-  <script type="module" src="app.js"></script>
+
+    <!-- ======================
+         RENDERS EXAMEN
+    ======================= -->
+    <div id="student-exam-view" class="panel hidden">
+
+      <button id="btn-exam-back" class="btn btn-outline" style="margin-bottom:18px;">← Volver</button>
+
+      <h2 id="exam-title"></h2>
+      <p class="panel-subtitle" style="margin-bottom:16px;">Contesta todas las preguntas.</p>
+
+      <div id="student-questions"></div>
+
+      <button id="btn-finish-exam" class="btn btn-primary" style="margin-top:20px;">Finalizar examen</button>
+
+      <div id="student-result-banner">
+        <div id="student-result-values"></div>
+      </div>
+    </div>
+
+
+    <!-- ======================
+         PROGRESO
+    ======================= -->
+    <div id="student-progress-view" class="panel hidden">
+      <h2>Mi progreso</h2>
+      <p class="panel-subtitle">Historial y calificaciones guardadas.</p>
+
+      <div id="progress-global" style="margin:12px 0; font-weight:600;"></div>
+
+      <div class="progress-section-grid" id="progress-sections"></div>
+
+      <canvas id="progressChart" height="140" style="margin-top:28px;"></canvas>
+    </div>
+
+  </main>
+
+
+  <!-- ============================
+       JS
+  ============================= -->
+  <script type="module" src="student.js"></script>
 
 </body>
 </html>
