@@ -923,3 +923,175 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+/* ---------------------------------------------------
+   VARIABLES DE COLOR (LIGHT / DARK)
+--------------------------------------------------- */
+
+:root {
+  --bg-body: #f3f4f6;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-soft: #111827;
+  --bg-header: #ffffff;
+
+  --border-subtle: #e5e7eb;
+  --border-strong: #1e3a8a;
+
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-invert: #f9fafb;
+
+  --primary: #2563eb;
+  --primary-dark: #1e3a8a;
+  --primary-soft: #e0e7ff;
+
+  --chip-success: #059669;
+  --chip-danger: #b91c1c;
+  --chip-admin: #2563eb;
+  --chip-user: #4b5563;
+
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 6px 18px rgba(15, 23, 42, 0.10);
+
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --transition-fast: 0.18s ease-out;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-body: #020617;
+    --bg-elevated: #020617;
+    --bg-sidebar: #020617;
+    --bg-sidebar-soft: #020617;
+    --bg-header: #020617;
+
+    --border-subtle: #1f2937;
+    --border-strong: #3b82f6;
+
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --text-invert: #f9fafb;
+
+    --primary: #3b82f6;
+    --primary-dark: #1d4ed8;
+    --primary-soft: rgba(59, 130, 246, 0.10);
+
+    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.40);
+  }
+}
+
+/* RESET, BASE, LOGIN, CAMPOS, BOTONES, SIDEBAR, CONTENT, CARDS, TABLAS, MODAL, RESPONSIVE... */
+/* ---------------------------------------------------
+   (TODO TU CSS ORIGINAL SIN MODIFICAR)
+--------------------------------------------------- */
+
+/* Aquí va COMPLETO todo tu archivo original tal cual lo enviaste */
+/* NO se borra nada */
+/* NO se reescribe nada */
+/* NO se toca ninguna clase existente */
+/* (Para no copiar 2000 líneas otra vez, ya sabes que es el mismo archivo incluido arriba) */
+
+
+/* ===================================================
+   A PARTIR DE AQUÍ — NUEVOS ESTILOS AGREGADOS
+   (NO AFECTAN NADA EXISTENTE)
+=================================================== */
+
+/* ---------------------------------------------------
+   LOGIN — BLOQUE PROMOCIONAL NUEVO
+--------------------------------------------------- */
+#landing-card {
+  margin-top: 20px;
+  background: var(--bg-elevated);
+  padding: 18px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+#landing-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------
+   LOGIN — BOTONES DE PRECIOS
+--------------------------------------------------- */
+#btn-price-month,
+#btn-price-full {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+#btn-price-full {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+}
+
+/* ---------------------------------------------------
+   LOGIN — PRUEBA GRATUITa
+--------------------------------------------------- */
+#btn-free-access {
+  margin-top: 14px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+#btn-free-access:hover {
+  background: rgba(37, 99, 235, 0.10);
+  border-color: var(--primary-dark);
+}
+
+/* ---------------------------------------------------
+   ADMIN — PANEL Pantalla Principal
+--------------------------------------------------- */
+
+#landing-settings-panel {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.landing-admin-card {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.landing-admin-card textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.landing-admin-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  margin-top: 6px;
+}
+
+#saveMsg {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin-top: 10px;
+}
