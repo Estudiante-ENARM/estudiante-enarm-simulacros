@@ -832,3 +832,94 @@ tr:last-child td {
   font-size: 13px;
   display: none; /* se activa cuando examen es finalizado */
 }
+/* ---------------------------------------------------
+   RESULTADOS — TABLAS PREMIUM
+--------------------------------------------------- */
+
+.result-message {
+  margin-bottom: 8px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.result-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.result-table th,
+.result-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+}
+
+.result-table th {
+  text-align: left;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.result-table--compact th,
+.result-table--compact td {
+  padding: 5px 6px;
+}
+
+/* ---------------------------------------------------
+   PROGRESO — TARJETAS Y GRÁFICA
+--------------------------------------------------- */
+
+.progress-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.progress-section-card {
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.progress-section-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.progress-section-line {
+  margin-top: 2px;
+}
+
+.progress-global {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+#student-progress-chart-card {
+  height: 320px;
+}
+
+/* En móvil, las tarjetas de sección van en una sola columna */
+@media (max-width: 700px) {
+  .progress-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
