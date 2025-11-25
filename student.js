@@ -19,7 +19,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-// --- Configuración Firebase (MISMA QUE EN app.js) ---
+// --- Configuración Firebase ---
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -71,7 +71,7 @@ const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
-// Social
+// Social icons
 const socialButtons = document.querySelectorAll(".social-icon");
 
 // Vistas principales
@@ -89,7 +89,7 @@ const questionsList = document.getElementById("student-questions-list");
 const btnBackToExams = document.getElementById("student-btn-back-to-exams");
 const btnSubmitExam = document.getElementById("student-btn-submit-exam");
 
-// Banner de resultados
+// Banner resultados
 const resultBanner = document.getElementById("student-result-banner");
 const resultValues = document.getElementById("student-result-values");
 
@@ -154,30 +154,8 @@ function toFixedNice(num, decimals = 2) {
   if (!isFinite(num)) return "0";
   return Number(num.toFixed(decimals)).toString();
 }
-
 /***********************************************
- * SIDEBAR MÓVIL
- ***********************************************/
-if (btnToggleSidebar && sidebar) {
-  btnToggleSidebar.addEventListener("click", () => {
-    sidebar.classList.toggle("sidebar--open");
-  });
-}
-
-/***********************************************
- * LOGOUT
- ***********************************************/
-btnLogout.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-    window.location.href = "index.html";
-  } catch (err) {
-    console.error(err);
-  }
-});
-
-/***********************************************
- * AUTENTICACIÓN Y ROL
+ * AUTENTICACIÓN Y MANEJO DE ROLES
  ***********************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -199,11 +177,11 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    const data = userSnap.data();
-    currentUserProfile = data;
+    currentUserProfile = userSnap.data();
 
     const today = new Date().toISOString().slice(0, 10);
-    if (data.expiryDate && data.expiryDate < today) {
+
+    if (currentUserProfile.expiryDate && currentUserProfile.expiryDate < today) {
       await setDoc(userDocRef, { status: "inactivo" }, { merge: true });
       alert("Tu acceso ha vencido. Contacta al administrador.");
       await signOut(auth);
@@ -211,14 +189,14 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    if (data.status !== "activo") {
+    if (currentUserProfile.status !== "activo") {
       alert("Tu usuario está inactivo. Contacta al administrador.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    if (data.role !== "usuario") {
+    if (currentUserProfile.role !== "usuario") {
       alert("Este panel es solo para estudiantes.");
       window.location.href = "index.html";
       return;
@@ -227,7 +205,7 @@ onAuthStateChanged(auth, async (user) => {
     await loadExamRules();
     await loadSectionsForStudent();
     await loadSocialLinksForStudent();
-
+    await loadPlanLimits(); // << NUEVO: controlador del plan gratuito/premium
   } catch (err) {
     console.error(err);
     alert("No se pudo cargar la información del estudiante.");
@@ -235,40 +213,57 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 /***********************************************
- * REGLAS GLOBALES DE EXÁMENES
+ * REGLAS DE EXÁMENES GLOBALES
  ***********************************************/
 async function loadExamRules() {
   try {
     const snap = await getDoc(doc(db, "examRules", "defaultRules"));
     if (snap.exists()) {
       const data = snap.data();
-      if (typeof data.maxAttempts === "number") {
-        examRules.maxAttempts = data.maxAttempts;
-      }
-      if (typeof data.timePerQuestion === "number") {
-        examRules.timePerQuestion = data.timePerQuestion;
-      }
+      if (typeof data.maxAttempts === "number") examRules.maxAttempts = data.maxAttempts;
+      if (typeof data.timePerQuestion === "number") examRules.timePerQuestion = data.timePerQuestion;
     }
   } catch (err) {
-    console.error("No se pudo leer examRules/defaultRules, usando valores por defecto.", err);
+    console.error("No se pudo leer examRules/defaultRules.", err);
   }
 }
 
 /***********************************************
- * REDES SOCIALES (ESTUDIANTE)
+ * PLAN PREMIUM / PLAN GRATIS
+ ***********************************************/
+async function loadPlanLimits() {
+  try {
+    const snap = await getDoc(doc(db, "plans", currentUser.email));
+
+    if (!snap.exists()) {
+      currentUser.plan = "free";
+      return;
+    }
+
+    const data = snap.data();
+    currentUser.plan = data.plan || "free";
+    currentUser.allowedExams = data.allowedExams || ["first"];
+
+  } catch (err) {
+    console.error("No se pudo leer datos del plan.", err);
+    currentUser.plan = "free";
+  }
+}
+
+/***********************************************
+ * REDES SOCIALES DE LA PLATAFORMA
  ***********************************************/
 async function loadSocialLinksForStudent() {
   try {
     const snap = await getDoc(doc(db, "settings", "socialLinks"));
     if (!snap.exists()) return;
+
     const data = snap.data();
+
     socialButtons.forEach((btn) => {
       const network = btn.dataset.network;
-      if (data[network]) {
-        btn.dataset.url = data[network];
-      } else {
-        delete btn.dataset.url;
-      }
+      if (data[network]) btn.dataset.url = data[network];
+      else delete btn.dataset.url;
     });
   } catch (err) {
     console.error(err);
@@ -287,7 +282,7 @@ async function loadSocialLinksForStudent() {
 }
 
 /***********************************************
- * SECCIONES (ESTUDIANTE)
+ * CARGA DE SECCIONES
  ***********************************************/
 async function loadSectionsForStudent() {
   const snap = await getDocs(collection(db, "sections"));
@@ -297,35 +292,42 @@ async function loadSectionsForStudent() {
     sidebarSections.innerHTML = `
       <li style="font-size:12px;color:#cbd5f5;padding:4px 6px;">
         Aún no hay secciones configuradas.
-      </li>
-    `;
+      </li>`;
     renderEmptyMessage(examsList, "No hay exámenes disponibles.");
     return;
   }
+
+  let firstSectionId = null;
+  let firstSectionName = null;
 
   snap.forEach((docSnap) => {
     const data = docSnap.data();
     const id = docSnap.id;
     const name = data.name || "Sección sin título";
 
+    if (!firstSectionId) {
+      firstSectionId = id;
+      firstSectionName = name;
+    }
+
     const li = document.createElement("li");
     li.className = "sidebar__section-item";
     li.innerHTML = `<div class="sidebar__section-name">${name}</div>`;
 
     li.addEventListener("click", () => {
-      document
-        .querySelectorAll(".sidebar__section-item")
+      document.querySelectorAll(".sidebar__section-item")
         .forEach((el) => el.classList.remove("sidebar__section-item--active"));
       li.classList.add("sidebar__section-item--active");
 
       currentSectionId = id;
       currentSectionName = name;
+
       sectionTitle.textContent = name;
       sectionSubtitle.textContent = "Simulacros de esta sección.";
+
       loadExamsForSectionForStudent(id);
       sidebar.classList.remove("sidebar--open");
 
-      // Volver a vista de exámenes
       show(examsView);
       hide(examDetailView);
       hide(progressView);
@@ -334,14 +336,18 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
-  renderEmptyMessage(
-    examsList,
-    "Selecciona una sección en la barra lateral para ver sus exámenes."
-  );
-}
+  // Seleccionar automáticamente la primera sección
+  currentSectionId = firstSectionId;
+  currentSectionName = firstSectionName;
 
+  document.querySelector(".sidebar__section-item")?.classList.add(
+    "sidebar__section-item--active"
+  );
+
+  await loadExamsForSectionForStudent(firstSectionId);
+}
 /***********************************************
- * SVG ICONOS (PREMIUM)
+ * ICONOS SVG — ELEMENTOS VISUALES
  ***********************************************/
 function svgIcon(type) {
   if (type === "questions") {
@@ -351,8 +357,7 @@ function svgIcon(type) {
         <line x1="8" y1="9" x2="16" y2="9"></line>
         <line x1="8" y1="13" x2="13" y2="13"></line>
         <circle cx="9" cy="17" r="0.8"></circle>
-      </svg>
-    `;
+      </svg>`;
   }
   if (type === "time") {
     return `
@@ -360,8 +365,7 @@ function svgIcon(type) {
         <circle cx="12" cy="13" r="7"></circle>
         <polyline points="12 10 12 13 15 15"></polyline>
         <line x1="9" y1="4" x2="15" y2="4"></line>
-      </svg>
-    `;
+      </svg>`;
   }
   if (type === "attempts") {
     return `
@@ -371,14 +375,13 @@ function svgIcon(type) {
         <path d="M18.8 5.2l-2.1 2.1"></path>
         <circle cx="12" cy="14" r="6"></circle>
         <path d="M10 14l2 2 3-3"></path>
-      </svg>
-    `;
+      </svg>`;
   }
   return "";
 }
 
 /***********************************************
- * EXÁMENES (LISTA ESTUDIANTE)
+ * LISTA DE EXÁMENES — APLICANDO PLAN FREE/PREMIUM
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   examsList.innerHTML = "";
@@ -387,73 +390,87 @@ async function loadExamsForSectionForStudent(sectionId) {
     collection(db, "exams"),
     where("sectionId", "==", sectionId)
   );
+
   const snap = await getDocs(qEx);
 
   if (snap.empty) {
-    renderEmptyMessage(
-      examsList,
-      "No hay exámenes disponibles en esta sección."
-    );
+    renderEmptyMessage(examsList, "No hay exámenes disponibles.");
     return;
   }
 
+  let indexExam = 0;
+
   for (const docSnap of snap.docs) {
+    indexExam++;
     const exData = docSnap.data();
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
 
     // Intentos previos
-    const attemptRef = doc(
-      db,
-      "users",
-      currentUser.email,
-      "examAttempts",
-      examId
-    );
+    const attemptRef = doc(db, "users", currentUser.email, "examAttempts", examId);
     const attemptSnap = await getDoc(attemptRef);
-    const attemptsUsed = attemptSnap.exists()
-      ? attemptSnap.data().attempts || 0
-      : 0;
+    const attemptsUsed = attemptSnap.exists() ? attemptSnap.data().attempts || 0 : 0;
 
-    // Número total de preguntas
+    // Número de preguntas
     const qQuestions = query(
       collection(db, "questions"),
       where("examId", "==", examId)
     );
-    const qSnap = await getDocs(qQuestions);
 
+    const qSnap = await getDocs(qQuestions);
     let totalQuestions = 0;
+
     qSnap.forEach((qDoc) => {
       const qData = qDoc.data();
       const arr = Array.isArray(qData.questions) ? qData.questions : [];
       totalQuestions += arr.length;
     });
 
+    // Examen sin preguntas
     if (totalQuestions === 0) {
       const card = document.createElement("div");
       card.className = "card-item";
       card.innerHTML = `
         <div class="card-item__title-row">
           <div class="card-item__title">${examName}</div>
-          <span class="badge" style="background:#fbbf24;color:#78350f;">
-            En preparación
-          </span>
+          <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
         </div>
-        <div class="card-item__badge-row" style="margin-top:8px;font-size:13px;color:#6b7280;">
-          Aún no hay preguntas cargadas para este examen.
-        </div>
+        <div class="panel-subtitle" style="margin-top:8px;">Aún no hay preguntas cargadas.</div>
       `;
       examsList.appendChild(card);
       continue;
     }
 
+    // Tiempo total
     const maxAttempts = examRules.maxAttempts;
     const timePerQuestion = examRules.timePerQuestion;
     const totalSeconds = totalQuestions * timePerQuestion;
     const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
 
+    // RESTRICCIÓN DE PLAN GRATIS -----------------------------------------
+    let isBlocked = false;
+    if (currentUser.plan === "free") {
+      if (indexExam !== 1) {
+        isBlocked = true;
+      }
+    }
+
+    // RESTRICCIÓN: Intentos agotados
     const disabled = attemptsUsed >= maxAttempts;
-    const statusText = disabled ? "Intentos agotados" : "Disponible";
+
+    const card = document.createElement("div");
+    card.className = "card-item";
+
+    if (isBlocked) {
+      card.style.opacity = 0.55;
+    } else if (disabled) {
+      card.style.opacity = 0.7;
+    }
+
+    const statusText =
+      isBlocked ? "Solo para Premium"
+      : disabled ? "Intentos agotados"
+      : "Disponible";
 
     const lastAttemptText = attemptSnap.exists()
       ? (attemptSnap.data().lastAttempt
@@ -461,20 +478,15 @@ async function loadExamsForSectionForStudent(sectionId) {
         : "—")
       : "Sin intentos previos.";
 
-    const card = document.createElement("div");
-    card.className = "card-item";
-    if (disabled) {
-      card.style.opacity = "0.7";
-    }
-
+    // Render card
     card.innerHTML = `
       <div class="card-item__title-row" style="align-items:flex-start;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
               <rect x="3" y="4" width="18" height="15" rx="2"></rect>
-              <path d="M7 9h10"></path>
-              <path d="M7 13h5"></path>
+              <line x1="7" y1="9" x2="17" y2="9"></line>
+              <line x1="7" y1="13" x2="12" y2="13"></line>
             </svg>
           </div>
           <div>
@@ -484,54 +496,50 @@ async function loadExamsForSectionForStudent(sectionId) {
             </div>
           </div>
         </div>
-        <div style="text-align:right;">
-          <span class="badge">
-            <span class="badge-dot"></span>
-            ${statusText}
-          </span>
-        </div>
+
+        <span class="badge"><span class="badge-dot"></span>${statusText}</span>
       </div>
 
       <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgIcon("questions")}
           <div>
-            <div style="font-weight:600;">${totalQuestions} preguntas</div>
-            <div class="panel-subtitle">Casos clínicos de la sección</div>
+            <strong>${totalQuestions} preguntas</strong>
+            <div class="panel-subtitle">Casos clínicos</div>
           </div>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgIcon("time")}
           <div>
-            <div style="font-weight:600;">${totalTimeFormatted}</div>
-            <div class="panel-subtitle">Tiempo estimado total</div>
+            <strong>${totalTimeFormatted}</strong>
+            <div class="panel-subtitle">Tiempo total</div>
           </div>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgIcon("attempts")}
           <div>
-            <div style="font-weight:600;">Intentos: ${attemptsUsed} de ${maxAttempts}</div>
+            <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
             <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
           </div>
         </div>
       </div>
 
-      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
+      <div style="margin-top:14px;text-align:right;">
         ${
-          disabled
-            ? `<button type="button" class="btn btn-outline" disabled>Intentos agotados</button>`
-            : `<button type="button" class="btn btn-primary student-start-exam-btn">
-                 Iniciar examen
-               </button>`
+          isBlocked
+            ? `<button class="btn btn-outline" disabled>Solo Premium</button>`
+            : disabled
+              ? `<button class="btn btn-outline" disabled>Intentos agotados</button>`
+              : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
         }
       </div>
     `;
 
-    if (!disabled) {
-      const startBtn = card.querySelector(".student-start-exam-btn");
-      startBtn.addEventListener("click", () => {
+    if (!isBlocked && !disabled) {
+      const btnStart = card.querySelector(".student-start-exam-btn");
+      btnStart.addEventListener("click", () => {
         startExamForStudent({
           examId,
           examName,
@@ -546,9 +554,8 @@ async function loadExamsForSectionForStudent(sectionId) {
     examsList.appendChild(card);
   }
 }
-
 /***********************************************
- * INICIAR EXAMEN (ESTUDIANTE)
+ * INICIAR EXAMEN — LÓGICA COMPLETA
  ***********************************************/
 async function startExamForStudent({
   examId,
@@ -573,19 +580,16 @@ async function startExamForStudent({
   hide(progressView);
   show(examDetailView);
 
-  // Reset banner de resultados
-  if (resultBanner && resultValues) {
-    resultBanner.style.display = "none";
-    resultValues.innerHTML = "";
-  }
+  // Reset de banner de resultados
+  resultBanner.style.display = "none";
+  resultValues.innerHTML = "";
 
   examTitle.textContent = examName;
-  examSubtitle.textContent =
-    "Resuelve con calma, pero cuidando el tiempo. Una vez enviado, se registrará tu intento.";
+  examSubtitle.textContent = "Resuelve cuidadosamente y envía antes de que acabe el tiempo.";
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
     🕒 Tiempo total: <strong>${formatMinutesFromSeconds(totalSeconds)}</strong><br>
-    🔁 Intentos usados: <strong>${attemptsUsed} de ${maxAttempts}</strong>
+    🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
   `;
 
   await loadQuestionsForExam(examId);
@@ -594,7 +598,7 @@ async function startExamForStudent({
 }
 
 /***********************************************
- * CARGAR PREGUNTAS DEL EXAMEN (AGRUPADO POR CASO)
+ * CARGAR PREGUNTAS DEL EXAMEN
  ***********************************************/
 async function loadQuestionsForExam(examId) {
   questionsList.innerHTML = "";
@@ -603,13 +607,11 @@ async function loadQuestionsForExam(examId) {
     collection(db, "questions"),
     where("examId", "==", examId)
   );
+
   const snap = await getDocs(qQuestions);
 
   if (snap.empty) {
-    renderEmptyMessage(
-      questionsList,
-      "Este examen aún no tiene casos clínicos configurados."
-    );
+    renderEmptyMessage(questionsList, "No se han cargado preguntas.");
     return;
   }
 
@@ -624,31 +626,19 @@ async function loadQuestionsForExam(examId) {
       cases.push({
         caseText,
         specialty: specialtyKey,
-        questions: arr.map((q) => ({
-          questionText: q.questionText || "",
-          optionA: q.optionA || "",
-          optionB: q.optionB || "",
-          optionC: q.optionC || "",
-          optionD: q.optionD || "",
-          correctOption: q.correctOption || "",
-          justification: q.justification || "",
-          difficulty: q.difficulty || null,
-          subtype: q.subtype || null,
-        })),
+        questions: arr,
       });
     }
   });
 
   if (cases.length === 0) {
-    renderEmptyMessage(
-      questionsList,
-      "Este examen aún no tiene preguntas configuradas."
-    );
+    renderEmptyMessage(questionsList, "No existen preguntas configuradas.");
     return;
   }
 
   currentExamQuestions = [];
   let globalIndex = 0;
+
   questionsList.innerHTML = "";
 
   cases.forEach((caseData, caseIndex) => {
@@ -656,83 +646,66 @@ async function loadQuestionsForExam(examId) {
     caseBlock.className = "case-block";
 
     const specialtyLabel = caseData.specialty
-      ? (SPECIALTIES[caseData.specialty] || caseData.specialty)
-      : "Sin especialidad especificada";
+      ? SPECIALTIES[caseData.specialty] || caseData.specialty
+      : "Especialidad no definida";
 
     caseBlock.innerHTML = `
       <h4>Caso clínico ${caseIndex + 1}</h4>
       <div class="panel-subtitle" style="margin-bottom:6px;font-size:12px;">
         Especialidad: <strong>${specialtyLabel}</strong>
       </div>
-      <div class="case-text">${caseData.caseText || "Caso clínico no especificado."}</div>
+      <div class="case-text">${caseData.caseText}</div>
     `;
 
     const questionsWrapper = document.createElement("div");
 
-    caseData.questions.forEach((qData, localIndex) => {
-      const questionGlobalIndex = globalIndex;
+    caseData.questions.forEach((q, localIndex) => {
+      const idx = globalIndex;
 
       currentExamQuestions.push({
         caseText: caseData.caseText,
-        questionText: qData.questionText,
-        optionA: qData.optionA,
-        optionB: qData.optionB,
-        optionC: qData.optionC,
-        optionD: qData.optionD,
-        correctOption: qData.correctOption,
-        justification: qData.justification,
+        questionText: q.questionText,
+        optionA: q.optionA,
+        optionB: q.optionB,
+        optionC: q.optionC,
+        optionD: q.optionD,
+        correctOption: q.correctOption,
+        justification: q.justification,
         specialty: caseData.specialty,
-        difficulty: qData.difficulty,
-        subtype: qData.subtype,
+        difficulty: q.difficulty,
+        subtype: q.subtype,
       });
 
-      const difficultyLabel = qData.difficulty
-        ? (DIFFICULTIES[qData.difficulty] || qData.difficulty)
-        : "No definida";
-
-      const subtypeLabel = qData.subtype
-        ? (SUBTYPES[qData.subtype] || qData.subtype)
-        : "General";
+      const difficultyLabel = DIFFICULTIES[q.difficulty] || "No definida";
+      const subtypeLabel = SUBTYPES[q.subtype] || "General";
 
       const qBlock = document.createElement("div");
       qBlock.className = "question-block";
-      qBlock.dataset.qIndex = questionGlobalIndex.toString();
+      qBlock.dataset.qIndex = idx;
 
-      // *** AQUÍ SE CORRIGE EL ERROR FATAL DEL TEMPLATE LITERAL ***
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
-        <p>${qData.questionText || ""}</p>
+        <p>${q.questionText}</p>
 
         <div class="panel-subtitle" style="font-size:12px;margin-bottom:8px;">
           Dificultad: <strong>${difficultyLabel}</strong> · Tipo: <strong>${subtypeLabel}</strong>
         </div>
 
         <div class="question-options">
-          <label>
-            <input type="radio" name="q_${questionGlobalIndex}" value="A">
-            <span>A) ${qData.optionA || ""}</span>
-          </label>
-          <label>
-            <input type="radio" name="q_${questionGlobalIndex}" value="B">
-            <span>B) ${qData.optionB || ""}</span>
-          </label>
-          <label>
-            <input type="radio" name="q_${questionGlobalIndex}" value="C">
-            <span>C) ${qData.optionC || ""}</span>
-          </label>
-          <label>
-            <input type="radio" name="q_${questionGlobalIndex}" value="D">
-            <span>D) ${qData.optionD || ""}</span>
-          </label>
+          <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA}</label>
+          <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB}</label>
+          <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC}</label>
+          <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD}</label>
         </div>
 
         <div class="justification-box">
           <strong>Justificación:</strong><br>
-          ${qData.justification || ""}
+          ${q.justification}
         </div>
       `;
 
       questionsWrapper.appendChild(qBlock);
+
       globalIndex++;
     });
 
@@ -742,12 +715,11 @@ async function loadQuestionsForExam(examId) {
 }
 
 /***********************************************
- * CRONÓMETRO
+ * CRONÓMETRO — TIEMPO TOTAL DEL EXAMEN
  ***********************************************/
 function startExamTimer() {
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
   }
 
   let remaining = currentExamTotalSeconds;
@@ -755,27 +727,26 @@ function startExamTimer() {
 
   currentExamTimerId = setInterval(() => {
     remaining -= 1;
+
     if (remaining <= 0) {
       clearInterval(currentExamTimerId);
-      currentExamTimerId = null;
       examTimerEl.textContent = "00:00";
-      alert("El tiempo se ha agotado. Se enviará tu examen automáticamente.");
+      alert("El tiempo se agotó, tu examen se enviará automáticamente.");
       submitExamForStudent(true);
-    } else {
-      examTimerEl.textContent = formatTimer(remaining);
+      return;
     }
+
+    examTimerEl.textContent = formatTimer(remaining);
   }, 1000);
 }
 
 /***********************************************
- * ENVÍO DE EXAMEN (EVALUACIÓN Y GUARDADO)
+ * ENVÍO DE EXAMEN — CALIFICACIÓN PREMIUM
  ***********************************************/
-btnSubmitExam.addEventListener("click", () => {
-  submitExamForStudent(false);
-});
+btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 
 async function submitExamForStudent(auto = false) {
-  if (!currentExamId || currentExamQuestions.length === 0) {
+  if (!currentExamId || !currentExamQuestions.length) {
     alert("No hay examen cargado.");
     return;
   }
@@ -784,48 +755,48 @@ async function submitExamForStudent(auto = false) {
 
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
   }
 
   const totalQuestions = currentExamQuestions.length;
-  const detail = {};
-
-  // Inicializar estructuras de conteo
-  const specStats = {};
-  Object.keys(SPECIALTIES).forEach((key) => {
-    specStats[key] = {
-      name: SPECIALTIES[key],
-      correct: 0,
-      total: 0,
-      subtypes: {},
-    };
-    Object.keys(SUBTYPES).forEach((stKey) => {
-      specStats[key].subtypes[stKey] = { correct: 0, total: 0 };
-    });
-  });
-
-  const difficultyStats = {};
-  Object.keys(DIFFICULTIES).forEach((dKey) => {
-    difficultyStats[dKey] = { correct: 0, total: 0 };
-  });
 
   let globalCorrect = 0;
   let globalWeightedCorrect = 0;
   let globalWeightedTotal = 0;
 
-  currentExamQuestions.forEach((q, index) => {
-    const selectedInput = document.querySelector(
-      `input[name="q_${index}"]:checked`
-    );
+  const detail = {};
+
+  const specStats = {};
+  Object.keys(SPECIALTIES).forEach((k) => {
+    specStats[k] = {
+      name: SPECIALTIES[k],
+      correct: 0,
+      total: 0,
+      subtypes: {
+        salud_publica: { correct: 0, total: 0 },
+        medicina_familiar: { correct: 0, total: 0 },
+        urgencias: { correct: 0, total: 0 },
+      },
+    };
+  });
+
+  const difficultyStats = {
+    alta: { correct: 0, total: 0 },
+    media: { correct: 0, total: 0 },
+    baja: { correct: 0, total: 0 },
+  };
+
+  currentExamQuestions.forEach((q, idx) => {
+    const selectedInput = document.querySelector(`input[name="q_${idx}"]:checked`);
     const selected = selectedInput ? selectedInput.value : null;
-    const correct = q.correctOption || "";
+
+    const correct = q.correctOption;
     const result = selected === correct ? "correct" : "incorrect";
 
-    const specialtyKey = q.specialty && SPECIALTIES[q.specialty] ? q.specialty : null;
-    const difficultyKey = q.difficulty && DIFFICULTY_WEIGHTS[q.difficulty] ? q.difficulty : "baja";
-    const subtypeKey = q.subtype && SUBTYPES[q.subtype] ? q.subtype : "salud_publica";
+    const specialty = q.specialty;
+    const difficulty = q.difficulty || "baja";
+    const subtype = q.subtype || "salud_publica";
 
-    const weight = DIFFICULTY_WEIGHTS[difficultyKey] || 1;
+    const weight = DIFFICULTY_WEIGHTS[difficulty] || 1;
     globalWeightedTotal += weight;
 
     if (result === "correct") {
@@ -833,56 +804,52 @@ async function submitExamForStudent(auto = false) {
       globalWeightedCorrect += weight;
     }
 
-    // Contadores por especialidad
-    if (specialtyKey && specStats[specialtyKey]) {
-      specStats[specialtyKey].total++;
-      if (result === "correct") specStats[specialtyKey].correct++;
+    if (specialty && specStats[specialty]) {
+      specStats[specialty].total++;
+      if (result === "correct") specStats[specialty].correct++;
 
-      if (specStats[specialtyKey].subtypes[subtypeKey]) {
-        specStats[specialtyKey].subtypes[subtypeKey].total++;
+      if (specStats[specialty].subtypes[subtype]) {
+        specStats[specialty].subtypes[subtype].total++;
         if (result === "correct") {
-          specStats[specialtyKey].subtypes[subtypeKey].correct++;
+          specStats[specialty].subtypes[subtype].correct++;
         }
       }
     }
 
-    // Contadores por dificultad
-    if (difficultyStats[difficultyKey]) {
-      difficultyStats[difficultyKey].total++;
-      if (result === "correct") difficultyStats[difficultyKey].correct++;
+    if (difficultyStats[difficulty]) {
+      difficultyStats[difficulty].total++;
+      if (result === "correct") difficultyStats[difficulty].correct++;
     }
 
-    detail[`q${index}`] = {
+    detail[`q${idx}`] = {
       selected,
       correctOption: correct,
       result,
-      specialty: specialtyKey,
-      difficulty: difficultyKey,
-      subtype: subtypeKey,
+      specialty,
+      difficulty,
+      subtype,
       weight,
     };
 
-    const card = questionsList.querySelector(`[data-q-index="${index}"]`);
+    const card = questionsList.querySelector(`[data-q-index="${idx}"]`);
     if (card) {
-      const justBox = card.querySelector(".justification-box");
-      if (justBox) justBox.style.display = "block";
+      const just = card.querySelector(".justification-box");
+      just.style.display = "block";
 
       const labels = card.querySelectorAll("label");
       labels.forEach((lab) => {
-        const input = lab.querySelector("input[type='radio']");
+        const input = lab.querySelector("input");
         if (!input) return;
-        const val = input.value;
 
-        lab.style.background = "transparent";
         lab.style.border = "1px solid transparent";
         lab.style.borderRadius = "6px";
         lab.style.padding = "4px 6px";
 
-        if (val === correct) {
+        if (input.value === correct) {
           lab.style.borderColor = "#16a34a";
           lab.style.background = "#dcfce7";
         }
-        if (selected && val === selected && selected !== correct) {
+        if (selected === input.value && selected !== correct) {
           lab.style.borderColor = "#b91c1c";
           lab.style.background = "#fee2e2";
         }
@@ -905,159 +872,152 @@ async function submitExamForStudent(auto = false) {
     );
 
     const prevSnap = await getDoc(attemptRef);
-    const previousAttempts = prevSnap.exists()
-      ? prevSnap.data().attempts || 0
-      : currentExamPreviousAttempts;
+    const oldAttempts = prevSnap.exists() ? prevSnap.data().attempts || 0 : currentExamPreviousAttempts;
 
-    const newAttempts = previousAttempts + 1;
-
-    await setDoc(
-      attemptRef,
-      {
-        attempts: newAttempts,
-        lastAttempt: serverTimestamp(),
-        score: scoreWeighted,          // principal (ponderado)
-        scoreRaw,                      // % simple por número de aciertos
-        correctCount: globalCorrect,
-        totalQuestions,
-        weightedPoints: globalWeightedCorrect,
-        weightedTotal: globalWeightedTotal,
-        detail,
-        breakdown: {
-          specialties: specStats,
-          difficulties: difficultyStats,
-        },
+    await setDoc(attemptRef, {
+      attempts: oldAttempts + 1,
+      lastAttempt: serverTimestamp(),
+      score: scoreWeighted,
+      scoreRaw,
+      correctCount: globalCorrect,
+      totalQuestions,
+      weightedPoints: globalWeightedCorrect,
+      weightedTotal: globalWeightedTotal,
+      detail,
+      breakdown: {
+        specialties: specStats,
+        difficulties: difficultyStats,
       },
-      { merge: true }
-    );
+    }, { merge: true });
 
-    // Banner premium de resultados con TABLAS
-    if (resultBanner && resultValues) {
-      const message = auto
-        ? "El examen fue enviado automáticamente al agotarse el tiempo."
-        : "Tu examen se envió correctamente.";
+    renderPremiumResults({ auto, globalCorrect, totalQuestions, scoreWeighted, specStats, difficultyStats });
 
-      const totalSummaryHtml = `
-        <table class="result-table">
-          <thead>
-            <tr>
-              <th>Indicador</th>
-              <th>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Total de aciertos</td>
-              <td>${globalCorrect} de ${totalQuestions}</td>
-            </tr>
-            <tr>
-              <td>Total ponderado</td>
-              <td>${globalWeightedCorrect} de ${globalWeightedTotal}</td>
-            </tr>
-            <tr>
-              <td>Calificación (ponderada)</td>
-              <td>${toFixedNice(scoreWeighted)}%</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table class="result-table result-table--compact">
-          <thead>
-            <tr>
-              <th>Especialidad</th>
-              <th>Aciertos</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.keys(SPECIALTIES).map((key) => {
-              const st = specStats[key] || { correct: 0, total: 0 };
-              return `
-                <tr>
-                  <td>${SPECIALTIES[key]}</td>
-                  <td>${st.correct} de ${st.total}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      `;
-
-      const bySubtypeHtml = `
-        <table class="result-table result-table--compact">
-          <thead>
-            <tr>
-              <th>Especialidad</th>
-              <th>Salud pública</th>
-              <th>Medicina familiar</th>
-              <th>Urgencias</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.keys(SPECIALTIES).map((key) => {
-              const st = specStats[key];
-              const sp = st?.subtypes?.salud_publica || { correct: 0, total: 0 };
-              const mf = st?.subtypes?.medicina_familiar || { correct: 0, total: 0 };
-              const ur = st?.subtypes?.urgencias || { correct: 0, total: 0 };
-              return `
-                <tr>
-                  <td>${SPECIALTIES[key]}</td>
-                  <td>${sp.correct} / ${sp.total}</td>
-                  <td>${mf.correct} / ${mf.total}</td>
-                  <td>${ur.correct} / ${ur.total}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      `;
-
-      const byDifficultyHtml = `
-        <table class="result-table result-table--compact">
-          <thead>
-            <tr>
-              <th>Dificultad</th>
-              <th>Aciertos</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${["alta", "media", "baja"].map((key) => {
-              const st = difficultyStats[key] || { correct: 0, total: 0 };
-              return `
-                <tr>
-                  <td>${DIFFICULTIES[key]}</td>
-                  <td>${st.correct} de ${st.total}</td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      `;
-
-      resultValues.innerHTML = `
-        <div class="result-message">${message}</div>
-        <div class="result-tables">
-          ${totalSummaryHtml}
-          ${bySubtypeHtml}
-          ${byDifficultyHtml}
-        </div>
-      `;
-      resultBanner.style.display = "block";
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      alert(
-        `Examen enviado.\n\nAciertos: ${globalCorrect} de ${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`
-      );
-    }
   } catch (err) {
     console.error(err);
-    alert("No se pudo registrar el intento en la base de datos, pero el examen ya fue evaluado localmente.");
-  } finally {
-    btnSubmitExam.disabled = false;
+    alert("Hubo un error guardando tu intento.");
   }
+
+  btnSubmitExam.disabled = false;
+}
+/***********************************************
+ * RENDERIZAR RESULTADOS PREMIUM (BANNER + TABLAS)
+ ***********************************************/
+function renderPremiumResults({
+  auto,
+  globalCorrect,
+  totalQuestions,
+  scoreWeighted,
+  specStats,
+  difficultyStats,
+}) {
+  if (!resultBanner || !resultValues) {
+    alert(`Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`);
+    return;
+  }
+
+  const message = auto
+    ? "El examen fue enviado automáticamente al agotarse el tiempo."
+    : "Tu examen se envió correctamente.";
+
+  // Tabla general
+  const tableGeneral = `
+    <table class="result-table">
+      <thead>
+        <tr><th>Indicador</th><th>Valor</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Aciertos</td><td>${globalCorrect} de ${totalQuestions}</td></tr>
+        <tr><td>Calificación ponderada</td><td>${toFixedNice(scoreWeighted)}%</td></tr>
+      </tbody>
+    </table>
+  `;
+
+  // Tabla por especialidad
+  const tableBySpecialty = `
+    <table class="result-table result-table--compact">
+      <thead>
+        <tr><th>Especialidad</th><th>Aciertos</th></tr>
+      </thead>
+      <tbody>
+        ${Object.keys(SPECIALTIES).map((key) => {
+          const s = specStats[key] || { correct: 0, total: 0 };
+          return `
+            <tr>
+              <td>${SPECIALTIES[key]}</td>
+              <td>${s.correct} / ${s.total}</td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+
+  // Tabla por dificultad
+  const tableByDifficulty = `
+    <table class="result-table result-table--compact">
+      <thead>
+        <tr><th>Dificultad</th><th>Aciertos</th></tr>
+      </thead>
+      <tbody>
+        ${Object.keys(DIFFICULTIES).map((d) => {
+          const s = difficultyStats[d] || { correct: 0, total: 0 };
+          return `
+            <tr>
+              <td>${DIFFICULTIES[d]}</td>
+              <td>${s.correct} / ${s.total}</td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+
+  // Tabla por subtipo
+  const tableBySubtype = `
+    <table class="result-table result-table--compact">
+      <thead>
+        <tr>
+          <th>Especialidad</th>
+          <th>Salud pública</th>
+          <th>Medicina familiar</th>
+          <th>Urgencias</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Object.keys(SPECIALTIES).map((key) => {
+          const st = specStats[key];
+          const sp = st?.subtypes?.salud_publica || { correct: 0, total: 0 };
+          const mf = st?.subtypes?.medicina_familiar || { correct: 0, total: 0 };
+          const ur = st?.subtypes?.urgencias || { correct: 0, total: 0 };
+          return `
+            <tr>
+              <td>${SPECIALTIES[key]}</td>
+              <td>${sp.correct} / ${sp.total}</td>
+              <td>${mf.correct} / ${mf.total}</td>
+              <td>${ur.correct} / ${ur.total}</td>
+            </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+
+  resultValues.innerHTML = `
+    <div class="result-message">${message}</div>
+    <div class="result-tables">
+      ${tableGeneral}
+      ${tableBySpecialty}
+      ${tableByDifficulty}
+      ${tableBySubtype}
+    </div>
+  `;
+
+  resultBanner.style.display = "block";
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 /***********************************************
- * VOLVER A LISTA DE EXÁMENES
+ * BOTÓN PARA VOLVER A EXÁMENES
  ***********************************************/
 btnBackToExams.addEventListener("click", () => {
   if (currentExamTimerId) {
@@ -1070,11 +1030,8 @@ btnBackToExams.addEventListener("click", () => {
   questionsList.innerHTML = "";
   examTimerEl.textContent = "--:--";
 
-  // Ocultar banner al salir del examen
-  if (resultBanner && resultValues) {
-    resultBanner.style.display = "none";
-    resultValues.innerHTML = "";
-  }
+  resultBanner.style.display = "none";
+  resultValues.innerHTML = "";
 
   hide(examDetailView);
   hide(progressView);
@@ -1086,23 +1043,20 @@ btnBackToExams.addEventListener("click", () => {
 });
 
 /***********************************************
- * VISTA PROGRESO (BOTÓN SIDEBAR)
+ * BOTÓN LATERAL "PROGRESO"
  ***********************************************/
-if (btnProgressView) {
-  btnProgressView.addEventListener("click", () => {
-    // Quitar selección de secciones
-    document
-      .querySelectorAll(".sidebar__section-item")
-      .forEach((el) => el.classList.remove("sidebar__section-item--active"));
+btnProgressView.addEventListener("click", () => {
+  document.querySelectorAll(".sidebar__section-item")
+    .forEach((el) => el.classList.remove("sidebar__section-item--active"));
 
-    hide(examsView);
-    hide(examDetailView);
-    show(progressView);
-    sidebar.classList.remove("sidebar--open");
+  hide(examsView);
+  hide(examDetailView);
+  show(progressView);
 
-    loadStudentProgress();
-  });
-}
+  sidebar.classList.remove("sidebar--open");
+
+  loadStudentProgress();
+});
 
 /***********************************************
  * CARGAR PROGRESO DEL ESTUDIANTE
@@ -1110,13 +1064,9 @@ if (btnProgressView) {
 async function loadStudentProgress() {
   if (!currentUser) return;
 
-  // Nombre / encabezado
-  const displayName = currentUserProfile?.name || currentUser.email;
-  if (progressUsername) {
-    progressUsername.textContent = `Estudiante: ${displayName}`;
-  }
+  progressUsername.textContent =
+    "Estudiante: " + (currentUserProfile?.name || currentUser.email);
 
-  // Secciones
   const sectionsSnap = await getDocs(collection(db, "sections"));
   const sectionsMap = {};
   sectionsSnap.forEach((docSnap) => {
@@ -1126,12 +1076,10 @@ async function loadStudentProgress() {
     };
   });
 
-  // Exámenes
   const examsSnap = await getDocs(collection(db, "exams"));
   const sectionStats = {};
   Object.values(sectionsMap).forEach((s) => {
     sectionStats[s.id] = {
-      id: s.id,
       name: s.name,
       totalScore: 0,
       examsCount: 0,
@@ -1142,11 +1090,10 @@ async function loadStudentProgress() {
 
   const examResults = [];
 
-  for (const exDoc of examsSnap.docs) {
-    const exData = exDoc.data();
-    const examId = exDoc.id;
-    const examName = exData.name || "Examen";
-    const sectionId = exData.sectionId || null;
+  for (const ex of examsSnap.docs) {
+    const exData = ex.data();
+    const examId = ex.id;
+    const sectionId = exData.sectionId;
 
     const attemptRef = doc(
       db,
@@ -1155,142 +1102,126 @@ async function loadStudentProgress() {
       "examAttempts",
       examId
     );
+
     const attemptSnap = await getDoc(attemptRef);
     if (!attemptSnap.exists()) continue;
 
-    const atData = attemptSnap.data();
-    const score = typeof atData.score === "number" ? atData.score : 0;
-    const detail = atData.detail || {};
-    let correctCount = typeof atData.correctCount === "number" ? atData.correctCount : 0;
-    let totalQ = typeof atData.totalQuestions === "number" ? atData.totalQuestions : 0;
+    const at = attemptSnap.data();
 
-    if (!totalQ || !correctCount) {
-      totalQ = Object.keys(detail).length;
-      correctCount = Object.values(detail).filter((d) => d.result === "correct").length;
-    }
+    const score = at.score || 0;
+    const correct = at.correctCount || 0;
+    const totalQ = at.totalQuestions || 0;
+    const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
 
     examResults.push({
       examId,
-      examName,
+      examName: exData.name || "Examen",
       sectionId,
-      sectionName: sectionId && sectionsMap[sectionId] ? sectionsMap[sectionId].name : "Sin sección",
+      sectionName: sectionsMap[sectionId]?.name || "Sección",
       score,
-      correctCount,
+      correctCount: correct,
       totalQuestions: totalQ,
-      lastAttempt: atData.lastAttempt ? atData.lastAttempt.toDate() : null,
+      lastAttempt,
     });
 
-    if (sectionId && sectionStats[sectionId]) {
+    if (sectionStats[sectionId]) {
       sectionStats[sectionId].totalScore += score;
-      sectionStats[sectionId].examsCount += 1;
-      sectionStats[sectionId].correct += correctCount;
+      sectionStats[sectionId].examsCount++;
+      sectionStats[sectionId].correct += correct;
       sectionStats[sectionId].totalQuestions += totalQ;
     }
   }
 
-  // Render tarjetas de secciones
-  if (progressSectionsContainer) {
-    progressSectionsContainer.innerHTML = "";
+  // Render de tarjetas
+  progressSectionsContainer.innerHTML = "";
 
-    Object.values(sectionsMap).forEach((s) => {
-      const st = sectionStats[s.id];
-      const examsCount = st?.examsCount || 0;
+  Object.values(sectionsMap).forEach((s) => {
+    const st = sectionStats[s.id];
+    const exams = st.examsCount;
 
-      const card = document.createElement("div");
-      card.className = "progress-section-card";
+    const card = document.createElement("div");
+    card.className = "progress-section-card";
 
-      if (!examsCount) {
-        card.innerHTML = `
-          <div class="progress-section-title">${s.name}</div>
-          <div class="progress-section-body">
-            <div class="progress-section-line">Sin intentos aún.</div>
-          </div>
-        `;
-      } else {
-        const avgScore = st.totalScore / examsCount;
-        card.innerHTML = `
-          <div class="progress-section-title">${s.name}</div>
-          <div class="progress-section-body">
-            <div class="progress-section-line"><strong>Promedio:</strong> ${toFixedNice(avgScore, 1)}%</div>
-            <div class="progress-section-line"><strong>Aciertos:</strong> ${st.correct} de ${st.totalQuestions}</div>
-            <div class="progress-section-line"><strong>Exámenes resueltos:</strong> ${examsCount}</div>
-          </div>
-        `;
-      }
-
-      progressSectionsContainer.appendChild(card);
-    });
-  }
-
-  // Totales globales
-  if (progressGlobalEl) {
-    const totalExamsDone = examResults.length;
-    const totalCorrect = examResults.reduce((acc, r) => acc + r.correctCount, 0);
-    const totalQuestions = examResults.reduce((acc, r) => acc + r.totalQuestions, 0);
-
-    progressGlobalEl.innerHTML = `
-      <div><strong>Total de exámenes realizados:</strong> ${totalExamsDone}</div>
-      <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
-    `;
-  }
-
-  // Gráfica de progreso (orden cronológico por último intento)
-  if (progressChartCanvas) {
-    const sorted = examResults
-      .slice()
-      .sort((a, b) => {
-        const ta = a.lastAttempt ? a.lastAttempt.getTime() : 0;
-        const tb = b.lastAttempt ? b.lastAttempt.getTime() : 0;
-        return ta - tb;
-      });
-
-    const labels = sorted.map((r, idx) => `${idx + 1}. ${r.examName}`);
-    const data = sorted.map((r) => r.score);
-
-    if (progressChartInstance) {
-      progressChartInstance.destroy();
+    if (!exams) {
+      card.innerHTML = `
+        <div class="progress-section-title">${s.name}</div>
+        <div>Sin intentos aún.</div>
+      `;
+    } else {
+      const avg = st.totalScore / exams;
+      card.innerHTML = `
+        <div class="progress-section-title">${s.name}</div>
+        <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
+        <div><strong>Aciertos:</strong> ${st.correct} / ${st.totalQuestions}</div>
+        <div><strong>Exámenes realizados:</strong> ${exams}</div>
+      `;
     }
 
-    const ctx = progressChartCanvas.getContext("2d");
+    progressSectionsContainer.appendChild(card);
+  });
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, 240);
-    gradient.addColorStop(0, "rgba(37,99,235,0.25)");
-    gradient.addColorStop(1, "rgba(37,99,235,0.00)");
+  // Totales globales
+  const totalExams = examResults.length;
+  const totalCorrect = examResults.reduce((a, r) => a + r.correctCount, 0);
+  const totalQ = examResults.reduce((a, r) => a + r.totalQuestions, 0);
 
-    progressChartInstance = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Calificación ponderada",
-            data,
-            borderColor: "#2563eb",
-            backgroundColor: gradient,
-            borderWidth: 2,
-            tension: 0.3,
-            pointRadius: 3,
-            pointBackgroundColor: "#1d4ed8",
-            fill: true,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            min: 0,
-            max: 100,
-            ticks: { stepSize: 10 },
-          },
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
-      },
+  progressGlobalEl.innerHTML = `
+    <div><strong>Exámenes realizados:</strong> ${totalExams}</div>
+    <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQ}</div>
+  `;
+
+  // Gráfica de evolución
+  renderProgressChart(examResults);
+}
+
+/***********************************************
+ * GRÁFICA DE PROGRESO
+ ***********************************************/
+function renderProgressChart(examResults) {
+  const sorted = examResults
+    .slice()
+    .sort((a, b) => {
+      const A = a.lastAttempt ? a.lastAttempt.getTime() : 0;
+      const B = b.lastAttempt ? b.lastAttempt.getTime() : 0;
+      return A - B;
     });
-  }
+
+  const labels = sorted.map((r, i) => `${i + 1}. ${r.examName}`);
+  const data = sorted.map((r) => r.score);
+
+  if (progressChartInstance) progressChartInstance.destroy();
+
+  const ctx = progressChartCanvas.getContext("2d");
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 240);
+  grad.addColorStop(0, "rgba(37,99,235,0.25)");
+  grad.addColorStop(1, "rgba(37,99,235,0)");
+
+  progressChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Calificación ponderada",
+          data,
+          borderColor: "#2563eb",
+          backgroundColor: grad,
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: "#1d4ed8",
+          tension: 0.3,
+          fill: true,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { min: 0, max: 100, ticks: { stepSize: 10 } },
+      },
+      plugins: { legend: { display: false } },
+    },
+  });
 }
