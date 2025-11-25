@@ -1,4 +1,3 @@
-Mejor te comparto todo el student.js:
 /***********************************************
  * FIREBASE (MODULAR v11) - CONFIGURACIÓN
  ***********************************************/
@@ -379,7 +378,7 @@ function svgIcon(type) {
 }
 
 /***********************************************
- * EXÁMENES (LISTA ESTUDIANTE, TARJETAS PREMIUM)
+ * EXÁMENES (LISTA ESTUDIANTE)
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   examsList.innerHTML = "";
@@ -699,6 +698,7 @@ async function loadQuestionsForExam(examId) {
       qBlock.className = "question-block";
       qBlock.dataset.qIndex = questionGlobalIndex.toString();
 
+      // *** AQUÍ SE CORRIGE EL ERROR FATAL DEL TEMPLATE LITERAL ***
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
         <p>${qData.questionText || ""}</p>
@@ -730,7 +730,7 @@ async function loadQuestionsForExam(examId) {
           <strong>Justificación:</strong><br>
           ${qData.justification || ""}
         </div>
-      ";
+      `;
 
       questionsWrapper.appendChild(qBlock);
       globalIndex++;
