@@ -41,6 +41,15 @@
 
   <!-- LOGIN -->
   <section id="login-view" class="view">
+
+    <!-- TITULO + LOGO -->
+    <div style="text-align:center; margin-bottom:20px;">
+      <img src="logo.png" alt="logo" style="width:90px; margin-bottom:8px;">
+      <h2 style="font-size:22px; font-weight:700; color:var(--text-main); text-transform:uppercase;">
+        Estudiante ENARM Simulacros
+      </h2>
+    </div>
+
     <div class="login-card">
       <h1>Acceso</h1>
       <form id="login-form">
@@ -58,6 +67,31 @@
 
         <p id="login-error" class="error hidden"></p>
       </form>
+
+      <!-- BOTÓN PRUEBA GRATUITA -->
+      <button id="btn-free-access" class="btn btn-outline" style="margin-top:16px;">
+        Prueba gratuita
+      </button>
+
+      <!-- BLOQUE PROMOCIONAL -->
+      <div id="landing-card" class="card" style="margin-top:22px; text-align:center;">
+        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;">
+          <!-- Texto promocional dinámico desde Firestore -->
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="btn-price-month" class="btn btn-primary">
+            <!-- Se rellena desde Firestore -->
+            Precio mensual
+          </button>
+
+          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">
+            <!-- Se rellena desde Firestore -->
+            Acceso completo
+          </button>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -76,6 +110,11 @@
       <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
       <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
       <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
+
+      <!-- NUEVO: PANEL PANTALLA PRINCIPAL -->
+      <button id="btn-landing-settings" class="sidebar-btn btn-outline">
+        Pantalla principal
+      </button>
 
       <div class="sidebar-social">
         <img src="instagram.png" class="social-icon" data-network="instagram">
