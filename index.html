@@ -42,25 +42,25 @@
   <!-- LOGIN -->
   <section id="login-view" class="view">
 
-    <!-- TITULO + LOGO -->
     <div style="text-align:center; margin-bottom:20px;">
       <img src="logo.png" alt="logo" style="width:90px; margin-bottom:8px;">
-      <h2 style="font-size:22px; font-weight:700; color:var(--text-main); text-transform:uppercase;">
+      <h2 style="font-size:22px; font-weight:700;">
         Estudiante ENARM Simulacros
       </h2>
     </div>
 
     <div class="login-card">
       <h1>Acceso</h1>
+
       <form id="login-form">
         <label class="field">
           <span>Correo</span>
-          <input type="email" id="login-email" required>
+          <input type="email" id="login-email" required />
         </label>
 
         <label class="field">
           <span>Contraseña</span>
-          <input type="password" id="login-password" required>
+          <input type="password" id="login-password" required />
         </label>
 
         <button id="btn-login" class="btn btn-primary" type="submit">Entrar</button>
@@ -68,31 +68,17 @@
         <p id="login-error" class="error hidden"></p>
       </form>
 
-      <!-- BOTÓN PRUEBA GRATUITA -->
-      <button id="btn-free-access" class="btn btn-outline" style="margin-top:16px;">
-        Prueba gratuita
-      </button>
-
-      <!-- BLOQUE PROMOCIONAL -->
+      <!-- BLOQUE PANTALLA INFORMATIVA -->
       <div id="landing-card" class="card" style="margin-top:22px; text-align:center;">
-        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;">
-          <!-- Texto promocional dinámico desde Firestore -->
-        </p>
+        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;"></p>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
-          <button id="btn-price-month" class="btn btn-primary">
-            <!-- Se rellena desde Firestore -->
-            Precio mensual
-          </button>
-
-          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">
-            <!-- Se rellena desde Firestore -->
-            Acceso completo
-          </button>
+          <button id="btn-price-month" class="btn btn-primary">Precio mensual</button>
+          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">Acceso completo</button>
         </div>
       </div>
-
     </div>
+
   </section>
 
   <!-- PANEL ADMIN -->
@@ -100,8 +86,9 @@
 
     <!-- SIDEBAR -->
     <aside id="sidebar">
+
       <div class="sidebar-logo">
-        <img src="logo.png" alt="Logo" class="sidebar-logo-img">
+        <img src="logo.png" class="sidebar-logo-img" />
         <h2 class="sidebar-title">Estudiante ENARM</h2>
       </div>
 
@@ -110,11 +97,7 @@
       <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
       <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
       <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
-
-      <!-- NUEVO: PANEL PANTALLA PRINCIPAL -->
-      <button id="btn-landing-settings" class="sidebar-btn btn-outline">
-        Pantalla principal
-      </button>
+      <button id="btn-landing-view" class="sidebar-btn btn-outline">Pantalla principal</button>
 
       <div class="sidebar-social">
         <img src="instagram.png" class="social-icon" data-network="instagram">
@@ -139,9 +122,7 @@
       <!-- VISTA SECCIONES -->
       <div id="sections-view" class="panel">
         <h2 id="current-section-title">Selecciona una sección</h2>
-        <p id="current-section-subtitle" class="panel-subtitle">
-          Elige una sección para ver sus exámenes.
-        </p>
+        <p id="current-section-subtitle" class="panel-subtitle">Elige una sección para ver sus exámenes.</p>
 
         <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
         <div id="exams-list" class="cards-list"></div>
@@ -151,27 +132,13 @@
       <div id="users-view" class="panel hidden">
         <h2>Usuarios</h2>
 
-        <!-- FORM NUEVO USUARIO -->
         <div id="create-user-card" class="card">
-          <h3 style="margin-bottom:12px;">Crear nuevo usuario</h3>
+          <h3>Crear nuevo usuario</h3>
 
           <div class="create-user-grid">
-
-            <label class="field">
-              <span>Nombre</span>
-              <input type="text" id="new-user-name">
-            </label>
-
-            <label class="field">
-              <span>Email (ID del documento)</span>
-              <input type="email" id="new-user-email">
-            </label>
-
-            <label class="field">
-              <span>Contraseña</span>
-              <input type="text" id="new-user-password">
-            </label>
-
+            <label class="field"><span>Nombre</span><input id="new-user-name"></label>
+            <label class="field"><span>Email</span><input id="new-user-email" type="email"></label>
+            <label class="field"><span>Contraseña</span><input id="new-user-password"></label>
             <label class="field">
               <span>Estado</span>
               <select id="new-user-status">
@@ -179,7 +146,6 @@
                 <option value="inactivo">Inactivo</option>
               </select>
             </label>
-
             <label class="field">
               <span>Rol</span>
               <select id="new-user-role">
@@ -187,46 +153,99 @@
                 <option value="admin">Administrador</option>
               </select>
             </label>
-
-            <label class="field">
-              <span>Fecha límite</span>
-              <input type="date" id="new-user-expiry">
-            </label>
-
+            <label class="field"><span>Fecha límite</span><input id="new-user-expiry" type="date"></label>
           </div>
 
-          <button id="btn-create-user" class="btn btn-primary" style="margin-top:12px;">
-            Guardar usuario
-          </button>
+          <button id="btn-create-user" class="btn btn-primary">Guardar usuario</button>
         </div>
 
-        <!-- LISTA USUARIOS -->
         <div id="users-list"></div>
       </div>
 
-      <!-- DETALLE DE EXAMEN -->
+      <!-- EDITOR EXAMEN (PREMIUM) -->
       <div id="exam-detail-view" class="panel hidden">
-        <div class="panel-header">
+
+        <div class="panel-header" style="margin-bottom:22px;">
           <button id="btn-back-to-exams" class="btn btn-outline">← Volver</button>
+
           <div>
-            <h2>Editar examen</h2>
-            <p class="panel-subtitle">Modifica preguntas y casos clínicos aquí.</p>
+            <h2 style="font-size:20px;font-weight:700;">Editor de examen</h2>
+            <p class="panel-subtitle">Modifica preguntas, casos clínicos y metadatos.</p>
           </div>
         </div>
 
-        <div id="exam-meta-card" class="card">
+        <div class="card" style="margin-bottom:22px;">
           <label class="field">
             <span>Nombre del examen</span>
             <input id="exam-name-input" type="text">
           </label>
 
-          <div class="flex-row">
+          <div class="flex-row" style="margin-top:14px;">
             <button id="btn-save-exam-meta" class="btn btn-secondary">Guardar nombre</button>
             <button id="btn-new-question" class="btn btn-primary">+ Nueva pregunta</button>
           </div>
         </div>
 
         <div id="questions-list" class="cards-list"></div>
+      </div>
+
+      <!-- PANTALLA PRINCIPAL (FULL SCREEN) -->
+      <div id="landing-settings-view" class="panel hidden">
+        <div class="fullscreen-panel">
+
+          <h2>Pantalla principal</h2>
+          <p class="panel-subtitle">Configura el texto y los enlaces del login.</p>
+
+          <div class="landing-settings-grid">
+
+            <label class="field">
+              <span>Texto principal / descripción</span>
+              <textarea id="landing-hero-text"></textarea>
+            </label>
+
+            <label class="field">
+              <span>Precio mensual (MXN)</span>
+              <input id="landing-price-month" type="text">
+            </label>
+
+            <label class="field">
+              <span>Precio acceso completo (MXN)</span>
+              <input id="landing-price-full" type="text">
+            </label>
+
+            <label class="field">
+              <span>WhatsApp (mensual)</span>
+              <input id="landing-whatsapp-month" type="text">
+            </label>
+
+            <label class="field">
+              <span>WhatsApp (acceso completo)</span>
+              <input id="landing-whatsapp-full" type="text">
+            </label>
+
+          </div>
+
+          <button id="btn-save-landing" class="btn btn-primary save-btn">Guardar cambios</button>
+        </div>
+      </div>
+
+      <!-- REDES SOCIALES (FULL SCREEN) -->
+      <div id="social-settings-view" class="panel hidden">
+        <div class="fullscreen-panel">
+
+          <h2>Redes sociales</h2>
+          <p class="panel-subtitle">Enlaces visibles en el login y modo estudiante.</p>
+
+          <div class="social-inputs-grid">
+            <label class="field"><span>Instagram</span><input id="admin-instagram" type="text"></label>
+            <label class="field"><span>WhatsApp</span><input id="admin-whatsapp" type="text"></label>
+            <label class="field"><span>TikTok</span><input id="admin-tiktok" type="text"></label>
+            <label class="field"><span>Telegram</span><input id="admin-telegram" type="text"></label>
+          </div>
+
+          <button id="btn-save-social" class="btn btn-primary save-btn">Guardar redes</button>
+
+        </div>
       </div>
 
     </main>
