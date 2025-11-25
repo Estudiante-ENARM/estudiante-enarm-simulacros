@@ -81,7 +81,7 @@ const btnCreateUser = document.getElementById("btn-create-user");
 const btnBackToExams = document.getElementById("btn-back-to-exams");
 const examNameInput = document.getElementById("exam-name-input");
 const btnSaveExamMeta = document.getElementById("btn-save-exam-meta");
-const btnNewQuestion = document.getElementById("btn-new-question");
+const btnNewQuestion = document.getElementById("btn-new-question"); // ahora solo de respaldo
 const questionsList = document.getElementById("questions-list");
 
 // Modal genérico
@@ -408,7 +408,6 @@ async function loadSections() {
     sidebarSections.appendChild(li);
   });
 }
-
 function handleSelectSection(id, name, li) {
   currentSectionId = id;
   currentSectionName = name || "Sección";
@@ -720,7 +719,6 @@ btnSaveExamMeta.addEventListener("click", async () => {
     setLoading(btn, false, "Guardar nombre");
   }
 });
-
 /***********************************************
  * CASOS CLÍNICOS CON VARIAS PREGUNTAS (ADMIN)
  ***********************************************/
@@ -744,12 +742,32 @@ async function loadCasesForExam(examId) {
   });
 }
 
+/**
+ * Renderiza un bloque de caso clínico con:
+ * - Especialidad del caso
+ * - Texto de caso clínico
+ * - Lista de preguntas con dificultad + subtipo
+ * - Botones: Agregar pregunta / Guardar / Eliminar / Nueva pregunta (nuevo caso)
+ */
 function renderCaseBlock(caseId, data) {
+  const specialityValue = data.specialty || "";
+
   const caseCard = document.createElement("div");
   caseCard.className = "card";
   caseCard.dataset.caseId = caseId;
 
   caseCard.innerHTML = `
+    <label class="field">
+      <span>Especialidad del caso clínico</span>
+      <select class="case-specialty">
+        <option value="">Selecciona una especialidad</option>
+        <option value="medicina_interna" ${specialityValue === "medicina_interna" ? "selected" : ""}>Medicina interna</option>
+        <option value="pediatria" ${specialityValue === "pediatria" ? "selected" : ""}>Pediatría</option>
+        <option value="ginecologia_obstetricia" ${specialityValue === "ginecologia_obstetricia" ? "selected" : ""}>Ginecología y obstetricia</option>
+        <option value="cirugia_general" ${specialityValue === "cirugia_general" ? "selected" : ""}>Cirugía general</option>
+      </select>
+    </label>
+
     <label class="field">
       <span>Caso clínico</span>
       <textarea class="case-text" rows="4">${data.caseText || ""}</textarea>
@@ -767,6 +785,9 @@ function renderCaseBlock(caseId, data) {
       <button type="button" class="btn btn-sm btn-outline btn-delete-case">
         Eliminar caso clínico
       </button>
+      <button type="button" class="btn btn-sm btn-primary btn-new-case">
+        + Nueva pregunta (nuevo caso clínico)
+      </button>
     </div>
   `;
 
@@ -781,18 +802,21 @@ function renderCaseBlock(caseId, data) {
     });
   }
 
+  // Agregar pregunta dentro del mismo caso
   caseCard
     .querySelector(".btn-add-question")
     .addEventListener("click", () => {
       questionsContainer.appendChild(renderQuestionBlock());
     });
 
+  // Guardar caso clínico
   caseCard
     .querySelector(".btn-save-case")
     .addEventListener("click", async () => {
       await saveCaseBlock(caseId, caseCard);
     });
 
+  // Eliminar caso clínico
   caseCard
     .querySelector(".btn-delete-case")
     .addEventListener("click", async () => {
@@ -804,9 +828,42 @@ function renderCaseBlock(caseId, data) {
       }
     });
 
+  // Nueva pregunta (nuevo caso clínico)
+  caseCard
+    .querySelector(".btn-new-case")
+    .addEventListener("click", async () => {
+      if (!currentExamId) {
+        alert("Primero selecciona o crea un examen.");
+        return;
+      }
+      try {
+        await addDoc(collection(db, "questions"), {
+          examId: currentExamId,
+          caseText: "",
+          specialty: "",
+          questions: [],
+          createdAt: serverTimestamp(),
+        });
+        await loadCasesForExam(currentExamId);
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo crear el nuevo caso clínico.");
+      }
+    });
+
   questionsList.appendChild(caseCard);
 }
 
+/**
+ * Renderiza bloque de pregunta
+ * Incluye:
+ * - Texto pregunta
+ * - Incisos A–D
+ * - Respuesta correcta
+ * - Justificación
+ * - Dificultad (baja / media / alta)
+ * - Tipo de pregunta (salud pública / medicina familiar / urgencias)
+ */
 function renderQuestionBlock(qData = {}) {
   const {
     questionText = "",
@@ -816,7 +873,13 @@ function renderQuestionBlock(qData = {}) {
     optionD = "",
     correctOption = "",
     justification = "",
+    difficulty = "media",
+    difficultyWeight = undefined, // se recalcula siempre
+    subtype = "salud_publica",
   } = qData;
+
+  const difficultyValue = difficulty || "media";
+  const subtypeValue = subtype || "salud_publica";
 
   const card = document.createElement("div");
   card.className = "card-item";
@@ -859,6 +922,24 @@ function renderQuestionBlock(qData = {}) {
     </label>
 
     <label class="field">
+      <span>Dificultad</span>
+      <select class="q-difficulty">
+        <option value="baja" ${difficultyValue === "baja" ? "selected" : ""}>Baja (1 punto)</option>
+        <option value="media" ${difficultyValue === "media" ? "selected" : ""}>Media (2 puntos)</option>
+        <option value="alta" ${difficultyValue === "alta" ? "selected" : ""}>Alta (3 puntos)</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Tipo de pregunta</span>
+      <select class="q-subtype">
+        <option value="salud_publica" ${subtypeValue === "salud_publica" ? "selected" : ""}>Salud pública</option>
+        <option value="medicina_familiar" ${subtypeValue === "medicina_familiar" ? "selected" : ""}>Medicina familiar</option>
+        <option value="urgencias" ${subtypeValue === "urgencias" ? "selected" : ""}>Urgencias</option>
+      </select>
+    </label>
+
+    <label class="field">
       <span>Justificación</span>
       <textarea class="q-just" rows="2">${justification}</textarea>
     </label>
@@ -881,6 +962,9 @@ function renderQuestionBlock(qData = {}) {
 
 async function saveCaseBlock(caseId, caseCard) {
   if (!currentExamId) return;
+
+  const specialtySelect = caseCard.querySelector(".case-specialty");
+  const specialty = specialtySelect ? specialtySelect.value : "";
 
   const caseText = caseCard.querySelector(".case-text").value.trim();
   const questionCards = caseCard.querySelectorAll(".case-questions .card-item");
@@ -905,6 +989,15 @@ async function saveCaseBlock(caseId, caseCard) {
     const correctOption = card.querySelector(".q-correct").value;
     const justification = card.querySelector(".q-just").value.trim();
 
+    const difficultyEl = card.querySelector(".q-difficulty");
+    const subtypeEl = card.querySelector(".q-subtype");
+
+    const difficulty = difficultyEl ? difficultyEl.value : "media";
+    const subtype = subtypeEl ? subtypeEl.value : "salud_publica";
+
+    const difficultyWeight =
+      difficulty === "alta" ? 3 : difficulty === "media" ? 2 : 1;
+
     if (
       !questionText ||
       !optionA ||
@@ -928,6 +1021,9 @@ async function saveCaseBlock(caseId, caseCard) {
       optionD,
       correctOption,
       justification,
+      difficulty,
+      difficultyWeight,
+      subtype,
     });
   }
 
@@ -935,6 +1031,7 @@ async function saveCaseBlock(caseId, caseCard) {
     await updateDoc(doc(db, "questions", caseId), {
       examId: currentExamId,
       caseText,
+      specialty: specialty || "",
       questions,
       updatedAt: serverTimestamp(),
     });
@@ -948,6 +1045,7 @@ async function saveCaseBlock(caseId, caseCard) {
   }
 }
 
+// Botón global (por compatibilidad). Puedes ocultarlo en el HTML/CSS si ya no lo usas.
 btnNewQuestion.addEventListener("click", async () => {
   if (!currentExamId) {
     alert("Primero selecciona o crea un examen.");
@@ -958,6 +1056,7 @@ btnNewQuestion.addEventListener("click", async () => {
     await addDoc(collection(db, "questions"), {
       examId: currentExamId,
       caseText: "",
+      specialty: "",
       questions: [],
       createdAt: serverTimestamp(),
     });
@@ -967,7 +1066,6 @@ btnNewQuestion.addEventListener("click", async () => {
     alert("No se pudo crear el nuevo caso clínico.");
   }
 });
-
 /***********************************************
  * USUARIOS (ADMIN) CON FORMULARIO FIJO ARRIBA
  ***********************************************/
