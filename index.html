@@ -68,13 +68,19 @@
         <p id="login-error" class="error hidden"></p>
       </form>
 
-      <!-- BLOQUE PANTALLA INFORMATIVA -->
+      <!-- BLOQUE PANTALLA PRINCIPAL / PRECIOS + WHATSAPP -->
       <div id="landing-card" class="card" style="margin-top:22px; text-align:center;">
-        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;"></p>
+        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;">
+          <!-- Texto dinámico desde Firestore -->
+        </p>
 
         <div style="display:flex; flex-direction:column; gap:8px;">
-          <button id="btn-price-month" class="btn btn-primary">Precio mensual</button>
-          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">Acceso completo</button>
+          <button id="btn-price-month" class="btn btn-primary">
+            Precio mensual
+          </button>
+          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">
+            Acceso completo
+          </button>
         </div>
       </div>
     </div>
@@ -97,6 +103,7 @@
       <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
       <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
       <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
+      <!-- NUEVO BOTÓN: PANTALLA PRINCIPAL -->
       <button id="btn-landing-view" class="sidebar-btn btn-outline">Pantalla principal</button>
 
       <div class="sidebar-social">
@@ -122,7 +129,9 @@
       <!-- VISTA SECCIONES -->
       <div id="sections-view" class="panel">
         <h2 id="current-section-title">Selecciona una sección</h2>
-        <p id="current-section-subtitle" class="panel-subtitle">Elige una sección para ver sus exámenes.</p>
+        <p id="current-section-subtitle" class="panel-subtitle">
+          Elige una sección para ver sus exámenes.
+        </p>
 
         <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
         <div id="exams-list" class="cards-list"></div>
@@ -136,9 +145,21 @@
           <h3>Crear nuevo usuario</h3>
 
           <div class="create-user-grid">
-            <label class="field"><span>Nombre</span><input id="new-user-name"></label>
-            <label class="field"><span>Email</span><input id="new-user-email" type="email"></label>
-            <label class="field"><span>Contraseña</span><input id="new-user-password"></label>
+            <label class="field">
+              <span>Nombre</span>
+              <input id="new-user-name">
+            </label>
+
+            <label class="field">
+              <span>Email</span>
+              <input id="new-user-email" type="email">
+            </label>
+
+            <label class="field">
+              <span>Contraseña</span>
+              <input id="new-user-password">
+            </label>
+
             <label class="field">
               <span>Estado</span>
               <select id="new-user-status">
@@ -146,6 +167,7 @@
                 <option value="inactivo">Inactivo</option>
               </select>
             </label>
+
             <label class="field">
               <span>Rol</span>
               <select id="new-user-role">
@@ -153,7 +175,11 @@
                 <option value="admin">Administrador</option>
               </select>
             </label>
-            <label class="field"><span>Fecha límite</span><input id="new-user-expiry" type="date"></label>
+
+            <label class="field">
+              <span>Fecha límite</span>
+              <input id="new-user-expiry" type="date">
+            </label>
           </div>
 
           <button id="btn-create-user" class="btn btn-primary">Guardar usuario</button>
@@ -162,7 +188,7 @@
         <div id="users-list"></div>
       </div>
 
-      <!-- EDITOR EXAMEN (PREMIUM) -->
+      <!-- EDITOR EXAMEN -->
       <div id="exam-detail-view" class="panel hidden">
 
         <div class="panel-header" style="margin-bottom:22px;">
@@ -189,15 +215,15 @@
         <div id="questions-list" class="cards-list"></div>
       </div>
 
-      <!-- PANTALLA PRINCIPAL (FULL SCREEN) -->
+      <!-- NUEVA VISTA: PANTALLA PRINCIPAL (CONFIG LOGIN) -->
       <div id="landing-settings-view" class="panel hidden">
         <div class="fullscreen-panel">
-
           <h2>Pantalla principal</h2>
-          <p class="panel-subtitle">Configura el texto y los enlaces del login.</p>
+          <p class="panel-subtitle">
+            Configura el texto, precios y enlaces de WhatsApp que aparecen en el login.
+          </p>
 
           <div class="landing-settings-grid">
-
             <label class="field">
               <span>Texto principal / descripción</span>
               <textarea id="landing-hero-text"></textarea>
@@ -222,29 +248,47 @@
               <span>WhatsApp (acceso completo)</span>
               <input id="landing-whatsapp-full" type="text">
             </label>
-
           </div>
 
-          <button id="btn-save-landing" class="btn btn-primary save-btn">Guardar cambios</button>
+          <button id="btn-save-landing" class="btn btn-primary save-btn">
+            Guardar cambios
+          </button>
         </div>
       </div>
 
-      <!-- REDES SOCIALES (FULL SCREEN) -->
+      <!-- NUEVA VISTA: REDES SOCIALES (FULL SCREEN) -->
       <div id="social-settings-view" class="panel hidden">
         <div class="fullscreen-panel">
-
           <h2>Redes sociales</h2>
-          <p class="panel-subtitle">Enlaces visibles en el login y modo estudiante.</p>
+          <p class="panel-subtitle">
+            Enlaces visibles en el login y en el modo estudiante.
+          </p>
 
           <div class="social-inputs-grid">
-            <label class="field"><span>Instagram</span><input id="admin-instagram" type="text"></label>
-            <label class="field"><span>WhatsApp</span><input id="admin-whatsapp" type="text"></label>
-            <label class="field"><span>TikTok</span><input id="admin-tiktok" type="text"></label>
-            <label class="field"><span>Telegram</span><input id="admin-telegram" type="text"></label>
+            <label class="field">
+              <span>Instagram</span>
+              <input id="admin-instagram" type="text">
+            </label>
+
+            <label class="field">
+              <span>WhatsApp</span>
+              <input id="admin-whatsapp" type="text">
+            </label>
+
+            <label class="field">
+              <span>TikTok</span>
+              <input id="admin-tiktok" type="text">
+            </label>
+
+            <label class="field">
+              <span>Telegram</span>
+              <input id="admin-telegram" type="text">
+            </label>
           </div>
 
-          <button id="btn-save-social" class="btn btn-primary save-btn">Guardar redes</button>
-
+          <button id="btn-save-social" class="btn btn-primary save-btn">
+            Guardar redes
+          </button>
         </div>
       </div>
 
@@ -252,7 +296,7 @@
 
   </section>
 
-  <!-- MODAL -->
+  <!-- MODAL GENÉRICO (SE MANTIENE) -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
       <h3 id="modal-title"></h3>
