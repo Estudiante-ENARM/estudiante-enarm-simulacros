@@ -10,6 +10,9 @@
 
   <!-- ESTILOS COMPARTIDOS -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- CHART.JS PARA LA GRÁFICA DE PROGRESO -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -17,16 +20,22 @@
   <!-- VISTA ESTUDIANTE -->
   <section id="student-view" class="view">
 
-    <!-- SIDEBAR (MISMO ESTILO QUE ADMIN PERO SIN BOTONES ADMIN) -->
+    <!-- SIDEBAR -->
     <aside id="sidebar">
       <div class="sidebar-logo">
         <img src="logo.png" alt="Logo" class="sidebar-logo-img">
         <h2 class="sidebar-title">Estudiante ENARM</h2>
       </div>
 
+      <!-- SECCIONES DINÁMICAS -->
       <ul id="student-sidebar-sections" class="sidebar-sections">
         <!-- Secciones dinámicas para el estudiante -->
       </ul>
+
+      <!-- BOTÓN PROGRESO (debajo de las secciones) -->
+      <button id="student-progress-btn" class="sidebar-btn sidebar-btn-progress">
+        Progreso
+      </button>
 
       <div class="sidebar-social">
         <img src="instagram.png" class="social-icon" data-network="instagram">
@@ -86,7 +95,7 @@
           </div>
         </div>
 
-        <!-- BANNER RESULTADOS -->
+        <!-- BANNER RESULTADOS PREMIUM -->
         <div id="student-result-banner">
           <h3>
             <svg viewBox="0 0 24 24">
@@ -107,6 +116,38 @@
           </button>
         </div>
 
+      </div>
+
+      <!-- VISTA PROGRESO -->
+      <div id="student-progress-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Progreso</h2>
+            <p class="panel-subtitle">
+              Revisa tu promedio por sección y la evolución de tus calificaciones.
+            </p>
+          </div>
+        </div>
+
+        <!-- RESUMEN -->
+        <div id="student-progress-summary" class="card">
+          <h3 style="font-size:16px;margin-bottom:6px;">Resumen del estudiante</h3>
+          <p id="student-progress-username" class="panel-subtitle"></p>
+
+          <div id="student-progress-sections" class="progress-section-grid">
+            <!-- Tarjetas por sección -->
+          </div>
+
+          <div id="student-progress-global" class="progress-global">
+            <!-- Totales globales -->
+          </div>
+        </div>
+
+        <!-- GRÁFICA -->
+        <div id="student-progress-chart-card" class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Evolución de tus calificaciones</h3>
+          <canvas id="student-progress-chart" height="240"></canvas>
+        </div>
       </div>
 
     </main>
