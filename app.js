@@ -60,6 +60,8 @@ const sidebar = document.getElementById("sidebar");
 const sidebarSections = document.getElementById("sidebar-sections");
 const btnNewSection = document.getElementById("btn-new-section");
 const btnUsersView = document.getElementById("btn-users-view");
+// NUEVO: botón para “Pantalla principal”
+const btnLandingView = document.getElementById("btn-landing-view");
 const btnEditSocial = document.getElementById("btn-edit-social");
 const socialButtons = document.querySelectorAll(".social-icon");
 
@@ -67,6 +69,15 @@ const socialButtons = document.querySelectorAll(".social-icon");
 const sectionsView = document.getElementById("sections-view");
 const usersView = document.getElementById("users-view");
 const examDetailView = document.getElementById("exam-detail-view");
+
+// NUEVO: vista de configuración de pantalla principal
+const landingView = document.getElementById("landing-settings-view");
+// Campos de configuración de landing (si aún no existen en HTML, no pasa nada)
+const landingHeroTitleInput = document.getElementById("landing-hero-title");
+const landingHeroSubtitleInput = document.getElementById("landing-hero-subtitle");
+const landingCtaTextInput = document.getElementById("landing-cta-text");
+const landingCtaUrlInput = document.getElementById("landing-cta-url");
+const landingSaveBtn = document.getElementById("btn-save-landing");
 
 const currentSectionTitle = document.getElementById("current-section-title");
 const currentSectionSubtitle = document.getElementById("current-section-subtitle");
@@ -302,12 +313,19 @@ onAuthStateChanged(auth, async (user) => {
       show(adminView);
       show(btnLogout);
 
-      // Vista por defecto: secciones
+      // Vista por defecto: secciones (landing y usuarios ocultos al inicio)
       show(sectionsView);
       hide(usersView);
       hide(examDetailView);
-      btnUsersView.classList.remove("btn-secondary");
-      btnUsersView.classList.add("btn-outline");
+      if (landingView) hide(landingView);
+      if (btnUsersView) {
+        btnUsersView.classList.remove("btn-secondary");
+        btnUsersView.classList.add("btn-outline");
+      }
+      if (btnLandingView) {
+        btnLandingView.classList.remove("btn-secondary");
+        btnLandingView.classList.add("btn-outline");
+      }
 
       currentSectionId = null;
       currentExamId = null;
@@ -318,7 +336,11 @@ onAuthStateChanged(auth, async (user) => {
       hide(btnNewExam);
       renderEmptyMessage(examsList, "Aún no has seleccionado ninguna sección.");
 
-      await Promise.all([loadSections(), loadSocialLinks()]);
+      await Promise.all([
+        loadSections(),
+        loadSocialLinks(),
+        loadLandingSettings(), // NUEVO: cargar configuración de pantalla principal
+      ]);
 
     } catch (err) {
       console.error(err);
@@ -408,6 +430,7 @@ async function loadSections() {
     sidebarSections.appendChild(li);
   });
 }
+
 function handleSelectSection(id, name, li) {
   currentSectionId = id;
   currentSectionName = name || "Sección";
@@ -418,11 +441,20 @@ function handleSelectSection(id, name, li) {
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
   li.classList.add("sidebar__section-item--active");
 
+  // Mostrar vista de secciones y ocultar las demás
   show(sectionsView);
   hide(usersView);
   hide(examDetailView);
-  btnUsersView.classList.remove("btn-secondary");
-  btnUsersView.classList.add("btn-outline");
+  if (landingView) hide(landingView);
+
+  if (btnUsersView) {
+    btnUsersView.classList.remove("btn-secondary");
+    btnUsersView.classList.add("btn-outline");
+  }
+  if (btnLandingView) {
+    btnLandingView.classList.remove("btn-secondary");
+    btnLandingView.classList.add("btn-outline");
+  }
 
   sidebar.classList.remove("sidebar--open");
 
@@ -524,6 +556,10 @@ btnNewSection.addEventListener("click", openNewSectionModal);
 /***********************************************
  * EXÁMENES (ADMIN)
  ***********************************************/
+// (Sigue en la Parte 2/5)
+/***********************************************
+ * EXÁMENES (ADMIN)
+ ***********************************************/
 async function loadExamsForSection(sectionId) {
   const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
   const snap = await getDocs(qEx);
@@ -608,8 +644,8 @@ function openNewExamModal() {
       const name = input.value.trim();
       if (!name) return;
 
-      const submitBtn = modalSubmit;
-      setLoading(submitBtn, true);
+      const btn = modalSubmit;
+      setLoading(btn, true);
 
       try {
         const docRef = await addDoc(collection(db, "exams"), {
@@ -625,7 +661,7 @@ function openNewExamModal() {
         console.error(err);
         alert("No se pudo crear el examen.");
       } finally {
-        setLoading(submitBtn, false);
+        setLoading(btn, false);
       }
     },
   });
@@ -645,11 +681,14 @@ function openEditExamModal(id, currentName) {
       const name = input.value.trim();
       if (!name) return;
 
-      const submitBtn = modalSubmit;
-      setLoading(submitBtn, true);
+      const btn = modalSubmit;
+      setLoading(btn, true);
 
       try {
-        await updateDoc(doc(db, "exams", id), { name, updatedAt: serverTimestamp() });
+        await updateDoc(doc(db, "exams", id), {
+          name,
+          updatedAt: serverTimestamp(),
+        });
         if (currentSectionId) {
           await loadExamsForSection(currentSectionId);
         }
@@ -661,7 +700,7 @@ function openEditExamModal(id, currentName) {
         console.error(err);
         alert("No se pudo actualizar el examen.");
       } finally {
-        setLoading(submitBtn, false);
+        setLoading(btn, false);
       }
     },
   });
@@ -678,6 +717,7 @@ function openExamDetail(examId, examName) {
   show(examDetailView);
   hide(sectionsView);
   hide(usersView);
+  if (landingView) hide(landingView);
 
   if (examNameInput) {
     examNameInput.value = examName || "";
@@ -690,6 +730,7 @@ btnBackToExams.addEventListener("click", () => {
   show(sectionsView);
   hide(usersView);
   hide(examDetailView);
+  if (landingView) hide(landingView);
   currentExamId = null;
 });
 
@@ -703,6 +744,7 @@ btnSaveExamMeta.addEventListener("click", async () => {
 
   const btn = btnSaveExamMeta;
   setLoading(btn, true, "Guardar nombre");
+
   try {
     await updateDoc(doc(db, "exams", currentExamId), {
       name,
@@ -743,11 +785,11 @@ async function loadCasesForExam(examId) {
 }
 
 /**
- * Renderiza un bloque de caso clínico con:
- * - Especialidad del caso
- * - Texto de caso clínico
- * - Lista de preguntas con dificultad + subtipo
- * - Botones: Agregar pregunta / Guardar / Eliminar / Nueva pregunta (nuevo caso)
+ * Renderiza un bloque de caso clínico:
+ * - Especialidad
+ * - Texto caso clínico
+ * - Preguntas internas
+ * - Botones admin
  */
 function renderCaseBlock(caseId, data) {
   const specialityValue = data.specialty || "";
@@ -794,6 +836,7 @@ function renderCaseBlock(caseId, data) {
   const questionsContainer = caseCard.querySelector(".case-questions");
   const questionsArray = Array.isArray(data.questions) ? data.questions : [];
 
+  // Render preguntas existentes
   if (questionsArray.length === 0) {
     questionsContainer.appendChild(renderQuestionBlock());
   } else {
@@ -802,33 +845,31 @@ function renderCaseBlock(caseId, data) {
     });
   }
 
-  // Agregar pregunta dentro del mismo caso
+  // Agregar pregunta
   caseCard
     .querySelector(".btn-add-question")
     .addEventListener("click", () => {
       questionsContainer.appendChild(renderQuestionBlock());
     });
 
-  // Guardar caso clínico
+  // Guardar caso
   caseCard
     .querySelector(".btn-save-case")
     .addEventListener("click", async () => {
       await saveCaseBlock(caseId, caseCard);
     });
 
-  // Eliminar caso clínico
+  // Eliminar caso completo
   caseCard
     .querySelector(".btn-delete-case")
     .addEventListener("click", async () => {
-      const ok = window.confirm("¿Eliminar este caso clínico y todas sus preguntas?");
+      const ok = window.confirm("¿Eliminar este caso clínico y TODAS sus preguntas?");
       if (!ok) return;
       await deleteDoc(doc(db, "questions", caseId));
-      if (currentExamId) {
-        await loadCasesForExam(currentExamId);
-      }
+      await loadCasesForExam(currentExamId);
     });
 
-  // Nueva pregunta (nuevo caso clínico)
+  // Nuevo caso clínico vacío
   caseCard
     .querySelector(".btn-new-case")
     .addEventListener("click", async () => {
@@ -854,16 +895,9 @@ function renderCaseBlock(caseId, data) {
   questionsList.appendChild(caseCard);
 }
 
-/**
- * Renderiza bloque de pregunta
- * Incluye:
- * - Texto pregunta
- * - Incisos A–D
- * - Respuesta correcta
- * - Justificación
- * - Dificultad (baja / media / alta)
- * - Tipo de pregunta (salud pública / medicina familiar / urgencias)
- */
+/***********************************************
+ * BLOQUE INDIVIDUAL DE PREGUNTA (A–D + dificultad + subtipo)
+ ***********************************************/
 function renderQuestionBlock(qData = {}) {
   const {
     questionText = "",
@@ -874,12 +908,8 @@ function renderQuestionBlock(qData = {}) {
     correctOption = "",
     justification = "",
     difficulty = "media",
-    difficultyWeight = undefined, // se recalcula siempre
     subtype = "salud_publica",
   } = qData;
-
-  const difficultyValue = difficulty || "media";
-  const subtypeValue = subtype || "salud_publica";
 
   const card = document.createElement("div");
   card.className = "card-item";
@@ -890,23 +920,19 @@ function renderQuestionBlock(qData = {}) {
       <textarea class="q-question" rows="2">${questionText}</textarea>
     </label>
 
-    <label class="field">
-      <span>Inciso A</span>
+    <label class="field"><span>Inciso A</span>
       <input type="text" class="q-a" value="${optionA}" />
     </label>
 
-    <label class="field">
-      <span>Inciso B</span>
+    <label class="field"><span>Inciso B</span>
       <input type="text" class="q-b" value="${optionB}" />
     </label>
 
-    <label class="field">
-      <span>Inciso C</span>
+    <label class="field"><span>Inciso C</span>
       <input type="text" class="q-c" value="${optionC}" />
     </label>
 
-    <label class="field">
-      <span>Inciso D</span>
+    <label class="field"><span>Inciso D</span>
       <input type="text" class="q-d" value="${optionD}" />
     </label>
 
@@ -924,18 +950,18 @@ function renderQuestionBlock(qData = {}) {
     <label class="field">
       <span>Dificultad</span>
       <select class="q-difficulty">
-        <option value="baja" ${difficultyValue === "baja" ? "selected" : ""}>Baja (1 punto)</option>
-        <option value="media" ${difficultyValue === "media" ? "selected" : ""}>Media (2 puntos)</option>
-        <option value="alta" ${difficultyValue === "alta" ? "selected" : ""}>Alta (3 puntos)</option>
+        <option value="baja" ${difficulty === "baja" ? "selected" : ""}>Baja (1 punto)</option>
+        <option value="media" ${difficulty === "media" ? "selected" : ""}>Media (2 puntos)</option>
+        <option value="alta" ${difficulty === "alta" ? "selected" : ""}>Alta (3 puntos)</option>
       </select>
     </label>
 
     <label class="field">
       <span>Tipo de pregunta</span>
       <select class="q-subtype">
-        <option value="salud_publica" ${subtypeValue === "salud_publica" ? "selected" : ""}>Salud pública</option>
-        <option value="medicina_familiar" ${subtypeValue === "medicina_familiar" ? "selected" : ""}>Medicina familiar</option>
-        <option value="urgencias" ${subtypeValue === "urgencias" ? "selected" : ""}>Urgencias</option>
+        <option value="salud_publica" ${subtype === "salud_publica" ? "selected" : ""}>Salud pública</option>
+        <option value="medicina_familiar" ${subtype === "medicina_familiar" ? "selected" : ""}>Medicina familiar</option>
+        <option value="urgencias" ${subtype === "urgencias" ? "selected" : ""}>Urgencias</option>
       </select>
     </label>
 
@@ -951,21 +977,20 @@ function renderQuestionBlock(qData = {}) {
     </div>
   `;
 
-  card
-    .querySelector(".btn-delete-question")
-    .addEventListener("click", () => {
-      card.remove();
-    });
+  card.querySelector(".btn-delete-question").addEventListener("click", () => {
+    card.remove();
+  });
 
   return card;
 }
 
+/***********************************************
+ * GUARDAR CASO CLÍNICO COMPLETO
+ ***********************************************/
 async function saveCaseBlock(caseId, caseCard) {
   if (!currentExamId) return;
 
-  const specialtySelect = caseCard.querySelector(".case-specialty");
-  const specialty = specialtySelect ? specialtySelect.value : "";
-
+  const specialty = caseCard.querySelector(".case-specialty")?.value || "";
   const caseText = caseCard.querySelector(".case-text").value.trim();
   const questionCards = caseCard.querySelectorAll(".case-questions .card-item");
 
@@ -975,11 +1000,12 @@ async function saveCaseBlock(caseId, caseCard) {
   }
 
   if (questionCards.length === 0) {
-    alert("Agrega al menos una pregunta para este caso clínico.");
+    alert("Debes agregar al menos una pregunta.");
     return;
   }
 
   const questions = [];
+
   for (const card of questionCards) {
     const questionText = card.querySelector(".q-question").value.trim();
     const optionA = card.querySelector(".q-a").value.trim();
@@ -988,30 +1014,17 @@ async function saveCaseBlock(caseId, caseCard) {
     const optionD = card.querySelector(".q-d").value.trim();
     const correctOption = card.querySelector(".q-correct").value;
     const justification = card.querySelector(".q-just").value.trim();
+    const difficulty = card.querySelector(".q-difficulty").value;
+    const subtype = card.querySelector(".q-subtype").value;
 
-    const difficultyEl = card.querySelector(".q-difficulty");
-    const subtypeEl = card.querySelector(".q-subtype");
-
-    const difficulty = difficultyEl ? difficultyEl.value : "media";
-    const subtype = subtypeEl ? subtypeEl.value : "salud_publica";
-
-    const difficultyWeight =
-      difficulty === "alta" ? 3 : difficulty === "media" ? 2 : 1;
-
-    if (
-      !questionText ||
-      !optionA ||
-      !optionB ||
-      !optionC ||
-      !optionD ||
-      !correctOption ||
-      !justification
-    ) {
-      alert(
-        "Completa todos los campos de cada pregunta (pregunta, incisos, respuesta correcta y justificación)."
-      );
+    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctOption || !justification) {
+      alert("Completa todos los campos de cada pregunta.");
       return;
     }
+
+    const difficultyWeight =
+      difficulty === "alta" ? 3 :
+      difficulty === "media" ? 2 : 1;
 
     questions.push({
       questionText,
@@ -1031,43 +1044,19 @@ async function saveCaseBlock(caseId, caseCard) {
     await updateDoc(doc(db, "questions", caseId), {
       examId: currentExamId,
       caseText,
-      specialty: specialty || "",
+      specialty,
       questions,
       updatedAt: serverTimestamp(),
     });
     alert("Caso clínico guardado correctamente.");
-    if (currentExamId) {
-      await loadCasesForExam(currentExamId);
-    }
+    await loadCasesForExam(currentExamId);
   } catch (err) {
     console.error(err);
     alert("No se pudo guardar el caso clínico.");
   }
 }
-
-// Botón global (por compatibilidad). Puedes ocultarlo en el HTML/CSS si ya no lo usas.
-btnNewQuestion.addEventListener("click", async () => {
-  if (!currentExamId) {
-    alert("Primero selecciona o crea un examen.");
-    return;
-  }
-
-  try {
-    await addDoc(collection(db, "questions"), {
-      examId: currentExamId,
-      caseText: "",
-      specialty: "",
-      questions: [],
-      createdAt: serverTimestamp(),
-    });
-    await loadCasesForExam(currentExamId);
-  } catch (err) {
-    console.error(err);
-    alert("No se pudo crear el nuevo caso clínico.");
-  }
-});
 /***********************************************
- * USUARIOS (ADMIN) CON FORMULARIO FIJO ARRIBA
+ * USUARIOS (ADMIN) - LISTADO + CRUD
  ***********************************************/
 async function loadUsers() {
   const snap = await getDocs(collection(db, "users"));
@@ -1125,17 +1114,16 @@ async function loadUsers() {
   html += "</tbody></table>";
   usersList.innerHTML = html;
 
+  // Acciones por fila
   usersList.querySelectorAll("tr[data-id]").forEach((row) => {
     const id = row.dataset.id;
     const btnEdit = row.querySelector('button[data-action="edit"]');
     const btnDelete = row.querySelector('button[data-action="delete"]');
 
-    btnEdit.addEventListener("click", () => {
-      openUserModal(id);
-    });
+    btnEdit.addEventListener("click", () => openUserModal(id));
 
     btnDelete.addEventListener("click", async () => {
-      const ok = window.confirm("¿Eliminar este usuario de la plataforma?");
+      const ok = window.confirm("¿Eliminar este usuario?");
       if (!ok) return;
       await deleteDoc(doc(db, "users", id));
       loadUsers();
@@ -1143,18 +1131,20 @@ async function loadUsers() {
   });
 }
 
-// Modal para editar usuario existente
+/***********************************************
+ * MODAL USUARIO (EDITAR / CREAR)
+ ***********************************************/
 function openUserModal(id = null) {
   const isEdit = Boolean(id);
-  let dataPromise = Promise.resolve(null);
 
+  let dataPromise = Promise.resolve({});
   if (isEdit) {
-    dataPromise = getDoc(doc(db, "users", id)).then((d) =>
-      d.exists() ? d.data() : null
+    dataPromise = getDoc(doc(db, "users", id)).then((s) =>
+      s.exists() ? s.data() : {}
     );
   }
 
-  dataPromise.then((data = {}) => {
+  dataPromise.then((data) => {
     const docId = isEdit ? id : (data.email || "");
 
     openModal({
@@ -1166,17 +1156,17 @@ function openUserModal(id = null) {
         </label>
 
         <label class="field">
-          <span>Correo (este será también el ID del documento)</span>
+          <span>Correo (ID del documento)</span>
           <input type="email" id="field-user-email" ${isEdit ? "readonly" : ""} value="${data.email || ""}" />
         </label>
 
         <label class="field">
-          <span>ID del documento en Firestore</span>
-          <input type="text" id="field-user-docid" readonly value="${docId || ""}" />
+          <span>ID Firestore</span>
+          <input type="text" id="field-user-docid" readonly value="${docId}" />
         </label>
 
         <label class="field">
-          <span>Contraseña (solo visible para admin)</span>
+          <span>Contraseña</span>
           <input type="text" id="field-user-password" required value="${data.password || ""}" />
         </label>
 
@@ -1197,56 +1187,45 @@ function openUserModal(id = null) {
         </label>
 
         <label class="field">
-          <span>Fecha límite de acceso</span>
+          <span>Fecha límite</span>
           <input type="date" id="field-user-expiry" value="${data.expiryDate || ""}" />
         </label>
       `,
       onSubmit: async () => {
-        const name = document
-          .getElementById("field-user-name")
-          .value.trim();
-        const email = document
-          .getElementById("field-user-email")
-          .value.trim();
-        const password = document
-          .getElementById("field-user-password")
-          .value.trim();
+        const name = document.getElementById("field-user-name").value.trim();
+        const email = document.getElementById("field-user-email").value.trim();
+        const password = document.getElementById("field-user-password").value.trim();
         const status = document.getElementById("field-user-status").value;
         const role = document.getElementById("field-user-role").value;
-        const expiryDate =
-          document.getElementById("field-user-expiry").value || "";
+        const expiryDate = document.getElementById("field-user-expiry").value || "";
 
         if (!name || !email || !password) {
           alert("Nombre, correo y contraseña son obligatorios.");
           return;
         }
 
-        const docIdFinal = email; // ID = email SIEMPRE
+        const docIdFinal = email;
+        const payload = {
+          name,
+          email,
+          password,
+          status,
+          role,
+          expiryDate,
+          updatedAt: serverTimestamp(),
+        };
 
         const submitBtn = modalSubmit;
         setLoading(submitBtn, true);
 
         try {
-          const payload = {
-            name,
-            email,
-            password,
-            status,
-            role,
-            expiryDate,
-            updatedAt: serverTimestamp(),
-          };
-
           if (isEdit) {
             await updateDoc(doc(db, "users", docIdFinal), payload);
           } else {
             payload.createdAt = serverTimestamp();
             await setDoc(doc(db, "users", docIdFinal), payload);
-            alert(
-              "Usuario creado en Firestore.\nRecuerda: también debes crearlo en Firebase Authentication con el mismo correo y contraseña para que pueda iniciar sesión."
-            );
+            alert("Usuario creado. También créalo en Firebase Authentication.");
           }
-
           await loadUsers();
           closeModal();
         } catch (err) {
@@ -1258,18 +1237,20 @@ function openUserModal(id = null) {
       },
     });
 
-    // Sincronizar ID de documento con correo al escribir (solo en modo nuevo)
+    // Actualizar ID dinámicamente (solo nuevo usuario)
     if (!isEdit) {
-      const emailInput = document.getElementById("field-user-email");
-      const docIdInput = document.getElementById("field-user-docid");
-      emailInput.addEventListener("input", () => {
-        docIdInput.value = emailInput.value.trim();
+      const emailEl = document.getElementById("field-user-email");
+      const docIdEl = document.getElementById("field-user-docid");
+      emailEl.addEventListener("input", () => {
+        docIdEl.value = emailEl.value.trim();
       });
     }
   });
 }
 
-// Crear usuario desde el formulario fijo
+/***********************************************
+ * CREAR USUARIO (FORM FIJO)
+ ***********************************************/
 btnCreateUser.addEventListener("click", async () => {
   const name = document.getElementById("new-user-name").value.trim();
   const email = document.getElementById("new-user-email").value.trim();
@@ -1280,14 +1261,12 @@ btnCreateUser.addEventListener("click", async () => {
     document.getElementById("new-user-expiry").value || "";
 
   if (!name || !email || !password) {
-    alert("Nombre, correo y contraseña son obligatorios.");
+    alert("Nombre, correo y contraseña obligatorios.");
     return;
   }
 
-  const docIdFinal = email;
-
   try {
-    await setDoc(doc(db, "users", docIdFinal), {
+    await setDoc(doc(db, "users", email), {
       name,
       email,
       password,
@@ -1298,11 +1277,9 @@ btnCreateUser.addEventListener("click", async () => {
       updatedAt: serverTimestamp(),
     });
 
-    alert(
-      "Usuario creado en Firestore.\nRecuerda: también debes crearlo en Firebase Authentication con el mismo correo y contraseña para que pueda iniciar sesión."
-    );
+    alert("Usuario creado. Recuerda crearlo también en Authentication.");
 
-    // Limpiar formulario
+    // Reset
     document.getElementById("new-user-name").value = "";
     document.getElementById("new-user-email").value = "";
     document.getElementById("new-user-password").value = "";
@@ -1311,24 +1288,25 @@ btnCreateUser.addEventListener("click", async () => {
     document.getElementById("new-user-expiry").value = "";
 
     await loadUsers();
-
   } catch (err) {
     console.error(err);
     alert("No se pudo crear el usuario.");
   }
 });
 
+// Abrir vista usuarios
 btnUsersView.addEventListener("click", () => {
   hide(sectionsView);
   hide(examDetailView);
   show(usersView);
+
   btnUsersView.classList.remove("btn-outline");
   btnUsersView.classList.add("btn-secondary");
+
   loadUsers();
 });
-
 /***********************************************
- * REDES SOCIALES (settings/socialLinks)
+ * REDES SOCIALES (ADMIN) - settings/socialLinks
  ***********************************************/
 async function loadSocialLinks() {
   try {
@@ -1336,6 +1314,7 @@ async function loadSocialLinks() {
     if (!snap.exists()) return;
 
     const data = snap.data();
+
     socialButtons.forEach((btn) => {
       const network = btn.dataset.network;
       if (data[network]) {
@@ -1345,7 +1324,7 @@ async function loadSocialLinks() {
       }
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error cargando socialLinks:", err);
   }
 }
 
@@ -1379,14 +1358,10 @@ btnEditSocial.addEventListener("click", async () => {
       </label>
     `,
     onSubmit: async () => {
-      const instagram =
-        document.getElementById("field-instagram").value.trim();
-      const whatsapp =
-        document.getElementById("field-whatsapp").value.trim();
-      const tiktok =
-        document.getElementById("field-tiktok").value.trim();
-      const telegram =
-        document.getElementById("field-telegram").value.trim();
+      const instagram = document.getElementById("field-instagram").value.trim();
+      const whatsapp = document.getElementById("field-whatsapp").value.trim();
+      const tiktok = document.getElementById("field-tiktok").value.trim();
+      const telegram = document.getElementById("field-telegram").value.trim();
 
       const submitBtn = modalSubmit;
       setLoading(submitBtn, true);
@@ -1421,6 +1396,7 @@ btnEditSocial.addEventListener("click", async () => {
   });
 });
 
+// Abrir redes sociales desde botón en sidebar
 socialButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     const url = btn.dataset.url;
@@ -1431,3 +1407,8 @@ socialButtons.forEach((btn) => {
     window.open(url, "_blank", "noopener,noreferrer");
   });
 });
+
+/***********************************************
+ * FIN DEL ARCHIVO APP.JS
+ ***********************************************/
+console.log("Admin panel cargado correctamente.");
