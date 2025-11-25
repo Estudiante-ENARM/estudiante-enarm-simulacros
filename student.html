@@ -17,7 +17,7 @@
 
 <body>
 
-  <!-- VISTA ESTUDIANTE -->
+  <!-- VISTA ESTUDIANTE (MODO NORMAL Y MODO PRUEBA) -->
   <section id="student-view" class="view">
 
     <!-- SIDEBAR -->
@@ -29,10 +29,10 @@
 
       <!-- SECCIONES DINÁMICAS -->
       <ul id="student-sidebar-sections" class="sidebar-sections">
-        <!-- Secciones dinámicas para el estudiante -->
+        <!-- Secciones dinámicas -->
       </ul>
 
-      <!-- BOTÓN PROGRESO (debajo de las secciones) -->
+      <!-- BOTÓN PROGRESO -->
       <button id="student-progress-btn" class="sidebar-btn sidebar-btn-progress">
         Progreso
       </button>
@@ -58,13 +58,28 @@
     <!-- CONTENIDO PRINCIPAL -->
     <main id="content">
 
+      <!-- ------------------------------------------ -->
+      <!-- PANEL DE BLOQUEO (MODO PRUEBA) -->
+      <!-- ------------------------------------------ -->
+      <div id="trial-locked-panel" class="card hidden" style="margin-bottom:16px;background:#fee2e2;border-left:4px solid #dc2626;">
+        <h3 style="font-size:15px;color:#b91c1c;margin-bottom:6px;">Contenido bloqueado</h3>
+        <p style="font-size:13px;color:#7f1d1d;">
+          Para acceder a esta sección adquiere tu acceso completo a Estudiante ENARM.
+        </p>
+        <button id="trial-unlock-btn" class="btn btn-primary" style="margin-top:10px;">
+          Adquirir acceso
+        </button>
+      </div>
+
+      <!-- ------------------------------------------ -->
       <!-- VISTA LISTA DE EXÁMENES -->
+      <!-- ------------------------------------------ -->
       <div id="student-exams-view" class="panel">
         <div class="panel-header">
           <div>
             <h2 id="student-current-section-title">Exámenes disponibles</h2>
             <p id="student-current-section-subtitle" class="panel-subtitle">
-              Selecciona una sección en la barra lateral para ver los simulacros correspondientes.
+              Elige un examen disponible.
             </p>
           </div>
         </div>
@@ -72,14 +87,16 @@
         <div id="student-exams-list" class="cards-list"></div>
       </div>
 
-      <!-- VISTA DETALLE DE EXAMEN (RESOLVER EXAMEN) -->
+      <!-- ------------------------------------------ -->
+      <!-- VISTA DETALLE DE EXAMEN -->
+      <!-- ------------------------------------------ -->
       <div id="student-exam-detail-view" class="panel hidden">
         <div class="panel-header">
           <button id="student-btn-back-to-exams" class="btn btn-outline">← Volver a exámenes</button>
           <div>
             <h2 id="student-exam-title">Examen</h2>
             <p id="student-exam-subtitle" class="panel-subtitle">
-              Resuelve las preguntas y envía tus respuestas antes de que termine el tiempo.
+              Resuelve las preguntas antes de que termine el tiempo.
             </p>
           </div>
           <div style="margin-left:auto;text-align:right;">
@@ -88,11 +105,9 @@
           </div>
         </div>
 
-        <!-- RESUMEN DEL EXAMEN -->
+        <!-- META -->
         <div id="student-exam-meta-card" class="card">
-          <div id="student-exam-meta-text" class="panel-subtitle">
-            <!-- Puntos clave: preguntas, tiempo, intentos -->
-          </div>
+          <div id="student-exam-meta-text" class="panel-subtitle"></div>
         </div>
 
         <!-- BANNER RESULTADOS PREMIUM -->
@@ -106,7 +121,7 @@
           <div class="result-values" id="student-result-values"></div>
         </div>
 
-        <!-- PREGUNTAS (CASOS CLÍNICOS + PREGUNTAS) -->
+        <!-- PREGUNTAS -->
         <div id="student-questions-list" class="cards-list"></div>
 
         <!-- BOTÓN ENVIAR -->
@@ -116,34 +131,36 @@
           </button>
         </div>
 
+        <!-- CTA DE COMPRA POST-EXAMEN -->
+        <div id="student-post-exam-cta" class="card hidden" style="margin-top:16px;text-align:center;">
+          <h3 style="margin-bottom:6px;font-size:16px;">¿Quieres ver tus resultados completos?</h3>
+          <p class="panel-subtitle" style="margin-bottom:12px;">Desbloquea acceso total a Estudiante ENARM.</p>
+          <button id="student-post-exam-whatsapp" class="btn btn-primary">
+            Adquirir acceso
+          </button>
+        </div>
+
       </div>
 
+      <!-- ------------------------------------------ -->
       <!-- VISTA PROGRESO -->
+      <!-- ------------------------------------------ -->
       <div id="student-progress-view" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Progreso</h2>
-            <p class="panel-subtitle">
-              Revisa tu promedio por sección y la evolución de tus calificaciones.
-            </p>
+            <p class="panel-subtitle">Evolución de tus calificaciones.</p>
           </div>
         </div>
 
-        <!-- RESUMEN -->
         <div id="student-progress-summary" class="card">
           <h3 style="font-size:16px;margin-bottom:6px;">Resumen del estudiante</h3>
           <p id="student-progress-username" class="panel-subtitle"></p>
 
-          <div id="student-progress-sections" class="progress-section-grid">
-            <!-- Tarjetas por sección -->
-          </div>
-
-          <div id="student-progress-global" class="progress-global">
-            <!-- Totales globales -->
-          </div>
+          <div id="student-progress-sections" class="progress-section-grid"></div>
+          <div id="student-progress-global" class="progress-global"></div>
         </div>
 
-        <!-- GRÁFICA -->
         <div id="student-progress-chart-card" class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Evolución de tus calificaciones</h3>
           <canvas id="student-progress-chart" height="240"></canvas>
