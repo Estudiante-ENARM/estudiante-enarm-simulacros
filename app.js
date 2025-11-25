@@ -2,32 +2,28 @@
  * FIREBASE (MODULAR v11) - CONFIGURACIÓN
  ***********************************************/
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-
 import {
   getFirestore,
   collection,
-  addDoc,
   doc,
   getDoc,
   getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
   query,
   where,
-  updateDoc,
-  setDoc,
-  deleteDoc,
   serverTimestamp,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-/***********************************************
- * CONFIGURACIÓN FIREBASE
- ***********************************************/
+// --- Configuración Firebase ---
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -44,709 +40,800 @@ const db = getFirestore(app);
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
-
-// Vistas
 const loginView = document.getElementById("login-view");
 const adminView = document.getElementById("admin-view");
-
-// Header
-const currentUserEmail = document.getElementById("current-user-email");
+const loginForm = document.getElementById("login-form");
+const loginEmail = document.getElementById("login-email");
+const loginPassword = document.getElementById("login-password");
+const loginError = document.getElementById("login-error");
 const btnLogout = document.getElementById("btn-logout");
-
-// Sidebar + responsive
-const sidebar = document.getElementById("sidebar");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+const currentUserEmailSpan = document.getElementById("current-user-email");
+const sidebar = document.getElementById("sidebar");
 const sidebarSections = document.getElementById("sidebar-sections");
-
-// Botones sidebar
 const btnNewSection = document.getElementById("btn-new-section");
 const btnUsersView = document.getElementById("btn-users-view");
 const btnEditSocial = document.getElementById("btn-edit-social");
-const btnLandingView = document.getElementById("btn-landing-view");
-
-// Vistas internas del admin
+const socialButtons = document.querySelectorAll(".social-icon");
 const sectionsView = document.getElementById("sections-view");
 const usersView = document.getElementById("users-view");
 const examDetailView = document.getElementById("exam-detail-view");
-const landingSettingsView = document.getElementById("landing-settings-view");
-const socialSettingsView = document.getElementById("social-settings-view");
-
-// Secciones / exámenes
 const currentSectionTitle = document.getElementById("current-section-title");
 const currentSectionSubtitle = document.getElementById("current-section-subtitle");
-const examsList = document.getElementById("exams-list");
 const btnNewExam = document.getElementById("btn-new-exam");
-
-// Editor de examen
+const examsList = document.getElementById("exams-list");
+const usersList = document.getElementById("users-list");
+const btnCreateUser = document.getElementById("btn-create-user");
+const btnBackToExams = document.getElementById("btn-back-to-exams");
 const examNameInput = document.getElementById("exam-name-input");
 const btnSaveExamMeta = document.getElementById("btn-save-exam-meta");
 const btnNewQuestion = document.getElementById("btn-new-question");
 const questionsList = document.getElementById("questions-list");
-const btnBackToExams = document.getElementById("btn-back-to-exams");
 
-// Usuarios
-const usersList = document.getElementById("users-list");
-const btnCreateUser = document.getElementById("btn-create-user");
-
-// Campos crear usuario
-const newUserName = document.getElementById("new-user-name");
-const newUserEmail = document.getElementById("new-user-email");
-const newUserPassword = document.getElementById("new-user-password");
-const newUserStatus = document.getElementById("new-user-status");
-const newUserRole = document.getElementById("new-user-role");
-const newUserExpiry = document.getElementById("new-user-expiry");
-
-// Pantalla principal (config admin)
-const landingHeroText = document.getElementById("landing-hero-text");
-const landingPriceMonth = document.getElementById("landing-price-month");
-const landingPriceFull = document.getElementById("landing-price-full");
-const landingWhatsappMonth = document.getElementById("landing-whatsapp-month");
-const landingWhatsappFull = document.getElementById("landing-whatsapp-full");
-const btnSaveLanding = document.getElementById("btn-save-landing");
-
-// Redes sociales (config admin)
-const adminInstagram = document.getElementById("admin-instagram");
-const adminWhatsapp = document.getElementById("admin-whatsapp");
-const adminTiktok = document.getElementById("admin-tiktok");
-const adminTelegram = document.getElementById("admin-telegram");
-const btnSaveSocial = document.getElementById("btn-save-social");
-
-// Login / landing visible para todos
-const loginForm = document.getElementById("login-form");
-const loginError = document.getElementById("login-error");
-const landingText = document.getElementById("landing-text");
-const btnPriceMonth = document.getElementById("btn-price-month");
-const btnPriceFull = document.getElementById("btn-price-full");
-
-// Iconos sociales (sidebar)
-const socialButtons = document.querySelectorAll(".social-icon");
+// Modal
+const modalOverlay = document.getElementById("modal-overlay");
+const modalTitle = document.getElementById("modal-title");
+const modalFields = document.getElementById("modal-fields");
+const modalForm = document.getElementById("modal-form");
+const modalCancel = document.getElementById("modal-cancel");
+const modalSubmit = document.getElementById("modal-submit");
 
 /***********************************************
  * ESTADO
  ***********************************************/
-let currentAdminEmail = null;
 let currentSectionId = null;
+let currentSectionName = "";
 let currentExamId = null;
+let modalSubmitHandler = null;
 
 /***********************************************
- * UTILIDADES DE VISTAS
+ * UI HELPERS
  ***********************************************/
-function hideAllAdminPanels() {
-  sectionsView?.classList.add("hidden");
-  usersView?.classList.add("hidden");
-  examDetailView?.classList.add("hidden");
-  landingSettingsView?.classList.add("hidden");
-  socialSettingsView?.classList.add("hidden");
-}
+function show(el) { if (el) el.classList.remove("hidden"); }
+function hide(el) { if (el) el.classList.add("hidden"); }
 
-function showAdminPanel(panelEl) {
-  hideAllAdminPanels();
-  if (panelEl) panelEl.classList.remove("hidden");
+/***********************************************
+ * MODAL GENÉRICO
+ ***********************************************/
+function openModal({ title, fieldsHtml, onSubmit }) {
+  modalTitle.textContent = title;
+  modalFields.innerHTML = fieldsHtml;
+  modalSubmitHandler = onSubmit;
+  show(modalOverlay);
 }
+function closeModal() {
+  modalFields.innerHTML = "";
+  modalSubmitHandler = null;
+  hide(modalOverlay);
+}
+modalOverlay.addEventListener("click", e => { if (e.target === modalOverlay) closeModal(); });
+modalCancel.addEventListener("click", closeModal);
+modalForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  if (typeof modalSubmitHandler === "function") await modalSubmitHandler();
+});
 
 /***********************************************
  * LOGIN
  ***********************************************/
-if (loginForm) {
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    loginError.classList.add("hidden");
-    loginError.textContent = "";
-
-    const email = document.getElementById("login-email").value.trim();
-    const password = document.getElementById("login-password").value.trim();
-
-    if (!email || !password) {
-      loginError.textContent = "Ingresa correo y contraseña.";
-      loginError.classList.remove("hidden");
-      return;
-    }
-
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      console.error(err);
-      loginError.textContent = "Correo o contraseña incorrectos.";
-      loginError.classList.remove("hidden");
-    }
-  });
-}
-
-/***********************************************
- * AUTENTICACIÓN Y ROLES
- ***********************************************/
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    // Sesión cerrada
-    currentAdminEmail = null;
-    adminView.classList.add("hidden");
-    loginView.classList.remove("hidden");
-    currentUserEmail.textContent = "";
-    return;
-  }
+loginForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  loginError.textContent = "";
+  hide(loginError);
 
   try {
+    const email = loginEmail.value.trim();
+    const password = loginPassword.value.trim();
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const user = cred.user;
+
     const userSnap = await getDoc(doc(db, "users", user.email));
-    if (!userSnap.exists()) {
-      alert("Tu cuenta no está configurada en el sistema.");
-      await signOut(auth);
-      return;
-    }
+    if (!userSnap.exists()) throw new Error("Usuario no registrado en Firestore.");
 
-    const profile = userSnap.data();
+    const data = userSnap.data();
+    const today = new Date().toISOString().slice(0, 10);
 
-    // Si es ADMIN -> panel admin
-    if (profile.role === "admin") {
-      currentAdminEmail = user.email;
-      currentUserEmail.textContent = user.email;
+    if (data.expiryDate && data.expiryDate < today)
+      throw new Error("Tu acceso ha expirado.");
 
-      loginView.classList.add("hidden");
-      adminView.classList.remove("hidden");
+    if (data.status !== "activo")
+      throw new Error("Tu usuario está inactivo.");
 
-      // Carga inicial del panel admin
-      showAdminPanel(sectionsView);
-      await loadSidebarSections();
-      await loadLandingSettings();
-      await loadSocialLinksSidebar();
-      return;
-    }
-
-    // Si es USUARIO -> redirigir a student.html
-    if (profile.role === "usuario") {
-      // Este index.html es SOLO para admins.
-      // Redirigimos al panel de estudiante.
+    if (data.role === "usuario") {
       window.location.href = "student.html";
       return;
     }
 
-    // Rol desconocido
-    alert("Tu cuenta no tiene un rol válido.");
-    await signOut(auth);
+    if (data.role !== "admin") throw new Error("Rol inválido.");
+
   } catch (err) {
-    console.error(err);
-    alert("Error leyendo tu perfil de usuario.");
-    await signOut(auth);
+    loginError.textContent = err.message;
+    show(loginError);
+    await signOut(auth).catch(() => {});
   }
 });
 
 /***********************************************
- * CERRAR SESIÓN
+ * AUTH STATE
  ***********************************************/
-btnLogout?.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    adminView.classList.add("hidden");
-    loginView.classList.remove("hidden");
-  }
-});
-
-/***********************************************
- * SIDEBAR RESPONSIVE
- ***********************************************/
-btnToggleSidebar?.addEventListener("click", () => {
-  sidebar?.classList.toggle("sidebar--open");
-});
-
-/***********************************************
- * CARGA DE SECCIONES EN LA BARRA LATERAL
- ***********************************************/
-async function loadSidebarSections() {
-  if (!sidebarSections) return;
-
-  sidebarSections.innerHTML = "";
-
-  const snap = await getDocs(collection(db, "sections"));
-  if (snap.empty) {
-    sidebarSections.innerHTML = `
-      <li style="color:#cbd5f5;font-size:13px;">No hay secciones creadas.</li>`;
-    currentSectionTitle.textContent = "Selecciona una sección";
-    currentSectionSubtitle.textContent = "Elige una sección para ver sus exámenes.";
-    examsList.innerHTML = "";
-    btnNewExam.classList.add("hidden");
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    show(loginView);
+    hide(adminView);
     return;
   }
 
-  snap.forEach((docSnap) => {
+  const snap = await getDoc(doc(db, "users", user.email));
+  if (!snap.exists()) {
+    await signOut(auth);
+    return;
+  }
+
+  const data = snap.data();
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (data.expiryDate && data.expiryDate < today) {
+    await updateDoc(doc(db, "users", user.email), { status: "inactivo" });
+    await signOut(auth);
+    return;
+  }
+
+  if (data.status !== "activo") {
+    await signOut(auth);
+    return;
+  }
+
+  if (data.role === "usuario") {
+    window.location.href = "student.html";
+    return;
+  }
+
+  // ADMIN
+  show(adminView);
+  hide(loginView);
+  currentUserEmailSpan.textContent = user.email;
+
+  await loadSections();
+  await loadSocialLinks();
+});
+
+/***********************************************
+ * SECCIONES ADMIN
+ ***********************************************/
+async function loadSections() {
+  const snap = await getDocs(collection(db, "sections"));
+  sidebarSections.innerHTML = "";
+
+  if (snap.empty) {
+    sidebarSections.innerHTML = `<li>No hay secciones.</li>`;
+    return;
+  }
+
+  snap.forEach(docSnap => {
     const data = docSnap.data();
+    const id = docSnap.id;
+
     const li = document.createElement("li");
     li.className = "sidebar__section-item";
-
     li.innerHTML = `
-      <div class="sidebar__section-name">${data.name || "Sección sin nombre"}</div>
+      <div class="sidebar__section-name">${data.name}</div>
       <div class="sidebar__section-actions">
-        <button class="icon-btn edit-section-btn" data-id="${docSnap.id}">✏️</button>
-        <button class="icon-btn delete-section-btn" data-id="${docSnap.id}">🗑️</button>
+        <button class="icon-btn edit-section">✏</button>
+        <button class="icon-btn delete-section">🗑</button>
       </div>
     `;
 
-    // Click para abrir sección
-    li.addEventListener("click", (e) => {
-      if (e.target.closest(".icon-btn")) return; // no disparar al editar/eliminar
-      openSection(docSnap.id, data.name || "Sección");
+    li.addEventListener("click", () => selectSection(id, data.name, li));
+    li.querySelector(".edit-section").addEventListener("click", e => {
+      e.stopPropagation();
+      openEditSectionModal(id, data.name);
+    });
+    li.querySelector(".delete-section").addEventListener("click", async e => {
+      e.stopPropagation();
+      await deleteSectionWithAll(id);
+      await loadSections();
     });
 
     sidebarSections.appendChild(li);
   });
-
-  // Activar botones editar/eliminar sección
-  enableSectionActionButtons();
 }
 
-/***********************************************
- * BOTONES EDITAR / ELIMINAR SECCIÓN
- ***********************************************/
-function enableSectionActionButtons() {
-  const editButtons = document.querySelectorAll(".edit-section-btn");
-  const deleteButtons = document.querySelectorAll(".delete-section-btn");
+function selectSection(id, name, element) {
+  currentSectionId = id;
+  currentSectionName = name;
 
-  editButtons.forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      const newName = prompt("Nuevo nombre de la sección:");
+  document.querySelectorAll(".sidebar__section-item")
+    .forEach(li => li.classList.remove("active"));
 
-      if (!newName) return;
-
-      await updateDoc(doc(db, "sections", id), { name: newName.trim() });
-      await loadSidebarSections();
-      alert("Sección actualizada.");
-    });
-  });
-
-  deleteButtons.forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      if (!confirm("¿Eliminar esta sección y sus exámenes?")) return;
-
-      const id = btn.dataset.id;
-      await deleteDoc(doc(db, "sections", id));
-      // Nota: aquí no estamos borrando exámenes asociados; puedes hacerlo si lo deseas después.
-      await loadSidebarSections();
-      alert("Sección eliminada.");
-    });
-  });
-}
-
-/***********************************************
- * CREAR NUEVA SECCIÓN
- ***********************************************/
-btnNewSection?.addEventListener("click", async () => {
-  const name = prompt("Nombre de la nueva sección:");
-  if (!name) return;
-
-  await addDoc(collection(db, "sections"), {
-    name: name.trim(),
-    createdAt: serverTimestamp(),
-  });
-
-  await loadSidebarSections();
-  alert("Sección creada.");
-});
-
-/***********************************************
- * ABRIR UNA SECCIÓN
- ***********************************************/
-async function openSection(sectionId, name) {
-  currentSectionId = sectionId;
+  element.classList.add("active");
 
   currentSectionTitle.textContent = name;
-  currentSectionSubtitle.textContent = "Simulacros dentro de esta sección.";
+  show(btnNewExam);
+  loadExams(id);
+}
 
-  showAdminPanel(sectionsView);
-  btnNewExam.classList.remove("hidden");
+async function deleteSectionWithAll(sectionId) {
+  const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
+  const exSnap = await getDocs(qEx);
 
-  await loadExams(sectionId);
+  for (const ex of exSnap.docs) {
+    const qCases = query(collection(db, "questions"), where("examId", "==", ex.id));
+    const caseSnap = await getDocs(qCases);
+    for (const c of caseSnap.docs) await deleteDoc(c.ref);
+    await deleteDoc(ex.ref);
+  }
+
+  await deleteDoc(doc(db, "sections", sectionId));
 }
 
 /***********************************************
- * CARGAR EXÁMENES DE UNA SECCIÓN
+ * EXÁMENES ADMIN
  ***********************************************/
 async function loadExams(sectionId) {
+  const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
+  const snap = await getDocs(qEx);
+
   examsList.innerHTML = "";
 
-  const q = query(collection(db, "exams"), where("sectionId", "==", sectionId));
-  const snap = await getDocs(q);
-
   if (snap.empty) {
-    examsList.innerHTML = `
-      <div class="card">
-        <p style="font-size:14px;color:#6b7280;">
-          No hay exámenes en esta sección.
-        </p>
-      </div>`;
+    examsList.innerHTML = `<p>No hay exámenes.</p>`;
     return;
   }
 
-  snap.forEach((docSnap) => {
-    const ex = docSnap.data();
+  snap.forEach(docSnap => {
+    const data = docSnap.data();
     const card = document.createElement("div");
     card.className = "card-item";
 
     card.innerHTML = `
       <div class="card-item__title-row">
-        <div class="card-item__title">${ex.name || "Examen sin nombre"}</div>
-      </div>
-
-      <div class="flex-row" style="margin-top:12px;">
-        <button class="btn btn-secondary btn-open-exam" data-id="${docSnap.id}">Abrir</button>
-        <button class="btn btn-outline btn-delete-exam" data-id="${docSnap.id}">Eliminar</button>
+        <div>${data.name}</div>
+        <div>
+          <button class="btn btn-secondary open">Abrir</button>
+          <button class="icon-btn edit">✏</button>
+          <button class="icon-btn delete">🗑</button>
+        </div>
       </div>
     `;
 
+    card.querySelector(".open").addEventListener("click", () => openExam(docSnap.id, data.name));
+    card.querySelector(".edit").addEventListener("click", () => openEditExamModal(docSnap.id, data.name));
+    card.querySelector(".delete").addEventListener("click", async () => {
+      await deleteDoc(doc(db, "exams", docSnap.id));
+      loadExams(sectionId);
+    });
+
     examsList.appendChild(card);
   });
+}
 
-  enableExamButtons();
+function openExam(examId, examName) {
+  currentExamId = examId;
+
+  show(examDetailView);
+  hide(sectionsView);
+
+  examNameInput.value = examName;
+  loadCases(examId);
 }
 
 /***********************************************
- * CREAR NUEVO EXAMEN
+ * CASOS CLÍNICOS ADMIN (PARTE 1)
  ***********************************************/
-btnNewExam?.addEventListener("click", async () => {
-  if (!currentSectionId) {
-    alert("Primero selecciona una sección.");
+async function loadCases(examId) {
+  const q = query(collection(db, "questions"), where("examId", "==", examId));
+  const snap = await getDocs(q);
+
+  questionsList.innerHTML = "";
+
+  if (snap.empty) {
+    questionsList.innerHTML = `<p>No hay casos clínicos.</p>`;
     return;
   }
 
-  const name = prompt("Nombre del nuevo examen:");
-  if (!name) return;
+  snap.forEach(docSnap => renderCase(docSnap.id, docSnap.data()));
+}
 
-  await addDoc(collection(db, "exams"), {
-    name: name.trim(),
-    sectionId: currentSectionId,
-    createdAt: serverTimestamp(),
+function renderCase(caseId, data) {
+  const caseCard = document.createElement("div");
+  caseCard.className = "card";
+  caseCard.dataset.caseId = caseId;
+
+  caseCard.innerHTML = `
+    <label class="field">
+      <span>Especialidad</span>
+      <select class="case-specialty">
+        <option value="">Selecciona</option>
+        <option value="medicina_interna" ${data.specialty==="medicina_interna"?"selected":""}>Medicina interna</option>
+        <option value="pediatria" ${data.specialty==="pediatria"?"selected":""}>Pediatría</option>
+        <option value="gine_obstetricia" ${data.specialty==="gine_obstetricia"?"selected":""}>Ginecología y obstetricia</option>
+        <option value="cirugia_general" ${data.specialty==="cirugia_general"?"selected":""}>Cirugía general</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Caso clínico</span>
+      <textarea class="case-text" rows="4">${data.caseText||""}</textarea>
+    </label>
+
+    <div class="cards-list case-questions"></div>
+
+    <div class="flex-row" style="gap:8px;margin-top:8px;">
+      <button class="btn btn-sm btn-primary add-question">+ Pregunta</button>
+      <button class="btn btn-sm btn-secondary save-case">Guardar</button>
+      <button class="btn btn-sm btn-outline delete-case">Eliminar</button>
+      <button class="btn btn-sm btn-primary new-case">+ Nuevo caso</button>
+    </div>
+  `;
+
+  const qContainer = caseCard.querySelector(".case-questions");
+  const arr = Array.isArray(data.questions) ? data.questions : [];
+  arr.forEach(q => qContainer.appendChild(renderQuestion(q)));
+  if (arr.length === 0) qContainer.appendChild(renderQuestion());
+
+  questionsList.appendChild(caseCard);
+}
+/***********************************************
+ * CASOS CLÍNICOS ADMIN (VERSIÓN COMPLETA)
+ ***********************************************/
+
+// Sobrescribimos renderCase con la versión completa
+function renderCase(caseId, data) {
+  const caseCard = document.createElement("div");
+  caseCard.className = "card";
+  caseCard.dataset.caseId = caseId;
+
+  caseCard.innerHTML = `
+    <label class="field">
+      <span>Especialidad del caso clínico</span>
+      <select class="case-specialty">
+        <option value="">Selecciona una especialidad</option>
+        <option value="medicina_interna" ${data.specialty === "medicina_interna" ? "selected" : ""}>Medicina interna</option>
+        <option value="pediatria" ${data.specialty === "pediatria" ? "selected" : ""}>Pediatría</option>
+        <option value="gine_obstetricia" ${data.specialty === "gine_obstetricia" ? "selected" : ""}>Ginecología y obstetricia</option>
+        <option value="cirugia_general" ${data.specialty === "cirugia_general" ? "selected" : ""}>Cirugía general</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Caso clínico</span>
+      <textarea class="case-text" rows="4">${data.caseText || ""}</textarea>
+    </label>
+
+    <div class="cards-list case-questions"></div>
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-sm btn-primary add-question">
+        + Agregar pregunta
+      </button>
+      <button type="button" class="btn btn-sm btn-secondary save-case">
+        Guardar caso clínico
+      </button>
+      <button type="button" class="btn btn-sm btn-outline delete-case">
+        Eliminar caso clínico
+      </button>
+      <button type="button" class="btn btn-sm btn-primary new-case">
+        + Nuevo caso clínico
+      </button>
+    </div>
+  `;
+
+  const qContainer = caseCard.querySelector(".case-questions");
+  const arr = Array.isArray(data.questions) ? data.questions : [];
+  if (arr.length === 0) {
+    qContainer.appendChild(renderQuestion());
+  } else {
+    arr.forEach(q => qContainer.appendChild(renderQuestion(q)));
+  }
+
+  // Eventos
+  caseCard.querySelector(".add-question").addEventListener("click", () => {
+    qContainer.appendChild(renderQuestion());
   });
 
-  await loadExams(currentSectionId);
-  alert("Examen creado.");
+  caseCard.querySelector(".save-case").addEventListener("click", async () => {
+    await saveCase(caseId, caseCard);
+  });
+
+  caseCard.querySelector(".delete-case").addEventListener("click", async () => {
+    const ok = window.confirm("¿Eliminar este caso clínico y todas sus preguntas?");
+    if (!ok) return;
+    await deleteDoc(doc(db, "questions", caseId));
+    if (currentExamId) await loadCases(currentExamId);
+  });
+
+  caseCard.querySelector(".new-case").addEventListener("click", async () => {
+    if (!currentExamId) {
+      alert("Primero selecciona o crea un examen.");
+      return;
+    }
+    await addDoc(collection(db, "questions"), {
+      examId: currentExamId,
+      caseText: "",
+      specialty: "",
+      questions: [],
+      createdAt: serverTimestamp(),
+    });
+    await loadCases(currentExamId);
+  });
+
+  questionsList.appendChild(caseCard);
+}
+
+function renderQuestion(qData = {}) {
+  const {
+    questionText = "",
+    optionA = "",
+    optionB = "",
+    optionC = "",
+    optionD = "",
+    correctOption = "",
+    justification = "",
+    difficulty = "media",
+    subtype = "salud_publica",
+  } = qData;
+
+  const card = document.createElement("div");
+  card.className = "card-item";
+
+  card.innerHTML = `
+    <label class="field">
+      <span>Pregunta</span>
+      <textarea class="q-question" rows="2">${questionText}</textarea>
+    </label>
+
+    <label class="field">
+      <span>Inciso A</span>
+      <input type="text" class="q-a" value="${optionA}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso B</span>
+      <input type="text" class="q-b" value="${optionB}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso C</span>
+      <input type="text" class="q-c" value="${optionC}" />
+    </label>
+
+    <label class="field">
+      <span>Inciso D</span>
+      <input type="text" class="q-d" value="${optionD}" />
+    </label>
+
+    <label class="field">
+      <span>Respuesta correcta</span>
+      <select class="q-correct">
+        <option value="">Selecciona</option>
+        <option value="A" ${correctOption === "A" ? "selected" : ""}>A</option>
+        <option value="B" ${correctOption === "B" ? "selected" : ""}>B</option>
+        <option value="C" ${correctOption === "C" ? "selected" : ""}>C</option>
+        <option value="D" ${correctOption === "D" ? "selected" : ""}>D</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Dificultad</span>
+      <select class="q-difficulty">
+        <option value="baja" ${difficulty === "baja" ? "selected" : ""}>Baja (1 punto)</option>
+        <option value="media" ${difficulty === "media" ? "selected" : ""}>Media (2 puntos)</option>
+        <option value="alta" ${difficulty === "alta" ? "selected" : ""}>Alta (3 puntos)</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Tipo de pregunta</span>
+      <select class="q-subtype">
+        <option value="salud_publica" ${subtype === "salud_publica" ? "selected" : ""}>Salud pública</option>
+        <option value="medicina_familiar" ${subtype === "medicina_familiar" ? "selected" : ""}>Medicina familiar</option>
+        <option value="urgencias" ${subtype === "urgencias" ? "selected" : ""}>Urgencias</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Justificación</span>
+      <textarea class="q-just" rows="2">${justification}</textarea>
+    </label>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+      <button type="button" class="btn btn-sm btn-outline delete-question">
+        Eliminar pregunta
+      </button>
+    </div>
+  `;
+
+  card.querySelector(".delete-question").addEventListener("click", () => {
+    card.remove();
+  });
+
+  return card;
+}
+
+async function saveCase(caseId, caseCard) {
+  if (!currentExamId) return;
+
+  const specialty = caseCard.querySelector(".case-specialty").value;
+  const caseText = caseCard.querySelector(".case-text").value.trim();
+  const qCards = caseCard.querySelectorAll(".case-questions .card-item");
+
+  if (!caseText) {
+    alert("Escribe el texto del caso clínico.");
+    return;
+  }
+  if (!qCards.length) {
+    alert("Agrega al menos una pregunta.");
+    return;
+  }
+
+  const questions = [];
+  for (const card of qCards) {
+    const questionText = card.querySelector(".q-question").value.trim();
+    const optionA = card.querySelector(".q-a").value.trim();
+    const optionB = card.querySelector(".q-b").value.trim();
+    const optionC = card.querySelector(".q-c").value.trim();
+    const optionD = card.querySelector(".q-d").value.trim();
+    const correctOption = card.querySelector(".q-correct").value;
+    const justification = card.querySelector(".q-just").value.trim();
+
+    const difficulty = (card.querySelector(".q-difficulty")?.value) || "media";
+    const subtype = (card.querySelector(".q-subtype")?.value) || "salud_publica";
+
+    const difficultyWeight =
+      difficulty === "alta" ? 3 :
+      difficulty === "media" ? 2 : 1;
+
+    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctOption || !justification) {
+      alert("Completa todos los campos de cada pregunta.");
+      return;
+    }
+
+    questions.push({
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+      justification,
+      difficulty,
+      difficultyWeight,
+      subtype,
+    });
+  }
+
+  await updateDoc(doc(db, "questions", caseId), {
+    examId: currentExamId,
+    caseText,
+    specialty: specialty || "",
+    questions,
+    updatedAt: serverTimestamp(),
+  });
+
+  alert("Caso clínico guardado correctamente.");
+  if (currentExamId) await loadCases(currentExamId);
+}
+
+// Botón global “Nuevo caso clínico”
+btnNewQuestion.addEventListener("click", async () => {
+  if (!currentExamId) {
+    alert("Primero selecciona o crea un examen.");
+    return;
+  }
+  await addDoc(collection(db, "questions"), {
+    examId: currentExamId,
+    caseText: "",
+    specialty: "",
+    questions: [],
+    createdAt: serverTimestamp(),
+  });
+  await loadCases(currentExamId);
 });
 
 /***********************************************
- * BOTONES EDITAR / ELIMINAR EXAMEN
+ * GUARDAR NOMBRE DE EXAMEN Y NAVEGACIÓN
  ***********************************************/
-function enableExamButtons() {
-  const openButtons = document.querySelectorAll(".btn-open-exam");
-  const deleteButtons = document.querySelectorAll(".btn-delete-exam");
-
-  openButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      openExamEditor(btn.dataset.id);
-    });
-  });
-
-  deleteButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("¿Eliminar este examen?")) return;
-      await deleteDoc(doc(db, "exams", btn.dataset.id));
-      await loadExams(currentSectionId);
-      alert("Examen eliminado.");
-    });
-  });
-}
-
-/***********************************************
- * ABRIR EDITOR DE EXAMEN
- ***********************************************/
-async function openExamEditor(examId) {
-  currentExamId = examId;
-
-  const examSnap = await getDoc(doc(db, "exams", examId));
-  if (!examSnap.exists()) {
-    alert("El examen no existe.");
-    return;
-  }
-
-  const ex = examSnap.data();
-  examNameInput.value = ex.name || "";
-
-  showAdminPanel(examDetailView);
-
-  await loadExamQuestions(examId);
-}
-
-/***********************************************
- * GUARDAR NOMBRE DE EXAMEN
- ***********************************************/
-btnSaveExamMeta?.addEventListener("click", async () => {
+btnSaveExamMeta.addEventListener("click", async () => {
   if (!currentExamId) return;
 
-  const newName = examNameInput.value.trim();
-  if (!newName) {
+  const name = examNameInput.value.trim();
+  if (!name) {
     alert("Escribe un nombre para el examen.");
     return;
   }
 
-  await updateDoc(doc(db, "exams", currentExamId), { name: newName });
-  alert("Nombre de examen actualizado.");
+  await updateDoc(doc(db, "exams", currentExamId), {
+    name,
+    updatedAt: serverTimestamp(),
+  });
 
-  if (currentSectionId) {
-    await loadExams(currentSectionId);
-  }
+  if (currentSectionId) await loadExams(currentSectionId);
+  alert("Nombre del examen actualizado.");
 });
 
-/***********************************************
- * CARGAR PREGUNTAS DEL EXAMEN
- * (Modelo simple: 1 doc = 1 pregunta)
- ***********************************************/
-async function loadExamQuestions(examId) {
-  questionsList.innerHTML = "";
-
-  const q = query(collection(db, "questions"), where("examId", "==", examId));
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    questionsList.innerHTML = `
-      <div class="card">
-        Aún no hay preguntas cargadas para este examen.
-      </div>`;
-    return;
-  }
-
-  snap.forEach((docSnap) => {
-    const qData = docSnap.data();
-
-    const div = document.createElement("div");
-    div.className = "card";
-
-    div.innerHTML = `
-      <p style="font-weight:600;margin-bottom:6px;">
-        ${qData.questionText || "(Pregunta sin texto)"}
-      </p>
-      <p class="panel-subtitle" style="margin-bottom:10px;">
-        Caso clínico: ${qData.caseText || "—"}
-      </p>
-
-      <ul style="font-size:13px;margin-bottom:10px;">
-        <li>A) ${qData.optionA || ""}</li>
-        <li>B) ${qData.optionB || ""}</li>
-        <li>C) ${qData.optionC || ""}</li>
-        <li>D) ${qData.optionD || ""}</li>
-      </ul>
-
-      <div class="flex-row">
-        <button class="btn btn-secondary btn-edit-q" data-id="${docSnap.id}">Editar</button>
-        <button class="btn btn-outline btn-del-q" data-id="${docSnap.id}">Eliminar</button>
-      </div>
-    `;
-
-    questionsList.appendChild(div);
-  });
-
-  enableQuestionButtons();
-}
-
-/***********************************************
- * BOTONES EDITAR / ELIMINAR PREGUNTA
- ***********************************************/
-function enableQuestionButtons() {
-  const editBtns = document.querySelectorAll(".btn-edit-q");
-  const delBtns = document.querySelectorAll(".btn-del-q");
-
-  editBtns.forEach((btn) => {
-    btn.addEventListener("click", () => openQuestionEditor(btn.dataset.id));
-  });
-
-  delBtns.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("¿Eliminar esta pregunta?")) return;
-      await deleteDoc(doc(db, "questions", btn.dataset.id));
-      if (currentExamId) {
-        await loadExamQuestions(currentExamId);
-      }
-    });
-  });
-}
-
-/***********************************************
- * CREAR NUEVA PREGUNTA
- ***********************************************/
-btnNewQuestion?.addEventListener("click", () => {
-  if (!currentExamId) {
-    alert("Primero abre un examen.");
-    return;
-  }
-  openQuestionCreator(currentExamId);
-});
-
-async function openQuestionCreator(examId) {
-  const caseText = prompt("Texto del caso clínico:");
-  if (!caseText) return;
-
-  const questionText = prompt("Texto de la pregunta:");
-  if (!questionText) return;
-
-  const optionA = prompt("Opción A:") || "";
-  const optionB = prompt("Opción B:") || "";
-  const optionC = prompt("Opción C:") || "";
-  const optionD = prompt("Opción D:") || "";
-  const correctOption = (prompt("Respuesta correcta (A/B/C/D):", "A") || "A").toUpperCase();
-  const justification = prompt("Justificación de la respuesta:") || "";
-
-  await addDoc(collection(db, "questions"), {
-    examId,
-    caseText,
-    questionText,
-    optionA,
-    optionB,
-    optionC,
-    optionD,
-    correctOption,
-    justification,
-    createdAt: serverTimestamp(),
-  });
-
-  await loadExamQuestions(examId);
-  alert("Pregunta creada.");
-}
-
-/***********************************************
- * EDITAR PREGUNTA
- ***********************************************/
-async function openQuestionEditor(questionId) {
-  const qSnap = await getDoc(doc(db, "questions", questionId));
-  if (!qSnap.exists()) {
-    alert("La pregunta ya no existe.");
-    return;
-  }
-
-  const qData = qSnap.data();
-
-  const caseText = prompt("Texto del caso clínico:", qData.caseText || "") ?? qData.caseText || "";
-  const questionText = prompt("Texto de la pregunta:", qData.questionText || "") ?? qData.questionText || "";
-  const optionA = prompt("Opción A:", qData.optionA || "") ?? qData.optionA || "";
-  const optionB = prompt("Opción B:", qData.optionB || "") ?? qData.optionB || "";
-  const optionC = prompt("Opción C:", qData.optionC || "") ?? qData.optionC || "";
-  const optionD = prompt("Opción D:", qData.optionD || "") ?? qData.optionD || "";
-  const correctOption = (prompt("Respuesta correcta (A/B/C/D):", qData.correctOption || "A") || "A").toUpperCase();
-  const justification = prompt("Justificación:", qData.justification || "") ?? qData.justification || "";
-
-  await updateDoc(doc(db, "questions", questionId), {
-    caseText,
-    questionText,
-    optionA,
-    optionB,
-    optionC,
-    optionD,
-    correctOption,
-    justification,
-  });
-
-  if (currentExamId) {
-    await loadExamQuestions(currentExamId);
-  }
-
-  alert("Pregunta actualizada.");
-}
-
-/***********************************************
- * VOLVER A LISTA DE EXÁMENES
- ***********************************************/
-btnBackToExams?.addEventListener("click", () => {
+btnBackToExams.addEventListener("click", () => {
   currentExamId = null;
-  showAdminPanel(sectionsView);
-  if (currentSectionId) loadExams(currentSectionId);
+  hide(examDetailView);
+  show(sectionsView);
 });
 
 /***********************************************
- * PANEL USUARIOS
- ***********************************************/
-btnUsersView?.addEventListener("click", async () => {
-  showAdminPanel(usersView);
-  await loadUsers();
-});
-
-/***********************************************
- * CARGAR USUARIOS
+ * USUARIOS (ADMIN)
  ***********************************************/
 async function loadUsers() {
-  usersList.innerHTML = "";
-
   const snap = await getDocs(collection(db, "users"));
+
   if (snap.empty) {
     usersList.innerHTML = `
-      <div class="card">
+      <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
         No hay usuarios registrados.
-      </div>`;
+      </div>
+    `;
     return;
   }
 
-  snap.forEach((docSnap) => {
-    const u = docSnap.data();
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Estado</th>
+          <th>Rol</th>
+          <th>Fecha límite</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
 
-    const card = document.createElement("div");
-    card.className = "card";
+  snap.forEach(docSnap => {
+    const d = docSnap.data();
+    const status = d.status || "inactivo";
+    const role = d.role || "usuario";
 
-    card.innerHTML = `
-      <p><strong>${u.name || "(Sin nombre)"}</strong></p>
-      <p>${docSnap.id}</p>
-      <p class="panel-subtitle">Rol: ${u.role || "sin rol"} · Estado: ${u.status || "sin estado"}</p>
-      <p class="panel-subtitle">Vence: ${u.expiryDate || "—"}</p>
-
-      <div class="flex-row">
-        <button class="btn btn-secondary btn-edit-user" data-id="${docSnap.id}">Editar</button>
-        <button class="btn btn-outline btn-del-user" data-id="${docSnap.id}">Eliminar</button>
-      </div>
+    html += `
+      <tr data-id="${docSnap.id}">
+        <td>${d.name || ""}</td>
+        <td>${d.email || ""}</td>
+        <td><span class="chip ${status === "activo" ? "chip--activo" : "chip--inactivo"}">${status}</span></td>
+        <td><span class="chip ${role === "admin" ? "chip--admin" : "chip--user"}">${role}</span></td>
+        <td>${d.expiryDate || "—"}</td>
+        <td>
+          <button class="icon-btn edit-user">✏</button>
+          <button class="icon-btn delete-user">🗑</button>
+        </td>
+      </tr>
     `;
-
-    usersList.appendChild(card);
   });
 
-  // Activar botones
-  const editButtons = usersList.querySelectorAll(".btn-edit-user");
-  const delButtons = usersList.querySelectorAll(".btn-del-user");
+  html += "</tbody></table>";
+  usersList.innerHTML = html;
 
-  editButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const email = btn.dataset.id;
-      const snap = await getDoc(doc(db, "users", email));
-      if (!snap.exists()) return;
-
-      const u = snap.data();
-
-      const name = prompt("Nombre:", u.name || "") ?? u.name || "";
-      const status = prompt("Estado (activo/inactivo):", u.status || "activo") ?? u.status || "activo";
-      const role = prompt("Rol (admin/usuario):", u.role || "usuario") ?? u.role || "usuario";
-      const expiryDate = prompt("Fecha límite (YYYY-MM-DD):", u.expiryDate || "") ?? u.expiryDate || "";
-
-      await updateDoc(doc(db, "users", email), {
-        name,
-        status,
-        role,
-        expiryDate,
-      });
-
-      alert("Usuario actualizado.");
-      await loadUsers();
-    });
-  });
-
-  delButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const email = btn.dataset.id;
-      if (!confirm(`¿Eliminar usuario ${email}?`)) return;
-      await deleteDoc(doc(db, "users", email));
-      alert("Usuario eliminado.");
+  usersList.querySelectorAll("tr[data-id]").forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector(".edit-user").addEventListener("click", () => openUserModal(id));
+    row.querySelector(".delete-user").addEventListener("click", async () => {
+      const ok = window.confirm("¿Eliminar este usuario?");
+      if (!ok) return;
+      await deleteDoc(doc(db, "users", id));
       await loadUsers();
     });
   });
 }
 
-/***********************************************
- * CREAR NUEVO USUARIO
- ***********************************************/
-btnCreateUser?.addEventListener("click", async () => {
-  const name = (newUserName.value || "").trim();
-  const email = (newUserEmail.value || "").trim();
-  const password = (newUserPassword.value || "").trim();
-  const status = newUserStatus.value;
-  const role = newUserRole.value;
-  const expiryDate = newUserExpiry.value;
+function openUserModal(id = null) {
+  const isEdit = Boolean(id);
+  let dataPromise = Promise.resolve(null);
 
-  if (!email || !password) {
-    alert("Email y contraseña son obligatorios (la contraseña es solo de referencia).");
+  if (isEdit) {
+    dataPromise = getDoc(doc(db, "users", id)).then(d => d.exists() ? d.data() : null);
+  }
+
+  dataPromise.then((d = {}) => {
+    const docId = isEdit ? id : (d.email || "");
+
+    openModal({
+      title: isEdit ? "Editar usuario" : "Nuevo usuario",
+      fieldsHtml: `
+        <label class="field">
+          <span>Nombre</span>
+          <input type="text" id="field-user-name" required value="${d.name || ""}" />
+        </label>
+
+        <label class="field">
+          <span>Correo (ID de documento)</span>
+          <input type="email" id="field-user-email" ${isEdit ? "readonly" : ""} value="${d.email || ""}" />
+        </label>
+
+        <label class="field">
+          <span>ID documento</span>
+          <input type="text" id="field-user-docid" readonly value="${docId || ""}" />
+        </label>
+
+        <label class="field">
+          <span>Contraseña (solo admin)</span>
+          <input type="text" id="field-user-password" required value="${d.password || ""}" />
+        </label>
+
+        <label class="field">
+          <span>Estado</span>
+          <select id="field-user-status">
+            <option value="activo" ${d.status === "activo" ? "selected" : ""}>Activo</option>
+            <option value="inactivo" ${d.status === "inactivo" ? "selected" : ""}>Inactivo</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Rol</span>
+          <select id="field-user-role">
+            <option value="admin" ${d.role === "admin" ? "selected" : ""}>Administrador</option>
+            <option value="usuario" ${d.role === "usuario" ? "selected" : ""}>Usuario</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Fecha límite de acceso</span>
+          <input type="date" id="field-user-expiry" value="${d.expiryDate || ""}" />
+        </label>
+      `,
+      onSubmit: async () => {
+        const name = document.getElementById("field-user-name").value.trim();
+        const email = document.getElementById("field-user-email").value.trim();
+        const password = document.getElementById("field-user-password").value.trim();
+        const status = document.getElementById("field-user-status").value;
+        const role = document.getElementById("field-user-role").value;
+        const expiryDate = document.getElementById("field-user-expiry").value || "";
+
+        if (!name || !email || !password) {
+          alert("Nombre, correo y contraseña son obligatorios.");
+          return;
+        }
+
+        const docIdFinal = email;
+        const payload = {
+          name,
+          email,
+          password,
+          status,
+          role,
+          expiryDate,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (!isEdit) payload.createdAt = serverTimestamp();
+
+        await setDoc(doc(db, "users", docIdFinal), payload, { merge: true });
+
+        if (!isEdit) {
+          alert("Usuario creado en Firestore. Recuerda crear también el usuario en Authentication.");
+        }
+
+        await loadUsers();
+        closeModal();
+      },
+    });
+
+    if (!isEdit) {
+      const emailInput = document.getElementById("field-user-email");
+      const docIdInput = document.getElementById("field-user-docid");
+      emailInput.addEventListener("input", () => {
+        docIdInput.value = emailInput.value.trim();
+      });
+    }
+  });
+}
+
+btnCreateUser.addEventListener("click", async () => {
+  const name = document.getElementById("new-user-name").value.trim();
+  const email = document.getElementById("new-user-email").value.trim();
+  const password = document.getElementById("new-user-password").value.trim();
+  const status = document.getElementById("new-user-status").value;
+  const role = document.getElementById("new-user-role").value;
+  const expiryDate = document.getElementById("new-user-expiry").value || "";
+
+  if (!name || !email || !password) {
+    alert("Nombre, correo y contraseña son obligatorios.");
     return;
   }
 
@@ -757,188 +844,136 @@ btnCreateUser?.addEventListener("click", async () => {
     status,
     role,
     expiryDate,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 
-  alert("Usuario creado (recuerda darlo de alta también en Auth si no existe).");
-  newUserName.value = "";
-  newUserEmail.value = "";
-  newUserPassword.value = "";
-  newUserExpiry.value = "";
+  alert("Usuario creado en Firestore. Recuerda crearlo también en Authentication.");
+
+  document.getElementById("new-user-name").value = "";
+  document.getElementById("new-user-email").value = "";
+  document.getElementById("new-user-password").value = "";
+  document.getElementById("new-user-status").value = "activo";
+  document.getElementById("new-user-role").value = "usuario";
+  document.getElementById("new-user-expiry").value = "";
 
   await loadUsers();
 });
 
 /***********************************************
- * PANEL PANTALLA PRINCIPAL (LANDING)
+ * REDES SOCIALES
  ***********************************************/
-btnLandingView?.addEventListener("click", async () => {
-  showAdminPanel(landingSettingsView);
-  await loadLandingSettings();
-});
-
-async function loadLandingSettings() {
-  const ref = doc(db, "settings", "landingPage");
-  let snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      heroText: "",
-      priceMonth: "",
-      priceFull: "",
-      whatsappMonth: "",
-      whatsappFull: "",
-    });
-    snap = await getDoc(ref);
-  }
-
-  const data = snap.data() || {};
-
-  landingHeroText.value = data.heroText || "";
-  landingPriceMonth.value = data.priceMonth || "";
-  landingPriceFull.value = data.priceFull || "";
-  landingWhatsappMonth.value = data.whatsappMonth || "";
-  landingWhatsappFull.value = data.whatsappFull || "";
-}
-
-btnSaveLanding?.addEventListener("click", async () => {
-  const heroText = landingHeroText.value.trim();
-  const priceMonth = landingPriceMonth.value.trim();
-  const priceFull = landingPriceFull.value.trim();
-  const whatsappMonth = landingWhatsappMonth.value.trim();
-  const whatsappFull = landingWhatsappFull.value.trim();
-
-  await setDoc(
-    doc(db, "settings", "landingPage"),
-    {
-      heroText,
-      priceMonth,
-      priceFull,
-      whatsappMonth,
-      whatsappFull,
-    },
-    { merge: true }
-  );
-
-  alert("Pantalla principal guardada.");
-  // Refrescar textos del login
-  await applyLandingRedirects();
-});
-
-/***********************************************
- * PANEL REDES SOCIALES (ADMIN)
- ***********************************************/
-btnEditSocial?.addEventListener("click", async () => {
-  showAdminPanel(socialSettingsView);
-  await loadSocialPanel();
-});
-
-async function loadSocialPanel() {
+async function loadSocialLinks() {
   const snap = await getDoc(doc(db, "settings", "socialLinks"));
-
-  if (!snap.exists()) {
-    adminInstagram.value = "";
-    adminWhatsapp.value = "";
-    adminTiktok.value = "";
-    adminTelegram.value = "";
-    return;
-  }
-
+  if (!snap.exists()) return;
   const data = snap.data();
-  adminInstagram.value = data.instagram || "";
-  adminWhatsapp.value = data.whatsapp || "";
-  adminTiktok.value = data.tiktok || "";
-  adminTelegram.value = data.telegram || "";
+
+  socialButtons.forEach(btn => {
+    const network = btn.dataset.network;
+    if (data[network]) btn.dataset.url = data[network];
+  });
 }
 
-btnSaveSocial?.addEventListener("click", async () => {
-  const instagram = adminInstagram.value.trim();
-  const whatsapp = adminWhatsapp.value.trim();
-  const tiktok = adminTiktok.value.trim();
-  const telegram = adminTelegram.value.trim();
+btnEditSocial.addEventListener("click", async () => {
+  let data = {};
+  const snap = await getDoc(doc(db, "settings", "socialLinks"));
+  if (snap.exists()) data = snap.data();
 
-  await setDoc(
-    doc(db, "settings", "socialLinks"),
-    { instagram, whatsapp, tiktok, telegram },
-    { merge: true }
-  );
+  openModal({
+    title: "Enlaces de redes sociales",
+    fieldsHtml: `
+      <label class="field">
+        <span>Instagram</span>
+        <input type="url" id="field-instagram" value="${data.instagram || ""}" />
+      </label>
+      <label class="field">
+        <span>WhatsApp</span>
+        <input type="url" id="field-whatsapp" value="${data.whatsapp || ""}" />
+      </label>
+      <label class="field">
+        <span>TikTok</span>
+        <input type="url" id="field-tiktok" value="${data.tiktok || ""}" />
+      </label>
+      <label class="field">
+        <span>Telegram</span>
+        <input type="url" id="field-telegram" value="${data.telegram || ""}" />
+      </label>
+    `,
+    onSubmit: async () => {
+      const instagram = document.getElementById("field-instagram").value.trim();
+      const whatsapp = document.getElementById("field-whatsapp").value.trim();
+      const tiktok = document.getElementById("field-tiktok").value.trim();
+      const telegram = document.getElementById("field-telegram").value.trim();
 
-  alert("Redes sociales guardadas.");
-  await loadSocialLinksSidebar();
+      await setDoc(
+        doc(db, "settings", "socialLinks"),
+        {
+          instagram,
+          whatsapp,
+          tiktok,
+          telegram,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      await loadSocialLinks();
+      closeModal();
+    },
+  });
+});
+
+socialButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const url = btn.dataset.url;
+    if (!url) {
+      alert("No se ha configurado el enlace de esta red social.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  });
 });
 
 /***********************************************
- * ICONOS SOCIALES (SIDEBAR) — CLICK -> LINK
+ * BOTONES GENERALES
  ***********************************************/
-async function loadSocialLinksSidebar() {
-  try {
-    const snap = await getDoc(doc(db, "settings", "socialLinks"));
-    if (!snap.exists()) return;
-    const data = snap.data();
+btnLogout.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
+});
 
-    socialButtons.forEach((btn) => {
-      const network = btn.dataset.network;
-      btn.onclick = null;
+btnUsersView.addEventListener("click", () => {
+  hide(sectionsView);
+  hide(examDetailView);
+  show(usersView);
+  loadUsers();
+});
 
-      let url = "";
-      if (network === "instagram") url = data.instagram || "";
-      if (network === "whatsapp") url = data.whatsapp || "";
-      if (network === "tiktok") url = data.tiktok || "";
-      if (network === "telegram") url = data.telegram || "";
-
-      if (!url) return;
-
-      btn.addEventListener("click", () => {
-        window.open(url, "_blank", "noopener,noreferrer");
+btnNewSection.addEventListener("click", () => {
+  openModal({
+    title: "Nueva sección",
+    fieldsHtml: `
+      <label class="field">
+        <span>Nombre de la sección</span>
+        <input type="text" id="field-section-name" required />
+      </label>
+    `,
+    onSubmit: async () => {
+      const name = document.getElementById("field-section-name").value.trim();
+      if (!name) return;
+      await addDoc(collection(db, "sections"), {
+        name,
+        createdAt: serverTimestamp(),
       });
-    });
-  } catch (err) {
-    console.error("Error cargando redes sociales en sidebar:", err);
-  }
+      await loadSections();
+      closeModal();
+    },
+  });
+});
+
+// Sidebar móvil
+if (btnToggleSidebar && sidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
+  });
 }
-
-/***********************************************
- * LANDING DEL LOGIN: TEXTO + BOTONES WHATSAPP
- ***********************************************/
-async function applyLandingRedirects() {
-  try {
-    const snap = await getDoc(doc(db, "settings", "landingPage"));
-    if (!snap.exists()) return;
-
-    const data = snap.data();
-
-    if (landingText) {
-      landingText.textContent = data.heroText || "";
-    }
-
-    if (btnPriceMonth) {
-      btnPriceMonth.textContent = data.priceMonth
-        ? `Precio mensual: $${data.priceMonth} MXN`
-        : "Precio mensual";
-      btnPriceMonth.onclick = () => {
-        if (!data.whatsappMonth) {
-          alert("Configura el enlace de WhatsApp para mensual en el panel admin.");
-          return;
-        }
-        window.open(data.whatsappMonth, "_blank");
-      };
-    }
-
-    if (btnPriceFull) {
-      btnPriceFull.textContent = data.priceFull
-        ? `Acceso completo: $${data.priceFull} MXN`
-        : "Acceso completo";
-      btnPriceFull.onclick = () => {
-        if (!data.whatsappFull) {
-          alert("Configura el enlace de WhatsApp acceso completo en el panel admin.");
-          return;
-        }
-        window.open(data.whatsappFull, "_blank");
-      };
-    }
-  } catch (err) {
-    console.error("Error aplicando landing redirects:", err);
-  }
-}
-
-// Ejecutar al cargar
-applyLandingRedirects();
