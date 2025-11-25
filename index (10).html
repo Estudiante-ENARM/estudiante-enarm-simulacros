@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administrador | Estudiante ENARM</title>
+
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ESTILOS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- GOOGLE ANALYTICS -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- META PIXEL -->
+  <script>
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;
+      n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];
+      t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)
+    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+  </script>
+</head>
+
+<body>
+
+  <!-- LOGIN -->
+  <section id="login-view" class="view">
+    <div class="login-card">
+      <h1>Acceso</h1>
+      <form id="login-form">
+        <label class="field">
+          <span>Correo</span>
+          <input type="email" id="login-email" required>
+        </label>
+
+        <label class="field">
+          <span>Contraseña</span>
+          <input type="password" id="login-password" required>
+        </label>
+
+        <button id="btn-login" class="btn btn-primary" type="submit">Entrar</button>
+
+        <p id="login-error" class="error hidden"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- PANEL ADMIN -->
+  <section id="admin-view" class="view hidden">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <img src="logo.png" alt="Logo" class="sidebar-logo-img">
+        <h2 class="sidebar-title">Estudiante ENARM</h2>
+      </div>
+
+      <ul id="sidebar-sections" class="sidebar-sections"></ul>
+
+      <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
+      <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
+      <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
+
+      <div class="sidebar-social">
+        <img src="instagram.png" class="social-icon" data-network="instagram">
+        <img src="whatsapp.png" class="social-icon" data-network="whatsapp">
+        <img src="tiktok.png" class="social-icon" data-network="tiktok">
+        <img src="telegram.png" class="social-icon" data-network="telegram">
+      </div>
+    </aside>
+
+    <!-- HEADER -->
+    <header class="header">
+      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+
+      <div class="header-right">
+        <span id="current-user-email"></span>
+        <button id="btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <main id="content">
+
+      <!-- VISTA SECCIONES -->
+      <div id="sections-view" class="panel">
+        <h2 id="current-section-title">Selecciona una sección</h2>
+        <p id="current-section-subtitle" class="panel-subtitle">
+          Elige una sección para ver sus exámenes.
+        </p>
+
+        <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
+        <div id="exams-list" class="cards-list"></div>
+      </div>
+
+      <!-- VISTA USUARIOS -->
+      <div id="users-view" class="panel hidden">
+        <h2>Usuarios</h2>
+
+        <!-- FORM NUEVO USUARIO -->
+        <div id="create-user-card" class="card">
+          <h3 style="margin-bottom:12px;">Crear nuevo usuario</h3>
+
+          <div class="create-user-grid">
+
+            <label class="field">
+              <span>Nombre</span>
+              <input type="text" id="new-user-name">
+            </label>
+
+            <label class="field">
+              <span>Email (ID del documento)</span>
+              <input type="email" id="new-user-email">
+            </label>
+
+            <label class="field">
+              <span>Contraseña</span>
+              <input type="text" id="new-user-password">
+            </label>
+
+            <label class="field">
+              <span>Estado</span>
+              <select id="new-user-status">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Rol</span>
+              <select id="new-user-role">
+                <option value="usuario">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Fecha límite</span>
+              <input type="date" id="new-user-expiry">
+            </label>
+
+          </div>
+
+          <button id="btn-create-user" class="btn btn-primary" style="margin-top:12px;">
+            Guardar usuario
+          </button>
+        </div>
+
+        <!-- LISTA USUARIOS -->
+        <div id="users-list"></div>
+      </div>
+
+      <!-- DETALLE DE EXAMEN -->
+      <div id="exam-detail-view" class="panel hidden">
+        <div class="panel-header">
+          <button id="btn-back-to-exams" class="btn btn-outline">← Volver</button>
+          <div>
+            <h2>Editar examen</h2>
+            <p class="panel-subtitle">Modifica preguntas y casos clínicos aquí.</p>
+          </div>
+        </div>
+
+        <div id="exam-meta-card" class="card">
+          <label class="field">
+            <span>Nombre del examen</span>
+            <input id="exam-name-input" type="text">
+          </label>
+
+          <div class="flex-row">
+            <button id="btn-save-exam-meta" class="btn btn-secondary">Guardar nombre</button>
+            <button id="btn-new-question" class="btn btn-primary">+ Nueva pregunta</button>
+          </div>
+        </div>
+
+        <div id="questions-list" class="cards-list"></div>
+      </div>
+
+    </main>
+
+  </section>
+
+  <!-- MODAL -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="modal-title"></h3>
+      <form id="modal-form">
+        <div id="modal-fields"></div>
+        <div class="modal-actions">
+          <button id="modal-cancel" type="button" class="btn btn-outline">Cancelar</button>
+          <button id="modal-submit" type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
