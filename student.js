@@ -19,7 +19,7 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-// --- Configuración Firebase ---
+// --- Configuración Firebase (MISMA QUE EN app.js) ---
 const firebaseConfig = {
   apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
   authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -39,7 +39,7 @@ const db = getFirestore(app);
 const SPECIALTIES = {
   medicina_interna: "Medicina interna",
   pediatria: "Pediatría",
-  gine_obstetricia: "Ginecología y Obstetricia",
+  ginecologia_obstetricia: "Ginecología y obstetricia",
   cirugia_general: "Cirugía general",
 };
 
@@ -61,20 +61,25 @@ const DIFFICULTY_WEIGHTS = {
   alta: 3,
 };
 
+// Tiempo por pregunta y número máximo de intentos (versión simple)
+const TIME_PER_QUESTION_SECONDS = 75;
+const MAX_ATTEMPTS_PER_EXAM = 3;
+
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
+// Layout general
 const sidebar = document.getElementById("sidebar");
-const sidebarSections = document.getElementById("student-sidebar-sections");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
+// Usuario
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
 // Social icons
 const socialButtons = document.querySelectorAll(".social-icon");
 
-// Vistas principales
+// Vistas
 const examsView = document.getElementById("student-exams-view");
 const examsList = document.getElementById("student-exams-list");
 const sectionTitle = document.getElementById("student-current-section-title");
@@ -93,26 +98,27 @@ const btnSubmitExam = document.getElementById("student-btn-submit-exam");
 const resultBanner = document.getElementById("student-result-banner");
 const resultValues = document.getElementById("student-result-values");
 
-// Vista progreso
+// Vista progreso (simple)
 const progressView = document.getElementById("student-progress-view");
 const btnProgressView = document.getElementById("student-progress-btn");
 const progressUsername = document.getElementById("student-progress-username");
 const progressSectionsContainer = document.getElementById("student-progress-sections");
 const progressGlobalEl = document.getElementById("student-progress-global");
-const progressChartCanvas = document.getElementById("student-progress-chart");
 
-let progressChartInstance = null;
+// Secciones en sidebar del estudiante
+const sidebarSections = document.getElementById("student-sidebar-sections");
+
+// Panel de prueba / CTA post-examen (NO USADOS EN VERSIÓN SIMPLE, LOS OCULTAMOS)
+const trialPanel = document.getElementById("trial-locked-panel");
+const trialUnlockBtn = document.getElementById("trial-unlock-btn");
+const postExamCtaCard = document.getElementById("student-post-exam-cta");
+const postExamWhatsappBtn = document.getElementById("student-post-exam-whatsapp");
 
 /***********************************************
  * ESTADO
  ***********************************************/
 let currentUser = null;
 let currentUserProfile = null;
-
-let examRules = {
-  maxAttempts: 3,
-  timePerQuestion: 75,
-};
 
 let currentSectionId = null;
 let currentSectionName = "Exámenes disponibles";
@@ -122,7 +128,6 @@ let currentExamName = "";
 let currentExamQuestions = [];
 let currentExamTotalSeconds = 0;
 let currentExamTimerId = null;
-let currentExamPreviousAttempts = 0;
 
 /***********************************************
  * UTILIDADES
@@ -154,6 +159,19 @@ function toFixedNice(num, decimals = 2) {
   if (!isFinite(num)) return "0";
   return Number(num.toFixed(decimals)).toString();
 }
+
+// Ocultamos elementos de prueba/premium en la versión simple
+hide(trialPanel);
+hide(postExamCtaCard);
+
+/***********************************************
+ * TOGGLE SIDEBAR (MÓVIL)
+ ***********************************************/
+if (btnToggleSidebar && sidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
+  });
+}
 /***********************************************
  * AUTENTICACIÓN Y MANEJO DE ROLES
  ***********************************************/
@@ -171,7 +189,7 @@ onAuthStateChanged(auth, async (user) => {
     const userSnap = await getDoc(userDocRef);
 
     if (!userSnap.exists()) {
-      alert("Tu usuario no está configurado en el sistema. Contacta al administrador.");
+      alert("Tu usuario no está configurado en el sistema.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
@@ -179,76 +197,21 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUserProfile = userSnap.data();
 
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (currentUserProfile.expiryDate && currentUserProfile.expiryDate < today) {
-      await setDoc(userDocRef, { status: "inactivo" }, { merge: true });
-      alert("Tu acceso ha vencido. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
-
-    if (currentUserProfile.status !== "activo") {
-      alert("Tu usuario está inactivo. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
-
     if (currentUserProfile.role !== "usuario") {
       alert("Este panel es solo para estudiantes.");
       window.location.href = "index.html";
       return;
     }
 
-    await loadExamRules();
+    // Cargar secciones y redes sociales
     await loadSectionsForStudent();
     await loadSocialLinksForStudent();
-    await loadPlanLimits(); // << NUEVO: controlador del plan gratuito/premium
+
   } catch (err) {
     console.error(err);
     alert("No se pudo cargar la información del estudiante.");
   }
 });
-
-/***********************************************
- * REGLAS DE EXÁMENES GLOBALES
- ***********************************************/
-async function loadExamRules() {
-  try {
-    const snap = await getDoc(doc(db, "examRules", "defaultRules"));
-    if (snap.exists()) {
-      const data = snap.data();
-      if (typeof data.maxAttempts === "number") examRules.maxAttempts = data.maxAttempts;
-      if (typeof data.timePerQuestion === "number") examRules.timePerQuestion = data.timePerQuestion;
-    }
-  } catch (err) {
-    console.error("No se pudo leer examRules/defaultRules.", err);
-  }
-}
-
-/***********************************************
- * PLAN PREMIUM / PLAN GRATIS
- ***********************************************/
-async function loadPlanLimits() {
-  try {
-    const snap = await getDoc(doc(db, "plans", currentUser.email));
-
-    if (!snap.exists()) {
-      currentUser.plan = "free";
-      return;
-    }
-
-    const data = snap.data();
-    currentUser.plan = data.plan || "free";
-    currentUser.allowedExams = data.allowedExams || ["first"];
-
-  } catch (err) {
-    console.error("No se pudo leer datos del plan.", err);
-    currentUser.plan = "free";
-  }
-}
 
 /***********************************************
  * REDES SOCIALES DE LA PLATAFORMA
@@ -266,7 +229,7 @@ async function loadSocialLinksForStudent() {
       else delete btn.dataset.url;
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error cargando social links:", err);
   }
 
   socialButtons.forEach((btn) => {
@@ -346,8 +309,9 @@ async function loadSectionsForStudent() {
 
   await loadExamsForSectionForStudent(firstSectionId);
 }
+
 /***********************************************
- * ICONOS SVG — ELEMENTOS VISUALES
+ * ICONOS SVG — VISUALES SIMPLES
  ***********************************************/
 function svgIcon(type) {
   if (type === "questions") {
@@ -367,21 +331,11 @@ function svgIcon(type) {
         <line x1="9" y1="4" x2="15" y2="4"></line>
       </svg>`;
   }
-  if (type === "attempts") {
-    return `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v3"></path>
-        <path d="M5.2 5.2l2.1 2.1"></path>
-        <path d="M18.8 5.2l-2.1 2.1"></path>
-        <circle cx="12" cy="14" r="6"></circle>
-        <path d="M10 14l2 2 3-3"></path>
-      </svg>`;
-  }
   return "";
 }
 
 /***********************************************
- * LISTA DE EXÁMENES — APLICANDO PLAN FREE/PREMIUM
+ * LISTA DE EXÁMENES — VERSIÓN SIMPLE
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   examsList.innerHTML = "";
@@ -398,10 +352,7 @@ async function loadExamsForSectionForStudent(sectionId) {
     return;
   }
 
-  let indexExam = 0;
-
   for (const docSnap of snap.docs) {
-    indexExam++;
     const exData = docSnap.data();
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
@@ -426,7 +377,6 @@ async function loadExamsForSectionForStudent(sectionId) {
       totalQuestions += arr.length;
     });
 
-    // Examen sin preguntas
     if (totalQuestions === 0) {
       const card = document.createElement("div");
       card.className = "card-item";
@@ -441,36 +391,12 @@ async function loadExamsForSectionForStudent(sectionId) {
       continue;
     }
 
-    // Tiempo total
-    const maxAttempts = examRules.maxAttempts;
-    const timePerQuestion = examRules.timePerQuestion;
-    const totalSeconds = totalQuestions * timePerQuestion;
+    // Calcular el tiempo total del examen
+    const totalSeconds = totalQuestions * TIME_PER_QUESTION_SECONDS;
     const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
 
-    // RESTRICCIÓN DE PLAN GRATIS -----------------------------------------
-    let isBlocked = false;
-    if (currentUser.plan === "free") {
-      if (indexExam !== 1) {
-        isBlocked = true;
-      }
-    }
-
     // RESTRICCIÓN: Intentos agotados
-    const disabled = attemptsUsed >= maxAttempts;
-
-    const card = document.createElement("div");
-    card.className = "card-item";
-
-    if (isBlocked) {
-      card.style.opacity = 0.55;
-    } else if (disabled) {
-      card.style.opacity = 0.7;
-    }
-
-    const statusText =
-      isBlocked ? "Solo para Premium"
-      : disabled ? "Intentos agotados"
-      : "Disponible";
+    const disabled = attemptsUsed >= MAX_ATTEMPTS_PER_EXAM;
 
     const lastAttemptText = attemptSnap.exists()
       ? (attemptSnap.data().lastAttempt
@@ -478,66 +404,51 @@ async function loadExamsForSectionForStudent(sectionId) {
         : "—")
       : "Sin intentos previos.";
 
-    // Render card
+    const card = document.createElement("div");
+    card.className = "card-item";
+
+    if (disabled) {
+      card.style.opacity = 0.6;
+    }
+
     card.innerHTML = `
-      <div class="card-item__title-row" style="align-items:flex-start;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
-            <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
-              <rect x="3" y="4" width="18" height="15" rx="2"></rect>
-              <line x1="7" y1="9" x2="17" y2="9"></line>
-              <line x1="7" y1="13" x2="12" y2="13"></line>
-            </svg>
-          </div>
-          <div>
-            <div class="card-item__title">${examName}</div>
-            <div class="panel-subtitle" style="margin-top:3px;">
-              Simulacro ENARM · ${currentSectionName}
-            </div>
-          </div>
+      <div class="card-item__title-row">
+        <div>
+          <div class="card-item__title">${examName}</div>
+          <div class="panel-subtitle">Simulacro ENARM · ${currentSectionName}</div>
         </div>
 
-        <span class="badge"><span class="badge-dot"></span>${statusText}</span>
+        <span class="badge">
+          ${disabled ? "Intentos agotados" : "Disponible"}
+        </span>
       </div>
 
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
+      <div style="display:flex;gap:16px;margin-top:12px;font-size:13px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgIcon("questions")}
-          <div>
-            <strong>${totalQuestions} preguntas</strong>
-            <div class="panel-subtitle">Casos clínicos</div>
-          </div>
+          <div><strong>${totalQuestions} preguntas</strong></div>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
           ${svgIcon("time")}
-          <div>
-            <strong>${totalTimeFormatted}</strong>
-            <div class="panel-subtitle">Tiempo total</div>
-          </div>
+          <div><strong>${totalTimeFormatted}</strong></div>
         </div>
 
         <div style="display:flex;align-items:center;gap:8px;">
-          ${svgIcon("attempts")}
-          <div>
-            <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
-            <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
-          </div>
+          <strong>Intentos:</strong> ${attemptsUsed} / ${MAX_ATTEMPTS_PER_EXAM}
         </div>
       </div>
 
       <div style="margin-top:14px;text-align:right;">
         ${
-          isBlocked
-            ? `<button class="btn btn-outline" disabled>Solo Premium</button>`
-            : disabled
-              ? `<button class="btn btn-outline" disabled>Intentos agotados</button>`
-              : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
+          disabled
+            ? `<button class="btn btn-outline" disabled>Intentos agotados</button>`
+            : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
         }
       </div>
     `;
 
-    if (!isBlocked && !disabled) {
+    if (!disabled) {
       const btnStart = card.querySelector(".student-start-exam-btn");
       btnStart.addEventListener("click", () => {
         startExamForStudent({
@@ -546,7 +457,6 @@ async function loadExamsForSectionForStudent(sectionId) {
           totalQuestions,
           totalSeconds,
           attemptsUsed,
-          maxAttempts,
         });
       });
     }
@@ -555,7 +465,7 @@ async function loadExamsForSectionForStudent(sectionId) {
   }
 }
 /***********************************************
- * INICIAR EXAMEN — LÓGICA COMPLETA
+ * INICIAR EXAMEN — VERSIÓN SIMPLE
  ***********************************************/
 async function startExamForStudent({
   examId,
@@ -563,33 +473,26 @@ async function startExamForStudent({
   totalQuestions,
   totalSeconds,
   attemptsUsed,
-  maxAttempts,
 }) {
-  if (attemptsUsed >= maxAttempts) {
-    alert("Has agotado tus intentos para este examen.");
-    return;
-  }
-
   currentExamId = examId;
   currentExamName = examName;
   currentExamTotalSeconds = totalSeconds;
-  currentExamPreviousAttempts = attemptsUsed;
   currentExamQuestions = [];
 
   hide(examsView);
   hide(progressView);
   show(examDetailView);
 
-  // Reset de banner de resultados
   resultBanner.style.display = "none";
   resultValues.innerHTML = "";
 
   examTitle.textContent = examName;
-  examSubtitle.textContent = "Resuelve cuidadosamente y envía antes de que acabe el tiempo.";
+  examSubtitle.textContent = "Resuelve cuidadosamente dentro del tiempo establecido.";
+
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
     🕒 Tiempo total: <strong>${formatMinutesFromSeconds(totalSeconds)}</strong><br>
-    🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
+    🔁 Intentos previos: <strong>${attemptsUsed}</strong>
   `;
 
   await loadQuestionsForExam(examId);
@@ -598,7 +501,7 @@ async function startExamForStudent({
 }
 
 /***********************************************
- * CARGAR PREGUNTAS DEL EXAMEN
+ * CARGA DE PREGUNTAS
  ***********************************************/
 async function loadQuestionsForExam(examId) {
   questionsList.innerHTML = "";
@@ -639,8 +542,6 @@ async function loadQuestionsForExam(examId) {
   currentExamQuestions = [];
   let globalIndex = 0;
 
-  questionsList.innerHTML = "";
-
   cases.forEach((caseData, caseIndex) => {
     const caseBlock = document.createElement("div");
     caseBlock.className = "case-block";
@@ -660,7 +561,7 @@ async function loadQuestionsForExam(examId) {
     const questionsWrapper = document.createElement("div");
 
     caseData.questions.forEach((q, localIndex) => {
-      const idx = globalIndex;
+      const completeIndex = globalIndex;
 
       currentExamQuestions.push({
         caseText: caseData.caseText,
@@ -670,42 +571,25 @@ async function loadQuestionsForExam(examId) {
         optionC: q.optionC,
         optionD: q.optionD,
         correctOption: q.correctOption,
-        justification: q.justification,
-        specialty: caseData.specialty,
-        difficulty: q.difficulty,
-        subtype: q.subtype,
       });
-
-      const difficultyLabel = DIFFICULTIES[q.difficulty] || "No definida";
-      const subtypeLabel = SUBTYPES[q.subtype] || "General";
 
       const qBlock = document.createElement("div");
       qBlock.className = "question-block";
-      qBlock.dataset.qIndex = idx;
+      qBlock.dataset.qIndex = completeIndex;
 
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
         <p>${q.questionText}</p>
 
-        <div class="panel-subtitle" style="font-size:12px;margin-bottom:8px;">
-          Dificultad: <strong>${difficultyLabel}</strong> · Tipo: <strong>${subtypeLabel}</strong>
-        </div>
-
         <div class="question-options">
-          <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA}</label>
-          <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB}</label>
-          <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC}</label>
-          <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD}</label>
-        </div>
-
-        <div class="justification-box">
-          <strong>Justificación:</strong><br>
-          ${q.justification}
+          <label><input type="radio" name="q_${completeIndex}" value="A"> A) ${q.optionA}</label>
+          <label><input type="radio" name="q_${completeIndex}" value="B"> B) ${q.optionB}</label>
+          <label><input type="radio" name="q_${completeIndex}" value="C"> C) ${q.optionC}</label>
+          <label><input type="radio" name="q_${completeIndex}" value="D"> D) ${q.optionD}</label>
         </div>
       `;
 
       questionsWrapper.appendChild(qBlock);
-
       globalIndex++;
     });
 
@@ -715,7 +599,7 @@ async function loadQuestionsForExam(examId) {
 }
 
 /***********************************************
- * CRONÓMETRO — TIEMPO TOTAL DEL EXAMEN
+ * CRONÓMETRO DEL EXAMEN
  ***********************************************/
 function startExamTimer() {
   if (currentExamTimerId) {
@@ -731,7 +615,7 @@ function startExamTimer() {
     if (remaining <= 0) {
       clearInterval(currentExamTimerId);
       examTimerEl.textContent = "00:00";
-      alert("El tiempo se agotó, tu examen se enviará automáticamente.");
+      alert("El tiempo se agotó, se enviará tu examen.");
       submitExamForStudent(true);
       return;
     }
@@ -741,10 +625,13 @@ function startExamTimer() {
 }
 
 /***********************************************
- * ENVÍO DE EXAMEN — CALIFICACIÓN PREMIUM
+ * BOTÓN ENVIAR EXAMEN
  ***********************************************/
 btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 
+/***********************************************
+ * ENVÍO DE EXAMEN — CALIFICACIÓN SIMPLE
+ ***********************************************/
 async function submitExamForStudent(auto = false) {
   if (!currentExamId || !currentExamQuestions.length) {
     alert("No hay examen cargado.");
@@ -757,85 +644,28 @@ async function submitExamForStudent(auto = false) {
     clearInterval(currentExamTimerId);
   }
 
-  const totalQuestions = currentExamQuestions.length;
-
-  let globalCorrect = 0;
-  let globalWeightedCorrect = 0;
-  let globalWeightedTotal = 0;
+  let totalQuestions = currentExamQuestions.length;
+  let totalCorrect = 0;
 
   const detail = {};
-
-  const specStats = {};
-  Object.keys(SPECIALTIES).forEach((k) => {
-    specStats[k] = {
-      name: SPECIALTIES[k],
-      correct: 0,
-      total: 0,
-      subtypes: {
-        salud_publica: { correct: 0, total: 0 },
-        medicina_familiar: { correct: 0, total: 0 },
-        urgencias: { correct: 0, total: 0 },
-      },
-    };
-  });
-
-  const difficultyStats = {
-    alta: { correct: 0, total: 0 },
-    media: { correct: 0, total: 0 },
-    baja: { correct: 0, total: 0 },
-  };
 
   currentExamQuestions.forEach((q, idx) => {
     const selectedInput = document.querySelector(`input[name="q_${idx}"]:checked`);
     const selected = selectedInput ? selectedInput.value : null;
 
-    const correct = q.correctOption;
-    const result = selected === correct ? "correct" : "incorrect";
+    const result = selected === q.correctOption ? "correct" : "incorrect";
 
-    const specialty = q.specialty;
-    const difficulty = q.difficulty || "baja";
-    const subtype = q.subtype || "salud_publica";
-
-    const weight = DIFFICULTY_WEIGHTS[difficulty] || 1;
-    globalWeightedTotal += weight;
-
-    if (result === "correct") {
-      globalCorrect++;
-      globalWeightedCorrect += weight;
-    }
-
-    if (specialty && specStats[specialty]) {
-      specStats[specialty].total++;
-      if (result === "correct") specStats[specialty].correct++;
-
-      if (specStats[specialty].subtypes[subtype]) {
-        specStats[specialty].subtypes[subtype].total++;
-        if (result === "correct") {
-          specStats[specialty].subtypes[subtype].correct++;
-        }
-      }
-    }
-
-    if (difficultyStats[difficulty]) {
-      difficultyStats[difficulty].total++;
-      if (result === "correct") difficultyStats[difficulty].correct++;
-    }
+    if (result === "correct") totalCorrect++;
 
     detail[`q${idx}`] = {
       selected,
-      correctOption: correct,
+      correctOption: q.correctOption,
       result,
-      specialty,
-      difficulty,
-      subtype,
-      weight,
     };
 
+    // Marcar verdes y rojos
     const card = questionsList.querySelector(`[data-q-index="${idx}"]`);
     if (card) {
-      const just = card.querySelector(".justification-box");
-      just.style.display = "block";
-
       const labels = card.querySelectorAll("label");
       labels.forEach((lab) => {
         const input = lab.querySelector("input");
@@ -845,22 +675,19 @@ async function submitExamForStudent(auto = false) {
         lab.style.borderRadius = "6px";
         lab.style.padding = "4px 6px";
 
-        if (input.value === correct) {
-          lab.style.borderColor = "#16a34a";
+        if (input.value === q.correctOption) {
           lab.style.background = "#dcfce7";
+          lab.style.borderColor = "#16a34a";
         }
-        if (selected === input.value && selected !== correct) {
-          lab.style.borderColor = "#b91c1c";
+        if (selected === input.value && selected !== q.correctOption) {
           lab.style.background = "#fee2e2";
+          lab.style.borderColor = "#b91c1c";
         }
       });
     }
   });
 
-  const scoreRaw = Math.round((globalCorrect / totalQuestions) * 100);
-  const scoreWeighted = globalWeightedTotal > 0
-    ? (globalWeightedCorrect / globalWeightedTotal) * 100
-    : 0;
+  const score = Math.round((totalCorrect / totalQuestions) * 100);
 
   try {
     const attemptRef = doc(
@@ -872,25 +699,18 @@ async function submitExamForStudent(auto = false) {
     );
 
     const prevSnap = await getDoc(attemptRef);
-    const oldAttempts = prevSnap.exists() ? prevSnap.data().attempts || 0 : currentExamPreviousAttempts;
+    const previousAttempts = prevSnap.exists() ? prevSnap.data().attempts || 0 : 0;
 
     await setDoc(attemptRef, {
-      attempts: oldAttempts + 1,
+      attempts: previousAttempts + 1,
       lastAttempt: serverTimestamp(),
-      score: scoreWeighted,
-      scoreRaw,
-      correctCount: globalCorrect,
+      correctCount: totalCorrect,
       totalQuestions,
-      weightedPoints: globalWeightedCorrect,
-      weightedTotal: globalWeightedTotal,
+      score,
       detail,
-      breakdown: {
-        specialties: specStats,
-        difficulties: difficultyStats,
-      },
     }, { merge: true });
 
-    renderPremiumResults({ auto, globalCorrect, totalQuestions, scoreWeighted, specStats, difficultyStats });
+    renderSimpleResults({ auto, totalCorrect, totalQuestions, score });
 
   } catch (err) {
     console.error(err);
@@ -900,18 +720,11 @@ async function submitExamForStudent(auto = false) {
   btnSubmitExam.disabled = false;
 }
 /***********************************************
- * RENDERIZAR RESULTADOS PREMIUM (BANNER + TABLAS)
+ * RENDERIZAR RESULTADOS SIMPLES (SIN PREMIUM)
  ***********************************************/
-function renderPremiumResults({
-  auto,
-  globalCorrect,
-  totalQuestions,
-  scoreWeighted,
-  specStats,
-  difficultyStats,
-}) {
+function renderSimpleResults({ auto, totalCorrect, totalQuestions, score }) {
   if (!resultBanner || !resultValues) {
-    alert(`Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`);
+    alert(`Examen enviado.\nAciertos: ${totalCorrect}/${totalQuestions}\nCalificación: ${score}%`);
     return;
   }
 
@@ -919,96 +732,18 @@ function renderPremiumResults({
     ? "El examen fue enviado automáticamente al agotarse el tiempo."
     : "Tu examen se envió correctamente.";
 
-  // Tabla general
-  const tableGeneral = `
+  resultValues.innerHTML = `
+    <p style="margin-bottom:8px;font-size:14px;"><strong>${message}</strong></p>
+
     <table class="result-table">
       <thead>
         <tr><th>Indicador</th><th>Valor</th></tr>
       </thead>
       <tbody>
-        <tr><td>Aciertos</td><td>${globalCorrect} de ${totalQuestions}</td></tr>
-        <tr><td>Calificación ponderada</td><td>${toFixedNice(scoreWeighted)}%</td></tr>
+        <tr><td>Aciertos</td><td>${totalCorrect} de ${totalQuestions}</td></tr>
+        <tr><td>Calificación</td><td>${score}%</td></tr>
       </tbody>
     </table>
-  `;
-
-  // Tabla por especialidad
-  const tableBySpecialty = `
-    <table class="result-table result-table--compact">
-      <thead>
-        <tr><th>Especialidad</th><th>Aciertos</th></tr>
-      </thead>
-      <tbody>
-        ${Object.keys(SPECIALTIES).map((key) => {
-          const s = specStats[key] || { correct: 0, total: 0 };
-          return `
-            <tr>
-              <td>${SPECIALTIES[key]}</td>
-              <td>${s.correct} / ${s.total}</td>
-            </tr>
-          `;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
-
-  // Tabla por dificultad
-  const tableByDifficulty = `
-    <table class="result-table result-table--compact">
-      <thead>
-        <tr><th>Dificultad</th><th>Aciertos</th></tr>
-      </thead>
-      <tbody>
-        ${Object.keys(DIFFICULTIES).map((d) => {
-          const s = difficultyStats[d] || { correct: 0, total: 0 };
-          return `
-            <tr>
-              <td>${DIFFICULTIES[d]}</td>
-              <td>${s.correct} / ${s.total}</td>
-            </tr>
-          `;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
-
-  // Tabla por subtipo
-  const tableBySubtype = `
-    <table class="result-table result-table--compact">
-      <thead>
-        <tr>
-          <th>Especialidad</th>
-          <th>Salud pública</th>
-          <th>Medicina familiar</th>
-          <th>Urgencias</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${Object.keys(SPECIALTIES).map((key) => {
-          const st = specStats[key];
-          const sp = st?.subtypes?.salud_publica || { correct: 0, total: 0 };
-          const mf = st?.subtypes?.medicina_familiar || { correct: 0, total: 0 };
-          const ur = st?.subtypes?.urgencias || { correct: 0, total: 0 };
-          return `
-            <tr>
-              <td>${SPECIALTIES[key]}</td>
-              <td>${sp.correct} / ${sp.total}</td>
-              <td>${mf.correct} / ${mf.total}</td>
-              <td>${ur.correct} / ${ur.total}</td>
-            </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
-
-  resultValues.innerHTML = `
-    <div class="result-message">${message}</div>
-    <div class="result-tables">
-      ${tableGeneral}
-      ${tableBySpecialty}
-      ${tableByDifficulty}
-      ${tableBySubtype}
-    </div>
   `;
 
   resultBanner.style.display = "block";
@@ -1017,7 +752,7 @@ function renderPremiumResults({
 }
 
 /***********************************************
- * BOTÓN PARA VOLVER A EXÁMENES
+ * BOTÓN VOLVER A EXÁMENES
  ***********************************************/
 btnBackToExams.addEventListener("click", () => {
   if (currentExamTimerId) {
@@ -1043,7 +778,7 @@ btnBackToExams.addEventListener("click", () => {
 });
 
 /***********************************************
- * BOTÓN LATERAL "PROGRESO"
+ * BOTÓN LATERAL "PROGRESO" (VERSIÓN SIMPLE)
  ***********************************************/
 btnProgressView.addEventListener("click", () => {
   document.querySelectorAll(".sidebar__section-item")
@@ -1059,7 +794,7 @@ btnProgressView.addEventListener("click", () => {
 });
 
 /***********************************************
- * CARGAR PROGRESO DEL ESTUDIANTE
+ * CARGAR PROGRESO DEL ESTUDIANTE (VERSIÓN SIMPLE)
  ***********************************************/
 async function loadStudentProgress() {
   if (!currentUser) return;
@@ -1069,6 +804,7 @@ async function loadStudentProgress() {
 
   const sectionsSnap = await getDocs(collection(db, "sections"));
   const sectionsMap = {};
+
   sectionsSnap.forEach((docSnap) => {
     sectionsMap[docSnap.id] = {
       id: docSnap.id,
@@ -1078,13 +814,14 @@ async function loadStudentProgress() {
 
   const examsSnap = await getDocs(collection(db, "exams"));
   const sectionStats = {};
+
   Object.values(sectionsMap).forEach((s) => {
     sectionStats[s.id] = {
       name: s.name,
-      totalScore: 0,
       examsCount: 0,
       correct: 0,
       totalQuestions: 0,
+      averageScore: 0,
     };
   });
 
@@ -1111,47 +848,42 @@ async function loadStudentProgress() {
     const score = at.score || 0;
     const correct = at.correctCount || 0;
     const totalQ = at.totalQuestions || 0;
-    const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
 
     examResults.push({
-      examId,
       examName: exData.name || "Examen",
       sectionId,
-      sectionName: sectionsMap[sectionId]?.name || "Sección",
       score,
       correctCount: correct,
       totalQuestions: totalQ,
-      lastAttempt,
     });
 
     if (sectionStats[sectionId]) {
-      sectionStats[sectionId].totalScore += score;
       sectionStats[sectionId].examsCount++;
       sectionStats[sectionId].correct += correct;
       sectionStats[sectionId].totalQuestions += totalQ;
+      sectionStats[sectionId].averageScore += score;
     }
   }
 
-  // Render de tarjetas
   progressSectionsContainer.innerHTML = "";
 
-  Object.values(sectionsMap).forEach((s) => {
-    const st = sectionStats[s.id];
+  Object.values(sectionStats).forEach((st) => {
     const exams = st.examsCount;
 
     const card = document.createElement("div");
     card.className = "progress-section-card";
 
-    if (!exams) {
+    if (exams === 0) {
       card.innerHTML = `
-        <div class="progress-section-title">${s.name}</div>
+        <div class="progress-section-title">${st.name}</div>
         <div>Sin intentos aún.</div>
       `;
     } else {
-      const avg = st.totalScore / exams;
+      const avgScore = st.averageScore / exams;
+
       card.innerHTML = `
-        <div class="progress-section-title">${s.name}</div>
-        <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
+        <div class="progress-section-title">${st.name}</div>
+        <div><strong>Promedio:</strong> ${toFixedNice(avgScore, 1)}%</div>
         <div><strong>Aciertos:</strong> ${st.correct} / ${st.totalQuestions}</div>
         <div><strong>Exámenes realizados:</strong> ${exams}</div>
       `;
@@ -1163,65 +895,18 @@ async function loadStudentProgress() {
   // Totales globales
   const totalExams = examResults.length;
   const totalCorrect = examResults.reduce((a, r) => a + r.correctCount, 0);
-  const totalQ = examResults.reduce((a, r) => a + r.totalQuestions, 0);
+  const totalQuestions = examResults.reduce((a, r) => a + r.totalQuestions, 0);
 
   progressGlobalEl.innerHTML = `
     <div><strong>Exámenes realizados:</strong> ${totalExams}</div>
-    <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQ}</div>
+    <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
   `;
-
-  // Gráfica de evolución
-  renderProgressChart(examResults);
 }
 
 /***********************************************
- * GRÁFICA DE PROGRESO
+ * CERRAR SESIÓN
  ***********************************************/
-function renderProgressChart(examResults) {
-  const sorted = examResults
-    .slice()
-    .sort((a, b) => {
-      const A = a.lastAttempt ? a.lastAttempt.getTime() : 0;
-      const B = b.lastAttempt ? b.lastAttempt.getTime() : 0;
-      return A - B;
-    });
-
-  const labels = sorted.map((r, i) => `${i + 1}. ${r.examName}`);
-  const data = sorted.map((r) => r.score);
-
-  if (progressChartInstance) progressChartInstance.destroy();
-
-  const ctx = progressChartCanvas.getContext("2d");
-
-  const grad = ctx.createLinearGradient(0, 0, 0, 240);
-  grad.addColorStop(0, "rgba(37,99,235,0.25)");
-  grad.addColorStop(1, "rgba(37,99,235,0)");
-
-  progressChartInstance = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "Calificación ponderada",
-          data,
-          borderColor: "#2563eb",
-          backgroundColor: grad,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: "#1d4ed8",
-          tension: 0.3,
-          fill: true,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { min: 0, max: 100, ticks: { stepSize: 10 } },
-      },
-      plugins: { legend: { display: false } },
-    },
-  });
-}
+btnLogout.addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
+});
