@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estudiante ENARM | Plataforma</title>
 
-  <!-- TIPOGRAFÍA -->
+  <!-- Fuente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- ESTILOS COMPARTIDOS -->
+  <!-- Estilos compartidos -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Google Analytics (GA4) -->
-  <!-- Google tag (gtag.js) -->
+  <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -23,16 +22,16 @@
 
   <!-- Meta Pixel Code -->
   <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1146031771035535');
-    fbq('track', 'PageView');
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1146031771035535');
+  fbq('track', 'PageView');
   </script>
   <noscript>
     <img height="1" width="1" style="display:none"
@@ -44,66 +43,66 @@
 <body>
   <section id="login-view" class="view">
     <div class="login-card">
-      <!-- Título principal -->
       <h1>Estudiante ENARM</h1>
+      <p class="panel-subtitle" style="margin-bottom:16px;">
+        Accede con tu correo y contraseña para comenzar tus simulacros.
+      </p>
 
-      <!-- FORMULARIO LOGIN -->
-      <form id="login-form">
-        <div class="field">
-          <span>Correo electrónico</span>
-          <input type="email" id="login-email" required autocomplete="email" />
-        </div>
+      <!-- LOGIN -->
+      <div class="field">
+        <span>Correo electrónico</span>
+        <input
+          type="email"
+          id="login-email"
+          placeholder="correo@ejemplo.com"
+          autocomplete="email"
+        />
+      </div>
 
-        <div class="field">
-          <span>Contraseña</span>
-          <input type="password" id="login-password" required autocomplete="current-password" />
-        </div>
+      <div class="field">
+        <span>Contraseña</span>
+        <input
+          type="password"
+          id="login-password"
+          placeholder="********"
+          autocomplete="current-password"
+        />
+      </div>
 
-        <div class="flex-row" style="justify-content: flex-end;">
-          <button type="button" id="btn-login-cancel" class="btn btn-outline">
-            Cancelar
-          </button>
-          <button type="submit" id="btn-login" class="btn btn-primary">
-            Entrar
-          </button>
-        </div>
-      </form>
+      <div class="flex-row" style="justify-content:flex-end;margin-top:4px;">
+        <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+        <button id="login-btn" class="btn btn-primary">Entrar</button>
+      </div>
 
-      <p id="login-error" class="error hidden"></p>
+      <div id="login-error" class="error" style="display:none;"></div>
 
-      <!-- BLOQUE INFORMATIVO / PLANES -->
-      <div id="landing-card" style="margin-top:20px;">
-        <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">
-          Conoce la plataforma
-        </h2>
-        <p id="landing-text" class="panel-subtitle" style="white-space:pre-wrap;margin-bottom:14px;">
-          Prepara tu ENARM con simulacros clínicos, análisis de resultados y seguimiento de tu progreso.
+      <!-- PANEL DE INFORMACIÓN + PLANES -->
+      <div id="landing-card">
+        <p id="landing-text">
+          Cargando información de la plataforma…
         </p>
 
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <!-- Botón plan mensual -->
-          <button id="btn-price-month" class="btn btn-primary">
-            Plan mensual · $XXX MXN
+        <div class="flex-row" style="margin-top:14px;justify-content:space-between;">
+          <button id="btn-price-month" class="btn btn-outline">
+            Plan mensual
           </button>
-
-          <!-- Botón plan ENARM 2026 -->
-          <button id="btn-price-full" class="btn btn-outline">
-            Plan ENARM 2026 · $XXX MXN
+          <button id="btn-price-full" class="btn btn-primary">
+            Plan ENARM 2026
           </button>
         </div>
       </div>
+    </div>
 
-      <!-- ICONOS REDES SOCIALES -->
-      <div class="sidebar-social" style="margin-top:18px;">
-        <img src="whatsapp.png" class="social-icon" data-network="whatsapp" alt="WhatsApp">
-        <img src="instagram.png" class="social-icon" data-network="instagram" alt="Instagram">
-        <img src="tiktok.png" class="social-icon" data-network="tiktok" alt="TikTok">
-        <img src="telegram.png" class="social-icon" data-network="telegram" alt="Telegram">
-      </div>
+    <!-- ICONOS DE REDES -->
+    <div class="sidebar-social" style="max-width:360px;margin:16px auto 0;border-top:none;">
+      <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
+      <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
+      <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
+      <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
     </div>
   </section>
 
-  <!-- LÓGICA DE LOGIN / LANDING -->
-  <script type="module" src="app.js"></script>
+  <!-- Lógica de la página de bienvenida -->
+  <script type="module" src="index.js"></script>
 </body>
 </html>
