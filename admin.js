@@ -22,7 +22,8 @@ import {
     query,
     where,
     orderBy,
-    serverTimestamp
+    serverTimestamp,
+    Timestamp
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 
@@ -47,9 +48,17 @@ const navLogout = document.getElementById("nav-logout");
 onAuthStateChanged(auth, async (user) => {
     if (!user) return (window.location.href = "index.html");
 
-    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userDocRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userDocRef);
 
-    if (!userDoc.exists() || userDoc.data().role !== "admin") {
+    if (!userSnap.exists()) {
+        alert("Acceso no autorizado");
+        return window.location.href = "index.html";
+    }
+
+    const userData = userSnap.data();
+
+    if (userData.role !== "admin") {
         alert("Acceso no autorizado");
         return window.location.href = "index.html";
     }
@@ -72,47 +81,52 @@ async function loadSections() {
         </div>
 
         <h3 style="margin-top:30px;">Listado de secciones</h3>
-        <div id="sectionsList"></div>
+        <div id="sectionsList">Cargando...</div>
     `;
 
     document.getElementById("addSectionBtn").onclick = addSection;
 
-    const sectionsList = document.getElementById("sectionsList");
-    sectionsList.innerHTML = "Cargando...";
+    const list = document.getElementById("sectionsList");
+    list.innerHTML = "Cargando...";
 
-    const snapshot = await getDocs(collection(db, "sections"));
+    try {
+        const snapshot = await getDocs(collection(db, "sections"));
+        list.innerHTML = "";
 
-    sectionsList.innerHTML = "";
-
-    snapshot.forEach((sec) => {
-        const data = sec.data();
-
-        sectionsList.innerHTML += `
-            <div class="card">
-                <strong>${data.name}</strong>
-                <div style="margin-top:10px;">
-                    <button onclick="deleteSection('${sec.id}')" class="btn btn-danger">Eliminar</button>
+        snapshot.forEach(sec => {
+            list.innerHTML += `
+                <div class="card">
+                    <strong>${sec.data().name}</strong>
+                    <button onclick="deleteSection('${sec.id}')" class="btn btn-danger" style="margin-top:10px;">
+                        Eliminar
+                    </button>
                 </div>
-            </div>
-        `;
-    });
+            `;
+        });
+    } catch (err) {
+        console.error(err);
+        list.innerHTML = "Error al cargar.";
+    }
 }
 
 async function addSection() {
     const name = document.getElementById("newSectionName").value.trim();
-    if (!name) return alert("Escribe un nombre");
+    if (!name) return alert("Escribe un nombre.");
 
-    await addDoc(collection(db, "sections"), {
-        name,
-        createdAt: serverTimestamp()
-    });
-
-    loadSections();
+    try {
+        await addDoc(collection(db, "sections"), {
+            name,
+            createdAt: serverTimestamp()
+        });
+        loadSections();
+    } catch (err) {
+        console.error(err);
+        alert("Error al agregar sección.");
+    }
 }
 
 window.deleteSection = async function (id) {
-    if (!confirm("¿Seguro que deseas eliminar esta sección?")) return;
-
+    if (!confirm("¿Eliminar sección?")) return;
     await deleteDoc(doc(db, "sections", id));
     loadSections();
 };
@@ -129,8 +143,8 @@ async function loadExamsUI() {
         <h1 class="section-title">Exámenes</h1>
 
         <div class="card">
-            <h3>Nueva examen</h3>
-            
+            <h3>Nuevo examen</h3>
+
             <select id="examSectionSelect" class="input">
                 <option value="">Selecciona sección...</option>
             </select>
@@ -141,10 +155,11 @@ async function loadExamsUI() {
         </div>
 
         <h3 style="margin-top:30px;">Exámenes existentes</h3>
-        <div id="examList"></div>
+        <div id="examList">Cargando...</div>
     `;
 
     loadSectionsInSelect("examSectionSelect");
+
     document.getElementById("addExamBtn").onclick = addExam;
 
     loadExamList();
@@ -152,6 +167,8 @@ async function loadExamsUI() {
 
 async function loadSectionsInSelect(selectId) {
     const select = document.getElementById(selectId);
+
+    select.innerHTML = `<option value="">Selecciona sección...</option>`;
     const snapshot = await getDocs(collection(db, "sections"));
 
     snapshot.forEach(sec => {
@@ -161,33 +178,34 @@ async function loadSectionsInSelect(selectId) {
 
 async function addExam() {
     const sectionId = document.getElementById("examSectionSelect").value;
-    const examName = document.getElementById("examName").value.trim();
+    const name = document.getElementById("examName").value.trim();
 
-    if (!sectionId || !examName) return alert("Completa los campos");
+    if (!sectionId || !name) return alert("Completa los campos.");
 
-    const examRef = collection(db, "sections", sectionId, "exams");
-
-    await addDoc(examRef, {
-        name: examName,
-        questionCount: 0,
-        estimatedTimeSeconds: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-    });
-
-    loadExamList();
+    try {
+        await addDoc(collection(db, "sections", sectionId, "exams"), {
+            name,
+            questionCount: 0,
+            estimatedTimeSeconds: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        loadExamList();
+    } catch (err) {
+        console.error(err);
+        alert("Error al crear examen.");
+    }
 }
 
 async function loadExamList() {
     const examList = document.getElementById("examList");
     examList.innerHTML = "Cargando...";
 
-    const secSnap = await getDocs(collection(db, "sections"));
+    const sectionsSnap = await getDocs(collection(db, "sections"));
     examList.innerHTML = "";
 
-    for (let sec of secSnap.docs) {
+    for (let sec of sectionsSnap.docs) {
         const secData = sec.data();
-
         const examsSnap = await getDocs(collection(db, "sections", sec.id, "exams"));
 
         examsSnap.forEach(exam => {
@@ -197,11 +215,11 @@ async function loadExamList() {
                 <div class="card">
                     <strong>${data.name}</strong>
                     <p>Sección: ${secData.name}</p>
-                    <p>Preguntas: ${data.questionCount}</p>
-                    <p>Tiempo estimado: ${data.estimatedTimeSeconds} seg</p>
 
-                    <button onclick="deleteExam('${sec.id}', '${exam.id}')" 
-                        class="btn btn-danger">Eliminar</button>
+                    <button onclick="deleteExam('${sec.id}', '${exam.id}')"
+                        class="btn btn-danger" style="margin-top:10px;">
+                        Eliminar
+                    </button>
                 </div>
             `;
         });
@@ -210,7 +228,6 @@ async function loadExamList() {
 
 window.deleteExam = async function (sectionId, examId) {
     if (!confirm("¿Eliminar examen?")) return;
-
     await deleteDoc(doc(db, "sections", sectionId, "exams", examId));
     loadExamList();
 };
@@ -227,14 +244,14 @@ async function loadCasesUI() {
         <h1 class="section-title">Casos clínicos</h1>
 
         <div class="card">
-            <h3>Selecciona examen</h3>
+            <h3>Nuevo caso clínico</h3>
 
             <select id="caseSectionSelect" class="input">
                 <option value="">Selecciona sección...</option>
             </select>
 
             <select id="caseExamSelect" class="input">
-                <option value="">Selecciona un examen...</option>
+                <option value="">Selecciona examen...</option>
             </select>
 
             <textarea id="caseText" class="input" placeholder="Texto del caso clínico"></textarea>
@@ -247,9 +264,8 @@ async function loadCasesUI() {
 
     loadSectionsInSelect("caseSectionSelect");
 
-    document.getElementById("caseSectionSelect").addEventListener("change", async () => {
-        const secId = document.getElementById("caseSectionSelect").value;
-        loadExamsInSelect("caseExamSelect", secId);
+    document.getElementById("caseSectionSelect").addEventListener("change", () => {
+        loadExamsInSelect("caseExamSelect", document.getElementById("caseSectionSelect").value);
     });
 
     document.getElementById("addCaseBtn").onclick = addCase;
@@ -257,12 +273,12 @@ async function loadCasesUI() {
 
 async function loadExamsInSelect(selectId, sectionId) {
     const select = document.getElementById(selectId);
+
     select.innerHTML = `<option value="">Selecciona examen...</option>`;
 
-    const examsSnap = await getDocs(collection(db, "sections", sectionId, "exams"));
-
-    examsSnap.forEach(exam => {
-        select.innerHTML += `<option value="${exam.id}">${exam.data().name}</option>`;
+    const snap = await getDocs(collection(db, "sections", sectionId, "exams"));
+    snap.forEach(ex => {
+        select.innerHTML += `<option value="${ex.id}">${ex.data().name}</option>`;
     });
 }
 
@@ -271,19 +287,19 @@ async function addCase() {
     const examId = document.getElementById("caseExamSelect").value;
     const caseText = document.getElementById("caseText").value.trim();
 
-    if (!secId || !examId || !caseText) return alert("Completa todos los campos");
+    if (!secId || !examId || !caseText) return alert("Completa todos los campos.");
 
-    const caseRef = collection(db, "sections", secId, "exams", examId, "cases");
+    const ref = collection(db, "sections", secId, "exams", examId, "cases");
 
-    const snapshot = await getDocs(caseRef);
-    const order = snapshot.size;
+    const snap = await getDocs(ref);
+    const order = snap.size;
 
-    await addDoc(caseRef, {
+    await addDoc(ref, {
         caseText,
         order
     });
 
-    alert("Caso agregado");
+    alert("Caso agregado.");
 }
 
 
@@ -298,7 +314,7 @@ async function loadQuestionsUI() {
         <h1 class="section-title">Preguntas</h1>
 
         <div class="card">
-            <h3>Selecciona un caso</h3>
+            <h3>Nueva pregunta</h3>
 
             <select id="qSectionSelect" class="input">
                 <option value="">Sección...</option>
@@ -309,10 +325,8 @@ async function loadQuestionsUI() {
             </select>
 
             <select id="qCaseSelect" class="input">
-                <option value="">Caso clínico...</option>
+                <option value="">Caso...</option>
             </select>
-
-            <h3 style="margin-top:20px;">Nueva pregunta</h3>
 
             <textarea id="questionText" class="input" placeholder="Pregunta"></textarea>
             <input id="optionA" class="input" placeholder="Opción A">
@@ -321,8 +335,8 @@ async function loadQuestionsUI() {
             <input id="optionD" class="input" placeholder="Opción D">
 
             <input id="correctOption" class="input" placeholder="Correcta (A/B/C/D)">
-            <input id="specialty" class="input" placeholder="Especialidad (internalMedicine...)">
-            <input id="subtype" class="input" placeholder="Subtipo (Public Health...)">
+            <input id="specialty" class="input" placeholder="Especialidad">
+            <input id="subtype" class="input" placeholder="Subtipo">
             <input id="difficulty" class="input" placeholder="low / medium / high">
 
             <textarea id="explanation" class="input" placeholder="Justificación"></textarea>
@@ -353,15 +367,15 @@ async function loadQuestionsUI() {
 async function loadCasesInSelect(caseSelectId) {
     const secId = document.getElementById("qSectionSelect").value;
     const examId = document.getElementById("qExamSelect").value;
-    const select = document.getElementById("qCaseSelect");
 
+    const select = document.getElementById("qCaseSelect");
     select.innerHTML = `<option value="">Caso...</option>`;
 
-    const casesSnap = await getDocs(collection(db,
-        "sections", secId, "exams", examId, "cases"));
+    const snap = await getDocs(collection(db, "sections", secId, "exams", examId, "cases"));
 
-    casesSnap.forEach(c => {
-        select.innerHTML += `<option value="${c.id}">${c.data().caseText.substring(0, 40)}...</option>`;
+    snap.forEach(c => {
+        const txt = c.data().caseText.substring(0, 40);
+        select.innerHTML += `<option value="${c.id}">${txt}...</option>`;
     });
 }
 
@@ -370,40 +384,37 @@ async function addQuestion() {
     const examId = document.getElementById("qExamSelect").value;
     const caseId = document.getElementById("qCaseSelect").value;
 
-    if (!secId || !examId || !caseId) return alert("Selecciona sección, examen y caso");
+    if (!secId || !examId || !caseId) return alert("Selecciona sección, examen y caso.");
 
-    const questionText = document.getElementById("questionText").value.trim();
-    const optionA = document.getElementById("optionA").value.trim();
-    const optionB = document.getElementById("optionB").value.trim();
-    const optionC = document.getElementById("optionC").value.trim();
-    const optionD = document.getElementById("optionD").value.trim();
+    const qText = document.getElementById("questionText").value.trim();
+    const A = document.getElementById("optionA").value.trim();
+    const B = document.getElementById("optionB").value.trim();
+    const C = document.getElementById("optionC").value.trim();
+    const D = document.getElementById("optionD").value.trim();
 
-    const correctOption = document.getElementById("correctOption").value.trim().toUpperCase();
+    const correct = document.getElementById("correctOption").value.trim().toUpperCase();
     const specialty = document.getElementById("specialty").value.trim();
     const subtype = document.getElementById("subtype").value.trim();
     const difficulty = document.getElementById("difficulty").value.trim();
-
     const explanation = document.getElementById("explanation").value.trim();
     const guideline = document.getElementById("guideline").value.trim();
 
-    if (!questionText || !optionA || !optionB || !optionC || !optionD ||
-        !correctOption || !specialty || !subtype || !difficulty)
-        return alert("Completa todos los campos");
+    if (!qText || !A || !B || !C || !D ||
+        !correct || !specialty || !subtype || !difficulty)
+        return alert("Completa todos los campos.");
 
-    const qRef = collection(db,
-        "sections", secId, "exams", examId, "cases", caseId, "questions");
+    const qRef = collection(db, "sections", secId, "exams", examId, "cases", caseId, "questions");
 
-    // Obtener orden (número de preguntas actuales)
-    const snapshot = await getDocs(qRef);
-    const order = snapshot.size;
+    const snap = await getDocs(qRef);
+    const order = snap.size;
 
     await addDoc(qRef, {
-        questionText,
-        optionA,
-        optionB,
-        optionC,
-        optionD,
-        correctOption,
+        questionText: qText,
+        optionA: A,
+        optionB: B,
+        optionC: C,
+        optionD: D,
+        correctOption: correct,
         specialty,
         subtype,
         difficulty,
@@ -412,7 +423,7 @@ async function addQuestion() {
         order
     });
 
-    alert("Pregunta agregada");
+    alert("Pregunta agregada.");
     loadQuestionList();
 }
 
@@ -422,28 +433,27 @@ async function loadQuestionList() {
     const caseId = document.getElementById("qCaseSelect").value;
 
     const list = document.getElementById("questionList");
-
     list.innerHTML = "Cargando...";
 
-    const qRef = collection(db,
-        "sections", secId, "exams", examId, "cases", caseId, "questions");
-
-    const qSnap = await getDocs(query(qRef, orderBy("order")));
+    const qSnap = await getDocs(
+        query(
+            collection(db, "sections", secId, "exams", examId, "cases", caseId, "questions"),
+            orderBy("order")
+        )
+    );
 
     list.innerHTML = "";
 
     qSnap.forEach(q => {
-        const data = q.data();
-
         list.innerHTML += `
             <div class="card">
-                <strong>${data.questionText}</strong>
-                <p><strong>Correcta:</strong> ${data.correctOption}</p>
-                <p><strong>Especialidad:</strong> ${data.specialty}</p>
-                <p><strong>Dificultad:</strong> ${data.difficulty}</p>
+                <strong>${q.data().questionText}</strong>
+                <p><strong>Correcta:</strong> ${q.data().correctOption}</p>
 
                 <button onclick="deleteQuestion('${secId}', '${examId}', '${caseId}', '${q.id}')"
-                        class="btn btn-danger" style="margin-top:10px;">Eliminar</button>
+                        class="btn btn-danger" style="margin-top:10px;">
+                    Eliminar
+                </button>
             </div>
         `;
     });
@@ -451,10 +461,7 @@ async function loadQuestionList() {
 
 window.deleteQuestion = async function (secId, examId, caseId, qId) {
     if (!confirm("¿Eliminar pregunta?")) return;
-
-    await deleteDoc(doc(db,
-        "sections", secId, "exams", examId, "cases", caseId, "questions", qId));
-
+    await deleteDoc(doc(db, "sections", secId, "exams", examId, "cases", caseId, "questions", qId));
     loadQuestionList();
 };
 
@@ -494,11 +501,10 @@ async function loadUsersUI() {
         </div>
 
         <h3 style="margin-top:30px;">Listado de usuarios</h3>
-        <div id="usersList"></div>
+        <div id="usersList">Cargando...</div>
     `;
 
     document.getElementById("createUserBtn").onclick = createUser;
-
     loadUsersList();
 }
 
@@ -511,7 +517,7 @@ async function createUser() {
     const expiry = document.getElementById("userExpiry").value;
 
     if (!name || !email || !password || !expiry)
-        return alert("Completa todos los campos");
+        return alert("Completa todos los campos.");
 
     const expiryDate = new Date(expiry);
 
@@ -524,7 +530,7 @@ async function createUser() {
         storedPassword: password,
         role,
         status,
-        expirationDate: expiryDate,
+        expirationDate: Timestamp.fromDate(expiryDate),
         totalExamsTaken: 0,
         lastActivity: serverTimestamp(),
         createdAt: serverTimestamp()
@@ -537,7 +543,6 @@ async function createUser() {
 
 async function loadUsersList() {
     const usersList = document.getElementById("usersList");
-
     usersList.innerHTML = "Cargando...";
 
     const snapshot = await getDocs(collection(db, "users"));
@@ -545,22 +550,24 @@ async function loadUsersList() {
     usersList.innerHTML = "";
 
     snapshot.forEach(u => {
-        const data = u.data();
+        const d = u.data();
 
         usersList.innerHTML += `
             <div class="card">
-                <strong>${data.name}</strong>
-                <p>${data.email}</p>
-                <p>Role: ${data.role}</p>
-                <p>Status: ${data.status}</p>
-                <p>Vence: ${data.expirationDate?.toDate().toLocaleDateString()}</p>
-                <p>Total exámenes: ${data.totalExamsTaken}</p>
+                <strong>${d.name}</strong>
+                <p>${d.email}</p>
+                <p>Role: ${d.role}</p>
+                <p>Status: ${d.status}</p>
+                <p>Vence: ${d.expirationDate?.toDate().toLocaleDateString()}</p>
+                <p>Total exámenes: ${d.totalExamsTaken}</p>
 
-                <button onclick="deleteUser('${u.id}')" class="btn btn-danger"
-                    style="margin-top:10px;">Eliminar</button>
+                <button onclick="deleteUser('${u.id}')" class="btn btn-danger" style="margin-top:10px;">
+                    Eliminar
+                </button>
 
-                <button onclick="viewUserProgress('${u.id}')" class="btn btn-secondary"
-                    style="margin-top:10px;">Ver progreso</button>
+                <button onclick="viewUserProgress('${u.id}')" class="btn btn-secondary" style="margin-top:10px;">
+                    Ver progreso
+                </button>
             </div>
         `;
     });
@@ -568,7 +575,6 @@ async function loadUsersList() {
 
 window.deleteUser = async function (userId) {
     if (!confirm("¿Eliminar usuario?")) return;
-
     await deleteDoc(doc(db, "users", userId));
     loadUsersList();
 };
@@ -579,16 +585,15 @@ window.viewUserProgress = async function (userId) {
         <div id="progressData">Cargando...</div>
     `;
 
-    const attemptsSnap = await getDocs(query(
-        collection(db, "attempts"),
-        where("userId", "==", userId),
-        orderBy("timestamp", "asc")
-    ));
+    const attemptsSnap = await getDocs(
+        query(collection(db, "attempts"), where("userId", "==", userId))
+    );
 
     let html = "";
 
     attemptsSnap.forEach(a => {
         const data = a.data();
+
         html += `
             <div class="card">
                 <p><strong>Examen ID:</strong> ${data.examId}</p>
