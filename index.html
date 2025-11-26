@@ -1,59 +1,109 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Estudiante ENARM – Login</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudiante ENARM | Plataforma</title>
 
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Global Styles -->
-    <link rel="stylesheet" href="style.css" />
+  <!-- ESTILOS COMPARTIDOS -->
+  <link rel="stylesheet" href="style.css" />
 
-    <!-- Chart.js (para gráficas) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Analytics (GA4) -->
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- Meta Pixel Code -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
+  </noscript>
+  <!-- End Meta Pixel Code -->
 </head>
 
-<body class="login-body">
+<body>
+  <section id="login-view" class="view">
+    <div class="login-card">
+      <!-- Título principal -->
+      <h1>Estudiante ENARM</h1>
 
-    <div class="login-container">
-
-        <!-- Logo -->
-        <img src="logo.png" alt="Logo" class="login-logo">
-
-        <!-- Login Card -->
-        <div class="login-card">
-
-            <h2 class="login-title">Acceso</h2>
-
-            <div class="login-inputs">
-                <input type="email" id="emailInput" placeholder="Correo electrónico" autocomplete="off" required>
-                <input type="password" id="passwordInput" placeholder="Contraseña" required>
-            </div>
-
-            <button id="loginBtn" class="primary-btn">Ingresar</button>
-
-            <div id="infoBox" class="info-box">
-                Cargando información...
-            </div>
-
-            <div class="pricing-section">
-                <button id="monthlyPlanBtn" class="price-btn">
-                    Plan Mensual
-                </button>
-
-                <button id="fullAccessBtn" class="price-btn">
-                    Acceso ENARM 2026
-                </button>
-            </div>
-
+      <!-- FORMULARIO LOGIN -->
+      <form id="login-form">
+        <div class="field">
+          <span>Correo electrónico</span>
+          <input type="email" id="login-email" required autocomplete="email" />
         </div>
+
+        <div class="field">
+          <span>Contraseña</span>
+          <input type="password" id="login-password" required autocomplete="current-password" />
+        </div>
+
+        <div class="flex-row" style="justify-content: flex-end;">
+          <button type="button" id="btn-login-cancel" class="btn btn-outline">
+            Cancelar
+          </button>
+          <button type="submit" id="btn-login" class="btn btn-primary">
+            Entrar
+          </button>
+        </div>
+      </form>
+
+      <p id="login-error" class="error hidden"></p>
+
+      <!-- BLOQUE INFORMATIVO / PLANES -->
+      <div id="landing-card" style="margin-top:20px;">
+        <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;">
+          Conoce la plataforma
+        </h2>
+        <p id="landing-text" class="panel-subtitle" style="white-space:pre-wrap;margin-bottom:14px;">
+          Prepara tu ENARM con simulacros clínicos, análisis de resultados y seguimiento de tu progreso.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <!-- Botón plan mensual -->
+          <button id="btn-price-month" class="btn btn-primary">
+            Plan mensual · $XXX MXN
+          </button>
+
+          <!-- Botón plan ENARM 2026 -->
+          <button id="btn-price-full" class="btn btn-outline">
+            Plan ENARM 2026 · $XXX MXN
+          </button>
+        </div>
+      </div>
+
+      <!-- ICONOS REDES SOCIALES -->
+      <div class="sidebar-social" style="margin-top:18px;">
+        <img src="whatsapp.png" class="social-icon" data-network="whatsapp" alt="WhatsApp">
+        <img src="instagram.png" class="social-icon" data-network="instagram" alt="Instagram">
+        <img src="tiktok.png" class="social-icon" data-network="tiktok" alt="TikTok">
+        <img src="telegram.png" class="social-icon" data-network="telegram" alt="Telegram">
+      </div>
     </div>
+  </section>
 
-    <!-- Firebase + App Logic -->
-    <script type="module" src="firebase.js"></script>
-    <script type="module" src="app.js"></script>
-
+  <!-- LÓGICA DE LOGIN / LANDING -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
