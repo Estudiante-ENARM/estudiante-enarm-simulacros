@@ -3,15 +3,15 @@
 // ============================================================
 
 import { auth, db } from "./firebase.js";
+
 import {
-    signInWithEmailAndPassword,
+    signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
 import {
     doc,
     getDoc
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
 
 // ============================================================
 // ELEMENTOS DEL DOM
@@ -26,40 +26,37 @@ const infoBox = document.getElementById("infoBox");
 const monthlyPlanBtn = document.getElementById("monthlyPlanBtn");
 const fullAccessBtn = document.getElementById("fullAccessBtn");
 
-
 // ============================================================
 // CONFIGURACIÓN WHATSAPP
 // ============================================================
 
-const WHATSAPP_NUMBER = "+525515656316";  // CONFIRMADO POR EL USUARIO
-
+const WHATSAPP_NUMBER = "+525515656316";
 
 // ============================================================
-// CARGAR TEXTO DE PANEL PRINCIPAL (config/mainPanelText)
+// CARGAR TEXTO DE PANEL PRINCIPAL
 // ============================================================
 
 async function loadMainInfo() {
     try {
-        const docRef = doc(db, "config", "mainPanelText");
-        const docSnap = await getDoc(docRef);
+        const ref = doc(db, "config", "mainPanelText");
+        const snap = await getDoc(ref);
 
-        if (docSnap.exists()) {
-            infoBox.textContent = docSnap.data().text || "Información no disponible.";
+        if (snap.exists()) {
+            infoBox.textContent = snap.data().text || "Información no disponible.";
         } else {
             infoBox.textContent = "Información no disponible.";
         }
 
     } catch (error) {
+        console.error("loadMainInfo ERROR:", error);
         infoBox.textContent = "Error al cargar información.";
-        console.error("Error en loadMainInfo:", error);
     }
 }
 
 loadMainInfo();
 
-
 // ============================================================
-// CARGAR PRECIOS Y MENSAJES (config/pricing)
+// CARGAR MENSAJES DE PRECIOS
 // ============================================================
 
 let monthlyPlanMessage = "Me interesa adquirir la plataforma en el plan mensual.";
@@ -67,41 +64,36 @@ let fullAccessMessage = "Me interesa adquirir el acceso hasta el próximo ENARM 
 
 async function loadPricing() {
     try {
-        const docRef = doc(db, "config", "pricing");
-        const docSnap = await getDoc(docRef);
+        const ref = doc(db, "config", "pricing");
+        const snap = await getDoc(ref);
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
+        if (snap.exists()) {
+            const data = snap.data();
 
-            // Cambiar mensajes si existen en Firestore
             if (data.monthlyPlanMessage) monthlyPlanMessage = data.monthlyPlanMessage;
             if (data.fullAccessMessage) fullAccessMessage = data.fullAccessMessage;
-
-        } else {
-            console.warn("No existe config/pricing en Firestore.");
         }
+
     } catch (error) {
-        console.error("Error al cargar precios:", error);
+        console.error("loadPricing ERROR:", error);
     }
 }
 
 loadPricing();
 
-
 // ============================================================
-// BOTONES DE PRECIOS (redirigir a WhatsApp)
+// BOTONES WHATSAPP
 // ============================================================
 
 monthlyPlanBtn.addEventListener("click", () => {
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(monthlyPlanMessage)}`;
-    window.open(url, "_blank");
+    const msg = encodeURIComponent(monthlyPlanMessage);
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
 });
 
 fullAccessBtn.addEventListener("click", () => {
-    const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(fullAccessMessage)}`;
-    window.open(url, "_blank");
+    const msg = encodeURIComponent(fullAccessMessage);
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
 });
-
 
 // ============================================================
 // LOGIN
@@ -113,49 +105,64 @@ loginBtn.addEventListener("click", async () => {
     const password = passwordInput.value.trim();
 
     if (!email || !password) {
-        alert("Ingresa tu correo y contraseña");
+        alert("Ingresa tu correo y contraseña.");
         return;
     }
 
     try {
-        // Iniciar sesión
+        // 1. Autenticar
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Obtener documento del usuario
-        const userDocRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userDocRef);
+        // 2. Leer documento del usuario
+        const ref = doc(db, "users", user.uid);
+        const snap = await getDoc(ref);
 
-        if (!userSnap.exists()) {
+        if (!snap.exists()) {
             alert("Tu usuario no está configurado correctamente. Contacta al administrador.");
             return;
         }
 
-        const userData = userSnap.data();
+        const data = snap.data();
 
-        // Validar estado
-        if (userData.status !== "active") {
+        // 3. Revisar estado
+        if (data.status !== "active") {
             alert("Tu cuenta está inactiva.");
             return;
         }
 
-        // Validar fecha de vencimiento
+        // 4. Revisar vigencia
         const now = new Date();
-        const expiry = userData.expirationDate?.toDate();
+        let expiry = null;
 
-        if (!expiry || expiry < now) {
+        if (data.expirationDate?.toDate) {
+            expiry = data.expirationDate.toDate();
+        } else {
             alert("Tu acceso ha vencido.");
             return;
         }
 
-        // Redireccionar según rol
-        if (userData.role === "admin") {
+        if (expiry < now) {
+            alert("Tu acceso ha vencido.");
+            return;
+        }
+
+        // 5. Redirigir
+        if (data.role === "admin") {
             window.location.href = "admin.html";
         } else {
             window.location.href = "student.html";
         }
 
     } catch (error) {
+
+        // ERRORES POR FALTA DE PERMISOS → SE VEAN CLAROS
+        if (error.code === "permission-denied") {
+            alert("Error de permisos. Revisa tus reglas de Firestore.");
+            console.error("PERMISSION ERROR:", error);
+            return;
+        }
+
         console.error("Error al iniciar sesión:", error);
         alert("Correo o contraseña incorrectos.");
     }
