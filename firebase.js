@@ -12,12 +12,12 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/11.0.1/firebase
 // ============================================================
 
 const firebaseConfig = {
-    apiKey: "TU_API_KEY_AQUI",
-    authDomain: "TU_AUTH_DOMAIN.firebaseapp.com",
-    projectId: "TU_PROJECT_ID",
-    storageBucket: "TU_PROJECT_ID.appspot.com",
-    messagingSenderId: "XXXXXXXXXXXX",
-    appId: "1:XXXXXXXXXXXX:web:XXXXXXXXXXXXXX"
+apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+  projectId: "simulacros-plataforma-enarm",
+  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  messagingSenderId: "1012829203040",
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105"
 };
 
 // ============================================================
