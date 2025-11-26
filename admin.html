@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudiante ENARM | Administrador</title>
+
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ESTILOS COMPARTIDOS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- CHART.JS (para análisis si lo usamos después) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- GOOGLE ANALYTICS -->
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+</head>
+
+<body>
+
+  <!-- META PIXEL -->
+  <!-- Meta Pixel Code -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1146031771035535');
+  fbq('track', 'PageView');
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
+  </noscript>
+  <!-- End Meta Pixel Code -->
+
+  <section id="admin-view" class="view">
+
+    <!-- HEADER SUPERIOR -->
+    <header class="header">
+      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+
+      <div class="header-right">
+        <span id="admin-user-email"></span>
+        <button id="admin-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- SIDEBAR IZQUIERDA -->
+    <aside id="sidebar">
+      <div>
+        <div class="sidebar-logo">
+          <img src="logo.png" alt="Logo Estudiante ENARM" class="sidebar-logo-img">
+          <h2 class="sidebar-title">Estudiante ENARM</h2>
+        </div>
+
+        <!-- Navegación principal admin -->
+        <nav style="margin-top: 12px;">
+          <!-- MINI EXÁMENES (admin) -->
+          <button id="admin-btn-mini" class="sidebar-btn">
+            Mini exámenes
+          </button>
+
+          <!-- SECCIONES -->
+          <div class="panel-subtitle" style="margin-top:10px;margin-bottom:4px;color:#cbd5f5;">
+            Secciones
+          </div>
+          <ul id="admin-sidebar-sections" class="sidebar-sections"></ul>
+
+          <!-- AGREGAR SECCIÓN -->
+          <button id="admin-btn-add-section" class="sidebar-btn btn-outline">
+            Agregar sección
+          </button>
+
+          <!-- USUARIOS -->
+          <button id="admin-btn-users" class="sidebar-btn">
+            Usuarios
+          </button>
+
+          <!-- ANÁLISIS -->
+          <button id="admin-btn-analytics" class="sidebar-btn">
+            Análisis
+          </button>
+
+          <!-- PANTALLA PRINCIPAL -->
+          <button id="admin-btn-landing" class="sidebar-btn">
+            Pantalla principal
+          </button>
+        </nav>
+      </div>
+
+      <!-- ICONOS SOCIALES (se configuran desde "Pantalla principal") -->
+      <div class="sidebar-social">
+        <img src="instagram.png" class="social-icon" data-network="instagram" alt="Instagram">
+        <img src="whatsapp.png" class="social-icon" data-network="whatsapp" alt="WhatsApp">
+        <img src="tiktok.png" class="social-icon" data-network="tiktok" alt="TikTok">
+        <img src="telegram.png" class="social-icon" data-network="telegram" alt="Telegram">
+      </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content">
+
+      <!-- =========================================
+           VIEW: SECCIONES -> EXÁMENES
+      ========================================== -->
+      <section id="admin-section-exams-view" class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="admin-current-section-title">Sección</h2>
+            <p id="admin-current-section-subtitle" class="panel-subtitle">
+              Gestiona los exámenes de esta sección.
+            </p>
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-btn-add-exam" class="btn btn-primary">
+              Agregar examen
+            </button>
+          </div>
+        </div>
+
+        <!-- LISTA DE EXÁMENES DE LA SECCIÓN SELECCIONADA -->
+        <div id="admin-exams-list" class="cards-list"></div>
+      </section>
+
+      <!-- =========================================
+           VIEW: EDITOR DE EXAMEN (CASOS CLÍNICOS)
+      ========================================== -->
+      <section id="admin-exam-editor-view" class="panel hidden">
+        <div class="panel-header">
+          <button id="admin-btn-back-to-section" class="btn btn-outline">
+            ← Volver a exámenes
+          </button>
+
+          <div>
+            <h2 id="admin-exam-title">Examen</h2>
+            <p id="admin-exam-subtitle" class="panel-subtitle">
+              Agrega y edita casos clínicos y preguntas.
+            </p>
+          </div>
+
+          <div class="flex-row" style="margin-left:auto;justify-content:flex-end;">
+            <button id="admin-btn-add-case" class="btn btn-primary">
+              Agregar caso clínico
+            </button>
+            <button id="admin-btn-save-exam" class="btn btn-secondary">
+              Guardar examen
+            </button>
+          </div>
+        </div>
+
+        <!-- CONTENEDOR DONDE SE DIBUJARÁN LOS CASOS CLÍNICOS + PREGUNTAS -->
+        <div id="admin-exam-cases-list" class="cards-list"></div>
+      </section>
+
+      <!-- =========================================
+           VIEW: MINI EXÁMENES (ADMIN)
+      ========================================== -->
+      <section id="admin-mini-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Mini exámenes</h2>
+            <p class="panel-subtitle">
+              Gestiona el banco global de casos clínicos y preguntas para los mini exámenes.
+            </p>
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-mini-btn-new-case" class="btn btn-primary">
+              Nuevo caso clínico
+            </button>
+            <button id="admin-mini-btn-delete-cases" class="btn btn-outline">
+              Eliminar casos seleccionados
+            </button>
+            <button id="admin-mini-btn-save" class="btn btn-secondary">
+              Guardar cambios
+            </button>
+          </div>
+        </div>
+
+        <!-- RESUMEN DE TOTALES -->
+        <div id="admin-mini-summary" class="card">
+          <!-- Aquí admin.js mostrará:
+               - Total de casos
+               - Total por especialidad
+               - Total de preguntas por especialidad -->
+        </div>
+
+        <!-- LISTA DE CASOS CLÍNICOS GLOBAL (MINI EXÁMENES) -->
+        <div id="admin-mini-cases-list" class="cards-list"></div>
+      </section>
+
+      <!-- =========================================
+           VIEW: USUARIOS
+      ========================================== -->
+      <section id="admin-users-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Usuarios</h2>
+            <p class="panel-subtitle">
+              Crea y administra accesos de estudiantes y administradores.
+            </p>
+          </div>
+        </div>
+
+        <!-- CREACIÓN / EDICIÓN DE USUARIO -->
+        <div id="create-user-card" class="card">
+          <h3>Nuevo usuario</h3>
+
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Nombre completo</span>
+              <input type="text" id="admin-user-name" placeholder="Nombre del usuario">
+            </div>
+
+            <div class="field">
+              <span>Correo</span>
+              <input type="email" id="admin-user-email-input" placeholder="correo@ejemplo.com">
+            </div>
+
+            <div class="field">
+              <span>Contraseña (para Auth)</span>
+              <input type="password" id="admin-user-password" placeholder="Mínimo 6 caracteres">
+            </div>
+
+            <div class="field">
+              <span>Rol</span>
+              <select id="admin-user-role">
+                <option value="student">Estudiante</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <span>Estado</span>
+              <select id="admin-user-status">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <span>Fecha de vencimiento (AAAA-MM-DD)</span>
+              <input type="text" id="admin-user-expiry" placeholder="2026-02-28">
+            </div>
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;margin-top:12px;">
+            <button id="admin-btn-create-user" class="btn btn-primary">
+              Agregar usuario
+            </button>
+          </div>
+
+          <p id="admin-users-message" class="panel-subtitle" style="margin-top:8px;"></p>
+        </div>
+
+        <!-- TABLA DE USUARIOS EXISTENTES -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:10px;">Listado de usuarios</h3>
+          <div style="overflow-x:auto;">
+            <table id="admin-users-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Vence</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- admin.js insertará filas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =========================================
+           VIEW: ANÁLISIS
+      ========================================== -->
+      <section id="admin-analytics-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Análisis</h2>
+            <p class="panel-subtitle">
+              Estadísticas globales de exámenes, casos clínicos y desempeño de los estudiantes.
+            </p>
+          </div>
+        </div>
+
+        <!-- RESUMEN NUMÉRICO -->
+        <div id="admin-analytics-summary" class="card">
+          <!-- admin.js mostrará:
+               - Exámenes por sección
+               - Exámenes totales
+               - Casos clínicos totales
+               - Preguntas totales
+               - Promedios por dificultad -->
+        </div>
+
+        <!-- TABLA DE USUARIOS Y PROMEDIOS -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:10px;">Promedios por usuario</h3>
+          <div style="overflow-x:auto;">
+            <table id="admin-analytics-users-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Sección</th>
+                  <th>Promedio sección</th>
+                  <th>Promedio global</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- admin.js insertará filas -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- OPCIONAL: GRÁFICA GLOBAL -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Evolución global</h3>
+          <canvas id="admin-analytics-chart" height="220"></canvas>
+        </div>
+      </section>
+
+      <!-- =========================================
+           VIEW: PANTALLA PRINCIPAL (LANDING)
+      ========================================== -->
+      <section id="admin-landing-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Pantalla principal</h2>
+            <p class="panel-subtitle">
+              Configura el texto inicial, los precios de los planes y los enlaces de redes sociales.
+            </p>
+          </div>
+        </div>
+
+        <!-- BLOQUE: TEXTO DE LA INTERFAZ DE BIENVENIDA Y PRECIOS -->
+        <div id="landing-settings-panel" class="card">
+          <h3 style="font-size:16px;margin-bottom:10px;">Texto de bienvenida y precios</h3>
+
+          <div class="field">
+            <span>Texto de la plataforma (se mostrará debajo del login)</span>
+            <textarea id="admin-landing-text" placeholder="Describe brevemente qué ofrece la plataforma Estudiante ENARM..."></textarea>
+          </div>
+
+          <div class="flex-row" style="margin-top:6px;">
+            <div class="field" style="flex:1;">
+              <span>Texto botón plan mensual</span>
+              <input type="text" id="admin-price-month-label"
+                placeholder="Plan mensual · $XXX MXN">
+            </div>
+
+            <div class="field" style="flex:1;">
+              <span>Texto botón plan ENARM 2026</span>
+              <input type="text" id="admin-price-full-label"
+                placeholder="Plan ENARM 2026 · $XXX MXN">
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOQUE: REDES SOCIALES -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:10px;">Redes sociales</h3>
+
+          <div class="field">
+            <span>WhatsApp (URL completa)</span>
+            <input type="text" id="admin-social-whatsapp" placeholder="https://wa.me/525515656316?...">
+          </div>
+
+          <div class="field">
+            <span>Instagram</span>
+            <input type="text" id="admin-social-instagram" placeholder="https://instagram.com/tu_cuenta">
+          </div>
+
+          <div class="field">
+            <span>TikTok</span>
+            <input type="text" id="admin-social-tiktok" placeholder="https://www.tiktok.com/@tu_cuenta">
+          </div>
+
+          <div class="field">
+            <span>Telegram</span>
+            <input type="text" id="admin-social-telegram" placeholder="https://t.me/tu_canal">
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
+            <button id="admin-btn-save-landing" class="btn btn-primary">
+              Guardar cambios
+            </button>
+          </div>
+
+          <p id="admin-landing-message" class="panel-subtitle" style="margin-top:8px;"></p>
+        </div>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- MODAL GENÉRICO PARA SECCIONES / CONFIRMACIONES -->
+  <div id="admin-modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="admin-modal-title">Título modal</h3>
+
+      <div id="admin-modal-body">
+        <!-- admin.js insertará inputs / mensajes -->
+      </div>
+
+      <div class="modal-actions">
+        <button id="admin-modal-cancel" class="btn btn-outline">Cancelar</button>
+        <button id="admin-modal-confirm" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LÓGICA DEL ADMINISTRADOR -->
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
