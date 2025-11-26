@@ -11,12 +11,7 @@
     <!-- Global Styles -->
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Firebase Config -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
-
-    <!-- Chart.js (para futuras gráficas, no interfiere aquí) -->
+    <!-- Chart.js (para gráficas) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -39,14 +34,11 @@
 
             <button id="loginBtn" class="primary-btn">Ingresar</button>
 
-            <!-- Text info loaded from Firestore -->
             <div id="infoBox" class="info-box">
                 Cargando información...
             </div>
 
-            <!-- Pricing Options -->
             <div class="pricing-section">
-
                 <button id="monthlyPlanBtn" class="price-btn">
                     Plan Mensual
                 </button>
@@ -54,13 +46,12 @@
                 <button id="fullAccessBtn" class="price-btn">
                     Acceso ENARM 2026
                 </button>
-
             </div>
 
         </div>
     </div>
 
-    <!-- App Logic -->
+    <!-- Firebase + App Logic -->
     <script type="module" src="firebase.js"></script>
     <script type="module" src="app.js"></script>
 
