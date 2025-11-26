@@ -1,14 +1,13 @@
 /***********************************************
- * shared-constants.js
- * Catálogos compartidos entre admin y estudiante
+ * CONSTANTES COMPARTIDAS (ADMIN / STUDENT)
  ***********************************************/
 
-// Especialidades
+// Especialidades ENARM
 export const SPECIALTIES = {
   medicina_interna: "Medicina interna",
-  cirugia_general: "Cirugía general",
   pediatria: "Pediatría",
-  gine_obstetricia: "Ginecología y obstetricia",
+  gine_obstetricia: "Ginecología y Obstetricia",
+  cirugia_general: "Cirugía general",
 };
 
 // Subtipos de pregunta
@@ -18,23 +17,23 @@ export const SUBTYPES = {
   urgencias: "Urgencias",
 };
 
-// Dificultad
+// Dificultades
 export const DIFFICULTIES = {
   baja: "Baja",
   media: "Media",
   alta: "Alta",
 };
 
-// Pesos de dificultad (para el cálculo ponderado)
+// Peso de cada dificultad para el cálculo ponderado
 export const DIFFICULTY_WEIGHTS = {
-  baja: 1,
-  media: 2,
-  alta: 3,
+  baja: 1,   // 1 punto
+  media: 2,  // 2 puntos
+  alta: 3,   // 3 puntos
 };
 
-// Valores por defecto globales (se pueden sobreescribir con examRules/default)
-export const DEFAULT_MAX_ATTEMPTS = 3;        // intentos por examen de sección
-export const DEFAULT_TIME_PER_QUESTION = 77;  // segundos por pregunta
-
-// Opciones de número de preguntas para Mini Exámenes
-export const MINI_EXAM_QUESTION_OPTIONS = [5, 10, 15, 20];
+// Reglas por defecto de los exámenes
+// (si no existe el doc en examRules lo usamos como respaldo)
+export const DEFAULT_EXAM_RULES = {
+  maxAttempts: 3,
+  timePerQuestionSeconds: 77, // cada pregunta 77 segundos
+};
