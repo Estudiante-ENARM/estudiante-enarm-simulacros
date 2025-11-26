@@ -1,317 +1,68 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Administrador | Estudiante ENARM</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estudiante ENARM – Login</title>
 
-  <!-- TIPOGRAFÍA -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- ESTILOS -->
-  <link rel="stylesheet" href="style.css" />
+    <!-- Global Styles -->
+    <link rel="stylesheet" href="style.css" />
 
-  <!-- GOOGLE ANALYTICS -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-B43LFZV7MR');
-  </script>
+    <!-- Firebase Config -->
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
 
-  <!-- META PIXEL -->
-  <script>
-    !function(f,b,e,v,n,t,s){
-      if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-      if(!f._fbq)f._fbq=n;
-      n.push=n;n.loaded=!0;n.version='2.0';
-      n.queue=[];
-      t=b.createElement(e);t.async=!0;
-      t.src=v;s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s)
-    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1146031771035535');
-    fbq('track', 'PageView');
-  </script>
+    <!-- Chart.js (para futuras gráficas, no interfiere aquí) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
-<body>
+<body class="login-body">
 
-  <!-- LOGIN -->
-  <section id="login-view" class="view">
+    <div class="login-container">
 
-    <div style="text-align:center; margin-bottom:20px;">
-      <img src="logo.png" alt="logo" style="width:90px; margin-bottom:8px;">
-      <h2 style="font-size:22px; font-weight:700;">
-        Estudiante ENARM Simulacros
-      </h2>
+        <!-- Logo -->
+        <img src="logo.png" alt="Logo" class="login-logo">
+
+        <!-- Login Card -->
+        <div class="login-card">
+
+            <h2 class="login-title">Acceso</h2>
+
+            <div class="login-inputs">
+                <input type="email" id="emailInput" placeholder="Correo electrónico" autocomplete="off" required>
+                <input type="password" id="passwordInput" placeholder="Contraseña" required>
+            </div>
+
+            <button id="loginBtn" class="primary-btn">Ingresar</button>
+
+            <!-- Text info loaded from Firestore -->
+            <div id="infoBox" class="info-box">
+                Cargando información...
+            </div>
+
+            <!-- Pricing Options -->
+            <div class="pricing-section">
+
+                <button id="monthlyPlanBtn" class="price-btn">
+                    Plan Mensual
+                </button>
+
+                <button id="fullAccessBtn" class="price-btn">
+                    Acceso ENARM 2026
+                </button>
+
+            </div>
+
+        </div>
     </div>
 
-    <div class="login-card">
-      <h1>Acceso</h1>
-
-      <form id="login-form">
-        <label class="field">
-          <span>Correo</span>
-          <input type="email" id="login-email" required />
-        </label>
-
-        <label class="field">
-          <span>Contraseña</span>
-          <input type="password" id="login-password" required />
-        </label>
-
-        <button id="btn-login" class="btn btn-primary" type="submit">Entrar</button>
-
-        <p id="login-error" class="error hidden"></p>
-      </form>
-
-      <!-- BLOQUE PANTALLA PRINCIPAL / PRECIOS + WHATSAPP -->
-      <div id="landing-card" class="card" style="margin-top:22px; text-align:center;">
-        <p id="landing-text" class="panel-subtitle" style="margin-bottom:14px;">
-          <!-- Texto dinámico desde Firestore -->
-        </p>
-
-        <div style="display:flex; flex-direction:column; gap:8px;">
-          <button id="btn-price-month" class="btn btn-primary">
-            Precio mensual
-          </button>
-          <button id="btn-price-full" class="btn btn-primary" style="background:var(--primary-dark);">
-            Acceso completo
-          </button>
-        </div>
-      </div>
-    </div>
-
-  </section>
-
-  <!-- PANEL ADMIN -->
-  <section id="admin-view" class="view hidden">
-
-    <!-- SIDEBAR -->
-    <aside id="sidebar">
-
-      <div class="sidebar-logo">
-        <img src="logo.png" class="sidebar-logo-img" />
-        <h2 class="sidebar-title">Estudiante ENARM</h2>
-      </div>
-
-      <ul id="sidebar-sections" class="sidebar-sections"></ul>
-
-      <button id="btn-new-section" class="sidebar-btn">+ Nueva sección</button>
-      <button id="btn-users-view" class="sidebar-btn btn-outline">Usuarios</button>
-      <button id="btn-edit-social" class="sidebar-btn btn-outline">Redes sociales</button>
-      <!-- NUEVO BOTÓN: PANTALLA PRINCIPAL -->
-      <button id="btn-landing-view" class="sidebar-btn btn-outline">Pantalla principal</button>
-
-      <div class="sidebar-social">
-        <img src="instagram.png" class="social-icon" data-network="instagram">
-        <img src="whatsapp.png" class="social-icon" data-network="whatsapp">
-        <img src="tiktok.png" class="social-icon" data-network="tiktok">
-        <img src="telegram.png" class="social-icon" data-network="telegram">
-      </div>
-    </aside>
-
-    <!-- HEADER -->
-    <header class="header">
-      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
-
-      <div class="header-right">
-        <span id="current-user-email"></span>
-        <button id="btn-logout" class="btn btn-secondary">Cerrar sesión</button>
-      </div>
-    </header>
-
-    <main id="content">
-
-      <!-- VISTA SECCIONES -->
-      <div id="sections-view" class="panel">
-        <h2 id="current-section-title">Selecciona una sección</h2>
-        <p id="current-section-subtitle" class="panel-subtitle">
-          Elige una sección para ver sus exámenes.
-        </p>
-
-        <button id="btn-new-exam" class="btn btn-primary hidden">+ Nuevo examen</button>
-        <div id="exams-list" class="cards-list"></div>
-      </div>
-
-      <!-- VISTA USUARIOS -->
-      <div id="users-view" class="panel hidden">
-        <h2>Usuarios</h2>
-
-        <div id="create-user-card" class="card">
-          <h3>Crear nuevo usuario</h3>
-
-          <div class="create-user-grid">
-            <label class="field">
-              <span>Nombre</span>
-              <input id="new-user-name">
-            </label>
-
-            <label class="field">
-              <span>Email</span>
-              <input id="new-user-email" type="email">
-            </label>
-
-            <label class="field">
-              <span>Contraseña</span>
-              <input id="new-user-password">
-            </label>
-
-            <label class="field">
-              <span>Estado</span>
-              <select id="new-user-status">
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Rol</span>
-              <select id="new-user-role">
-                <option value="usuario">Usuario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Fecha límite</span>
-              <input id="new-user-expiry" type="date">
-            </label>
-          </div>
-
-          <button id="btn-create-user" class="btn btn-primary">Guardar usuario</button>
-        </div>
-
-        <div id="users-list"></div>
-      </div>
-
-      <!-- EDITOR EXAMEN -->
-      <div id="exam-detail-view" class="panel hidden">
-
-        <div class="panel-header" style="margin-bottom:22px;">
-          <button id="btn-back-to-exams" class="btn btn-outline">← Volver</button>
-
-          <div>
-            <h2 style="font-size:20px;font-weight:700;">Editor de examen</h2>
-            <p class="panel-subtitle">Modifica preguntas, casos clínicos y metadatos.</p>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:22px;">
-          <label class="field">
-            <span>Nombre del examen</span>
-            <input id="exam-name-input" type="text">
-          </label>
-
-          <div class="flex-row" style="margin-top:14px;">
-            <button id="btn-save-exam-meta" class="btn btn-secondary">Guardar nombre</button>
-            <button id="btn-new-question" class="btn btn-primary">+ Nueva pregunta</button>
-          </div>
-        </div>
-
-        <div id="questions-list" class="cards-list"></div>
-      </div>
-
-      <!-- NUEVA VISTA: PANTALLA PRINCIPAL (CONFIG LOGIN) -->
-      <div id="landing-settings-view" class="panel hidden">
-        <div class="fullscreen-panel">
-          <h2>Pantalla principal</h2>
-          <p class="panel-subtitle">
-            Configura el texto, precios y enlaces de WhatsApp que aparecen en el login.
-          </p>
-
-          <div class="landing-settings-grid">
-            <label class="field">
-              <span>Texto principal / descripción</span>
-              <textarea id="landing-hero-text"></textarea>
-            </label>
-
-            <label class="field">
-              <span>Precio mensual (MXN)</span>
-              <input id="landing-price-month" type="text">
-            </label>
-
-            <label class="field">
-              <span>Precio acceso completo (MXN)</span>
-              <input id="landing-price-full" type="text">
-            </label>
-
-            <label class="field">
-              <span>WhatsApp (mensual)</span>
-              <input id="landing-whatsapp-month" type="text">
-            </label>
-
-            <label class="field">
-              <span>WhatsApp (acceso completo)</span>
-              <input id="landing-whatsapp-full" type="text">
-            </label>
-          </div>
-
-          <button id="btn-save-landing" class="btn btn-primary save-btn">
-            Guardar cambios
-          </button>
-        </div>
-      </div>
-
-      <!-- NUEVA VISTA: REDES SOCIALES (FULL SCREEN) -->
-      <div id="social-settings-view" class="panel hidden">
-        <div class="fullscreen-panel">
-          <h2>Redes sociales</h2>
-          <p class="panel-subtitle">
-            Enlaces visibles en el login y en el modo estudiante.
-          </p>
-
-          <div class="social-inputs-grid">
-            <label class="field">
-              <span>Instagram</span>
-              <input id="admin-instagram" type="text">
-            </label>
-
-            <label class="field">
-              <span>WhatsApp</span>
-              <input id="admin-whatsapp" type="text">
-            </label>
-
-            <label class="field">
-              <span>TikTok</span>
-              <input id="admin-tiktok" type="text">
-            </label>
-
-            <label class="field">
-              <span>Telegram</span>
-              <input id="admin-telegram" type="text">
-            </label>
-          </div>
-
-          <button id="btn-save-social" class="btn btn-primary save-btn">
-            Guardar redes
-          </button>
-        </div>
-      </div>
-
-    </main>
-
-  </section>
-
-  <!-- MODAL GENÉRICO (SE MANTIENE) -->
-  <div id="modal-overlay" class="modal-overlay hidden">
-    <div class="modal">
-      <h3 id="modal-title"></h3>
-      <form id="modal-form">
-        <div id="modal-fields"></div>
-        <div class="modal-actions">
-          <button id="modal-cancel" type="button" class="btn btn-outline">Cancelar</button>
-          <button id="modal-submit" type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- JS -->
-  <script type="module" src="app.js"></script>
+    <!-- App Logic -->
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="app.js"></script>
 
 </body>
 </html>
