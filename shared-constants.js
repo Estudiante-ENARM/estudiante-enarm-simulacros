@@ -1,9 +1,9 @@
-// shared-constants.js
-// --------------------------------------------
-// Constantes compartidas para ADMIN y STUDENT
-// --------------------------------------------
+/***********************************************
+ * shared-constants.js
+ * Catálogos compartidos entre admin y estudiante
+ ***********************************************/
 
-// Especialidades principales
+// Especialidades
 export const SPECIALTIES = {
   medicina_interna: "Medicina interna",
   cirugia_general: "Cirugía general",
@@ -18,22 +18,23 @@ export const SUBTYPES = {
   urgencias: "Urgencias",
 };
 
-// Dificultades
+// Dificultad
 export const DIFFICULTIES = {
   baja: "Baja",
   media: "Media",
   alta: "Alta",
 };
 
-// Peso de cada dificultad (para la calificación ponderada)
+// Pesos de dificultad (para el cálculo ponderado)
 export const DIFFICULTY_WEIGHTS = {
   baja: 1,
   media: 2,
   alta: 3,
 };
 
-// Valores por defecto para reglas de exámenes
-export const DEFAULT_EXAM_RULES = {
-  maxAttempts: 3,
-  timePerQuestionSeconds: 77,
-};
+// Valores por defecto globales (se pueden sobreescribir con examRules/default)
+export const DEFAULT_MAX_ATTEMPTS = 3;        // intentos por examen de sección
+export const DEFAULT_TIME_PER_QUESTION = 77;  // segundos por pregunta
+
+// Opciones de número de preguntas para Mini Exámenes
+export const MINI_EXAM_QUESTION_OPTIONS = [5, 10, 15, 20];
