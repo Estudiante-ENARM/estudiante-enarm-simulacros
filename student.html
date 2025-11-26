@@ -1,115 +1,72 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Estudiante | Estudiante ENARM</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estudiante – Plataforma ENARM</title>
 
-  <!-- TIPOGRAFÍA -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css" />
 
-  <!-- ESTILOS -->
-  <link rel="stylesheet" href="style.css" />
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
 
-  <!-- CHART.JS (Para progreso) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js para gráficas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 
 <body>
 
-  <!-- ============================
-       HEADER
-  ============================= -->
-  <header class="header">
-    <h2 style="font-size:18px; font-weight:600;">Panel del estudiante</h2>
+    <!-- ============================================================
+         SIDEBAR
+    ============================================================ -->
+    <div class="sidebar">
 
-    <div class="header-right">
-      <span id="student-email"></span>
-      <button id="btn-logout" class="btn btn-secondary">Salir</button>
-    </div>
-  </header>
+        <img src="logo.png" class="sidebar-logo">
 
+        <h2 class="sidebar-title">Estudiante ENARM</h2>
 
-  <!-- ============================
-       SIDEBAR
-  ============================= -->
-  <aside id="sidebar">
+        <!-- LISTA DE SECCIONES (CARGADAS POR student.js) -->
+        <div id="sectionsList"></div>
 
-    <div class="sidebar-logo">
-      <img src="logo.png" class="sidebar-logo-img">
-      <h2 class="sidebar-title">Estudiante ENARM</h2>
-    </div>
+        <!-- PROGRESO (fijo al final del sidebar) -->
+        <div id="progressBtn" class="sidebar-item" style="margin-top:30px;">
+            Mi progreso
+        </div>
 
-    <ul id="student-sections" class="sidebar-sections"></ul>
-
-    <button id="btn-progress" class="sidebar-btn btn-outline">Mi progreso</button>
-
-    <div class="sidebar-social">
-      <img src="instagram.png" class="social-icon" id="student-instagram">
-      <img src="whatsapp.png" class="social-icon" id="student-whatsapp">
-      <img src="tiktok.png" class="social-icon" id="student-tiktok">
-      <img src="telegram.png" class="social-icon" id="student-telegram">
-    </div>
-  </aside>
-
-
-  <!-- ============================
-       CONTENIDO PRINCIPAL
-  ============================= -->
-  <main id="content">
-
-    <!-- ======================
-         VISTA EXÁMENES
-    ======================= -->
-    <div id="student-exams-view" class="panel">
-      <h2 id="student-section-title">Selecciona una sección</h2>
-      <p class="panel-subtitle">Elige un simulacro para comenzar.</p>
-
-      <div id="student-exams-list" class="cards-list"></div>
+        <!-- LOGOUT -->
+        <div id="logoutBtn" class="sidebar-item" style="margin-top:20px; color:#ff3b30;">
+            Cerrar sesión
+        </div>
     </div>
 
 
-    <!-- ======================
-         RENDERS EXAMEN
-    ======================= -->
-    <div id="student-exam-view" class="panel hidden">
+    <!-- ============================================================
+         MAIN CONTENT
+    ============================================================ -->
+    <div class="main-content">
 
-      <button id="btn-exam-back" class="btn btn-outline" style="margin-bottom:18px;">← Volver</button>
+        <div id="studentContent">
 
-      <h2 id="exam-title"></h2>
-      <p class="panel-subtitle" style="margin-bottom:16px;">Contesta todas las preguntas.</p>
+            <h1 class="section-title">Bienvenido</h1>
+            <p>Selecciona una sección del menú izquierdo para comenzar.</p>
 
-      <div id="student-questions"></div>
+        </div>
 
-      <button id="btn-finish-exam" class="btn btn-primary" style="margin-top:20px;">Finalizar examen</button>
-
-      <div id="student-result-banner">
-        <div id="student-result-values"></div>
-      </div>
     </div>
 
 
-    <!-- ======================
-         PROGRESO
-    ======================= -->
-    <div id="student-progress-view" class="panel hidden">
-      <h2>Mi progreso</h2>
-      <p class="panel-subtitle">Historial y calificaciones guardadas.</p>
-
-      <div id="progress-global" style="margin:12px 0; font-weight:600;"></div>
-
-      <div class="progress-section-grid" id="progress-sections"></div>
-
-      <canvas id="progressChart" height="140" style="margin-top:28px;"></canvas>
-    </div>
-
-  </main>
-
-
-  <!-- ============================
-       JS
-  ============================= -->
-  <script type="module" src="student.js"></script>
+    <!-- ============================================================
+         SCRIPTS
+    ============================================================ -->
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="student.js"></script>
+    <script type="module" src="progressChart.js"></script>
 
 </body>
+
 </html>
