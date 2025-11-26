@@ -1,328 +1,892 @@
-/* ============================================================
-   GLOBAL STYLES
-   ============================================================ */
+/* ===================================================
+   VARIABLES DE COLOR (LIGHT / DARK)
+=================================================== */
 
 :root {
-    --primary: #0066ff;
-    --primary-dark: #0048b3;
-    --background: #f5f7fa;
-    --card-bg: #ffffff;
-    --text-main: #1c1c1c;
-    --text-secondary: #5a5a5a;
-    --border-radius: 14px;
-    --shadow: 0 4px 16px rgba(0,0,0,0.08);
+  --bg-body: #f3f4f6;
+  --bg-elevated: #ffffff;
+  --bg-sidebar: #0f172a;
+  --bg-sidebar-soft: #111827;
+  --bg-header: #ffffff;
 
-    /* Dark mode variables */
+  --border-subtle: #e5e7eb;
+  --border-strong: #1e3a8a;
+
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --text-invert: #f9fafb;
+
+  --primary: #2563eb;
+  --primary-dark: #1e3a8a;
+  --primary-soft: #e0e7ff;
+
+  --chip-success: #059669;
+  --chip-danger: #b91c1c;
+  --chip-admin: #2563eb;
+  --chip-user: #4b5563;
+
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 6px 18px rgba(15, 23, 42, 0.10);
+
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --transition-fast: 0.18s ease-out;
 }
 
+/* Dark Mode automático */
 @media (prefers-color-scheme: dark) {
-    :root {
-        --background: #121212;
-        --card-bg: #1d1d1d;
-        --text-main: #ffffff;
-        --text-secondary: #b9b9b9;
-        --shadow: 0 4px 18px rgba(0,0,0,0.5);
-    }
+  :root {
+    --bg-body: #020617;
+    --bg-elevated: #020617;
+    --bg-sidebar: #020617;
+    --bg-sidebar-soft: #020617;
+    --bg-header: #020617;
+
+    --border-subtle: #1f2937;
+    --border-strong: #3b82f6;
+
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --text-invert: #f9fafb;
+
+    --primary: #3b82f6;
+    --primary-dark: #1d4ed8;
+    --primary-soft: rgba(59, 130, 246, 0.10);
+
+    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.55);
+    --shadow-card: 0 6px 18px rgba(0, 0, 0, 0.40);
+  }
 }
+
+/* ===================================================
+   RESET Y BASE
+=================================================== */
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html, body {
+  height: 100%;
 }
 
 body {
-    background: var(--background);
-    color: var(--text-main);
+  background:
+    radial-gradient(circle at top, rgba(37, 99, 235, 0.08), transparent 55%),
+    var(--bg-body);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-
-/* ============================================================
-   LOGIN PAGE (index.html)
-   ============================================================ */
-
-.login-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
+/* Transiciones suaves globales */
+body, button, input, textarea, select {
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-.login-container {
-    max-width: 450px;
-    width: 100%;
+.view {
+  width: 100%;
+  height: 100%;
 }
 
-.login-logo {
-    display: block;
-    margin: 0 auto 25px auto;
-    width: 120px;
+/* Utilidades */
+.hidden {
+  display: none !important;
+}
+
+.flex-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ===================================================
+   LOGIN (index.html)
+=================================================== */
+
+#login-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
 
 .login-card {
-    background: var(--card-bg);
-    padding: 35px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
+  width: 380px;
+  max-width: 100%;
+  padding: 32px 28px 24px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  backdrop-filter: blur(10px);
 }
 
-.login-title {
-    text-align: center;
-    margin-bottom: 20px;
+.login-card h1 {
+  margin-bottom: 18px;
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--text-main);
 }
 
-.login-inputs input {
-    width: 100%;
-    margin-bottom: 12px;
-    padding: 14px;
-    border-radius: var(--border-radius);
-    border: 1px solid #d0d0d0;
-    background: var(--background);
-    color: var(--text-main);
+/* Campos de formulario */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
 }
 
-.primary-btn {
-    width: 100%;
-    padding: 14px;
-    background: var(--primary);
-    border: none;
-    border-radius: var(--border-radius);
-    color: white;
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 20px;
-    cursor: pointer;
-    transition: 0.2s;
+.field span {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
-.primary-btn:hover {
-    background: var(--primary-dark);
+.field input,
+.field textarea,
+.field select {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-main);
+  outline: none;
 }
 
-.info-box {
-    background: var(--card-bg);
-    border-radius: var(--border-radius);
-    padding: 15px;
-    margin-bottom: 25px;
-    color: var(--text-secondary);
-    border: 1px solid #e0e0e0;
+@media (prefers-color-scheme: dark) {
+  .field input,
+  .field textarea,
+  .field select {
+    background: #020617;
+  }
 }
 
-.price-btn {
-    width: 100%;
-    padding: 14px;
-    background: #f0f5ff;
-    border-radius: var(--border-radius);
-    border: none;
-    color: var(--primary);
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: 10px;
-    transition: 0.2s;
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary-soft);
 }
 
-.price-btn:hover {
-    background: #d8e6ff;
+.field textarea {
+  resize: vertical;
 }
 
-/* ============================================================
-   SIDEBAR (Admin & Student)
-   ============================================================ */
+/* Error de login */
 
-.sidebar {
-    width: 260px;
-    background: var(--card-bg);
-    height: 100vh;
-    position: fixed;
-    padding: 25px;
-    box-shadow: var(--shadow);
+.error {
+  margin-top: 12px;
+  color: var(--chip-danger);
+  font-size: 13px;
 }
 
-.sidebar-title {
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 20px;
+/* Bloque informativo (landing-card) */
+
+#landing-card {
+  margin-top: 20px;
+  background: var(--bg-elevated);
+  padding: 18px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-subtle);
 }
 
-.sidebar-logo {
-    width: 55px;
-    margin-bottom: 20px;
+#landing-card h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
-.sidebar-item {
-    padding: 12px 10px;
-    border-radius: var(--border-radius);
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: 0.2s;
-    font-weight: 500;
+#landing-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-wrap;
 }
 
-.sidebar-item:hover {
-    background: rgba(0,0,0,0.06);
+/* Botones de precios */
+
+#btn-price-month,
+#btn-price-full {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
 }
 
-.sidebar-item.active {
-    background: var(--primary);
-    color: white;
-}
-
-/* ============================================================
-   MAIN CONTENT AREA
-   ============================================================ */
-
-.main-content {
-    margin-left: 270px;
-    padding: 30px;
-}
-
-.section-title {
-    font-size: 26px;
-    font-weight: 700;
-    margin-bottom: 25px;
-}
-
-.card {
-    background: var(--card-bg);
-    padding: 25px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
-}
-
-.card h3 {
-    margin-bottom: 15px;
-}
-
-/* ============================================================
-   TABLES (Admin & Student Results)
-   ============================================================ */
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-
-.table thead {
-    background: #f0f0f0;
-}
-
-.table th, .table td {
-    padding: 10px;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.table tr:hover {
-    background: #f7f7f7;
-}
-
-/* ============================================================
-   BUTTONS (Admin & Student)
-   ============================================================ */
+/* ===================================================
+   BOTONES (GENERALES)
+=================================================== */
 
 .btn {
-    padding: 10px 16px;
-    border-radius: var(--border-radius);
-    border: none;
-    cursor: pointer;
-    transition: 0.2s;
-    font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transform-origin: center;
 }
 
 .btn-primary {
-    background: var(--primary);
-    color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: var(--text-invert);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
 }
 
 .btn-primary:hover {
-    background: var(--primary-dark);
-}
-
-.btn-danger {
-    background: #ff3b30;
-    color: white;
-}
-
-.btn-danger:hover {
-    filter: brightness(0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.35);
 }
 
 .btn-secondary {
-    background: #ececec;
-    color: var(--text-main);
+  background: #4b5563;
+  color: #f9fafb;
 }
 
 .btn-secondary:hover {
-    background: #dedede;
+  background: #374151;
+  transform: translateY(-1px);
 }
 
-/* ============================================================
-   FORMS (Admin)
-   ============================================================ */
-
-.input {
-    width: 100%;
-    padding: 12px;
-    border-radius: var(--border-radius);
-    border: 1px solid #d0d0d0;
-    background: var(--background);
-    color: var(--text-main);
-    margin-bottom: 12px;
+.btn-outline {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.7);
+  color: var(--text-main);
 }
 
-/* ============================================================
-   EXAMS AND QUESTIONS LIST (Student)
-   ============================================================ */
-
-.exam-card {
-    background: var(--card-bg);
-    padding: 18px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 15px;
-    cursor: pointer;
-    transition: 0.2s;
+.btn-outline:hover {
+  background: rgba(148, 163, 184, 0.12);
 }
 
-.exam-card:hover {
-    transform: scale(1.01);
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* ===================================================
+   HEADER (ADMIN / STUDENT)
+=================================================== */
+
+.header {
+  height: 56px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.hamburger-btn {
+  background: transparent;
+  font-size: 24px;
+  border: none;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+/* ===================================================
+   SIDEBAR (ADMIN / STUDENT)
+=================================================== */
+
+#sidebar {
+  width: 260px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 60%),
+    var(--bg-sidebar);
+  height: calc(100vh - 56px);
+  border-right: 1px solid rgba(148, 163, 184, 0.3);
+  position: fixed;
+  left: 0;
+  top: 56px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 30;
+}
+
+.sidebar-logo {
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.sidebar-logo-img {
+  width: 76px;
+  height: auto;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.45));
+}
+
+.sidebar-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-invert);
+}
+
+/* Lista de secciones */
+
+.sidebar-sections {
+  flex: 1;
+  margin-top: 16px;
+  list-style: none;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Scrollbar fino */
+.sidebar-sections::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-sections::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.7);
+  border-radius: 999px;
+}
+
+.sidebar__section-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+  color: var(--text-invert);
+}
+
+.sidebar__section-item:hover {
+  background: rgba(15, 23, 42, 0.85);
+  transform: translateY(-1px);
+}
+
+.sidebar__section-item--active {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
+}
+
+.sidebar__section-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sidebar__section-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  color: var(--text-invert);
+  opacity: 0.8;
+}
+
+.icon-btn:hover {
+  opacity: 1;
+}
+
+/* Botones de barra lateral */
+
+.sidebar-btn {
+  width: 100%;
+  margin: 4px 0;
+  padding: 10px 11px;
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--text-invert);
+}
+
+.sidebar-btn.btn-outline {
+  background: transparent;
+  border-color: rgba(148, 163, 184, 0.7);
+  color: #e5e7eb;
+}
+
+.sidebar-btn:hover {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(129, 140, 248, 0.8);
+}
+
+/* Iconos sociales (login + admin + student) */
+
+.sidebar-social {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-around;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.social-icon {
+  width: 26px;
+  cursor: pointer;
+  opacity: 0.75;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.45));
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.social-icon:hover {
+  opacity: 1;
+  transform: translateY(-1px) scale(1.03);
+}
+
+/* ===================================================
+   CONTENIDO PRINCIPAL (ADMIN / STUDENT)
+=================================================== */
+
+#content {
+  margin-left: 260px;
+  padding: 80px 24px 24px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.panel {
+  display: block;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  align-items: center;
+}
+
+.panel-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Listado de tarjetas */
+
+.cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===================================================
+   CARDS GENERALES
+=================================================== */
+
+.card {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-item {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+}
+
+.card-item__title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.card-item__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.badge {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--primary-dark);
+  border-radius: 50%;
+}
+
+/* ===================================================
+   TABLAS (usuarios, análisis, resultados)
+=================================================== */
+
+table {
+  width: 100%;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border-collapse: collapse;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+thead {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  thead {
+    background: rgba(15, 23, 42, 0.85);
+  }
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+  text-align: left;
+}
+
+th {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+/* Chips de estado / rol */
+
+.chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #f9fafb;
+}
+
+.chip--activo {
+  background: var(--chip-success);
+}
+
+.chip--inactivo {
+  background: var(--chip-danger);
+}
+
+.chip--admin {
+  background: var(--chip-admin);
+}
+
+.chip--user {
+  background: var(--chip-user);
+}
+
+/* ===================================================
+   MODAL GENÉRICO (admin)
+=================================================== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--bg-elevated);
+  width: 380px;
+  max-width: 95%;
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+}
+
+.modal h3 {
+  font-size: 18px;
+  margin-bottom: 14px;
+  color: var(--text-main);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  gap: 10px;
+}
+
+/* ===================================================
+   STUDENT VIEW — BANNER DE RESULTADOS
+=================================================== */
+
+#student-result-banner {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: var(--text-invert);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-soft);
+  display: none; /* se muestra vía JS */
+}
+
+#student-result-banner h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#student-result-banner svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25));
+}
+
+#student-result-banner .result-values {
+  font-size: 14px;
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
+/* ===================================================
+   STUDENT — CASOS CLÍNICOS Y PREGUNTAS
+=================================================== */
+
+.case-block {
+  background: var(--bg-elevated);
+  padding: 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+}
+
+.case-block h4 {
+  font-size: 16px;
+  color: var(--text-main);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.case-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  margin-bottom: 16px;
 }
 
 .question-block {
-    background: var(--card-bg);
-    padding: 20px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
 }
 
-/* ============================================================
-   PROGRESS CHART (Student)
-   ============================================================ */
-
-.chart-container {
-    width: 100%;
-    max-width: 900px;
-    margin: 25px auto;
-    background: var(--card-bg);
-    padding: 18px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
+.question-block h5 {
+  font-size: 15px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
+.question-block p {
+  font-size: 14px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
 
-@media (max-width: 860px) {
-    .sidebar {
-        display: none;
-    }
-    .main-content {
-        margin-left: 0;
-        padding: 20px;
-    }
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.question-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.question-options input[type="radio"] {
+  margin-top: 2px;
+}
+
+/* Justificación al finalizar */
+
+.justification-box {
+  background: var(--primary-soft);
+  border-left: 4px solid var(--primary-dark);
+  padding: 12px 14px;
+  margin-top: 10px;
+  border-radius: var(--radius-sm);
+  color: var(--primary-dark);
+  font-size: 13px;
+  display: none; /* se activa cuando termina el examen */
+}
+
+/* Tablas de resultados premium */
+
+.result-message {
+  margin-bottom: 8px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.result-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.14);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.result-table th,
+.result-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.18);
+}
+
+.result-table th {
+  text-align: left;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.result-table--compact th,
+.result-table--compact td {
+  padding: 5px 6px;
+}
+
+/* ===================================================
+   PROGRESO (STUDENT)
+=================================================== */
+
+.progress-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.progress-section-card {
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.progress-section-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.progress-global {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+#student-progress-chart-card {
+  height: 320px;
+}
+
+/* En móvil, tarjetas de progreso en una columna */
+@media (max-width: 700px) {
+  .progress-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===================================================
+   RESPONSIVE LAYOUT
+=================================================== */
+
+@media (max-width: 850px) {
+  #sidebar {
+    left: -260px;
+    transition: left var(--transition-fast);
+  }
+
+  #sidebar.sidebar--open {
+    left: 0;
+  }
+
+  #content {
+    margin-left: 0;
+    margin-top: 72px;
+    padding: 72px 16px 24px;
+  }
+
+  .hamburger-btn {
+    display: block;
+  }
 }
