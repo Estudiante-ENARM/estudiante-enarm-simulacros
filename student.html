@@ -11,11 +11,50 @@
   <!-- ESTILOS COMPARTIDOS -->
   <link rel="stylesheet" href="style.css" />
 
+  <!-- FAVICON (evita error 404 /favicon.ico) -->
+  <link rel="icon" type="image/png" href="logo.png" />
+
   <!-- CHART.JS PARA LA GRÁFICA DE PROGRESO -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- Meta Pixel Code -->
+  <script>
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;
+      n=f.fbq=function(){ n.callMethod ?
+        n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+      if(!f._fbq)f._fbq=n;
+      n.push=n;
+      n.loaded=!0;
+      n.version='2.0';
+      n.queue=[];
+      t=b.createElement(e);t.async=!0;
+      t.src=v;
+      s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s);
+    }(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+  </script>
+  <!-- End Meta Pixel Code -->
 </head>
 
 <body>
+  <!-- Meta Pixel (noscript) -->
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
+  </noscript>
 
   <section id="student-view" class="view">
 
@@ -34,7 +73,7 @@
       <!-- SECCIONES DINÁMICAS -->
       <ul id="student-sidebar-sections" class="sidebar-sections"></ul>
 
-      <!-- BOTÓN PROGRESO (AHORA JUSTO DEBAJO DE LAS SECCIONES) -->
+      <!-- BOTÓN PROGRESO (JUSTO DEBAJO DE LAS SECCIONES) -->
       <button id="student-progress-btn" class="sidebar-btn">
         Progreso
       </button>
@@ -61,7 +100,7 @@
     <!-- CONTENIDO PRINCIPAL -->
     <main id="content">
 
-      <!-- PANEL BLOQUEO ANTIGUO (LO DEJO OCULTO) -->
+      <!-- PANEL BLOQUEO ANTIGUO (OCULTO) -->
       <div id="trial-locked-panel" class="card hidden" style="margin-bottom:16px;background:#fee2e2;border-left:4px solid #dc2626;">
         <h3 style="font-size:15px;color:#b91c1c;margin-bottom:6px;">
           Contenido bloqueado
@@ -75,7 +114,7 @@
       </div>
 
       <!-- ==========================
-           VISTA MINI EXÁMENES (NUEVO)
+           VISTA MINI EXÁMENES
            ========================== -->
       <div id="student-mini-exams-view" class="panel hidden">
         <div class="panel-header">
@@ -146,18 +185,6 @@
           </p>
         </div>
       </div>
-      
-      <!-- MINI EXÁMENES (placeholder) -->
-      <div id="student-mini-exam-view" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Mini exámenes</h2>
-            <p class="panel-subtitle">
-              Próximamente podrás crear tus propios mini exámenes desde aquí.
-            </p>
-          </div>
-        </div>
-      </div>
 
       <!-- LISTA DE EXÁMENES POR SECCIÓN -->
       <div id="student-exams-view" class="panel">
@@ -219,7 +246,7 @@
           </button>
         </div>
 
-        <!-- CTA DE COMPRA LUEGO DEL EXAMEN (SI LA USAS) -->
+        <!-- CTA DE COMPRA LUEGO DEL EXAMEN -->
         <div id="student-post-exam-cta" class="card hidden" style="margin-top:16px;text-align:center;">
           <h3 style="margin-bottom:6px;font-size:16px;">¿Quieres ver todos tus resultados completos?</h3>
           <p class="panel-subtitle" style="margin-bottom:12px;">
@@ -229,7 +256,6 @@
             Adquirir acceso
           </button>
         </div>
-
       </div>
 
       <!-- PROGRESO -->
