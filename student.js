@@ -28,41 +28,43 @@ import {
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_TIME_PER_QUESTION,
   MINI_EXAM_QUESTION_OPTIONS,
-  DIFFICULTY_LABELS,
-  SPECIALTY_LABELS,
-  SUBTYPE_LABELS,
 } from "./shared-constants.js";
+
+/***********************************************
+ * MAPAS DE ETIQUETAS (a partir de shared-constants)
+ ***********************************************/
+const SPECIALTY_LABELS = SPECIALTIES;
+const SUBTYPE_LABELS = SUBTYPES;
+const DIFFICULTY_LABELS = DIFFICULTIES;
 
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
+
+// Layout
 const sidebar = document.getElementById("sidebar");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
-// Botones laterales
-const studentMiniBtn = document.getElementById("student-mini-exams-btn");
-const sidebarSections = document.getElementById("student-sidebar-sections");
-const btnProgressView = document.getElementById("student-progress-btn");
-
-const socialButtons = document.querySelectorAll(".social-icon");
-
+// Usuario
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
+// Sidebar
+const sidebarSections = document.getElementById("student-sidebar-sections");
+const btnProgressView = document.getElementById("student-progress-btn");
+const btnMiniExamsSidebar = document.getElementById("student-mini-exams-btn");
+
+// Redes sociales
+const socialButtons = document.querySelectorAll(".social-icon");
+
 // Vistas principales
-const miniBuilderView = document.getElementById("student-mini-exams-view");
-const miniExamView = document.getElementById("student-mini-exam-view"); // placeholder
 const examsView = document.getElementById("student-exams-view");
 const examDetailView = document.getElementById("student-exam-detail-view");
 const progressView = document.getElementById("student-progress-view");
+const miniBuilderView = document.getElementById("student-mini-exams-view");
+const miniExamView = document.getElementById("student-mini-exam-view"); // placeholder (ya no se usa mucho)
 
-// Mini examen (builder) - IDs del HTML
-const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
-const miniRandomCheckbox = document.getElementById("student-mini-random");
-const miniStartBtn = document.getElementById("student-mini-start-btn");
-// checkboxes de especialidad: .student-mini-specialty
-
-// Exámenes por sección
+// Sección y lista de exámenes
 const sectionTitle = document.getElementById("student-current-section-title");
 const sectionSubtitle = document.getElementById("student-current-section-subtitle");
 const examsList = document.getElementById("student-exams-list");
@@ -85,8 +87,13 @@ const progressUsername = document.getElementById("student-progress-username");
 const progressSectionsContainer = document.getElementById("student-progress-sections");
 const progressGlobalEl = document.getElementById("student-progress-global");
 const progressChartCanvas = document.getElementById("student-progress-chart");
-
 let progressChartInstance = null;
+
+// Mini exámenes (builder)
+const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
+const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
+const miniRandomCheckbox = document.getElementById("student-mini-random");
+const btnMiniStart = document.getElementById("student-mini-start-btn");
 
 /***********************************************
  * ESTADO GLOBAL
@@ -99,21 +106,21 @@ let examRules = {
   timePerQuestionSeconds: DEFAULT_TIME_PER_QUESTION,
 };
 
-let currentView = "section";   // "mini" | "section" | "progress"
+let currentView = "section";    // "section" | "progress" | "mini"
 let currentSectionId = null;
 let currentSectionName = null;
 
-let currentExamMode = null;    // "section" | "mini"
-let currentExamId = null;
-let currentExamQuestions = [];
+let currentExamMode = null;     // "section" | "mini"
+let currentExamId = null;       // id del examen (solo en modo "section")
+let currentExamQuestions = [];  // arreglo plano de preguntas
 let currentExamTotalSeconds = 0;
 let currentExamTimerId = null;
 let currentExamPreviousAttempts = 0;
 
-let miniCasesCache = [];       // todos los casos clínicos de miniCases
+let miniCasesCache = [];        // casos clínicos de miniCases
 
 /***********************************************
- * UTILIDADES
+ * UTILIDADES GENERALES
  ***********************************************/
 function show(el) {
   if (el) el.classList.remove("hidden");
@@ -191,7 +198,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    // El documento en /users/ usa el EMAIL como ID
+    // Importante: en /users/ el ID es el EMAIL
     const userRef = doc(db, "users", user.email);
     const snap = await getDoc(userRef);
 
@@ -227,7 +234,7 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    // Todo OK: inicializamos panel
+    // Autorizado: inicializamos el panel
     currentUser = user;
     currentUserProfile = data;
 
@@ -240,7 +247,6 @@ onAuthStateChanged(auth, async (user) => {
     await loadSectionsForStudent();
 
     switchToSectionView();
-
   } catch (err) {
     console.error("Error validando usuario estudiante", err);
     alert("Error validando tu acceso. Intenta más tarde.");
@@ -252,59 +258,68 @@ onAuthStateChanged(auth, async (user) => {
 /***********************************************
  * LISTENERS GENERALES (SIDEBAR, LOGOUT, NAV)
  ***********************************************/
-btnToggleSidebar?.addEventListener("click", () => {
-  sidebar.classList.toggle("sidebar--open");
-});
+if (btnToggleSidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
+  });
+}
 
-btnLogout?.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    window.location.href = "index.html";
-  }
-});
+if (btnLogout) {
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      window.location.href = "index.html";
+    }
+  });
+}
 
-// Botón lateral Mini Exámenes
-studentMiniBtn?.addEventListener("click", () => {
-  switchToMiniView();
-});
+// Mini exámenes desde el sidebar
+if (btnMiniExamsSidebar && miniBuilderView) {
+  btnMiniExamsSidebar.addEventListener("click", () => {
+    currentView = "mini";
+    hide(examsView);
+    hide(examDetailView);
+    hide(progressView);
+    if (miniExamView) hide(miniExamView);
+    show(miniBuilderView);
+    sidebar.classList.remove("sidebar--open");
+  });
+}
 
-// Botón lateral Progreso
-btnProgressView?.addEventListener("click", () => {
-  switchToProgressView();
-});
+// Progreso
+if (btnProgressView) {
+  btnProgressView.addEventListener("click", () => {
+    switchToProgressView();
+  });
+}
 
 // Builder de mini examen
-miniStartBtn?.addEventListener("click", () => {
-  startMiniExamFromBuilder();
-});
+if (btnMiniStart) {
+  btnMiniStart.addEventListener("click", () => {
+    startMiniExamFromBuilder();
+  });
+}
 
 // Volver desde el examen
-btnBackToExams?.addEventListener("click", () => {
-  handleBackFromExam();
-});
+if (btnBackToExams) {
+  btnBackToExams.addEventListener("click", () => {
+    handleBackFromExam();
+  });
+}
 
 // Enviar examen
-btnSubmitExam?.addEventListener("click", () => {
-  submitExamForStudent(false);
-});
+if (btnSubmitExam) {
+  btnSubmitExam.addEventListener("click", () => {
+    submitExamForStudent(false);
+  });
+}
 
 /***********************************************
  * CAMBIO DE VISTAS
  ***********************************************/
-function switchToMiniView() {
-  currentView = "mini";
-  show(miniBuilderView);
-  hide(examsView);
-  hide(examDetailView);
-  hide(progressView);
-  if (miniExamView) hide(miniExamView);
-
-  sidebar.classList.remove("sidebar--open");
-}
-
 function switchToSectionView() {
   currentView = "section";
   hide(miniBuilderView);
@@ -441,7 +456,7 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
-  // Seleccionamos automáticamente la primera sección
+  // Seleccionamos automáticamente la primera sección como activa
   if (firstSectionId) {
     currentSectionId = firstSectionId;
     currentSectionName = firstSectionName;
@@ -485,20 +500,29 @@ async function loadExamsForSectionForStudent(sectionId) {
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
 
-    // Intentos previos
-    const attemptRef = doc(
-      db,
-      "users",
-      currentUser.email,
-      "examAttempts",
-      examId
-    );
-    const attemptSnap = await getDoc(attemptRef);
-    const attemptsUsed = attemptSnap.exists()
-      ? attemptSnap.data().attempts || 0
-      : 0;
+    // Intentos previos del estudiante
+    let attemptsUsed = 0;
+    let lastAttemptText = "Sin intentos previos.";
 
-    // Contar número total de preguntas
+    if (currentUser) {
+      const attemptRef = doc(
+        db,
+        "users",
+        currentUser.email,
+        "examAttempts",
+        examId
+      );
+      const attemptSnap = await getDoc(attemptRef);
+      if (attemptSnap.exists()) {
+        const atData = attemptSnap.data();
+        attemptsUsed = atData.attempts || 0;
+        lastAttemptText = atData.lastAttempt
+          ? atData.lastAttempt.toDate().toLocaleDateString()
+          : "—";
+      }
+    }
+
+    // Contar preguntas
     const qQuestions = query(
       collection(db, "questions"),
       where("examId", "==", examId)
@@ -512,6 +536,7 @@ async function loadExamsForSectionForStudent(sectionId) {
       totalQuestions += arr.length;
     });
 
+    // Si no hay preguntas, mostrar como "En preparación"
     if (totalQuestions === 0) {
       const cardPrep = document.createElement("div");
       cardPrep.className = "card-item";
@@ -528,6 +553,7 @@ async function loadExamsForSectionForStudent(sectionId) {
       continue;
     }
 
+    // Tiempo total según reglas globales
     const maxAttempts = examRules.maxAttempts;
     const timePerQuestion = examRules.timePerQuestionSeconds;
     const totalSeconds = totalQuestions * timePerQuestion;
@@ -536,18 +562,9 @@ async function loadExamsForSectionForStudent(sectionId) {
     const disabled = attemptsUsed >= maxAttempts;
     const statusText = disabled ? "Sin intentos disponibles" : "Disponible";
 
-    const lastAttemptText = attemptSnap.exists()
-      ? (attemptSnap.data().lastAttempt
-        ? attemptSnap.data().lastAttempt.toDate().toLocaleDateString()
-        : "—")
-      : "Sin intentos previos.";
-
     const card = document.createElement("div");
     card.className = "card-item";
-
-    if (disabled) {
-      card.style.opacity = 0.7;
-    }
+    if (disabled) card.style.opacity = 0.7;
 
     card.innerHTML = `
       <div class="card-item__title-row" style="align-items:flex-start;">
@@ -626,7 +643,7 @@ async function loadExamsForSectionForStudent(sectionId) {
 }
 
 /***********************************************
- * SHUFFLE
+ * SHUFFLE (para mini exámenes)
  ***********************************************/
 function shuffleArray(arr) {
   const copy = arr.slice();
@@ -638,7 +655,7 @@ function shuffleArray(arr) {
 }
 
 /***********************************************
- * MINI EXÁMENES — CARGA INICIAL DE CASOS
+ * MINI EXÁMENES — CARGA INICIAL DE miniCases
  ***********************************************/
 async function loadMiniCasesOnce() {
   if (miniCasesCache.length > 0) return;
@@ -675,7 +692,7 @@ async function loadMiniCasesOnce() {
 }
 
 /***********************************************
- * MINI EXÁMENES — CONSTRUIR Y ARRANCAR EXAMEN
+ * MINI EXÁMENES — CONSTRUIR E INICIAR
  ***********************************************/
 async function startMiniExamFromBuilder() {
   if (!miniNumQuestionsSelect) {
@@ -685,14 +702,12 @@ async function startMiniExamFromBuilder() {
 
   const numQuestions = parseInt(miniNumQuestionsSelect.value, 10) || 5;
 
-  // Especialidades seleccionadas
-  const selectedSpecialties = Array.from(
-    document.querySelectorAll(".student-mini-specialty")
-  )
+  const selectedSpecialties = Array.from(miniSpecialtyCheckboxes)
     .filter((cb) => cb.checked)
     .map((cb) => cb.value);
 
   const randomOnly = miniRandomCheckbox ? miniRandomCheckbox.checked : true;
+  // (Por ahora randomOnly no cambia la lógica: siempre hacemos selección aleatoria.)
 
   await loadMiniCasesOnce();
 
@@ -701,6 +716,7 @@ async function startMiniExamFromBuilder() {
     return;
   }
 
+  // Filtrar por especialidad (si se seleccionó al menos una)
   let poolCases = miniCasesCache.slice();
   if (selectedSpecialties.length > 0) {
     poolCases = poolCases.filter((c) =>
@@ -713,7 +729,7 @@ async function startMiniExamFromBuilder() {
     return;
   }
 
-  // Pool a nivel pregunta
+  // Construir pool a nivel pregunta
   const questionPool = [];
   poolCases.forEach((caseData) => {
     const specialty = caseData.specialty || null;
@@ -742,7 +758,7 @@ async function startMiniExamFromBuilder() {
   }
 
   const shuffled = randomOnly ? shuffleArray(questionPool) : questionPool;
-  const selectedQuestions = shuffled.slice(0, numQuestions);
+  const selectedQuestions = shuffled.slice(0, Math.min(numQuestions, shuffled.length));
 
   if (!selectedQuestions.length) {
     alert("No se pudieron seleccionar preguntas para el mini examen.");
@@ -762,25 +778,22 @@ async function startMiniExamFromBuilder() {
   }
   if (examTimerEl) examTimerEl.textContent = "--:--";
 
-  // Reset botón enviar
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = false;
-    btnSubmitExam.style.display = "inline-flex";
-  }
+  // Reset resultados previos
+  if (resultBanner) resultBanner.style.display = "none";
+  if (resultValues) resultValues.innerHTML = "";
 
-  // Limpiar resultados previos
-  if (resultBanner) {
-    resultBanner.style.display = "none";
-  }
-  if (resultValues) {
-    resultValues.innerHTML = "";
-  }
-
-  // Mostrar panel de examen
+  // Mostrar vista de examen
   hide(examsView);
   hide(progressView);
+  hide(miniBuilderView);
   if (miniExamView) hide(miniExamView);
   show(examDetailView);
+
+  // Reactivar botón de enviar
+  if (btnSubmitExam) {
+    btnSubmitExam.disabled = false;
+    btnSubmitExam.style.display = "";
+  }
 
   examTitle.textContent = "Mini examen personalizado";
   examSubtitle.textContent =
@@ -796,7 +809,7 @@ async function startMiniExamFromBuilder() {
 
   questionsList.innerHTML = "";
 
-  // Agrupado por caso
+  // Agrupar por caso para mostrar
   const caseMap = new Map();
   selectedQuestions.forEach((q) => {
     if (!caseMap.has(q.caseId)) {
@@ -912,21 +925,16 @@ async function startSectionExamForStudent({
 
   hide(examsView);
   hide(progressView);
+  hide(miniBuilderView);
   if (miniExamView) hide(miniExamView);
   show(examDetailView);
 
-  // Reset resultados
-  if (resultBanner) {
-    resultBanner.style.display = "none";
-  }
-  if (resultValues) {
-    resultValues.innerHTML = "";
-  }
+  if (resultBanner) resultBanner.style.display = "none";
+  if (resultValues) resultValues.innerHTML = "";
 
-  // Reset botón enviar
   if (btnSubmitExam) {
     btnSubmitExam.disabled = false;
-    btnSubmitExam.style.display = "inline-flex";
+    btnSubmitExam.style.display = "";
   }
 
   examTitle.textContent = examName;
@@ -935,14 +943,11 @@ async function startSectionExamForStudent({
 
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
-    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(
-      totalSeconds
-    )}</strong><br>
+    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(totalSeconds)}</strong><br>
     🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
   `;
 
   await loadQuestionsForSectionExam(examId);
-
   startExamTimer(currentExamTotalSeconds);
 }
 
@@ -1061,7 +1066,7 @@ async function loadQuestionsForSectionExam(examId) {
 }
 
 /***********************************************
- * CRONÓMETRO (EXÁMENES POR SECCIÓN)
+ * CRONÓMETRO — SOLO PARA EXÁMENES POR SECCIÓN
  ***********************************************/
 function startExamTimer(totalSeconds) {
   if (!examTimerEl) return;
@@ -1098,11 +1103,10 @@ async function submitExamForStudent(auto = false) {
     return;
   }
 
-  // Ocultar botón para que no den clic de nuevo
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = true;
-    btnSubmitExam.style.display = "none";
-  }
+  if (!btnSubmitExam) return;
+
+  // Bloquear botón inmediatamente
+  btnSubmitExam.disabled = true;
 
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
@@ -1116,7 +1120,7 @@ async function submitExamForStudent(auto = false) {
 
   const detail = {};
 
-  // Stats por especialidad y subtipo
+  // Acumuladores por especialidad y subtipo
   const specStats = {};
   Object.keys(SPECIALTY_LABELS).forEach((k) => {
     specStats[k] = {
@@ -1222,7 +1226,7 @@ async function submitExamForStudent(auto = false) {
       ? (globalWeightedCorrect / globalWeightedTotal) * 100
       : 0;
 
-  // Guardar SOLO en exámenes por sección
+  // Guardar SOLO cuando es examen por sección
   if (currentExamMode === "section" && currentExamId && currentUser) {
     try {
       const attemptRef = doc(
@@ -1268,11 +1272,14 @@ async function submitExamForStudent(auto = false) {
     globalCorrect,
     totalQuestions,
     scoreWeighted,
-    weightedPoints: globalWeightedCorrect,
-    weightedTotal: globalWeightedTotal,
+    globalWeightedCorrect,
+    globalWeightedTotal,
     specStats,
     difficultyStats,
   });
+
+  // IMPORTANTE: ocultar botón para que no cuente otro intento
+  btnSubmitExam.style.display = "none";
 }
 
 /***********************************************
@@ -1283,8 +1290,8 @@ function renderPremiumResults({
   globalCorrect,
   totalQuestions,
   scoreWeighted,
-  weightedPoints,
-  weightedTotal,
+  globalWeightedCorrect,
+  globalWeightedTotal,
   specStats,
   difficultyStats,
 }) {
@@ -1292,7 +1299,7 @@ function renderPremiumResults({
     alert(
       `Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(
         scoreWeighted
-      )}%`
+      )}%\nPuntos ponderados: ${globalWeightedCorrect} de ${globalWeightedTotal}`
     );
     return;
   }
@@ -1301,6 +1308,7 @@ function renderPremiumResults({
     ? "El examen fue enviado automáticamente al agotarse el tiempo."
     : "Tu examen se envió correctamente. Revisa tus resultados detallados.";
 
+  // Tabla general (aciertos + total ponderado)
   const tableGeneral = `
     <table class="result-table">
       <thead>
@@ -1316,7 +1324,7 @@ function renderPremiumResults({
         </tr>
         <tr>
           <td>Puntos ponderados</td>
-          <td>${toFixedNice(weightedPoints, 2)} de ${toFixedNice(weightedTotal, 2)}</td>
+          <td>${globalWeightedCorrect} de ${globalWeightedTotal}</td>
         </tr>
         <tr>
           <td>Calificación ponderada</td>
@@ -1326,6 +1334,7 @@ function renderPremiumResults({
     </table>
   `;
 
+  // Tabla por especialidad/subtipo
   const tableBySpecialtySubtype = `
     <table class="result-table result-table--compact">
       <thead>
@@ -1358,6 +1367,7 @@ function renderPremiumResults({
     </table>
   `;
 
+  // Tabla por dificultad
   const tableByDifficulty = `
     <table class="result-table result-table--compact">
       <thead>
@@ -1415,12 +1425,8 @@ function handleBackFromExam() {
   if (questionsList) questionsList.innerHTML = "";
   if (examTimerEl) examTimerEl.textContent = "--:--";
 
-  if (resultBanner) {
-    resultBanner.style.display = "none";
-  }
-  if (resultValues) {
-    resultValues.innerHTML = "";
-  }
+  if (resultBanner) resultBanner.style.display = "none";
+  if (resultValues) resultValues.innerHTML = "";
 
   hide(examDetailView);
   hide(progressView);
@@ -1430,6 +1436,8 @@ function handleBackFromExam() {
   } else {
     show(examsView);
   }
+
+  // El botón se volverá a mostrar cuando se inicie un nuevo examen
 }
 
 /***********************************************
@@ -1443,6 +1451,7 @@ async function loadStudentProgress() {
       "Estudiante: " + (currentUserProfile?.name || currentUser.email);
   }
 
+  // Secciones
   const sectionsSnap = await getDocs(collection(db, "sections"));
   const sectionsMap = {};
   sectionsSnap.forEach((docSnap) => {
@@ -1452,6 +1461,7 @@ async function loadStudentProgress() {
     };
   });
 
+  // Stats por sección
   const sectionStats = {};
   Object.values(sectionsMap).forEach((s) => {
     sectionStats[s.id] = {
@@ -1465,6 +1475,7 @@ async function loadStudentProgress() {
 
   const examResults = [];
 
+  // Leer exámenes y sus intentos de este usuario
   const examsSnap = await getDocs(collection(db, "exams"));
 
   for (const ex of examsSnap.docs) {
@@ -1508,6 +1519,7 @@ async function loadStudentProgress() {
     }
   }
 
+  // Tarjetas por sección
   if (progressSectionsContainer) {
     progressSectionsContainer.innerHTML = "";
 
@@ -1528,9 +1540,7 @@ async function loadStudentProgress() {
         card.innerHTML = `
           <div class="progress-section-title">${s.name}</div>
           <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
-          <div><strong>Aciertos:</strong> ${st.correct} / ${
-          st.totalQuestions
-        }</div>
+          <div><strong>Aciertos:</strong> ${st.correct} / ${st.totalQuestions}</div>
           <div><strong>Exámenes realizados:</strong> ${examsCnt}</div>
         `;
       }
@@ -1539,6 +1549,7 @@ async function loadStudentProgress() {
     });
   }
 
+  // Totales globales
   const totalExams = examResults.length;
   const totalCorrect = examResults.reduce(
     (sum, r) => sum + (r.correctCount || 0),
@@ -1561,6 +1572,7 @@ async function loadStudentProgress() {
     `;
   }
 
+  // Gráfica
   renderProgressChart(examResults);
 }
 
