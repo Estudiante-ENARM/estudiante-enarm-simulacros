@@ -655,13 +655,17 @@ function shuffleArray(arr) {
 }
 
 /***********************************************
- * MINI EXÁMENES — CARGA INICIAL DE miniCases
+ * MINI EXÁMENES — CARGA INICIAL DE CASOS
+ * Colección: miniQuestions  (coincide con Firestore)
  ***********************************************/
 async function loadMiniCasesOnce() {
+  // Si ya los cargamos antes, no volvemos a leer
   if (miniCasesCache.length > 0) return;
 
   try {
-    const snap = await getDocs(collection(db, "miniCases"));
+    // OJO: aquí ya usamos la colección correcta
+    const snap = await getDocs(collection(db, "miniQuestions"));
+
     if (snap.empty) {
       miniCasesCache = [];
       return;
@@ -670,10 +674,12 @@ async function loadMiniCasesOnce() {
     const arr = [];
     snap.forEach((docSnap) => {
       const data = docSnap.data();
+
       const caseText = data.caseText || "";
       const specialty = data.specialty || null;
       const questions = Array.isArray(data.questions) ? data.questions : [];
 
+      // Si no hay texto de caso o no hay preguntas, se ignora
       if (!caseText || questions.length === 0) return;
 
       arr.push({
@@ -686,10 +692,11 @@ async function loadMiniCasesOnce() {
 
     miniCasesCache = arr;
   } catch (err) {
-    console.error("Error cargando miniCases:", err);
+    console.error("Error cargando miniQuestions:", err);
     miniCasesCache = [];
   }
 }
+
 
 /***********************************************
  * MINI EXÁMENES — CONSTRUIR E INICIAR
