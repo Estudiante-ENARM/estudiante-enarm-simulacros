@@ -11,7 +11,7 @@ export const SPECIALTIES = {
   cirugia_general: "Cirugía general",
 };
 
-// Para mostrar etiquetas legibles (mismos valores)
+// Etiquetas legibles (mismo contenido)
 export const SPECIALTY_LABELS = { ...SPECIALTIES };
 
 // Subtipos de pregunta
@@ -51,5 +51,5 @@ export const DEFAULT_EXAM_RULES = {
   timePerQuestionSeconds: DEFAULT_TIME_PER_QUESTION,
 };
 
-// Opciones de número de preguntas para mini-exámenes (student.js)
+// Opciones de número de preguntas para mini-exámenes
 export const MINI_EXAM_QUESTION_OPTIONS = [5, 10, 15, 20];
