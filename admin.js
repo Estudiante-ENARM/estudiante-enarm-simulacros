@@ -325,8 +325,6 @@ if (btnNavMini) {
     btnNavMini.classList.add("sidebar-btn--active");
     setActivePanel("mini");
     sidebar.classList.remove("sidebar--open");
-    // En esta primera versión dejamos el módulo "Mini exámenes" preparado
-    // para implementar después el CRUD de casos globales.
   });
 }
 
