@@ -809,7 +809,8 @@ async function openExamDetail(examId, examName) {
   currentExamId = examId;
   currentExamCases = [];
 
-  hide(panelExams);
+  // IMPORTANTE: ya NO ocultamos todo el panel de exámenes.
+  // Solo mostramos la vista de detalle, que está dentro del mismo panel.
   show(examDetailView);
 
   if (examTitleInput) {
@@ -859,7 +860,6 @@ function renderExamCases() {
     wrapper.dataset.caseIndex = index;
 
     const specialtyValue = caseData.specialty || "";
-
     const questionsArr = Array.isArray(caseData.questions)
       ? caseData.questions
       : [];
@@ -1034,19 +1034,21 @@ function renderQuestionBlock(qData) {
   return card;
 }
 
+// Botón "Volver a exámenes"
 if (btnBackToExams) {
   btnBackToExams.addEventListener("click", () => {
     currentExamId = null;
     currentExamCases = [];
-    examCasesContainer.innerHTML = "";
-    show(panelExams);
+    if (examCasesContainer) examCasesContainer.innerHTML = "";
     hide(examDetailView);
+    show(panelExams);
     if (currentSectionId) {
       loadExamsForSection(currentSectionId);
     }
   });
 }
 
+// Guardar examen (botón superior)
 if (btnSaveExamAll) {
   btnSaveExamAll.addEventListener("click", async () => {
     if (!currentExamId) {
@@ -1176,7 +1178,7 @@ if (btnSaveExamAll) {
   });
 }
 
-// Botón "Agregar caso clínico" dentro de la vista de examen
+// Botón "Agregar caso clínico" SUPERIOR
 const btnAddCase = document.getElementById("admin-btn-add-case");
 if (btnAddCase) {
   btnAddCase.addEventListener("click", () => {
@@ -1184,14 +1186,26 @@ if (btnAddCase) {
       alert("Primero abre un examen.");
       return;
     }
-
-    if (!currentExamCases.length) {
-      currentExamCases.push(createEmptyCase());
-    } else {
-      currentExamCases.push(createEmptyCase());
-    }
-
+    currentExamCases.push(createEmptyCase());
     renderExamCases();
+  });
+}
+
+// Botones INFERIORES (duplicados)
+const btnAddCaseBottom = document.getElementById("admin-btn-add-case-bottom");
+const btnSaveExamBottom = document.getElementById("admin-btn-save-exam-bottom");
+
+// El inferior de "Agregar caso clínico" reutiliza el superior
+if (btnAddCaseBottom && btnAddCase) {
+  btnAddCaseBottom.addEventListener("click", () => {
+    btnAddCase.click();
+  });
+}
+
+// El inferior de "Guardar examen" reutiliza el superior
+if (btnSaveExamBottom && btnSaveExamAll) {
+  btnSaveExamBottom.addEventListener("click", () => {
+    btnSaveExamAll.click();
   });
 }
 
