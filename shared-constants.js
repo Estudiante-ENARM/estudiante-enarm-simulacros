@@ -1,9 +1,9 @@
 /***********************************************
- * CONSTANTES COMPARTIDAS ADMIN / STUDENT
- * Estudiante ENARM – Simulacros
+ * CONSTANTES COMPARTIDAS
+ * Se usan en admin.js y student.js
  ***********************************************/
 
-// Especialidades usadas en preguntas y reportes
+// Especialidades
 export const SPECIALTIES = {
   medicina_interna: "Medicina interna",
   pediatria: "Pediatría",
@@ -18,26 +18,23 @@ export const SUBTYPES = {
   urgencias: "Urgencias",
 };
 
-// Dificultad
+// Dificultades
 export const DIFFICULTIES = {
   baja: "Baja",
   media: "Media",
   alta: "Alta",
 };
 
-// Peso de cada dificultad para el puntaje ponderado
+// Pesos por dificultad (para ponderar la calificación)
 export const DIFFICULTY_WEIGHTS = {
   baja: 1,
   media: 2,
   alta: 3,
 };
 
-// Intentos máximos por examen (valor por defecto)
-export const DEFAULT_MAX_ATTEMPTS = 3;
-
-// Tiempo por pregunta en segundos (valor por defecto)
-export const DEFAULT_TIME_PER_QUESTION = 77;
-
-// Tamaños permitidos para mini-exámenes
-export const MINI_EXAM_ALLOWED_QUESTION_COUNTS = [5, 10, 15, 20];
+// REGLAS POR DEFECTO PARA EXÁMENES
+// Estas dos CONSTANTES son las que están fallando en tu error actual
+export const DEFAULT_MAX_ATTEMPTS = 3;        // 3 intentos por examen
+export const DEFAULT_TIME_PER_QUESTION = 77;  // 77 segundos por pregunta
+ = [5, 10, 15, 20];
 
