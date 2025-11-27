@@ -337,7 +337,7 @@ body, button, input, textarea, select {
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* <-- antes estaba space-between */
+  justify-content: flex-start;   /* <- antes era space-between */
   z-index: 30;
 }
 
@@ -457,7 +457,7 @@ body, button, input, textarea, select {
 /* Iconos sociales (login + admin + student) */
 
 .sidebar-social {
-  margin-top: auto; /* <-- antes era 16px: ahora se va al fondo */
+  margin-top: auto;              /* empuja las redes al fondo */
   display: flex;
   justify-content: space-around;
   padding-top: 10px;
