@@ -87,6 +87,9 @@ const progressChartCanvas = document.getElementById("student-progress-chart");
 
 let progressChartInstance = null;
 
+// Vista de mini exámenes (puede no existir aún en el HTML)
+const miniExamView = document.getElementById("student-mini-exam-view");
+
 /***********************************************
  * ESTADO GLOBAL
  ***********************************************/
