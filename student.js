@@ -183,77 +183,63 @@ function svgIcon(type) {
   return "";
 }
 
-/***********************************************
- * MANEJO DE SESIÓN (SOLO ESTUDIANTE)
- ***********************************************/
+/****************************************************
+ * AUTH / VERIFICACIÓN DE ESTUDIANTE
+ ****************************************************/
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
     return;
   }
 
-  currentUser = user;
-  studentUserEmailSpan.textContent = currentUser.email || "";
-
   try {
-    const userDocRef = doc(db, "users", currentUser.email);
-    const userSnap = await getDoc(userDocRef);
+    // IMPORTANTE: el doc en /users/ usa el EMAIL como ID
+    const userRef = doc(db, "users", user.email);
+    const snap = await getDoc(userRef);
 
-    if (!userSnap.exists()) {
-      alert("Tu usuario no está configurado en el sistema. Contacta al administrador.");
+    if (!snap.exists()) {
+      alert("Tu usuario no está configurado en Firestore. Contacta al administrador.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    currentUserProfile = userSnap.data();
+    const data = snap.data();
 
-    // Validar expiración y estado
-    const today = new Date().toISOString().slice(0, 10);
-
-    if (currentUserProfile.expiryDate && currentUserProfile.expiryDate < today) {
-      // Se podría marcar inactivo automáticamente
-      await setDoc(
-        userDocRef,
-        { status: "inactivo" },
-        { merge: true }
-      );
-      alert("Tu acceso ha vencido. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
-
-    if (currentUserProfile.status !== "activo") {
-      alert("Tu usuario está inactivo. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
-
-    if (currentUserProfile.role !== "student" && currentUserProfile.role !== "estudiante") {
+    // Solo rol "usuario" entra a student.html
+    if (data.role !== "usuario") {
       alert("Este panel es solo para estudiantes.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    // Cargar configuración global y datos del estudiante
-    await loadExamRules();
-    await loadSocialLinksForStudent();
-    await loadSectionsForStudent();
-    await loadMiniCasesOnce();
+    if (data.status !== "activo") {
+      alert("Tu usuario está inactivo. Contacta al administrador.");
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
+    }
 
-    // Vista inicial: Mini Exámenes
-    switchToMiniView();
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.expiryDate && data.expiryDate < today) {
+      alert("Tu acceso ha vencido. Contacta al administrador.");
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
+    }
+
+    // Si todo está bien, el resto del código del panel estudiante se ejecuta normal
 
   } catch (err) {
-    console.error(err);
-    alert("No se pudo cargar la información del estudiante.");
+    console.error("Error validando usuario estudiante", err);
+    alert("Error validando tu acceso. Intenta más tarde.");
     await signOut(auth);
     window.location.href = "index.html";
   }
 });
+
 
 /***********************************************
  * LISTENERS GENERALES (SIDEBAR, LOGOUT, NAV)
