@@ -1226,7 +1226,6 @@ if (btnAddCase) {
  ****************************************************/
 
 // Elementos del DOM del panel de mini exámenes
-const panelMini = document.getElementById("admin-panel-mini");
 const miniCasesContainer = document.getElementById("admin-mini-cases");
 const btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
 const btnMiniSaveAll = document.getElementById("admin-mini-btn-save-all");
