@@ -8,6 +8,9 @@
  * - Analytics básicos
  ****************************************************/
 
+// Firebase inicializado en firebase.js
+import { auth, db } from "./firebase.js";
+
 import {
   SPECIALTIES,
   SUBTYPES,
@@ -122,6 +125,7 @@ let currentAdminUser = null;       // Auth user
 let currentSectionId = null;       // Sección seleccionada
 let currentExamId = null;          // Examen abierto
 let currentExamCases = [];         // Casos clínicos en memoria
+
 
 /****************************************************
  * UTILIDADES UI
