@@ -337,7 +337,7 @@ body, button, input, textarea, select {
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start; /* <-- antes estaba space-between */
   z-index: 30;
 }
 
@@ -457,7 +457,7 @@ body, button, input, textarea, select {
 /* Iconos sociales (login + admin + student) */
 
 .sidebar-social {
-  margin-top: 16px;
+  margin-top: auto; /* <-- antes era 16px: ahora se va al fondo */
   display: flex;
   justify-content: space-around;
   padding-top: 10px;
@@ -895,6 +895,7 @@ tr:last-child td {
     display: block;
   }
 }
+
 /* Footer de edición de examen (botones inferiores) */
 .admin-exam-footer {
   justify-content: flex-end;
