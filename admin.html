@@ -157,16 +157,21 @@
               Banco global de casos clínicos para los mini exámenes del estudiante.
             </p>
           </div>
+
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-mini-btn-add-case" class="btn btn-secondary">
+              + Agregar caso clínico
+            </button>
+            <button id="admin-mini-btn-save" class="btn btn-primary">
+              Guardar banco
+            </button>
+          </div>
         </div>
 
-        <div class="card">
-          <p class="panel-subtitle">
-            En esta primera versión dejamos preparado el panel. Más adelante aquí
-            podrás crear, editar y eliminar el banco global de casos clínicos para
-            los mini exámenes.
-          </p>
-        </div>
+        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
+        <div id="admin-mini-cases-container" class="cards-list"></div>
       </section>
+
 
       <!-- ================= PANEL: USUARIOS ================= -->
       <section id="admin-panel-users" class="panel hidden">
