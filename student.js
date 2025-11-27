@@ -22,8 +22,11 @@ import {
 
 import {
   SPECIALTIES,
+  SPECIALTY_LABELS,
   SUBTYPES,
+  SUBTYPE_LABELS,
   DIFFICULTIES,
+  DIFFICULTY_LABELS,
   DIFFICULTY_WEIGHTS,
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_TIME_PER_QUESTION,
@@ -186,7 +189,6 @@ function svgIcon(type) {
 /****************************************************
  * AUTH / VERIFICACIÓN DE ESTUDIANTE
  ****************************************************/
-
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
@@ -199,7 +201,7 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      alert("Tu usuario no está configurado en Firestore. Contacta al administrador.");
+      alert("Tu usuario no está configurado en la plataforma. Contacta al administrador.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
@@ -230,7 +232,27 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    // Si todo está bien, el resto del código del panel estudiante se ejecuta normal
+    // --- Aquí sí inicializamos todo el estado del estudiante ---
+    currentUser = user;
+    currentUserProfile = data;
+
+    if (studentUserEmailSpan) {
+      studentUserEmailSpan.textContent = user.email || "";
+    }
+
+    // Carga inicial en paralelo
+    await Promise.all([
+      loadExamRules(),
+      loadSocialLinksForStudent(),
+      loadSectionsForStudent(),
+    ]);
+
+    // Vista por defecto: exámenes (si hay secciones) o mini
+    if (sidebarSections && sidebarSections.children.length > 0) {
+      switchToSectionView();
+    } else {
+      switchToMiniView();
+    }
 
   } catch (err) {
     console.error("Error validando usuario estudiante", err);
@@ -240,48 +262,61 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-
 /***********************************************
  * LISTENERS GENERALES (SIDEBAR, LOGOUT, NAV)
  ***********************************************/
-btnToggleSidebar?.addEventListener("click", () => {
-  sidebar.classList.toggle("sidebar--open");
-});
+if (btnToggleSidebar && sidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
+  });
+}
 
-btnLogout?.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    window.location.href = "index.html";
-  }
-});
+if (btnLogout) {
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      window.location.href = "index.html";
+    }
+  });
+}
 
 // Mini Exámenes
-studentMiniBtn?.addEventListener("click", () => {
-  switchToMiniView();
-});
+if (studentMiniBtn) {
+  studentMiniBtn.addEventListener("click", () => {
+    switchToMiniView();
+  });
+}
 
 // Progreso
-btnProgressView?.addEventListener("click", () => {
-  switchToProgressView();
-});
+if (btnProgressView) {
+  btnProgressView.addEventListener("click", () => {
+    switchToProgressView();
+  });
+}
 
 // Builder de mini examen
-miniStartBtn?.addEventListener("click", () => {
-  startMiniExamFromBuilder();
-});
+if (miniStartBtn) {
+  miniStartBtn.addEventListener("click", () => {
+    startMiniExamFromBuilder();
+  });
+}
 
 // Volver desde el examen
-btnBackToExams?.addEventListener("click", () => {
-  handleBackFromExam();
-});
+if (btnBackToExams) {
+  btnBackToExams.addEventListener("click", () => {
+    handleBackFromExam();
+  });
+}
 
 // Enviar examen
-btnSubmitExam?.addEventListener("click", () => {
-  submitExamForStudent(false);
-});
+if (btnSubmitExam) {
+  btnSubmitExam.addEventListener("click", () => {
+    submitExamForStudent(false);
+  });
+}
 
 /***********************************************
  * CAMBIO DE VISTAS
@@ -293,7 +328,7 @@ function switchToMiniView() {
   hide(progressView);
   show(miniBuilderView);
 
-  // Seleccionar visualmente Mini Exámenes
+  // Quitar selección de secciones en el sidebar
   document
     .querySelectorAll(".sidebar__section-item")
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
@@ -314,9 +349,10 @@ async function switchToProgressView() {
   hide(examDetailView);
   show(progressView);
 
-  sidebar.classList.remove("sidebar--open");
+  if (sidebar) sidebar.classList.remove("sidebar--open");
   await loadStudentProgress();
 }
+
 /***********************************************
  * CARGA DE CONFIGURACIÓN GLOBAL
  ***********************************************/
@@ -324,7 +360,6 @@ async function loadExamRules() {
   try {
     const snap = await getDoc(doc(db, "examRules", "default"));
     if (!snap.exists()) {
-      // Si no existe, usamos los valores por defecto del shared-constants
       examRules.maxAttempts = DEFAULT_MAX_ATTEMPTS;
       examRules.timePerQuestionSeconds = DEFAULT_TIME_PER_QUESTION;
       return;
@@ -383,6 +418,8 @@ async function loadSocialLinksForStudent() {
  ***********************************************/
 async function loadSectionsForStudent() {
   const snap = await getDocs(collection(db, "sections"));
+  if (!sidebarSections) return;
+
   sidebarSections.innerHTML = "";
 
   if (snap.empty) {
@@ -421,13 +458,14 @@ async function loadSectionsForStudent() {
       currentSectionId = id;
       currentSectionName = name;
 
-      sectionTitle.textContent = name;
-      sectionSubtitle.textContent = "Simulacros de esta sección.";
+      if (sectionTitle) sectionTitle.textContent = name;
+      if (sectionSubtitle)
+        sectionSubtitle.textContent = "Simulacros de esta sección.";
 
       switchToSectionView();
       loadExamsForSectionForStudent(id);
 
-      sidebar.classList.remove("sidebar--open");
+      if (sidebar) sidebar.classList.remove("sidebar--open");
     });
 
     sidebarSections.appendChild(li);
@@ -443,8 +481,9 @@ async function loadSectionsForStudent() {
       firstLi.classList.add("sidebar__section-item--active");
     }
 
-    sectionTitle.textContent = currentSectionName;
-    sectionSubtitle.textContent = "Simulacros de esta sección.";
+    if (sectionTitle) sectionTitle.textContent = currentSectionName;
+    if (sectionSubtitle)
+      sectionSubtitle.textContent = "Simulacros de esta sección.";
     await loadExamsForSectionForStudent(firstSectionId);
   }
 }
@@ -453,6 +492,7 @@ async function loadSectionsForStudent() {
  * LISTA DE EXÁMENES POR SECCIÓN
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
+  if (!examsList) return;
   examsList.innerHTML = "";
 
   if (!sectionId) {
@@ -478,17 +518,20 @@ async function loadExamsForSectionForStudent(sectionId) {
     const examName = exData.name || "Examen sin título";
 
     // Lectura de intentos previos del estudiante
-    const attemptRef = doc(
-      db,
-      "users",
-      currentUser.email,
-      "examAttempts",
-      examId
-    );
-    const attemptSnap = await getDoc(attemptRef);
-    const attemptsUsed = attemptSnap.exists()
-      ? attemptSnap.data().attempts || 0
-      : 0;
+    let attemptsUsed = 0;
+    if (currentUser) {
+      const attemptRef = doc(
+        db,
+        "users",
+        currentUser.email,
+        "examAttempts",
+        examId
+      );
+      const attemptSnap = await getDoc(attemptRef);
+      attemptsUsed = attemptSnap.exists()
+        ? attemptSnap.data().attempts || 0
+        : 0;
+    }
 
     // Contar número total de preguntas
     const qQuestions = query(
@@ -506,9 +549,9 @@ async function loadExamsForSectionForStudent(sectionId) {
 
     // Si no hay preguntas, lo marcamos como "En preparación"
     if (totalQuestions === 0) {
-      const card = document.createElement("div");
-      card.className = "card-item";
-      card.innerHTML = `
+      const cardPrep = document.createElement("div");
+      cardPrep.className = "card-item";
+      cardPrep.innerHTML = `
         <div class="card-item__title-row">
           <div class="card-item__title">${examName}</div>
           <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
@@ -517,7 +560,7 @@ async function loadExamsForSectionForStudent(sectionId) {
           Aún no hay preguntas cargadas para este examen.
         </div>
       `;
-      examsList.appendChild(card);
+      examsList.appendChild(cardPrep);
       continue;
     }
 
@@ -540,11 +583,17 @@ async function loadExamsForSectionForStudent(sectionId) {
       ? "Sin intentos disponibles"
       : "Disponible";
 
-    const lastAttemptText = attemptSnap.exists()
-      ? (attemptSnap.data().lastAttempt
-        ? attemptSnap.data().lastAttempt.toDate().toLocaleDateString()
-        : "—")
-      : "Sin intentos previos.";
+    const attemptRef = currentUser
+      ? doc(db, "users", currentUser.email, "examAttempts", examId)
+      : null;
+    const attemptSnap = attemptRef ? await getDoc(attemptRef) : null;
+
+    const lastAttemptText =
+      attemptSnap && attemptSnap.exists()
+        ? attemptSnap.data().lastAttempt
+          ? attemptSnap.data().lastAttempt.toDate().toLocaleDateString()
+          : "—"
+        : "Sin intentos previos.";
 
     card.innerHTML = `
       <div class="card-item__title-row" style="align-items:flex-start;">
@@ -671,6 +720,7 @@ async function loadMiniCasesOnce() {
     miniCasesCache = [];
   }
 }
+
 /***********************************************
  * MINI EXÁMENES — CONSTRUIR Y ARRANCAR EXAMEN
  ***********************************************/
@@ -688,7 +738,9 @@ async function startMiniExamFromBuilder() {
     .filter((cb) => cb.checked)
     .map((cb) => cb.value);
 
-  const randomOnly = miniRandomCheckbox ? miniRandomCheckbox.checked : false;
+  // Si tienes un checkbox tipo "aleatorio", puedes usarlo aquí
+  const randomOnly = miniFilterRandom ? miniFilterRandom.checked : false;
+  // Por ahora no usamos randomOnly explícitamente, pero queda preparado.
 
   await loadMiniCasesOnce();
 
@@ -699,7 +751,7 @@ async function startMiniExamFromBuilder() {
 
   // Filtrar por especialidades seleccionadas (si hay)
   let poolCases = miniCasesCache.slice();
-  if (selectedSpecialties.length > 0) {
+  if (selectedSpecialties.length > 0 && !randomOnly) {
     poolCases = poolCases.filter((c) =>
       selectedSpecialties.includes(c.specialty)
     );
@@ -773,18 +825,25 @@ async function startMiniExamFromBuilder() {
   if (miniExamView) hide(miniExamView);
   show(examDetailView);
 
-  examTitle.textContent = "Mini examen personalizado";
-  examSubtitle.textContent =
-    "Resuelve el mini examen con preguntas aleatorias de los casos clínicos disponibles.";
+  if (examTitle) {
+    examTitle.textContent = "Mini examen personalizado";
+  }
+  if (examSubtitle) {
+    examSubtitle.textContent =
+      "Resuelve el mini examen con preguntas aleatorias de los casos clínicos disponibles.";
+  }
 
   const totalQuestions = selectedQuestions.length;
 
-  examMetaText.innerHTML = `
-    📘 Preguntas: <strong>${totalQuestions}</strong><br>
-    🕒 Tiempo total: <strong>Sin límite de tiempo</strong><br>
-    🔁 Intentos: <strong>Sin límite</strong>
-  `;
+  if (examMetaText) {
+    examMetaText.innerHTML = `
+      📘 Preguntas: <strong>${totalQuestions}</strong><br>
+      🕒 Tiempo total: <strong>Sin límite de tiempo</strong><br>
+      🔁 Intentos: <strong>Sin límite</strong>
+    `;
+  }
 
+  if (!questionsList) return;
   questionsList.innerHTML = "";
 
   // Para visualización agrupada por caso
@@ -915,17 +974,21 @@ async function startSectionExamForStudent({
     resultValues.innerHTML = "";
   }
 
-  examTitle.textContent = examName;
-  examSubtitle.textContent =
-    "Resuelve cuidadosamente y envía antes de que termine el tiempo.";
+  if (examTitle) examTitle.textContent = examName;
+  if (examSubtitle) {
+    examSubtitle.textContent =
+      "Resuelve cuidadosamente y envía antes de que termine el tiempo.";
+  }
 
-  examMetaText.innerHTML = `
-    📘 Preguntas: <strong>${totalQuestions}</strong><br>
-    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(
-      totalSeconds
-    )}</strong><br>
-    🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
-  `;
+  if (examMetaText) {
+    examMetaText.innerHTML = `
+      📘 Preguntas: <strong>${totalQuestions}</strong><br>
+      🕒 Tiempo total: <strong>${formatMinutesFromSeconds(
+        totalSeconds
+      )}</strong><br>
+      🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
+    `;
+  }
 
   await loadQuestionsForSectionExam(examId);
 
@@ -936,6 +999,7 @@ async function startSectionExamForStudent({
  * CARGAR PREGUNTAS DE EXAMEN (POR SECCIÓN)
  ***********************************************/
 async function loadQuestionsForSectionExam(examId) {
+  if (!questionsList) return;
   questionsList.innerHTML = "";
 
   const qQuestions = query(
@@ -1078,14 +1142,13 @@ function startExamTimer(totalSeconds) {
 /***********************************************
  * ENVÍO DE EXAMEN (MINI + POR SECCIÓN)
  ***********************************************/
-btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
-
 async function submitExamForStudent(auto = false) {
   if (!currentExamQuestions.length) {
     alert("No hay examen cargado.");
     return;
   }
 
+  if (!btnSubmitExam) return;
   btnSubmitExam.disabled = true;
 
   if (currentExamTimerId) {
@@ -1169,9 +1232,9 @@ async function submitExamForStudent(auto = false) {
       weight,
     };
 
-    const card = questionsList.querySelector(
-      `[data-q-index="${idx}"]`
-    );
+    const card = questionsList
+      ? questionsList.querySelector(`[data-q-index="${idx}"]`)
+      : null;
     if (card) {
       const just = card.querySelector(".justification-box");
       const meta = card.querySelector(".question-meta");
@@ -1305,7 +1368,7 @@ function renderPremiumResults({
     </table>
   `;
 
-  // Tabla por especialidad y subtipo (salud pública, medicina familiar, urgencias)
+  // Tabla por especialidad y subtipo
   const tableBySpecialtySubtype = `
     <table class="result-table result-table--compact">
       <thead>
@@ -1377,14 +1440,13 @@ function renderPremiumResults({
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
 /***********************************************
  * BOTÓN "VOLVER A EXÁMENES"
  ***********************************************/
-btnBackToExams.addEventListener("click", () => {
-  // Guardamos de dónde venimos antes de resetear
+function handleBackFromExam() {
   const cameFromMini = currentExamMode === "mini";
 
-  // Detener cronómetro si existe
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
     currentExamTimerId = null;
@@ -1412,7 +1474,7 @@ btnBackToExams.addEventListener("click", () => {
   } else {
     show(examsView);
   }
-});
+}
 
 /***********************************************
  * PROGRESO DEL ESTUDIANTE
@@ -1626,16 +1688,18 @@ function renderProgressChart(examResults) {
 /***********************************************
  * BOTÓN LATERAL "PROGRESO"
  ***********************************************/
-btnProgressView.addEventListener("click", () => {
-  hide(examsView);
-  hide(examDetailView);
-  if (miniExamView) hide(miniExamView);
-  show(progressView);
+if (btnProgressView) {
+  btnProgressView.addEventListener("click", () => {
+    hide(examsView);
+    hide(examDetailView);
+    if (miniExamView) hide(miniExamView);
+    show(progressView);
 
-  sidebar.classList.remove("sidebar--open");
+    if (sidebar) sidebar.classList.remove("sidebar--open");
 
-  loadStudentProgress();
-});
+    loadStudentProgress();
+  });
+}
 
 /***********************************************
  * BOTÓN LATERAL "MINI EXÁMENES" (SI EXISTE)
@@ -1648,28 +1712,6 @@ if (btnMiniExams && miniExamView) {
     hide(progressView);
     show(miniExamView);
 
-    sidebar.classList.remove("sidebar--open");
+    if (sidebar) sidebar.classList.remove("sidebar--open");
   });
 }
-
-/***********************************************
- * TOGGLE SIDEBAR (MÓVIL)
- ***********************************************/
-if (btnToggleSidebar) {
-  btnToggleSidebar.addEventListener("click", () => {
-    sidebar.classList.toggle("sidebar--open");
-  });
-}
-
-/***********************************************
- * LOGOUT
- ***********************************************/
-btnLogout.addEventListener("click", async () => {
-  try {
-    await signOut(auth);
-    window.location.href = "index.html";
-  } catch (err) {
-    console.error(err);
-    alert("No se pudo cerrar sesión. Intenta de nuevo.");
-  }
-});
