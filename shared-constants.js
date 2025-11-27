@@ -1,6 +1,6 @@
 /***********************************************
  * CONSTANTES COMPARTIDAS
- * Se usan en admin.js y student.js
+ * Usadas por admin.js y student.js
  ***********************************************/
 
 // Especialidades
@@ -25,16 +25,24 @@ export const DIFFICULTIES = {
   alta: "Alta",
 };
 
-// Pesos por dificultad (para ponderar la calificación)
+// Pesos por dificultad (para ponderar calificación)
 export const DIFFICULTY_WEIGHTS = {
   baja: 1,
   media: 2,
   alta: 3,
 };
 
-// REGLAS POR DEFECTO PARA EXÁMENES
-// Estas dos CONSTANTES son las que están fallando en tu error actual
-export const DEFAULT_MAX_ATTEMPTS = 3;        // 3 intentos por examen
-export const DEFAULT_TIME_PER_QUESTION = 77;  // 77 segundos por pregunta
- = [5, 10, 15, 20];
+// ==== REGLAS POR DEFECTO PARA EXÁMENES ====
 
+// Lo que usa student.js directamente
+export const DEFAULT_MAX_ATTEMPTS = 3;          // intentos por examen
+export const DEFAULT_TIME_PER_QUESTION = 77;    // segundos por pregunta
+
+// Lo que está importando admin.js (objeto agrupado)
+export const DEFAULT_EXAM_RULES = {
+  maxAttempts: DEFAULT_MAX_ATTEMPTS,
+  timePerQuestionSeconds: DEFAULT_TIME_PER_QUESTION,
+};
+
+// Opciones de número de preguntas para mini-exámenes (student.js)
+export const MINI_EXAM_QUESTION_OPTIONS = [5, 10, 15, 20];
