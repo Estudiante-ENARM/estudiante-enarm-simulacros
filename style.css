@@ -895,3 +895,8 @@ tr:last-child td {
     display: block;
   }
 }
+/* Footer de edición de examen (botones inferiores) */
+.admin-exam-footer {
+  justify-content: flex-end;
+  margin-top: 16px;
+}
