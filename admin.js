@@ -212,6 +212,93 @@ if (modalBtnOk) {
     }
   });
 }
+/****************************************************
+ * PANEL USUARIOS – TABLA DE USUARIOS
+ ****************************************************/
+async function loadUsersTable() {
+  if (!usersTableContainer) return;
+
+  // Mensaje mientras carga
+  usersTableContainer.innerHTML = `
+    <div class="card">
+      <p class="panel-subtitle">Cargando usuarios…</p>
+    </div>
+  `;
+
+  try {
+    // Puedes ordenar por email para tener la lista estable
+    const qUsers = query(collection(db, "users"), orderBy("email"));
+    const snap = await getDocs(qUsers);
+
+    if (snap.empty) {
+      usersTableContainer.innerHTML = `
+        <div class="card">
+          <p class="panel-subtitle">
+            Aún no hay usuarios registrados. Usa el formulario para crear el primero.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    let html = `
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Vigencia</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    snap.forEach(docSnap => {
+      const u = docSnap.data();
+      const name = u.name || "(sin nombre)";
+      const email = u.email || docSnap.id;
+      const role = u.role || "student";
+      const status = u.status || "inactivo";
+      const expiry = u.expiryDate
+        ? new Date(u.expiryDate.seconds * 1000).toLocaleDateString("es-MX")
+        : "Sin fecha";
+
+      html += `
+        <tr>
+          <td>${name}</td>
+          <td>${email}</td>
+          <td>${role}</td>
+          <td>
+            <span class="chip ${status === "activo" ? "chip--activo" : "chip--inactivo"}">
+              ${status}
+            </span>
+          </td>
+          <td>${expiry}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    usersTableContainer.innerHTML = html;
+  } catch (err) {
+    console.error("Error cargando usuarios:", err);
+    usersTableContainer.innerHTML = `
+      <div class="card">
+        <p class="panel-subtitle">
+          Hubo un error al cargar la lista de usuarios.
+        </p>
+      </div>
+    `;
+  }
+}
 
 /****************************************************
  * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
