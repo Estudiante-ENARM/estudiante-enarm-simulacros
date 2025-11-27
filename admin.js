@@ -1209,6 +1209,449 @@ if (btnSaveExamBottom && btnSaveExamAll) {
   });
 }
 
+/****************************************************
+ * DETALLE DE EXAMEN (CASOS CLÍNICOS + PREGUNTAS)
+ ****************************************************/
+
+function createEmptyCase() {
+  return {
+    caseText: "",
+    specialty: "",
+    questions: [createEmptyQuestion()], // al menos 1 pregunta vacía
+  };
+}
+
+function createEmptyQuestion() {
+  return {
+    questionText: "",
+    optionA: "",
+    optionB: "",
+    optionC: "",
+    optionD: "",
+    correctOption: "",
+    justification: "",
+    subtype: "salud_publica",
+    difficulty: "media",
+  };
+}
+
+async function openExamDetail(examId, examName) {
+  currentExamId = examId;
+  currentExamCases = [];
+
+  // Mostrar la vista de detalle del examen
+  hide(panelExams);
+  show(examDetailView);
+
+  if (examTitleInput) {
+    examTitleInput.value = examName || "";
+  }
+  if (examCasesContainer) {
+    examCasesContainer.innerHTML = "";
+  }
+
+  // Traer casos clínicos de la colección "questions"
+  const qCases = query(
+    collection(db, "questions"),
+    where("examId", "==", examId)
+  );
+  const snap = await getDocs(qCases);
+
+  if (snap.empty) {
+    // Si no hay casos todavía, arrancamos con uno vacío
+    currentExamCases = [createEmptyCase()];
+  } else {
+    currentExamCases = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+  }
+
+  renderExamCases();
+}
+
+function renderExamCases() {
+  if (!examCasesContainer) return;
+  examCasesContainer.innerHTML = "";
+
+  // Si por alguna razón no hay casos en memoria, aseguramos uno vacío
+  if (!currentExamCases.length) {
+    currentExamCases.push(createEmptyCase());
+  }
+
+  currentExamCases.forEach((caseData, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "card exam-case-block";
+    wrapper.dataset.caseIndex = index;
+
+    const specialtyValue = caseData.specialty || "";
+    const questionsArr = Array.isArray(caseData.questions)
+      ? caseData.questions
+      : [];
+
+    wrapper.innerHTML = `
+      <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="font-size:15px;font-weight:600;">
+          Caso clínico ${index + 1}
+        </h3>
+        <button type="button" class="btn btn-sm btn-outline admin-delete-case">
+          Eliminar caso clínico
+        </button>
+      </div>
+
+      <label class="field">
+        <span>Especialidad</span>
+        <select class="admin-case-specialty">
+          <option value="">Selecciona...</option>
+          ${Object.entries(SPECIALTIES)
+            .map(
+              ([key, label]) =>
+                `<option value="${key}" ${
+                  key === specialtyValue ? "selected" : ""
+                }>${label}</option>`
+            )
+            .join("")}
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Texto del caso clínico</span>
+        <textarea class="admin-case-text" rows="4">${caseData.caseText || ""}</textarea>
+      </label>
+
+      <div class="cards-list admin-case-questions"></div>
+
+      <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
+        <button type="button" class="btn btn-sm btn-primary admin-add-question">
+          + Agregar pregunta
+        </button>
+      </div>
+    `;
+
+    const qContainer = wrapper.querySelector(".admin-case-questions");
+
+    if (!questionsArr.length) {
+      qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
+    } else {
+      questionsArr.forEach((qData) => {
+        qContainer.appendChild(renderQuestionBlock(qData));
+      });
+    }
+
+    wrapper
+      .querySelector(".admin-add-question")
+      .addEventListener("click", () => {
+        qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
+      });
+
+    wrapper
+      .querySelector(".admin-delete-case")
+      .addEventListener("click", () => {
+        const idx = parseInt(wrapper.dataset.caseIndex, 10);
+        if (Number.isNaN(idx)) return;
+        currentExamCases.splice(idx, 1);
+        renderExamCases();
+      });
+
+    examCasesContainer.appendChild(wrapper);
+  });
+
+  // --- BOTONES INFERIORES (duplicados) ---
+  const bottomActions = document.createElement("div");
+  bottomActions.className = "flex-row";
+  bottomActions.style.justifyContent = "flex-end";
+  bottomActions.style.marginTop = "16px";
+
+  bottomActions.innerHTML = `
+    <button type="button" class="btn btn-secondary" id="admin-btn-add-case-bottom">
+      + Agregar caso clínico
+    </button>
+    <button type="button" class="btn btn-primary" id="admin-btn-save-exam-bottom">
+      Guardar examen
+    </button>
+  `;
+
+  examCasesContainer.appendChild(bottomActions);
+
+  // Eventos de los botones inferiores reutilizando la misma lógica
+  const btnAddCaseBottom = document.getElementById("admin-btn-add-case-bottom");
+  const btnSaveExamBottom = document.getElementById("admin-btn-save-exam-bottom");
+
+  if (btnAddCaseBottom) {
+    btnAddCaseBottom.addEventListener("click", () => {
+      if (!currentExamId) {
+        alert("Primero abre un examen.");
+        return;
+      }
+      currentExamCases.push(createEmptyCase());
+      renderExamCases();
+    });
+  }
+
+  if (btnSaveExamBottom && btnSaveExamAll) {
+    btnSaveExamBottom.addEventListener("click", () => {
+      btnSaveExamAll.click(); // dispara el mismo guardado que el botón superior
+    });
+  }
+}
+
+function renderQuestionBlock(qData) {
+  const {
+    questionText = "",
+    optionA = "",
+    optionB = "",
+    optionC = "",
+    optionD = "",
+    correctOption = "",
+    justification = "",
+    subtype = "salud_publica",
+    difficulty = "media",
+  } = qData;
+
+  const card = document.createElement("div");
+  card.className = "card-item exam-question-block";
+
+  card.innerHTML = `
+    <label class="field">
+      <span>Pregunta</span>
+      <textarea class="admin-q-question" rows="2">${questionText}</textarea>
+    </label>
+
+    <label class="field">
+      <span>Opción A</span>
+      <input type="text" class="admin-q-a" value="${optionA}" />
+    </label>
+
+    <label class="field">
+      <span>Opción B</span>
+      <input type="text" class="admin-q-b" value="${optionB}" />
+    </label>
+
+    <label class="field">
+      <span>Opción C</span>
+      <input type="text" class="admin-q-c" value="${optionC}" />
+    </label>
+
+    <label class="field">
+      <span>Opción D</span>
+      <input type="text" class="admin-q-d" value="${optionD}" />
+    </label>
+
+    <label class="field">
+      <span>Respuesta correcta</span>
+      <select class="admin-q-correct">
+        <option value="">Selecciona</option>
+        <option value="A" ${correctOption === "A" ? "selected" : ""}>A</option>
+        <option value="B" ${correctOption === "B" ? "selected" : ""}>B</option>
+        <option value="C" ${correctOption === "C" ? "selected" : ""}>C</option>
+        <option value="D" ${correctOption === "D" ? "selected" : ""}>D</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Tipo de pregunta</span>
+      <select class="admin-q-subtype">
+        ${Object.entries(SUBTYPES)
+          .map(
+            ([key, label]) =>
+              `<option value="${key}" ${
+                key === subtype ? "selected" : ""
+              }>${label}</option>`
+          )
+          .join("")}
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Dificultad</span>
+      <select class="admin-q-difficulty">
+        ${Object.entries(DIFFICULTIES)
+          .map(
+            ([key, label]) =>
+              `<option value="${key}" ${
+                key === difficulty ? "selected" : ""
+              }>${label}</option>`
+          )
+          .join("")}
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Justificación</span>
+      <textarea class="admin-q-justification" rows="2">${justification}</textarea>
+    </label>
+
+    <div style="text-align:right;margin-top:6px;">
+      <button type="button" class="btn btn-sm btn-outline admin-delete-question">
+        Eliminar pregunta
+      </button>
+    </div>
+  `;
+
+  card
+    .querySelector(".admin-delete-question")
+    .addEventListener("click", () => {
+      card.remove();
+    });
+
+  return card;
+}
+
+if (btnBackToExams) {
+  btnBackToExams.addEventListener("click", () => {
+    currentExamId = null;
+    currentExamCases = [];
+    examCasesContainer.innerHTML = "";
+    show(panelExams);
+    hide(examDetailView);
+    if (currentSectionId) {
+      loadExamsForSection(currentSectionId);
+    }
+  });
+}
+
+if (btnSaveExamAll) {
+  btnSaveExamAll.addEventListener("click", async () => {
+    if (!currentExamId) {
+      alert("No hay examen seleccionado.");
+      return;
+    }
+
+    const newName = examTitleInput.value.trim();
+    if (!newName) {
+      alert("Escribe un nombre para el examen.");
+      return;
+    }
+
+    // Reconstruir currentExamCases desde el DOM
+    const caseBlocks = examCasesContainer.querySelectorAll(".exam-case-block");
+    if (!caseBlocks.length) {
+      alert("Debes agregar al menos un caso clínico.");
+      return;
+    }
+
+    const casesToSave = [];
+
+    for (const block of caseBlocks) {
+      const caseText = block.querySelector(".admin-case-text").value.trim();
+      const specialty = block.querySelector(".admin-case-specialty").value;
+
+      if (!caseText) {
+        alert("Escribe el texto del caso clínico.");
+        return;
+      }
+
+      const qBlocks = block.querySelectorAll(".exam-question-block");
+      if (!qBlocks.length) {
+        alert("Cada caso clínico debe tener al menos una pregunta.");
+        return;
+      }
+
+      const questions = [];
+
+      for (const qb of qBlocks) {
+        const questionText = qb.querySelector(".admin-q-question").value.trim();
+        const optionA = qb.querySelector(".admin-q-a").value.trim();
+        const optionB = qb.querySelector(".admin-q-b").value.trim();
+        const optionC = qb.querySelector(".admin-q-c").value.trim();
+        const optionD = qb.querySelector(".admin-q-d").value.trim();
+        const correctOption = qb.querySelector(".admin-q-correct").value;
+        const subtype = qb.querySelector(".admin-q-subtype").value;
+        const difficulty = qb.querySelector(".admin-q-difficulty").value;
+        const justification = qb
+          .querySelector(".admin-q-justification")
+          .value.trim();
+
+        if (
+          !questionText ||
+          !optionA ||
+          !optionB ||
+          !optionC ||
+          !optionD ||
+          !correctOption ||
+          !justification
+        ) {
+          alert("Completa todos los campos de cada pregunta.");
+          return;
+        }
+
+        questions.push({
+          questionText,
+          optionA,
+          optionB,
+          optionC,
+          optionD,
+          correctOption,
+          subtype,
+          difficulty,
+          justification,
+        });
+      }
+
+      casesToSave.push({
+        caseText,
+        specialty,
+        questions,
+      });
+    }
+
+    const btn = btnSaveExamAll;
+    setLoadingButton(btn, true, "Guardar examen");
+
+    try {
+      // Actualizar nombre del examen
+      await updateDoc(doc(db, "exams", currentExamId), {
+        name: newName,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Eliminar casos previos de este examen
+      const qPrev = query(
+        collection(db, "questions"),
+        where("examId", "==", currentExamId)
+      );
+      const prevSnap = await getDocs(qPrev);
+      for (const c of prevSnap.docs) {
+        await deleteDoc(c.ref);
+      }
+
+      // Guardar nuevos casos
+      for (const c of casesToSave) {
+        await addDoc(collection(db, "questions"), {
+          examId: currentExamId,
+          caseText: c.caseText,
+          specialty: c.specialty,
+          questions: c.questions,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      alert("Examen guardado correctamente.");
+      if (currentSectionId) {
+        await loadExamsForSection(currentSectionId);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Hubo un error al guardar el examen.");
+    } finally {
+      setLoadingButton(btn, false, "Guardar examen");
+    }
+  });
+}
+
+// Botón "Agregar caso clínico" dentro de la vista de examen (superior)
+const btnAddCase = document.getElementById("admin-btn-add-case");
+if (btnAddCase) {
+  btnAddCase.addEventListener("click", () => {
+    if (!currentExamId) {
+      alert("Primero abre un examen.");
+      return;
+    }
+
+    currentExamCases.push(createEmptyCase());
+    renderExamCases();
+  });
+}
 
 /****************************************************
  * USUARIOS (CRUD)
