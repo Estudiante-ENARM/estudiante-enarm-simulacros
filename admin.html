@@ -87,7 +87,7 @@
           Pantalla principal
         </button>
       </div>
-    </aside> <!-- ← AQUÍ CERRAMOS EL ASIDE QUE FALTABA -->
+    </aside>
 
     <!-- CONTENIDO PRINCIPAL -->
     <main id="content">
@@ -137,7 +137,7 @@
           <div id="admin-exam-cases" class="cards-list"></div>
 
           <!-- FOOTER CON BOTONES DUPLICADOS -->
-          <div class="flex-row admin-exam-footer">
+          <div class="flex-row admin-exam-footer" style="justify-content:flex-end;margin-top:16px;">
             <button id="admin-btn-add-case-bottom" class="btn btn-secondary">
               + Agregar caso clínico
             </button>
@@ -162,16 +162,15 @@
             <button id="admin-mini-btn-add-case" class="btn btn-secondary">
               + Agregar caso clínico
             </button>
-            <button id="admin-mini-btn-save" class="btn btn-primary">
+            <button id="admin-mini-btn-save-all" class="btn btn-primary">
               Guardar banco
             </button>
           </div>
         </div>
 
         <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
-        <div id="admin-mini-cases-container" class="cards-list"></div>
+        <div id="admin-mini-cases" class="cards-list"></div>
       </section>
-
 
       <!-- ================= PANEL: USUARIOS ================= -->
       <section id="admin-panel-users" class="panel hidden">
@@ -301,7 +300,7 @@
             </div>
           </div>
 
-          <div style="text-align:right;margin-top:10px;">
+          <div style="text-align:right;margin-top:10px%;">
             <button id="admin-btn-save-landing" class="btn btn-primary">
               Guardar pantalla principal
             </button>
