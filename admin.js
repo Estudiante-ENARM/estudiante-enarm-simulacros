@@ -119,6 +119,15 @@ const modalBtnOk = document.getElementById("admin-modal-ok");
 let modalOkHandler = null;
 
 /****************************************************
+ * TOGGLE BARRA LATERAL (HAMBURGUESA)
+ ****************************************************/
+if (btnToggleSidebar && sidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
+  });
+}
+
+/****************************************************
  * ESTADO EN MEMORIA
  ****************************************************/
 
