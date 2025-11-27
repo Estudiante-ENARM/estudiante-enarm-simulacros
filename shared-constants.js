@@ -1,8 +1,9 @@
 /***********************************************
- * CONSTANTES COMPARTIDAS (ADMIN / STUDENT)
+ * CONSTANTES COMPARTIDAS ADMIN / STUDENT
+ * Estudiante ENARM – Simulacros
  ***********************************************/
 
-// Especialidades ENARM
+// Especialidades usadas en preguntas y reportes
 export const SPECIALTIES = {
   medicina_interna: "Medicina interna",
   pediatria: "Pediatría",
@@ -17,23 +18,26 @@ export const SUBTYPES = {
   urgencias: "Urgencias",
 };
 
-// Dificultades
+// Dificultad
 export const DIFFICULTIES = {
   baja: "Baja",
   media: "Media",
   alta: "Alta",
 };
 
-// Peso de cada dificultad para el cálculo ponderado
+// Peso de cada dificultad para el puntaje ponderado
 export const DIFFICULTY_WEIGHTS = {
-  baja: 1,   // 1 punto
-  media: 2,  // 2 puntos
-  alta: 3,   // 3 puntos
+  baja: 1,
+  media: 2,
+  alta: 3,
 };
 
-// Reglas por defecto de los exámenes
-// (si no existe el doc en examRules lo usamos como respaldo)
-export const DEFAULT_EXAM_RULES = {
-  maxAttempts: 3,
-  timePerQuestionSeconds: 77, // cada pregunta 77 segundos
-};
+// Intentos máximos por examen (valor por defecto)
+export const DEFAULT_MAX_ATTEMPTS = 3;
+
+// Tiempo por pregunta en segundos (valor por defecto)
+export const DEFAULT_TIME_PER_QUESTION = 77;
+
+// Tamaños permitidos para mini-exámenes
+export const MINI_EXAM_ALLOWED_QUESTION_COUNTS = [5, 10, 15, 20];
+
