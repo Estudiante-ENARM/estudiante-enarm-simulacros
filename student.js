@@ -21,13 +21,29 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 import {
-  SPECIALTY_LABELS,
-  SUBTYPE_LABELS,
-  DIFFICULTY_LABELS,
   DIFFICULTY_WEIGHTS,
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_TIME_PER_QUESTION,
 } from "./shared-constants.js";
+// Etiquetas locales para que el panel no dependa de exports que no existen en shared-constants.js
+const SPECIALTY_LABELS = {
+  medicina_interna: "Medicina interna",
+  cirugia_general: "Cirugía general",
+  pediatria: "Pediatría",
+  gine_obstetricia: "Ginecología y Obstetricia",
+};
+
+const SUBTYPE_LABELS = {
+  salud_publica: "Salud pública",
+  medicina_familiar: "Medicina familiar",
+  urgencias: "Urgencias",
+};
+
+const DIFFICULTY_LABELS = {
+  alta: "Alta",
+  media: "Media",
+  baja: "Baja",
+};
 
 /***********************************************
  * REFERENCIAS DOM
