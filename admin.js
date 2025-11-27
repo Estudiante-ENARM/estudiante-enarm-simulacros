@@ -213,91 +213,86 @@ if (modalBtnOk) {
 }
 
 /****************************************************
- * AUTH / VERIFICACIÓN DE ADMIN
+ * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
  ****************************************************/
-
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
+    // No hay sesión: fuera al login
     window.location.href = "index.html";
     return;
   }
 
+  // 1) Verificar que el usuario sea ADMIN en la colección users
   try {
-    const userDocRef = doc(db, "users", user.email);
-    const snap = await getDoc(userDocRef);
+    const userRef = doc(db, "users", user.email);
+    const userSnap = await getDoc(userRef);
 
-    if (!snap.exists()) {
-      alert("Tu usuario no está configurado en Firestore.");
+    if (!userSnap.exists()) {
+      alert("Tu usuario no existe en la base de datos de Estudiante ENARM.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    const data = snap.data();
-
-    const today = new Date().toISOString().slice(0, 10);
-    if (data.expiryDate && data.expiryDate < today) {
-      await updateDoc(userDocRef, { status: "inactivo" });
-      alert("Tu acceso ha vencido. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
-
-    if (data.status !== "activo") {
-      alert("Tu usuario está inactivo.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
-    }
+    const data = userSnap.data();
 
     if (data.role !== "admin") {
-      alert("Este panel es solo para administradores.");
+      alert("Acceso no autorizado. Este usuario no es administrador.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    currentAdminUser = user;
+    currentAdminUser = {
+      uid: user.uid,
+      email: user.email,
+      ...data,
+    };
+
     if (adminUserEmailSpan) {
-      adminUserEmailSpan.textContent = user.email || "";
+      adminUserEmailSpan.textContent = user.email;
     }
-
-    // Carga inicial
-    await Promise.all([
-      loadSections(),
-      loadLandingSettings(),
-      loadSocialLinks(),
-      loadAnalyticsSummary(),
-    ]);
-
-    setActivePanel("exams"); // por defecto secciones/exámenes
-
   } catch (err) {
-    console.error(err);
+    console.error("Error obteniendo perfil de administrador:", err);
     alert("Error cargando datos de administrador.");
-    await signOut(auth);
-    window.location.href = "index.html";
+    return;
   }
+
+  // 2) Cargar datos del panel (cada bloque con su propio try/catch
+  //    para que si algo falla, no se caiga todo el panel)
+  try {
+    await loadSections();
+  } catch (err) {
+    console.error("Error cargando secciones:", err);
+  }
+
+  try {
+    await loadUsersTable();
+  } catch (err) {
+    console.error("Error cargando usuarios:", err);
+  }
+
+  try {
+    await loadLandingSettings();
+  } catch (err) {
+    console.error("Error cargando configuración de landing:", err);
+  }
+
+  try {
+    await loadMiniCases();
+  } catch (err) {
+    console.error("Error cargando banco de mini exámenes:", err);
+  }
+
+  try {
+    await loadAnalyticsSummary();
+  } catch (err) {
+    console.error("Error cargando analytics:", err);
+  }
+
+  console.log("admin.js cargado correctamente y panel inicializado.");
 });
 
-if (btnLogout) {
-  btnLogout.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      window.location.href = "index.html";
-    }
-  });
-}
-
-if (btnToggleSidebar && sidebar) {
-  btnToggleSidebar.addEventListener("click", () => {
-    sidebar.classList.toggle("sidebar--open");
-  });
-}
 
 /****************************************************
  * NAVEGACIÓN LATERAL
