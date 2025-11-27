@@ -1210,6 +1210,261 @@ if (btnSaveExamBottom && btnSaveExamAll) {
 }
 
 /****************************************************
+ * MINI EXÁMENES (BANCO GLOBAL INDEPENDIENTE)
+ * Colección en Firestore: miniQuestions
+ ****************************************************/
+
+const miniCasesContainer = document.getElementById("admin-mini-cases-container");
+const btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
+const btnMiniSave = document.getElementById("admin-mini-btn-save");
+const btnNavMini = document.getElementById("admin-btn-nav-mini");
+
+let miniCasesState = [];
+let miniCasesLoaded = false;
+
+// Cargar casos de mini exámenes desde Firestore
+async function loadMiniCases() {
+  if (!miniCasesContainer) return;
+  miniCasesContainer.innerHTML =
+    "<p class='panel-subtitle'>Cargando banco de casos…</p>";
+
+  try {
+    const snap = await getDocs(collection(db, "miniQuestions"));
+    miniCasesState = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    if (!miniCasesState.length) {
+      miniCasesState.push(createEmptyCase());
+    }
+
+    renderMiniCases();
+    miniCasesLoaded = true;
+  } catch (err) {
+    console.error(err);
+    miniCasesContainer.innerHTML =
+      "<p class='panel-subtitle'>Error cargando los casos de mini exámenes.</p>";
+  }
+}
+
+// Pintar los casos en pantalla (usa el mismo esquema que los exámenes normales)
+function renderMiniCases() {
+  if (!miniCasesContainer) return;
+  miniCasesContainer.innerHTML = "";
+
+  if (!miniCasesState.length) {
+    miniCasesState.push(createEmptyCase());
+  }
+
+  miniCasesState.forEach((caseData, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "card exam-case-block";
+    wrapper.dataset.index = index;
+
+    const specialtyValue = caseData.specialty || "";
+    const questionsArr = Array.isArray(caseData.questions)
+      ? caseData.questions
+      : [];
+
+    wrapper.innerHTML = `
+      <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h3 style="font-size:15px;font-weight:600;">
+          Caso mini ${index + 1}
+        </h3>
+        <button type="button" class="btn btn-sm btn-outline admin-mini-delete-case">
+          Eliminar caso
+        </button>
+      </div>
+
+      <label class="field">
+        <span>Especialidad</span>
+        <select class="admin-mini-case-specialty">
+          <option value="">Selecciona...</option>
+          ${Object.entries(SPECIALTIES)
+            .map(
+              ([key, label]) =>
+                `<option value="${key}" ${
+                  key === specialtyValue ? "selected" : ""
+                }>${label}</option>`
+            )
+            .join("")}
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Texto del caso clínico</span>
+        <textarea class="admin-mini-case-text" rows="4">${
+          caseData.caseText || ""
+        }</textarea>
+      </label>
+
+      <div class="cards-list admin-mini-case-questions"></div>
+
+      <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
+        <button type="button" class="btn btn-sm btn-primary admin-mini-add-question">
+          + Agregar pregunta
+        </button>
+      </div>
+    `;
+
+    const qContainer = wrapper.querySelector(".admin-mini-case-questions");
+
+    if (!questionsArr.length) {
+      qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
+    } else {
+      questionsArr.forEach((qData) => {
+        qContainer.appendChild(renderQuestionBlock(qData));
+      });
+    }
+
+    wrapper
+      .querySelector(".admin-mini-add-question")
+      .addEventListener("click", () => {
+        qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
+      });
+
+    wrapper
+      .querySelector(".admin-mini-delete-case")
+      .addEventListener("click", () => {
+        const idx = parseInt(wrapper.dataset.index, 10);
+        if (Number.isNaN(idx)) return;
+        miniCasesState.splice(idx, 1);
+        renderMiniCases();
+      });
+
+    miniCasesContainer.appendChild(wrapper);
+  });
+}
+
+// Botón "Agregar caso clínico" (mini exámenes)
+if (btnMiniAddCase) {
+  btnMiniAddCase.addEventListener("click", () => {
+    miniCasesState.push(createEmptyCase());
+    renderMiniCases();
+  });
+}
+
+// Botón "Guardar banco"
+if (btnMiniSave) {
+  btnMiniSave.addEventListener("click", async () => {
+    if (!miniCasesContainer) return;
+
+    const caseBlocks =
+      miniCasesContainer.querySelectorAll(".exam-case-block");
+    if (!caseBlocks.length) {
+      alert("Agrega al menos un caso clínico.");
+      return;
+    }
+
+    const casesToSave = [];
+
+    for (const block of caseBlocks) {
+      const caseText = block
+        .querySelector(".admin-mini-case-text")
+        .value.trim();
+      const specialty = block
+        .querySelector(".admin-mini-case-specialty")
+        .value;
+
+      if (!caseText || !specialty) {
+        alert(
+          "Completa la especialidad y el texto del caso en todos los mini casos."
+        );
+        return;
+      }
+
+      const qBlocks = block.querySelectorAll(".exam-question-block");
+      if (!qBlocks.length) {
+        alert("Cada mini caso debe tener al menos una pregunta.");
+        return;
+      }
+
+      const questions = [];
+
+      for (const qb of qBlocks) {
+        const questionText = qb.querySelector(".admin-q-question").value.trim();
+        const optionA = qb.querySelector(".admin-q-a").value.trim();
+        const optionB = qb.querySelector(".admin-q-b").value.trim();
+        const optionC = qb.querySelector(".admin-q-c").value.trim();
+        const optionD = qb.querySelector(".admin-q-d").value.trim();
+        const correctOption = qb.querySelector(".admin-q-correct").value;
+        const subtype = qb.querySelector(".admin-q-subtype").value;
+        const difficulty = qb.querySelector(".admin-q-difficulty").value;
+        const justification = qb
+          .querySelector(".admin-q-justification")
+          .value.trim();
+
+        if (
+          !questionText ||
+          !optionA ||
+          !optionB ||
+          !optionC ||
+          !optionD ||
+          !correctOption ||
+          !justification
+        ) {
+          alert("Completa todos los campos de cada pregunta.");
+          return;
+        }
+
+        questions.push({
+          questionText,
+          optionA,
+          optionB,
+          optionC,
+          optionD,
+          correctOption,
+          subtype,
+          difficulty,
+          justification,
+        });
+      }
+
+      casesToSave.push({
+        caseText,
+        specialty,
+        questions,
+      });
+    }
+
+    try {
+      setLoadingButton(btnMiniSave, true, "Guardando…");
+
+      const colRef = collection(db, "miniQuestions");
+
+      // Borrar banco previo completo
+      const prev = await getDocs(colRef);
+      for (const d of prev.docs) {
+        await deleteDoc(d.ref);
+      }
+
+      // Guardar nuevos casos
+      for (const c of casesToSave) {
+        await addDoc(colRef, {
+          ...c,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      alert("Banco de mini exámenes guardado correctamente.");
+      await loadMiniCases();
+    } catch (err) {
+      console.error(err);
+      alert("Error al guardar el banco de mini exámenes.");
+    } finally {
+      setLoadingButton(btnMiniSave, false, "Guardar banco");
+    }
+  });
+}
+
+// Cuando entras a la pestaña "Mini exámenes" se cargan los casos
+if (btnNavMini) {
+  btnNavMini.addEventListener("click", () => {
+    if (!miniCasesLoaded) {
+      loadMiniCases();
+    }
+  });
+}
+
+/****************************************************
  * USUARIOS (CRUD)
  ****************************************************/
 
