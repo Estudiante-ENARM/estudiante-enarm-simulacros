@@ -363,12 +363,12 @@ body, button, input, textarea, select {
 /* Lista de secciones */
 
 .sidebar-sections {
-  flex: 1;
   margin-top: 16px;
   list-style: none;
   overflow-y: auto;
   padding-right: 4px;
 }
+
 
 /* Scrollbar fino */
 .sidebar-sections::-webkit-scrollbar {
