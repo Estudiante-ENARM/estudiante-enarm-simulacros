@@ -87,7 +87,7 @@
           Pantalla principal
         </button>
       </div>
-    </aside> <!-- ⬅️ CIERRE CORRECTO DEL ASIDE -->
+    </aside> <!-- ← AQUÍ CERRAMOS EL ASIDE QUE FALTABA -->
 
     <!-- CONTENIDO PRINCIPAL -->
     <main id="content">
@@ -135,6 +135,16 @@
 
           <!-- Contenedor de casos clínicos + preguntas -->
           <div id="admin-exam-cases" class="cards-list"></div>
+
+          <!-- FOOTER CON BOTONES DUPLICADOS -->
+          <div class="flex-row admin-exam-footer">
+            <button id="admin-btn-add-case-bottom" class="btn btn-secondary">
+              + Agregar caso clínico
+            </button>
+            <button id="admin-btn-save-exam-bottom" class="btn btn-primary">
+              Guardar examen
+            </button>
+          </div>
         </section>
       </section>
 
