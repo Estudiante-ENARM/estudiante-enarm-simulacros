@@ -1243,7 +1243,6 @@ async function submitExamForStudent(auto = false) {
 
   // Guardar SOLO exámenes por sección
   if (
-  if (
     currentExamMode === "section" &&
     currentExamId &&
     currentUser
@@ -1259,10 +1258,9 @@ async function submitExamForStudent(auto = false) {
 
       const prevSnap = await getDoc(attemptRef);
       const prevData = prevSnap.exists() ? prevSnap.data() : {};
-      const oldAttempts =
-        prevData.attempts || currentExamPreviousAttempts || 0;
+      const oldAttempts = prevData.attempts || currentExamPreviousAttempts || 0;
 
-      // Guardamos el historial con timestamp en milisegundos
+      // OJO: aquí usamos new Date() (NO serverTimestamp) para el historial
       const historyEntry = {
         score: scoreWeighted,
         scoreRaw,
@@ -1270,16 +1268,14 @@ async function submitExamForStudent(auto = false) {
         totalQuestions,
         sectionId: currentSectionId,
         sectionName: currentSectionName || "",
-        // NO usamos serverTimestamp() aquí porque está dentro de arrayUnion
-        createdAt: Date.now(), // número (ms desde 1970)
+        createdAt: new Date(),
       };
 
       await setDoc(
         attemptRef,
         {
           attempts: oldAttempts + 1,
-          // Aquí sí podemos usar serverTimestamp porque es campo directo
-          lastAttempt: serverTimestamp(),
+          lastAttempt: serverTimestamp(), // este sí puede ser serverTimestamp
           score: scoreWeighted,
           scoreRaw,
           correctCount: globalCorrect,
@@ -1291,7 +1287,7 @@ async function submitExamForStudent(auto = false) {
             specialties: specStats,
             difficulties: difficultyStats,
           },
-          // Historial de TODOS los intentos
+          // aquí usamos arrayUnion con un objeto normal (sin sentinels)
           history: arrayUnion(historyEntry),
         },
         { merge: true }
@@ -1315,12 +1311,13 @@ async function submitExamForStudent(auto = false) {
     difficultyStats,
   });
 
-  // Ocultamos el botón para evitar que lo vuelvan a presionar
+  // Ocultamos el botón para evitar doble envío
   if (btnSubmitExam) {
     btnSubmitExam.disabled = true;
     btnSubmitExam.style.display = "none";
   }
 }
+
 
 /***********************************************
  * RENDERIZAR RESULTADOS (3 TABLAS)
