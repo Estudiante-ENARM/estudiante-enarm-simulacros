@@ -1133,29 +1133,50 @@ tr:last-child td {
   transform: translateY(-1px);
 }
 
-/* BOTÓN ALEATORIO – ESTADOS VISUALES */
-.mini-random-button {
+/* BOTÓN ALEATORIO – ESTADOS VISUALES (checkbox + label) */
+
+/* fila contenedora */
+.mini-mode-row {
+  margin-top: 6px;
+}
+
+/* ocultamos el checkbox real */
+.mini-random-checkbox {
+  display: none;
+}
+
+/* botón visual */
+.mini-random-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   border-radius: 999px;
-  border: none;
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-  /* Estado APAGADO por defecto */
-  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;      /* apagado */
   color: #111827;
   box-shadow: none;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.1s ease;
 }
 
-/* Estado ENCENDIDO (clase .is-active que activa JS) */
-.mini-random-button.is-active {
+/* estado ENCENDIDO cuando el checkbox está marcado */
+.mini-mode-row input:checked + .mini-random-toggle {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
-  box-shadow: 0 10px 20px rgba(37,99,235,0.25);
+  border-color: transparent;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+  transform: translateY(-1px);
 }
-}
+
 /* ===== Banner de cookies ===== */
 
 .cookie-banner {
