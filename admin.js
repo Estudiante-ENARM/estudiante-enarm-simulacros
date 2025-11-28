@@ -8,7 +8,7 @@
  * - Analytics básicos
  ****************************************************/
 
-// Firebase inicializado en firebase.js
+// Firebase inicializado en firebase-config.js
 import { auth, db } from "./firebase-config.js";
 
 import {
@@ -38,7 +38,6 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-
 /****************************************************
  * REFERENCIAS DOM
  ****************************************************/
@@ -47,9 +46,6 @@ import {
 const adminUserEmailSpan = document.getElementById("admin-user-email");
 const btnLogout = document.getElementById("admin-btn-logout");
 const btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
-const btnLogout = document.getElementById("admin-btn-logout");
-const btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
-
 
 // Sidebar
 const sidebar = document.getElementById("admin-sidebar");
@@ -152,6 +148,7 @@ let currentAdminUser = null;       // Auth user
 let currentSectionId = null;       // Sección seleccionada
 let currentExamId = null;          // Examen abierto
 let currentExamCases = [];         // Casos clínicos en memoria
+
 
 
 /****************************************************
