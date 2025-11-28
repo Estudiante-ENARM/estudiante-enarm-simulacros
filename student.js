@@ -1243,6 +1243,7 @@ async function submitExamForStudent(auto = false) {
 
   // Guardar SOLO exámenes por sección
   if (
+  if (
     currentExamMode === "section" &&
     currentExamId &&
     currentUser
@@ -1258,8 +1259,10 @@ async function submitExamForStudent(auto = false) {
 
       const prevSnap = await getDoc(attemptRef);
       const prevData = prevSnap.exists() ? prevSnap.data() : {};
-      const oldAttempts = prevData.attempts || currentExamPreviousAttempts || 0;
+      const oldAttempts =
+        prevData.attempts || currentExamPreviousAttempts || 0;
 
+      // Guardamos el historial con timestamp en milisegundos
       const historyEntry = {
         score: scoreWeighted,
         scoreRaw,
@@ -1267,13 +1270,15 @@ async function submitExamForStudent(auto = false) {
         totalQuestions,
         sectionId: currentSectionId,
         sectionName: currentSectionName || "",
-        createdAt: serverTimestamp(),
+        // NO usamos serverTimestamp() aquí porque está dentro de arrayUnion
+        createdAt: Date.now(), // número (ms desde 1970)
       };
 
       await setDoc(
         attemptRef,
         {
           attempts: oldAttempts + 1,
+          // Aquí sí podemos usar serverTimestamp porque es campo directo
           lastAttempt: serverTimestamp(),
           score: scoreWeighted,
           scoreRaw,
@@ -1286,7 +1291,8 @@ async function submitExamForStudent(auto = false) {
             specialties: specStats,
             difficulties: difficultyStats,
           },
-          history: arrayUnion(historyEntry), // para la gráfica (todos los intentos)
+          // Historial de TODOS los intentos
+          history: arrayUnion(historyEntry),
         },
         { merge: true }
       );
@@ -1562,7 +1568,7 @@ async function loadStudentProgress() {
     }
 
     // ---- history (para la gráfica: TODOS LOS INTENTOS) ----
-    const historyArr = Array.isArray(at.history) ? at.history : [];
+     const historyArr = Array.isArray(at.history) ? at.history : [];
 
     if (historyArr.length === 0) {
       // Fallback: solo último intento
@@ -1578,10 +1584,18 @@ async function loadStudentProgress() {
       historyArr.forEach((h) => {
         const hScore =
           typeof h.score === "number" ? h.score : score;
+
         let hDate = h.createdAt || h.date || at.lastAttempt;
+
+        // Normalizamos el tipo de fecha:
+        // - Timestamp de Firestore (toDate)
+        // - número (ms) que guardamos con Date.now()
         if (hDate && typeof hDate.toDate === "function") {
           hDate = hDate.toDate();
+        } else if (typeof hDate === "number") {
+          hDate = new Date(hDate);
         }
+
         examHistoryResults.push({
           examId,
           examName: exData.name || "Examen",
@@ -1592,7 +1606,7 @@ async function loadStudentProgress() {
         });
       });
     }
-  }
+
 
   // 4) Tarjetas por sección
   if (progressSectionsContainer) {
