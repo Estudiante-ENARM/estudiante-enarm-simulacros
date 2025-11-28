@@ -1332,3 +1332,24 @@ tr:last-child td {
     border-top-color: rgba(129, 140, 248, 0.7);
   }
 }
+/* ============================
+   MINI EXÁMENES – TEXTOS CLAROS EN DARK MODE
+   ============================ */
+@media (prefers-color-scheme: dark) {
+
+  /* Etiquetas del formulario dentro de la tarjeta */
+  #student-mini-exams-view .mini-field-label {
+    color: #e5e7eb !important;
+  }
+
+  /* Texto descriptivo bajo el botón */
+  #student-mini-exams-view .mini-exam-card-footer {
+    color: #d1d5db !important;
+    border-top-color: rgba(129, 140, 248, 0.7);
+  }
+
+  /* Por si alguna etiqueta está como span suelto dentro del body */
+  #student-mini-exams-view .mini-exam-card-body span {
+    color: #e5e7eb;
+  }
+}
