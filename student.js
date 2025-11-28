@@ -69,6 +69,10 @@ const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-special
 const miniRandomCheckbox = document.getElementById("student-mini-random");
 const miniStartBtn = document.getElementById("student-mini-start-btn");
 
+// NUEVO: chips y botón grande de aleatorio
+const miniSpecialtyChips = document.querySelectorAll(".mini-specialty-chip");
+const miniRandomButton = document.querySelector(".mini-random-button");
+
 // Exámenes por sección
 const sectionTitle = document.getElementById("student-current-section-title");
 const sectionSubtitle = document.getElementById("student-current-section-subtitle");
@@ -298,6 +302,41 @@ if (btnBackToExams) {
 
 if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
+}
+
+/***********************************************
+ * MINI EXÁMENES: INTERACCIÓN DE CHIPS Y ALEATORIO
+ ***********************************************/
+// Especialidades: empiezan en gris (sin seleccionar) y se activan al hacer clic
+miniSpecialtyChips.forEach((chip) => {
+  const checkbox = chip.querySelector(".student-mini-specialty");
+  if (!checkbox) return;
+
+  // Estado inicial: gris / no seleccionada
+  checkbox.checked = false;
+  chip.classList.remove("mini-specialty-chip--active");
+
+  chip.addEventListener("click", (e) => {
+    e.preventDefault(); // evitamos focus extraño
+    const isActive = chip.classList.toggle("mini-specialty-chip--active");
+    checkbox.checked = isActive;
+  });
+});
+
+// Modo aleatorio: siempre debe estar activo
+if (miniRandomCheckbox) {
+  miniRandomCheckbox.checked = true;
+}
+if (miniRandomButton) {
+  miniRandomButton.classList.add("mini-random-button--active");
+  miniRandomButton.addEventListener("click", (e) => {
+    e.preventDefault();
+    // Siempre lo dejamos activado
+    if (miniRandomCheckbox) {
+      miniRandomCheckbox.checked = true;
+    }
+    miniRandomButton.classList.add("mini-random-button--active");
+  });
 }
 
 /***********************************************
@@ -1234,14 +1273,14 @@ async function submitExamForStudent(auto = false) {
         totalQuestions,
         sectionId: currentSectionId,
         sectionName: currentSectionName || "",
-        createdAt: new Date(), // Fecha normal para el array (no serverTimestamp)
+        createdAt: new Date(), // fecha normal para el array
       };
 
       await setDoc(
         attemptRef,
         {
           attempts: oldAttempts + 1,
-          lastAttempt: serverTimestamp(), // aquí sí se puede usar
+          lastAttempt: serverTimestamp(), // aquí sí usamos serverTimestamp
           score: scoreWeighted,
           scoreRaw,
           correctCount: globalCorrect,
