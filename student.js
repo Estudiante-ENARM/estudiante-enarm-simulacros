@@ -66,12 +66,9 @@ const progressView = document.getElementById("student-progress-view");
 // Mini examen (builder)
 const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
 const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
-const miniRandomCheckbox = document.getElementById("student-mini-random");
+const miniRandomCheckbox = document.getElementById("student-mini-random");              // input oculto
+const miniRandomToggleBtn = document.getElementById("student-mini-random-toggle");      // botón azul / gris
 const miniStartBtn = document.getElementById("student-mini-start-btn");
-
-// NUEVO: chips y botón grande de aleatorio
-const miniSpecialtyChips = document.querySelectorAll(".mini-specialty-chip");
-const miniRandomButton = document.querySelector(".mini-random-button");
 
 // Exámenes por sección
 const sectionTitle = document.getElementById("student-current-section-title");
@@ -98,6 +95,7 @@ const progressGlobalEl = document.getElementById("student-progress-global");
 const progressChartCanvas = document.getElementById("student-progress-chart");
 
 let progressChartInstance = null;
+
 
 /***********************************************
  * ESTADO GLOBAL
@@ -302,6 +300,54 @@ if (btnBackToExams) {
 
 if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
+}
+
+/* ====== INTERACCIÓN ESPECIALIDADES (chips) ====== */
+if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
+  miniSpecialtyCheckboxes.forEach((cb) => {
+    const chip = cb.closest(".mini-specialty-chip");
+    if (!chip) return;
+
+    // estado inicial visual
+    if (cb.checked) {
+      chip.classList.add("mini-specialty-chip--active");
+    } else {
+      chip.classList.remove("mini-specialty-chip--active");
+    }
+
+    chip.addEventListener("click", (e) => {
+      e.preventDefault(); // evitamos el doble toggle del label
+      const newVal = !cb.checked;
+      cb.checked = newVal;
+
+      if (newVal) {
+        chip.classList.add("mini-specialty-chip--active");
+      } else {
+        chip.classList.remove("mini-specialty-chip--active");
+      }
+    });
+  });
+}
+
+/* ====== BOTÓN ALEATORIO ON / OFF ====== */
+if (miniRandomToggleBtn && miniRandomCheckbox) {
+  // sincroniza estado inicial
+  if (miniRandomCheckbox.checked) {
+    miniRandomToggleBtn.classList.add("is-active");
+  } else {
+    miniRandomToggleBtn.classList.remove("is-active");
+  }
+
+  miniRandomToggleBtn.addEventListener("click", () => {
+    const newVal = !miniRandomCheckbox.checked;
+    miniRandomCheckbox.checked = newVal;
+
+    if (newVal) {
+      miniRandomToggleBtn.classList.add("is-active");   // ON (azul)
+    } else {
+      miniRandomToggleBtn.classList.remove("is-active"); // OFF (gris)
+    }
+  });
 }
 
 /***********************************************
