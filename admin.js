@@ -9,7 +9,7 @@
  ****************************************************/
 
 // Firebase inicializado en firebase.js
-import { auth, db } from "./firebase.js";
+import { auth, db } from "./firebase-config.js";
 
 import {
   SPECIALTIES,
@@ -36,7 +36,6 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  orderBy
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 
@@ -48,6 +47,9 @@ import {
 const adminUserEmailSpan = document.getElementById("admin-user-email");
 const btnLogout = document.getElementById("admin-btn-logout");
 const btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
+const btnLogout = document.getElementById("admin-btn-logout");
+const btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
+
 
 // Sidebar
 const sidebar = document.getElementById("admin-sidebar");
@@ -124,6 +126,21 @@ let modalOkHandler = null;
 if (btnToggleSidebar && sidebar) {
   btnToggleSidebar.addEventListener("click", () => {
     sidebar.classList.toggle("sidebar--open");
+  });
+}
+
+/****************************************************
+ * LOGOUT ADMIN
+ ****************************************************/
+if (btnLogout) {
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "index.html";
+    } catch (error) {
+      console.error("Error al cerrar sesión (admin):", error);
+      alert("No se pudo cerrar sesión. Intenta nuevamente.");
+    }
   });
 }
 
