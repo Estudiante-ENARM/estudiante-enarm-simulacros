@@ -53,6 +53,18 @@
          src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
   </noscript>
 
+  <!-- Banner de cookies -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cookie-banner__text">
+      Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
+      Esto incluye Google Analytics y Meta Pixel. Puedes aceptar o rechazar estas cookies.
+    </div>
+    <div class="cookie-banner__actions">
+      <button id="cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+      <button id="cookie-decline" class="btn btn-outline btn-sm">Rechazar</button>
+    </div>
+  </div>
+
   <section id="login-view" class="view">
     <div class="login-card">
       <h1>Estudiante ENARM</h1>
@@ -116,5 +128,34 @@
 
   <!-- Lógica de la página de bienvenida -->
   <script type="module" src="index.js"></script>
+
+  <!-- Lógica del banner de cookies -->
+  <script>
+    (function () {
+      const banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+
+      const KEY = 'cookies_enarm_preference';
+
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted' || stored === 'declined') {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        banner.style.display = 'none';
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
 </body>
 </html>
