@@ -142,23 +142,29 @@
               </div>
             </div>
 
+<!-- Modo de selección -->
 <div>
   <span class="mini-field-label">Modo de selección</span>
+
   <div class="mini-mode-row">
-    <!-- Botón visible que se pinta ON / OFF -->
+    <!-- Botón grande visual (ON / OFF) -->
     <button
-      id="student-mini-random-toggle"
-      class="mini-mode-random-btn is-active"
       type="button"
+      id="student-mini-random-toggle"
+      class="mini-random-button is-active"
     >
       Selección aleatoria de casos clínicos
     </button>
 
-    <!-- Checkbox oculto que usa la lógica -->
-    <input type="checkbox" id="student-mini-random" class="hidden" checked>
+    <!-- Checkbox REAL (se usa para la lógica y se mantiene oculto) -->
+    <input
+      type="checkbox"
+      id="student-mini-random"
+      class="hidden"
+      checked
+    >
   </div>
 </div>
-
 
             <!-- Botón iniciar -->
             <button id="student-mini-start-btn" class="btn btn-primary btn-full-width">
