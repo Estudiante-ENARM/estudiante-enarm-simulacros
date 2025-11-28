@@ -337,7 +337,7 @@ body, button, input, textarea, select {
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;   /* <- antes era space-between */
+  justify-content: flex-start;
   z-index: 30;
 }
 
@@ -457,7 +457,7 @@ body, button, input, textarea, select {
 /* Iconos sociales (login + admin + student) */
 
 .sidebar-social {
-  margin-top: auto;              /* empuja las redes al fondo */
+  margin-top: auto;
   display: flex;
   justify-content: space-around;
   padding-top: 10px;
@@ -482,8 +482,8 @@ body, button, input, textarea, select {
 =================================================== */
 
 #content {
-  margin-left: 260px;          /* deja espacio para la barra lateral */
-  padding: 80px 24px 24px;     /* espacio por el header fijo */
+  margin-left: 260px;
+  padding: 80px 24px 24px;
   max-width: 1200px;
   width: 100%;
 }
@@ -677,7 +677,7 @@ tr:last-child td {
   padding: 18px 20px;
   margin-bottom: 20px;
   box-shadow: var(--shadow-soft);
-  display: none; /* se muestra vía JS */
+  display: none;
 }
 
 #student-result-banner h3 {
@@ -779,7 +779,7 @@ tr:last-child td {
   border-radius: var(--radius-sm);
   color: var(--primary-dark);
   font-size: 13px;
-  display: none; /* se activa cuando termina el examen */
+  display: none;
 }
 
 /* Tablas de resultados premium */
@@ -873,7 +873,6 @@ tr:last-child td {
 =================================================== */
 
 @media (max-width: 850px) {
-  /* Ocultar barras laterales en móvil (admin + student) */
   #sidebar,
   #admin-sidebar {
     left: -260px;
@@ -901,6 +900,7 @@ tr:last-child td {
   justify-content: flex-end;
   margin-top: 16px;
 }
+
 /* ============================
    MINI EXÁMENES – VISTA ESTUDIANTE
    ============================ */
@@ -1075,6 +1075,7 @@ tr:last-child td {
     max-width: 100%;
   }
 }
+
 /* ===== MINI EXÁMENES – UI mejorada ===== */
 
 /* Select de número de preguntas con estilo de pastilla */
@@ -1088,7 +1089,7 @@ tr:last-child td {
   font-weight: 500;
   color: #111827;
   outline: none;
-  appearance: none;              /* quita el estilo nativo */
+  appearance: none;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
@@ -1139,7 +1140,6 @@ tr:last-child td {
 
 /* BOTÓN ALEATORIO – ESTADOS VISUALES (checkbox + label) */
 
-/* fila contenedora */
 .mini-mode-row {
   margin-top: 6px;
 }
@@ -1161,7 +1161,7 @@ tr:last-child td {
   font-weight: 600;
   cursor: pointer;
   border: 1px solid #d1d5db;
-  background: #f9fafb;      /* apagado */
+  background: #f9fafb;
   color: #111827;
   box-shadow: none;
   transition:
@@ -1218,5 +1218,89 @@ tr:last-child td {
     flex-direction: column;
     align-items: flex-start;
     border-radius: 16px;
+  }
+}
+
+/* ============================
+   MINI EXÁMENES – DARK MODE
+   ============================ */
+
+@media (prefers-color-scheme: dark) {
+  #student-mini-exams-view .panel-title {
+    color: #e5e7eb;
+  }
+
+  #student-mini-exams-view .panel-subtitle {
+    color: #9ca3af;
+  }
+
+  #student-mini-exams-view .mini-exam-card {
+    background: radial-gradient(
+      circle at 0% 0%,
+      rgba(59, 130, 246, 0.35),
+      #020617
+    );
+    border-color: rgba(148, 163, 184, 0.45);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  }
+
+  #student-mini-exams-view .mini-exam-card-title {
+    color: #e5e7eb;
+  }
+
+  #student-mini-exams-view .mini-exam-card-description {
+    color: #9ca3af;
+  }
+
+  #student-mini-exams-view .mini-exam-pill {
+    background: rgba(37, 99, 235, 0.25);
+    color: #bfdbfe;
+  }
+
+  #student-mini-exams-view .mini-exam-icon {
+    background: rgba(15, 23, 42, 0.8);
+  }
+
+  #student-mini-exams-view .mini-specialty-chip {
+    background: rgba(15, 23, 42, 0.95);
+    border-color: rgba(148, 163, 184, 0.7);
+    color: #e5e7eb;
+  }
+
+  #student-mini-exams-view .mini-specialty-chip:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.55);
+  }
+
+  .mini-num-select {
+    background: #020617;
+    border-color: #1f2937;
+    color: #e5e7eb;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.85);
+  }
+
+  .mini-num-select:focus {
+    border-color: #3b82f6;
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.55),
+      0 12px 28px rgba(15, 23, 42, 0.95);
+  }
+
+  .mini-random-toggle {
+    background: #020617;
+    color: #e5e7eb;
+    border-color: #1f2937;
+    box-shadow: none;
+  }
+
+  .mini-mode-row input:checked + .mini-random-toggle {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.45);
+  }
+
+  #student-mini-exams-view .mini-mode-row {
+    color: #e5e7eb;
   }
 }
