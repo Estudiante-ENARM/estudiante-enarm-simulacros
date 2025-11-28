@@ -31,12 +31,14 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
   setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
 
 /****************************************************
  * REFERENCIAS DOM
