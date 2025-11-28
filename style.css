@@ -901,3 +901,177 @@ tr:last-child td {
   justify-content: flex-end;
   margin-top: 16px;
 }
+/* ============================
+   MINI EXÁMENES – VISTA ESTUDIANTE
+   ============================ */
+
+#student-mini-exams-view {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* Título y descripción del módulo */
+#student-mini-exams-view .panel-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+#student-mini-exams-view .panel-subtitle {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 18px;
+}
+
+/* Tarjeta principal del configurador */
+#student-mini-exams-view .mini-exam-card {
+  position: relative;
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  background: radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.18), #ffffff);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+}
+
+/* halo decorativo en esquina */
+#student-mini-exams-view .mini-exam-card::before {
+  content: "";
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.35), rgba(59, 130, 246, 0));
+  pointer-events: none;
+}
+
+/* cabecera dentro de la tarjeta */
+#student-mini-exams-view .mini-exam-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#student-mini-exams-view .mini-exam-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+#student-mini-exams-view .mini-exam-card-description {
+  font-size: 0.82rem;
+  color: #4b5563;
+}
+
+/* chip de “Personalizado” */
+#student-mini-exams-view .mini-exam-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.09);
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* icono redondo a la derecha */
+#student-mini-exams-view .mini-exam-icon {
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* cuerpo del formulario */
+#student-mini-exams-view .mini-exam-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* campos */
+#student-mini-exams-view .mini-field-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+#student-mini-exams-view select,
+#student-mini-exams-view input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* grid de especialidades como “chips” */
+#student-mini-exams-view .mini-specialties-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#student-mini-exams-view .mini-specialty-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  font-size: 0.78rem;
+  color: #111827;
+  transition: all 0.15s ease;
+}
+
+#student-mini-exams-view .mini-specialty-chip input[type="checkbox"] {
+  accent-color: #2563eb;
+}
+
+#student-mini-exams-view .mini-specialty-chip:hover {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+}
+
+/* modo de selección */
+#student-mini-exams-view .mini-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+/* footer con texto bajo el botón */
+#student-mini-exams-view .mini-exam-card-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.6);
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
+/* botón principal más protagonista dentro de la tarjeta */
+#student-mini-exams-view .btn-primary {
+  width: 100%;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* responsive */
+@media (max-width: 480px) {
+  #student-mini-exams-view {
+    max-width: 100%;
+  }
+}
