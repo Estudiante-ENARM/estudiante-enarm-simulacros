@@ -66,8 +66,9 @@ const progressView = document.getElementById("student-progress-view");
 // Mini examen (builder)
 const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
 const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
-const miniRandomCheckbox = document.getElementById("student-mini-random");              // input oculto
-const miniRandomToggleBtn = document.getElementById("student-mini-random-toggle");      // botón azul / gris
+const miniRandomCheckbox = document.getElementById("student-mini-random");
+// Botón grande visual (el pill azul/gris)
+const miniRandomToggleBtn = document.getElementById("student-mini-random-toggle");
 const miniStartBtn = document.getElementById("student-mini-start-btn");
 
 // Exámenes por sección
@@ -343,63 +344,12 @@ if (miniRandomToggleBtn && miniRandomCheckbox) {
     miniRandomCheckbox.checked = newVal;
 
     if (newVal) {
-      miniRandomToggleBtn.classList.add("is-active");   // ON (azul)
+      // ON (azul)
+      miniRandomToggleBtn.classList.add("is-active");
     } else {
-      miniRandomToggleBtn.classList.remove("is-active"); // OFF (gris)
+      // OFF (gris)
+      miniRandomToggleBtn.classList.remove("is-active");
     }
-  });
-}
-
-/***********************************************
- * MINI EXÁMENES: INTERACCIÓN DE CHIPS Y ALEATORIO
- ***********************************************/
-// Especialidades: empiezan en gris (sin seleccionar) y se activan al hacer clic
-miniSpecialtyChips.forEach((chip) => {
-  const checkbox = chip.querySelector(".student-mini-specialty");
-  if (!checkbox) return;
-
-  // Estado inicial: gris / no seleccionada
-  checkbox.checked = false;
-  chip.classList.remove("mini-specialty-chip--active");
-
-  chip.addEventListener("click", (e) => {
-    e.preventDefault(); // evitamos focus extraño
-    const isActive = chip.classList.toggle("mini-specialty-chip--active");
-    checkbox.checked = isActive;
-  });
-});
-
-// ---- ALEATORIO: ahora sí se puede activar / desactivar ----
-function updateRandomButtonState() {
-  if (!miniRandomButton || !miniRandomCheckbox) return;
-  if (miniRandomCheckbox.checked) {
-    miniRandomButton.classList.add("mini-random-button--active");
-  } else {
-    miniRandomButton.classList.remove("mini-random-button--active");
-  }
-}
-
-// Estado inicial: activado por defecto (pero se puede apagar)
-if (miniRandomCheckbox) {
-  miniRandomCheckbox.checked = true;
-}
-
-// Sincronizar cuando cambie el checkbox (por si lo tocan directamente)
-if (miniRandomCheckbox) {
-  miniRandomCheckbox.addEventListener("change", () => {
-    updateRandomButtonState();
-  });
-}
-
-// Comportamiento del botón grande "Aleatorio"
-if (miniRandomButton) {
-  updateRandomButtonState();
-  miniRandomButton.addEventListener("click", (e) => {
-    e.preventDefault();
-    if (!miniRandomCheckbox) return;
-    // Toggle: si está activo se apaga, si está apagado se enciende
-    miniRandomCheckbox.checked = !miniRandomCheckbox.checked;
-    updateRandomButtonState();
   });
 }
 
