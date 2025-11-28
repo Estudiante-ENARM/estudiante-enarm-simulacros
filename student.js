@@ -316,7 +316,7 @@ if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
     }
 
     chip.addEventListener("click", (e) => {
-      e.preventDefault(); // evitamos el doble toggle del label
+      e.preventDefault(); // evitamos doble toggle del label
       const newVal = !cb.checked;
       cb.checked = newVal;
 
@@ -331,7 +331,7 @@ if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
 
 /* ====== BOTÓN ALEATORIO ON / OFF ====== */
 if (miniRandomToggleBtn && miniRandomCheckbox) {
-  // sincroniza estado inicial
+  // estado inicial
   if (miniRandomCheckbox.checked) {
     miniRandomToggleBtn.classList.add("is-active");
   } else {
