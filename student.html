@@ -183,16 +183,25 @@
               </div>
             </div>
 
-            <!-- Modo de selección -->
-            <div>
-              <span class="mini-field-label">Modo de selección</span>
-              <div class="mini-mode-row">
-                <input type="checkbox" id="student-mini-random" checked>
-                <label for="student-mini-random">
-                  Selección aleatoria de casos clínicos
-                </label>
-              </div>
-            </div>
+<!-- Modo de selección -->
+<div>
+  <span class="mini-field-label">Modo de selección</span>
+  <div class="mini-mode-row">
+    <!-- Checkbox real (lo usa student.js) -->
+    <input
+      type="checkbox"
+      id="student-mini-random"
+      class="mini-random-checkbox"
+      checked
+    />
+
+    <!-- Botón visual -->
+    <label for="student-mini-random" class="mini-random-toggle">
+      Selección aleatoria de casos clínicos
+    </label>
+  </div>
+</div>
+
 
             <!-- Botón iniciar -->
             <button id="student-mini-start-btn" class="btn btn-primary">
