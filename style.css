@@ -1075,3 +1075,87 @@ tr:last-child td {
     max-width: 100%;
   }
 }
+/* ===== MINI EXÁMENES – UI mejorada ===== */
+
+.mini-num-select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  appearance: none;
+}
+
+.mini-num-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37,99,235,0.3);
+}
+
+/* chips de especialidades */
+.mini-specialty-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mini-specialty-chip {
+  position: relative;
+  border: 1px solid #4b5563;
+  background: #020617;
+  color: #9ca3af;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.mini-specialty-chip input[type="checkbox"] {
+  display: none;
+}
+
+.mini-specialty-chip span {
+  white-space: nowrap;
+}
+
+/* estado activo de la especialidad */
+.mini-specialty-chip--active {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border-color: #2563eb;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* fila modo aleatorio */
+.mini-mode-row {
+  margin-top: 6px;
+}
+
+.mini-random-button {
+  width: 100%;
+  border-radius: 999px;
+  border: none;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: default;
+  box-shadow: 0 10px 20px rgba(37,99,235,0.25);
+}
+
+.mini-mode-row--active .mini-random-button {
+  opacity: 1;
+}
+
+.btn-full-width {
+  width: 100%;
+  justify-content: center;
+}
