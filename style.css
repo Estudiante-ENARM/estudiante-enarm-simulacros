@@ -1077,21 +1077,25 @@ tr:last-child td {
 }
 /* ===== MINI EXÁMENES – UI mejorada ===== */
 
+/* Select de número de preguntas con estilo de pastilla */
 .mini-num-select {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 18px;
   border-radius: 999px;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
+  border: 1px solid rgba(148, 163, 184, 0.8);
+  background: rgba(255, 255, 255, 0.98);
   font-size: 14px;
   font-weight: 500;
+  color: #111827;
   outline: none;
-  appearance: none;
+  appearance: none;              /* quita el estilo nativo */
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
 }
 
 .mini-num-select:focus {
   border-color: #2563eb;
-  box-shadow: 0 0 0 1px rgba(37,99,235,0.3);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.28),
+              0 10px 24px rgba(37, 99, 235, 0.22);
 }
 
 /* chips de especialidades */
