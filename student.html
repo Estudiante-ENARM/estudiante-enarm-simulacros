@@ -106,12 +106,12 @@
             </div>
           </div>
 
-          <!-- Cuerpo del formulario (misma lógica, mismos IDs) -->
+          <!-- Cuerpo del formulario -->
           <div class="mini-exam-card-body">
-            <!-- Nº de preguntas -->
+            <!-- Nº de preguntas (select grande) -->
             <div>
               <label for="student-mini-num-questions" class="mini-field-label">Número de preguntas</label>
-              <select id="student-mini-num-questions">
+              <select id="student-mini-num-questions" class="mini-num-select">
                 <option value="5">5 preguntas</option>
                 <option value="10">10 preguntas</option>
                 <option value="15">15 preguntas</option>
@@ -119,42 +119,43 @@
               </select>
             </div>
 
-            <!-- Especialidades -->
+            <!-- Especialidades como chips clicables -->
             <div>
               <span class="mini-field-label">Especialidades (puedes seleccionar varias)</span>
               <div class="mini-specialties-grid">
-                <label class="mini-specialty-chip">
+                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
                   <input type="checkbox" class="student-mini-specialty" value="medicina_interna" checked>
                   <span>Medicina interna</span>
-                </label>
-                <label class="mini-specialty-chip">
+                </button>
+                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
                   <input type="checkbox" class="student-mini-specialty" value="cirugia_general" checked>
                   <span>Cirugía general</span>
-                </label>
-                <label class="mini-specialty-chip">
+                </button>
+                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
                   <input type="checkbox" class="student-mini-specialty" value="pediatria" checked>
                   <span>Pediatría</span>
-                </label>
-                <label class="mini-specialty-chip">
+                </button>
+                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
                   <input type="checkbox" class="student-mini-specialty" value="gine_obstetricia" checked>
                   <span>Ginecología y Obstetricia</span>
-                </label>
+                </button>
               </div>
             </div>
 
-            <!-- Modo de selección -->
+            <!-- Modo de selección: botón grande, siempre aleatorio -->
             <div>
               <span class="mini-field-label">Modo de selección</span>
-              <div class="mini-mode-row">
-                <input type="checkbox" id="student-mini-random" checked>
-                <label for="student-mini-random">
+              <div class="mini-mode-row mini-mode-row--active">
+                <!-- checkbox oculto solo para la lógica existente -->
+                <input type="checkbox" id="student-mini-random" checked style="display:none;">
+                <button type="button" class="mini-random-button">
                   Selección aleatoria de casos clínicos
-                </label>
+                </button>
               </div>
             </div>
 
-            <!-- Botón iniciar (ID idéntico) -->
-            <button id="student-mini-start-btn" class="btn btn-primary">
+            <!-- Botón iniciar -->
+            <button id="student-mini-start-btn" class="btn btn-primary btn-full-width">
               Iniciar mini examen
             </button>
           </div>
