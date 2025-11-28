@@ -323,19 +323,37 @@ miniSpecialtyChips.forEach((chip) => {
   });
 });
 
-// Modo aleatorio: siempre debe estar activo
+// ---- ALEATORIO: ahora sí se puede activar / desactivar ----
+function updateRandomButtonState() {
+  if (!miniRandomButton || !miniRandomCheckbox) return;
+  if (miniRandomCheckbox.checked) {
+    miniRandomButton.classList.add("mini-random-button--active");
+  } else {
+    miniRandomButton.classList.remove("mini-random-button--active");
+  }
+}
+
+// Estado inicial: activado por defecto (pero se puede apagar)
 if (miniRandomCheckbox) {
   miniRandomCheckbox.checked = true;
 }
+
+// Sincronizar cuando cambie el checkbox (por si lo tocan directamente)
+if (miniRandomCheckbox) {
+  miniRandomCheckbox.addEventListener("change", () => {
+    updateRandomButtonState();
+  });
+}
+
+// Comportamiento del botón grande "Aleatorio"
 if (miniRandomButton) {
-  miniRandomButton.classList.add("mini-random-button--active");
+  updateRandomButtonState();
   miniRandomButton.addEventListener("click", (e) => {
     e.preventDefault();
-    // Siempre lo dejamos activado
-    if (miniRandomCheckbox) {
-      miniRandomCheckbox.checked = true;
-    }
-    miniRandomButton.classList.add("mini-random-button--active");
+    if (!miniRandomCheckbox) return;
+    // Toggle: si está activo se apaga, si está apagado se enciende
+    miniRandomCheckbox.checked = !miniRandomCheckbox.checked;
+    updateRandomButtonState();
   });
 }
 
