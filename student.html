@@ -11,11 +11,49 @@
   <!-- ESTILOS COMPARTIDOS -->
   <link rel="stylesheet" href="style.css" />
 
+  <!-- Google tag (gtag.js) - Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- Meta Pixel Code -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', 'TU_PIXEL_ID_AQUI');  /* ← reemplaza por tu ID real de Pixel */
+    fbq('track', 'PageView');
+  </script>
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=TU_PIXEL_ID_AQUI&ev=PageView&noscript=1"/>
+  </noscript>
+
   <!-- CHART.JS PARA LA GRÁFICA DE PROGRESO -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
+  <!-- Banner de cookies -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cookie-banner__text">
+      Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
+      Esto incluye Google Analytics y Meta Pixel. Puedes aceptar o rechazar estas cookies.
+    </div>
+    <div class="cookie-banner__actions">
+      <button id="cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+      <button id="cookie-decline" class="btn btn-outline btn-sm">Rechazar</button>
+    </div>
+  </div>
 
   <section id="student-view" class="view">
 
@@ -108,10 +146,10 @@
 
           <!-- Cuerpo del formulario -->
           <div class="mini-exam-card-body">
-            <!-- Nº de preguntas (select grande) -->
+            <!-- Nº de preguntas -->
             <div>
               <label for="student-mini-num-questions" class="mini-field-label">Número de preguntas</label>
-              <select id="student-mini-num-questions" class="mini-num-select">
+              <select id="student-mini-num-questions">
                 <option value="5">5 preguntas</option>
                 <option value="10">10 preguntas</option>
                 <option value="15">15 preguntas</option>
@@ -119,55 +157,42 @@
               </select>
             </div>
 
-            <!-- Especialidades como chips clicables -->
+            <!-- Especialidades -->
             <div>
               <span class="mini-field-label">Especialidades (puedes seleccionar varias)</span>
               <div class="mini-specialties-grid">
-                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
+                <label class="mini-specialty-chip">
                   <input type="checkbox" class="student-mini-specialty" value="medicina_interna" checked>
                   <span>Medicina interna</span>
-                </button>
-                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
+                </label>
+                <label class="mini-specialty-chip">
                   <input type="checkbox" class="student-mini-specialty" value="cirugia_general" checked>
                   <span>Cirugía general</span>
-                </button>
-                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
+                </label>
+                <label class="mini-specialty-chip">
                   <input type="checkbox" class="student-mini-specialty" value="pediatria" checked>
                   <span>Pediatría</span>
-                </button>
-                <button type="button" class="mini-specialty-chip mini-specialty-chip--active">
+                </label>
+                <label class="mini-specialty-chip">
                   <input type="checkbox" class="student-mini-specialty" value="gine_obstetricia" checked>
                   <span>Ginecología y Obstetricia</span>
-                </button>
+                </label>
               </div>
             </div>
 
-<!-- Modo de selección -->
-<div>
-  <span class="mini-field-label">Modo de selección</span>
-
-  <div class="mini-mode-row">
-    <!-- Botón grande visual (ON / OFF) -->
-    <button
-      type="button"
-      id="student-mini-random-toggle"
-      class="mini-random-button is-active"
-    >
-      Selección aleatoria de casos clínicos
-    </button>
-
-    <!-- Checkbox REAL (se usa para la lógica y se mantiene oculto) -->
-    <input
-      type="checkbox"
-      id="student-mini-random"
-      class="hidden"
-      checked
-    >
-  </div>
-</div>
+            <!-- Modo de selección -->
+            <div>
+              <span class="mini-field-label">Modo de selección</span>
+              <div class="mini-mode-row">
+                <input type="checkbox" id="student-mini-random" checked>
+                <label for="student-mini-random">
+                  Selección aleatoria de casos clínicos
+                </label>
+              </div>
+            </div>
 
             <!-- Botón iniciar -->
-            <button id="student-mini-start-btn" class="btn btn-primary btn-full-width">
+            <button id="student-mini-start-btn" class="btn btn-primary">
               Iniciar mini examen
             </button>
           </div>
@@ -295,5 +320,33 @@
   <!-- CÓDIGO DEL ESTUDIANTE -->
   <script type="module" src="student.js"></script>
 
+  <!-- LÓGICA DEL BANNER DE COOKIES -->
+  <script>
+    (function () {
+      const banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+
+      const KEY = 'cookies_enarm_preference';
+
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted' || stored === 'declined') {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        banner.style.display = 'none';
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
 </body>
 </html>
