@@ -29,8 +29,6 @@ import {
   DEFAULT_MAX_ATTEMPTS,
   DEFAULT_TIME_PER_QUESTION,
   MINI_EXAM_QUESTION_OPTIONS,
-  // si en shared-constants exportaste etiquetas específicas, se usarán;
-  // si no, abajo creamos fallback con SPECIALTIES / SUBTYPES / DIFFICULTIES
   SPECIALTY_LABELS as EXPORTED_SPECIALTY_LABELS,
   SUBTYPE_LABELS as EXPORTED_SUBTYPE_LABELS,
   DIFFICULTY_LABELS as EXPORTED_DIFFICULTY_LABELS,
@@ -200,7 +198,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    // En este proyecto el ID del doc en /users es el EMAIL
     const userRef = doc(db, "users", user.email);
     const snap = await getDoc(userRef);
 
@@ -213,7 +210,6 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = snap.data();
 
-    // Solo rol "usuario" entra a student.html
     if (data.role !== "usuario") {
       alert("Este panel es solo para estudiantes.");
       await signOut(auth);
@@ -236,7 +232,6 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    // Guardamos en estado global
     currentUser = user;
     currentUserProfile = data;
 
@@ -244,7 +239,6 @@ onAuthStateChanged(auth, async (user) => {
       studentUserEmailSpan.textContent = user.email;
     }
 
-    // Cargar configuración y vistas iniciales
     await loadExamRules();
     await loadSocialLinksForStudent();
     await loadSectionsForStudent();
@@ -260,14 +254,12 @@ onAuthStateChanged(auth, async (user) => {
 /***********************************************
  * LISTENERS GENERALES
  ***********************************************/
-// Toggle sidebar
 if (btnToggleSidebar) {
   btnToggleSidebar.addEventListener("click", () => {
     sidebar.classList.toggle("sidebar--open");
   });
 }
 
-// Logout
 if (btnLogout) {
   btnLogout.addEventListener("click", async () => {
     try {
@@ -280,35 +272,30 @@ if (btnLogout) {
   });
 }
 
-// Botón lateral "Mini exámenes"
 if (btnMiniExamsSidebar) {
   btnMiniExamsSidebar.addEventListener("click", () => {
     switchToMiniView();
   });
 }
 
-// Botón lateral "Progreso"
 if (btnProgressView) {
   btnProgressView.addEventListener("click", () => {
     switchToProgressView();
   });
 }
 
-// Builder de mini examen
 if (miniStartBtn) {
   miniStartBtn.addEventListener("click", () => {
     startMiniExamFromBuilder();
   });
 }
 
-// Volver desde el examen
 if (btnBackToExams) {
   btnBackToExams.addEventListener("click", () => {
     handleBackFromExam();
   });
 }
 
-// Enviar examen (manual)
 if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 }
@@ -323,7 +310,6 @@ function switchToMiniView() {
   hide(progressView);
   if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   show(miniBuilderView);
-
   sidebar.classList.remove("sidebar--open");
 }
 
@@ -334,7 +320,6 @@ function switchToSectionView() {
   hide(examDetailView);
   hide(progressView);
   show(examsView);
-
   sidebar.classList.remove("sidebar--open");
 }
 
@@ -345,7 +330,6 @@ async function switchToProgressView() {
   hide(examsView);
   hide(examDetailView);
   show(progressView);
-
   sidebar.classList.remove("sidebar--open");
   await loadStudentProgress();
 }
@@ -462,7 +446,6 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
-  // Seleccionamos automáticamente la primera sección como activa
   if (firstSectionId) {
     currentSectionId = firstSectionId;
     currentSectionName = firstSectionName;
@@ -506,7 +489,6 @@ async function loadExamsForSectionForStudent(sectionId) {
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
 
-    // Lectura de intentos previos del estudiante
     let attemptsUsed = 0;
     let lastAttemptText = "Sin intentos previos.";
 
@@ -522,13 +504,12 @@ async function loadExamsForSectionForStudent(sectionId) {
       if (attemptSnap.exists()) {
         const at = attemptSnap.data();
         attemptsUsed = at.attempts || 0;
-        if (at.lastAttempt) {
+        if (at.lastAttempt && typeof at.lastAttempt.toDate === "function") {
           lastAttemptText = at.lastAttempt.toDate().toLocaleDateString();
         }
       }
     }
 
-    // Contar número total de preguntas
     const qQuestions = query(
       collection(db, "questions"),
       where("examId", "==", examId)
@@ -542,7 +523,6 @@ async function loadExamsForSectionForStudent(sectionId) {
       totalQuestions += arr.length;
     });
 
-    // Si no hay preguntas, lo marcamos como "En preparación"
     if (totalQuestions === 0) {
       const card = document.createElement("div");
       card.className = "card-item";
@@ -559,7 +539,6 @@ async function loadExamsForSectionForStudent(sectionId) {
       continue;
     }
 
-    // Cálculo de tiempo total según reglas globales
     const maxAttempts = examRules.maxAttempts;
     const timePerQuestion = examRules.timePerQuestionSeconds;
     const totalSeconds = totalQuestions * timePerQuestion;
@@ -717,7 +696,6 @@ async function startMiniExamFromBuilder() {
     MINI_EXAM_QUESTION_OPTIONS[0] ||
     5;
 
-  // Especialidades seleccionadas
   const selectedSpecialties = Array.from(miniSpecialtyCheckboxes)
     .filter((cb) => cb.checked)
     .map((cb) => cb.value);
@@ -731,7 +709,6 @@ async function startMiniExamFromBuilder() {
     return;
   }
 
-  // Filtrar por especialidades (si se seleccionó al menos una)
   let poolCases = miniCasesCache.slice();
   if (selectedSpecialties.length > 0) {
     poolCases = poolCases.filter((c) =>
@@ -744,7 +721,6 @@ async function startMiniExamFromBuilder() {
     return;
   }
 
-  // Pool de preguntas
   const questionPool = [];
   poolCases.forEach((caseData) => {
     const specialty = caseData.specialty || null;
@@ -780,13 +756,11 @@ async function startMiniExamFromBuilder() {
     return;
   }
 
-  // Estado de examen
   currentExamMode = "mini";
   currentExamId = null;
   currentExamPreviousAttempts = 0;
   currentExamQuestions = [];
 
-  // Tiempo: misma lógica que exámenes por sección
   const timePerQuestion = examRules.timePerQuestionSeconds;
   currentExamTotalSeconds = selectedQuestions.length * timePerQuestion;
 
@@ -795,11 +769,9 @@ async function startMiniExamFromBuilder() {
     currentExamTimerId = null;
   }
 
-  // Limpiar resultado previo
   if (resultBanner) resultBanner.style.display = "none";
   if (resultValues) resultValues.innerHTML = "";
 
-  // Renderizar examen
   hide(examsView);
   hide(progressView);
   hide(miniBuilderView);
@@ -822,7 +794,6 @@ async function startMiniExamFromBuilder() {
 
   questionsList.innerHTML = "";
 
-  // Agrupación por caso
   const caseMap = new Map();
   selectedQuestions.forEach((q) => {
     if (!caseMap.has(q.caseId)) {
@@ -908,7 +879,6 @@ async function startMiniExamFromBuilder() {
     questionsList.appendChild(caseBlock);
   });
 
-  // Cronómetro también para mini exámenes
   startExamTimer(currentExamTotalSeconds);
 }
 
@@ -1131,7 +1101,6 @@ async function submitExamForStudent(auto = false) {
 
   const detail = {};
 
-  // Acumuladores por especialidad y subtipo
   const specStats = {};
   Object.keys(SPECIALTY_LABELS).forEach((k) => {
     specStats[k] = {
@@ -1241,12 +1210,7 @@ async function submitExamForStudent(auto = false) {
       ? (globalWeightedCorrect / globalWeightedTotal) * 100
       : 0;
 
-  // Guardar SOLO exámenes por sección
-  if (
-    currentExamMode === "section" &&
-    currentExamId &&
-    currentUser
-  ) {
+  if (currentExamMode === "section" && currentExamId && currentUser) {
     try {
       const attemptRef = doc(
         db,
@@ -1258,9 +1222,11 @@ async function submitExamForStudent(auto = false) {
 
       const prevSnap = await getDoc(attemptRef);
       const prevData = prevSnap.exists() ? prevSnap.data() : {};
-      const oldAttempts = prevData.attempts || currentExamPreviousAttempts || 0;
+      const oldAttempts =
+        typeof prevData.attempts === "number"
+          ? prevData.attempts
+          : currentExamPreviousAttempts || 0;
 
-      // OJO: aquí usamos new Date() (NO serverTimestamp) para el historial
       const historyEntry = {
         score: scoreWeighted,
         scoreRaw,
@@ -1268,14 +1234,14 @@ async function submitExamForStudent(auto = false) {
         totalQuestions,
         sectionId: currentSectionId,
         sectionName: currentSectionName || "",
-        createdAt: new Date(),
+        createdAt: new Date(), // Fecha normal para el array (no serverTimestamp)
       };
 
       await setDoc(
         attemptRef,
         {
           attempts: oldAttempts + 1,
-          lastAttempt: serverTimestamp(), // este sí puede ser serverTimestamp
+          lastAttempt: serverTimestamp(), // aquí sí se puede usar
           score: scoreWeighted,
           scoreRaw,
           correctCount: globalCorrect,
@@ -1287,7 +1253,6 @@ async function submitExamForStudent(auto = false) {
             specialties: specStats,
             difficulties: difficultyStats,
           },
-          // aquí usamos arrayUnion con un objeto normal (sin sentinels)
           history: arrayUnion(historyEntry),
         },
         { merge: true }
@@ -1311,13 +1276,11 @@ async function submitExamForStudent(auto = false) {
     difficultyStats,
   });
 
-  // Ocultamos el botón para evitar doble envío
   if (btnSubmitExam) {
     btnSubmitExam.disabled = true;
     btnSubmitExam.style.display = "none";
   }
 }
-
 
 /***********************************************
  * RENDERIZAR RESULTADOS (3 TABLAS)
@@ -1350,7 +1313,6 @@ function renderPremiumResults({
     2
   )} puntos`;
 
-  // Tabla general
   const tableGeneral = `
     <table class="result-table">
       <thead>
@@ -1376,7 +1338,6 @@ function renderPremiumResults({
     </table>
   `;
 
-  // Tabla por especialidad / subtipo
   const tableBySpecialtySubtype = `
     <table class="result-table result-table--compact">
       <thead>
@@ -1408,7 +1369,6 @@ function renderPremiumResults({
     </table>
   `;
 
-  // Tabla por dificultad
   const tableByDifficulty = `
     <table class="result-table result-table--compact">
       <thead>
@@ -1494,7 +1454,6 @@ async function loadStudentProgress() {
       "Estudiante: " + (currentUserProfile?.name || currentUser.email);
   }
 
-  // 1) Secciones
   const sectionsSnap = await getDocs(collection(db, "sections"));
   const sectionsMap = {};
   sectionsSnap.forEach((docSnap) => {
@@ -1504,7 +1463,6 @@ async function loadStudentProgress() {
     };
   });
 
-  // 2) Stats por sección (USAN SOLO EL ÚLTIMO INTENTO DE CADA EXAMEN)
   const sectionStats = {};
   Object.values(sectionsMap).forEach((s) => {
     sectionStats[s.id] = {
@@ -1516,10 +1474,9 @@ async function loadStudentProgress() {
     };
   });
 
-  const examLatestResults = [];   // para resumen general
-  const examHistoryResults = [];  // para la gráfica (TODOS los intentos)
+  const examLatestResults = [];
+  const examHistoryResults = [];
 
-  // 3) Exámenes
   const examsSnap = await getDocs(collection(db, "exams"));
 
   for (const ex of examsSnap.docs) {
@@ -1545,7 +1502,6 @@ async function loadStudentProgress() {
     const totalQ = at.totalQuestions || 0;
     const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
 
-    // ---- latest results (para tarjetas y resumen) ----
     examLatestResults.push({
       examId,
       examName: exData.name || "Examen",
@@ -1564,11 +1520,9 @@ async function loadStudentProgress() {
       sectionStats[sectionId].totalQuestions += totalQ;
     }
 
-    // ---- history (para la gráfica: TODOS LOS INTENTOS) ----
-     const historyArr = Array.isArray(at.history) ? at.history : [];
+    const historyArr = Array.isArray(at.history) ? at.history : [];
 
     if (historyArr.length === 0) {
-      // Fallback: solo último intento
       examHistoryResults.push({
         examId,
         examName: exData.name || "Examen",
@@ -1581,18 +1535,10 @@ async function loadStudentProgress() {
       historyArr.forEach((h) => {
         const hScore =
           typeof h.score === "number" ? h.score : score;
-
         let hDate = h.createdAt || h.date || at.lastAttempt;
-
-        // Normalizamos el tipo de fecha:
-        // - Timestamp de Firestore (toDate)
-        // - número (ms) que guardamos con Date.now()
         if (hDate && typeof hDate.toDate === "function") {
           hDate = hDate.toDate();
-        } else if (typeof hDate === "number") {
-          hDate = new Date(hDate);
         }
-
         examHistoryResults.push({
           examId,
           examName: exData.name || "Examen",
@@ -1603,9 +1549,8 @@ async function loadStudentProgress() {
         });
       });
     }
+  }
 
-
-  // 4) Tarjetas por sección
   if (progressSectionsContainer) {
     progressSectionsContainer.innerHTML = "";
 
@@ -1637,7 +1582,6 @@ async function loadStudentProgress() {
     });
   }
 
-  // 5) Totales globales (basado en último intento de cada examen)
   const totalExams = examLatestResults.length;
   const totalCorrect = examLatestResults.reduce(
     (sum, r) => sum + (r.correctCount || 0),
@@ -1661,7 +1605,6 @@ async function loadStudentProgress() {
     `;
   }
 
-  // 6) Gráfica (TODOS los intentos)
   renderProgressChart(examHistoryResults);
 }
 
