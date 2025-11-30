@@ -949,6 +949,69 @@ async function openExamDetail(examId, examName) {
   renderExamCases();
 }
 
+/**
+ * Sincroniza currentExamCases con lo que esté escrito en el DOM
+ * para NO perder texto al agregar/eliminar casos clínicos.
+ * NO valida campos: solo copia lo que haya.
+ */
+function syncCurrentExamCasesFromDOM() {
+  if (!examCasesContainer) return;
+
+  const caseBlocks = examCasesContainer.querySelectorAll(".exam-case-block");
+  const newCases = [];
+
+  caseBlocks.forEach((block, idx) => {
+    const prev = currentExamCases[idx] || {};
+
+    const caseText =
+      block.querySelector(".admin-case-text")?.value ?? "";
+    const specialty =
+      block.querySelector(".admin-case-specialty")?.value ?? "";
+
+    const qBlocks = block.querySelectorAll(".exam-question-block");
+    const questions = [];
+
+    qBlocks.forEach((qb) => {
+      const questionText =
+        qb.querySelector(".admin-q-question")?.value ?? "";
+      const optionA = qb.querySelector(".admin-q-a")?.value ?? "";
+      const optionB = qb.querySelector(".admin-q-b")?.value ?? "";
+      const optionC = qb.querySelector(".admin-q-c")?.value ?? "";
+      const optionD = qb.querySelector(".admin-q-d")?.value ?? "";
+      const correctOption =
+        qb.querySelector(".admin-q-correct")?.value ?? "";
+      const subtype =
+        qb.querySelector(".admin-q-subtype")?.value ?? "salud_publica";
+      const difficulty =
+        qb.querySelector(".admin-q-difficulty")?.value ?? "media";
+      const justification =
+        qb.querySelector(".admin-q-justification")?.value ?? "";
+
+      questions.push({
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        subtype,
+        difficulty,
+        justification,
+      });
+    });
+
+    newCases.push({
+      id: prev.id || null,
+      caseText,
+      specialty,
+      questions: questions.length ? questions : [createEmptyQuestion()],
+    });
+  });
+
+  currentExamCases =
+    newCases.length > 0 ? newCases : [createEmptyCase()];
+}
+
 function renderExamCases() {
   if (!examCasesContainer) return;
   examCasesContainer.innerHTML = "";
@@ -1028,6 +1091,9 @@ function renderExamCases() {
       .addEventListener("click", () => {
         const idx = parseInt(wrapper.dataset.caseIndex, 10);
         if (Number.isNaN(idx)) return;
+
+        // Antes de borrar, sincronizamos lo que ya esté escrito
+        syncCurrentExamCasesFromDOM();
         currentExamCases.splice(idx, 1);
         renderExamCases();
       });
@@ -1062,6 +1128,8 @@ function renderExamCases() {
         alert("Primero abre un examen.");
         return;
       }
+      // Guardar lo que ya está escrito y luego agregar caso nuevo
+      syncCurrentExamCasesFromDOM();
       currentExamCases.push(createEmptyCase());
       renderExamCases();
     });
@@ -1325,6 +1393,8 @@ if (btnAddCase) {
       return;
     }
 
+    // Igual que abajo: sincronizar lo escrito y luego agregar caso
+    syncCurrentExamCasesFromDOM();
     currentExamCases.push(createEmptyCase());
     renderExamCases();
   });
