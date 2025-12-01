@@ -71,6 +71,7 @@ const panelLanding = document.getElementById("admin-panel-landing");
 const currentSectionTitle = document.getElementById("admin-current-section-title");
 const examsListEl = document.getElementById("admin-exams-list");
 const btnAddExam = document.getElementById("admin-btn-add-exam");
+const btnImportExamsJson = document.getElementById("admin-btn-import-exams-json"); // NUEVO (importar varios exámenes)
 
 // Vista detalle examen
 const examDetailView = document.getElementById("admin-exam-detail");
@@ -78,6 +79,8 @@ const btnBackToExams = document.getElementById("admin-btn-back-to-exams");
 const examTitleInput = document.getElementById("admin-exam-title-input");
 const examCasesContainer = document.getElementById("admin-exam-cases");
 const btnSaveExamAll = document.getElementById("admin-btn-save-exam");
+const btnImportExam = document.getElementById("admin-btn-import-exam"); // NUEVO (importar examen abierto)
+
 
 // ==================== PANEL USUARIOS ====================
 const newUserNameInput = document.getElementById("admin-new-user-name");
@@ -837,7 +840,7 @@ if (btnAddExam) {
           });
           await loadExamsForSection(currentSectionId);
           closeModal();
-          // Opcional: abrir directamente
+          // Abrir directamente el examen recién creado
           openExamDetail(docRef.id, name);
         } catch (err) {
           console.error(err);
@@ -888,6 +891,181 @@ function openEditExamNameModal(examId, currentName) {
   });
 }
 
+/**
+ * IMPORTAR VARIOS EXÁMENES DESDE UN SOLO JSON
+ * - Usa la sección actualmente seleccionada (currentSectionId)
+ * - Crea todos los exámenes y sus casos/preguntas en Firestore.
+ *
+ * Formatos aceptados:
+ * 1) { "exams": [ { "name": "...", "cases": [...] }, ... ] }
+ * 2) [ { "name": "...", "cases": [...] }, ... ]
+ * 3) { "name": "...", "cases": [...] }  // se toma como un solo examen
+ */
+function openImportExamsJsonModal() {
+  if (!currentSectionId) {
+    alert("Selecciona primero una sección para asignar los exámenes importados.");
+    return;
+  }
+
+  openModal({
+    title: "Importar exámenes desde JSON",
+    bodyHtml: `
+      <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
+        Pega un JSON con uno o varios exámenes. Todos se crearán en la sección seleccionada.
+      </p>
+      <p style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
+        Ejemplos válidos:
+        <br>
+        <code>{"exams":[{ "name":"Examen 1", "cases":[...] }, ...]}</code>
+        <br>
+        <code>[{ "name":"Examen 1", "cases":[...] }, { "name":"Examen 2", "cases":[...] }]</code>
+      </p>
+      <textarea id="admin-import-exams-json"
+        style="width:100%;min-height:260px;font-family:monospace;font-size:12px;"></textarea>
+    `,
+    onOk: async () => {
+      const textarea = document.getElementById("admin-import-exams-json");
+      const raw = textarea.value.trim();
+      if (!raw) {
+        alert("Pega el JSON de los exámenes.");
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        console.error(err);
+        alert("El texto no es un JSON válido.");
+        return;
+      }
+
+      let examsArray = [];
+      if (Array.isArray(parsed)) {
+        examsArray = parsed;
+      } else if (Array.isArray(parsed.exams)) {
+        examsArray = parsed.exams;
+      } else if (parsed.name && Array.isArray(parsed.cases)) {
+        examsArray = [parsed];
+      }
+
+      if (!examsArray.length) {
+        alert(
+          "El JSON debe ser un arreglo de exámenes o un objeto con la propiedad 'exams'."
+        );
+        return;
+      }
+
+      const btn = modalBtnOk;
+      setLoadingButton(btn, true, "Importar");
+
+      try {
+        for (const examObj of examsArray) {
+          const examName = examObj.name || "Examen sin título";
+          const casesArr = Array.isArray(examObj.cases)
+            ? examObj.cases
+            : [];
+
+          // Crear examen
+          const examRef = await addDoc(collection(db, "exams"), {
+            name: examName,
+            sectionId: currentSectionId,
+            createdAt: serverTimestamp(),
+          });
+
+          // Crear casos clínicos de ese examen
+          for (const c of casesArr) {
+            const caseText = c.caseText || "";
+            if (!caseText) {
+              alert(
+                `Falta 'caseText' en un caso clínico del examen "${examName}".`
+              );
+              throw new Error("Caso sin texto");
+            }
+
+            const specialty = c.specialty || "";
+            const questionsRaw = Array.isArray(c.questions)
+              ? c.questions
+              : [];
+
+            if (!questionsRaw.length) {
+              alert(
+                `El caso "${caseText.slice(
+                  0,
+                  40
+                )}..." del examen "${examName}" no tiene preguntas.`
+              );
+              throw new Error("Caso sin preguntas");
+            }
+
+            const questions = [];
+
+            for (const q of questionsRaw) {
+              const questionText = q.questionText || "";
+              const optionA = q.optionA || "";
+              const optionB = q.optionB || "";
+              const optionC = q.optionC || "";
+              const optionD = q.optionD || "";
+              const correctOption = q.correctOption || "";
+              const subtype = q.subtype || "salud_publica";
+              const difficulty = q.difficulty || "media";
+              const justification = q.justification || "";
+
+              if (
+                !questionText ||
+                !optionA ||
+                !optionB ||
+                !optionC ||
+                !optionD ||
+                !correctOption ||
+                !justification
+              ) {
+                alert(
+                  `Hay campos incompletos en una pregunta del examen "${examName}".`
+                );
+                throw new Error("Pregunta incompleta");
+              }
+
+              questions.push({
+                questionText,
+                optionA,
+                optionB,
+                optionC,
+                optionD,
+                correctOption,
+                subtype,
+                difficulty,
+                justification,
+              });
+            }
+
+            await addDoc(collection(db, "questions"), {
+              examId: examRef.id,
+              caseText,
+              specialty,
+              questions,
+              createdAt: serverTimestamp(),
+            });
+          }
+        }
+
+        alert("Exámenes importados correctamente.");
+        await loadExamsForSection(currentSectionId);
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        // El alert específico ya se mostró arriba
+      } finally {
+        setLoadingButton(btn, false, "Importar");
+      }
+    },
+  });
+}
+
+if (btnImportExamsJson) {
+  btnImportExamsJson.addEventListener("click", openImportExamsJsonModal);
+}
+
 /****************************************************
  * DETALLE DE EXAMEN (CASOS CLÍNICOS + PREGUNTAS)
  ****************************************************/
@@ -914,45 +1092,10 @@ function createEmptyCase() {
   };
 }
 
-async function openExamDetail(examId, examName) {
-  currentExamId = examId;
-  currentExamCases = [];
-
-  // Aseguramos que el panel de exámenes esté visible
-  show(panelExams);
-  show(examDetailView);
-
-  if (examTitleInput) {
-    examTitleInput.value = examName || "";
-  }
-  if (examCasesContainer) {
-    examCasesContainer.innerHTML = "";
-  }
-
-  // Traer casos clínicos de la colección "questions"
-  const qCases = query(
-    collection(db, "questions"),
-    where("examId", "==", examId)
-  );
-  const snap = await getDocs(qCases);
-
-  if (snap.empty) {
-    // Si no hay casos todavía, arrancamos con uno vacío
-    currentExamCases = [createEmptyCase()];
-  } else {
-    currentExamCases = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
-  }
-
-  renderExamCases();
-}
-
 /**
- * Sincroniza currentExamCases con lo que esté escrito en el DOM
- * para NO perder texto al agregar/eliminar casos clínicos.
- * NO valida campos: solo copia lo que haya.
+ * Sincroniza lo que está actualmente escrito en el DOM
+ * con el arreglo currentExamCases, para no perder nada
+ * cuando agregas un nuevo caso o vuelves a renderizar.
  */
 function syncCurrentExamCasesFromDOM() {
   if (!examCasesContainer) return;
@@ -960,32 +1103,44 @@ function syncCurrentExamCasesFromDOM() {
   const caseBlocks = examCasesContainer.querySelectorAll(".exam-case-block");
   const newCases = [];
 
-  caseBlocks.forEach((block, idx) => {
-    const prev = currentExamCases[idx] || {};
-
+  caseBlocks.forEach((block) => {
     const caseText =
-      block.querySelector(".admin-case-text")?.value ?? "";
+      block.querySelector(".admin-case-text")?.value.trim() || "";
     const specialty =
-      block.querySelector(".admin-case-specialty")?.value ?? "";
+      block.querySelector(".admin-case-specialty")?.value || "";
 
     const qBlocks = block.querySelectorAll(".exam-question-block");
     const questions = [];
 
     qBlocks.forEach((qb) => {
       const questionText =
-        qb.querySelector(".admin-q-question")?.value ?? "";
-      const optionA = qb.querySelector(".admin-q-a")?.value ?? "";
-      const optionB = qb.querySelector(".admin-q-b")?.value ?? "";
-      const optionC = qb.querySelector(".admin-q-c")?.value ?? "";
-      const optionD = qb.querySelector(".admin-q-d")?.value ?? "";
+        qb.querySelector(".admin-q-question")?.value.trim() || "";
+      const optionA =
+        qb.querySelector(".admin-q-a")?.value.trim() || "";
+      const optionB =
+        qb.querySelector(".admin-q-b")?.value.trim() || "";
+      const optionC =
+        qb.querySelector(".admin-q-c")?.value.trim() || "";
+      const optionD =
+        qb.querySelector(".admin-q-d")?.value.trim() || "";
       const correctOption =
-        qb.querySelector(".admin-q-correct")?.value ?? "";
+        qb.querySelector(".admin-q-correct")?.value || "";
       const subtype =
-        qb.querySelector(".admin-q-subtype")?.value ?? "salud_publica";
+        qb.querySelector(".admin-q-subtype")?.value || "salud_publica";
       const difficulty =
-        qb.querySelector(".admin-q-difficulty")?.value ?? "media";
+        qb.querySelector(".admin-q-difficulty")?.value || "media";
       const justification =
-        qb.querySelector(".admin-q-justification")?.value ?? "";
+        qb.querySelector(".admin-q-justification")?.value.trim() || "";
+
+      const allEmpty =
+        !questionText &&
+        !optionA &&
+        !optionB &&
+        !optionC &&
+        !optionD &&
+        !justification;
+
+      if (allEmpty) return;
 
       questions.push({
         questionText,
@@ -1000,8 +1155,10 @@ function syncCurrentExamCasesFromDOM() {
       });
     });
 
+    // Si caso + preguntas están totalmente vacíos, lo saltamos
+    if (!caseText && !questions.length) return;
+
     newCases.push({
-      id: prev.id || null,
       caseText,
       specialty,
       questions: questions.length ? questions : [createEmptyQuestion()],
@@ -1012,11 +1169,42 @@ function syncCurrentExamCasesFromDOM() {
     newCases.length > 0 ? newCases : [createEmptyCase()];
 }
 
+async function openExamDetail(examId, examName) {
+  currentExamId = examId;
+  currentExamCases = [];
+
+  show(panelExams);
+  show(examDetailView);
+
+  if (examTitleInput) {
+    examTitleInput.value = examName || "";
+  }
+  if (examCasesContainer) {
+    examCasesContainer.innerHTML = "";
+  }
+
+  const qCases = query(
+    collection(db, "questions"),
+    where("examId", "==", examId)
+  );
+  const snap = await getDocs(qCases);
+
+  if (snap.empty) {
+    currentExamCases = [createEmptyCase()];
+  } else {
+    currentExamCases = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+  }
+
+  renderExamCases();
+}
+
 function renderExamCases() {
   if (!examCasesContainer) return;
   examCasesContainer.innerHTML = "";
 
-  // Si por alguna razón no hay casos en memoria, aseguramos uno vacío
   if (!currentExamCases.length) {
     currentExamCases.push(createEmptyCase());
   }
@@ -1089,11 +1277,10 @@ function renderExamCases() {
     wrapper
       .querySelector(".admin-delete-case")
       .addEventListener("click", () => {
+        // Guardar lo ya escrito antes de eliminar
+        syncCurrentExamCasesFromDOM();
         const idx = parseInt(wrapper.dataset.caseIndex, 10);
         if (Number.isNaN(idx)) return;
-
-        // Antes de borrar, sincronizamos lo que ya esté escrito
-        syncCurrentExamCasesFromDOM();
         currentExamCases.splice(idx, 1);
         renderExamCases();
       });
@@ -1101,7 +1288,7 @@ function renderExamCases() {
     examCasesContainer.appendChild(wrapper);
   });
 
-  // --- BOTONES INFERIORES (duplicados) ---
+  // Botones inferiores
   const bottomActions = document.createElement("div");
   bottomActions.className = "flex-row";
   bottomActions.style.justifyContent = "flex-end";
@@ -1118,7 +1305,6 @@ function renderExamCases() {
 
   examCasesContainer.appendChild(bottomActions);
 
-  // Eventos de los botones inferiores reutilizando la misma lógica
   const btnAddCaseBottom = document.getElementById("admin-btn-add-case-bottom");
   const btnSaveExamBottom = document.getElementById("admin-btn-save-exam-bottom");
 
@@ -1128,7 +1314,6 @@ function renderExamCases() {
         alert("Primero abre un examen.");
         return;
       }
-      // Guardar lo que ya está escrito y luego agregar caso nuevo
       syncCurrentExamCasesFromDOM();
       currentExamCases.push(createEmptyCase());
       renderExamCases();
@@ -1137,7 +1322,7 @@ function renderExamCases() {
 
   if (btnSaveExamBottom && btnSaveExamAll) {
     btnSaveExamBottom.addEventListener("click", () => {
-      btnSaveExamAll.click(); // dispara el mismo guardado que el botón superior
+      btnSaveExamAll.click();
     });
   }
 }
@@ -1381,6 +1566,108 @@ if (btnSaveExamAll) {
     } finally {
       setLoadingButton(btn, false, "Guardar examen");
     }
+  });
+}
+
+// Botón "Agregar caso clínico" SUPERIOR
+const btnAddCase = document.getElementById("admin-btn-add-case");
+if (btnAddCase) {
+  btnAddCase.addEventListener("click", () => {
+    if (!currentExamId) {
+      alert("Primero abre un examen.");
+      return;
+    }
+
+    syncCurrentExamCasesFromDOM();
+    currentExamCases.push(createEmptyCase());
+    renderExamCases();
+  });
+}
+
+/**
+ * IMPORTAR EL EXAMEN ACTUAL DESDE JSON (solo en memoria).
+ * Luego usas "Guardar examen" para mandarlo a Firestore.
+ */
+if (btnImportExam) {
+  btnImportExam.addEventListener("click", () => {
+    if (!currentExamId) {
+      alert("Primero abre un examen.");
+      return;
+    }
+
+    openModal({
+      title: "Importar examen (JSON)",
+      bodyHtml: `
+        <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
+          Pega el JSON del examen. Solo se modificará el examen actualmente abierto.
+        </p>
+        <p style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
+          Formatos aceptados:
+          <code>{"name":"Examen 1","cases":[...]}</code>
+          o
+          <code>{"cases":[...]}</code>.
+        </p>
+        <textarea id="admin-import-exam-json"
+          style="width:100%;min-height:260px;font-family:monospace;font-size:12px;"></textarea>
+      `,
+      onOk: () => {
+        const textarea = document.getElementById("admin-import-exam-json");
+        const raw = textarea.value.trim();
+        if (!raw) {
+          alert("Pega el JSON del examen.");
+          return;
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (err) {
+          console.error(err);
+          alert("El texto no es un JSON válido.");
+          return;
+        }
+
+        const examObj =
+          Array.isArray(parsed.exams) && parsed.exams.length
+            ? parsed.exams[0]
+            : parsed;
+
+        if (!Array.isArray(examObj.cases) || !examObj.cases.length) {
+          alert("El JSON debe tener una propiedad 'cases' con al menos un caso clínico.");
+          return;
+        }
+
+        if (examObj.name && examTitleInput) {
+          examTitleInput.value = String(examObj.name);
+        }
+
+        currentExamCases = examObj.cases.map((c) => {
+          const specialty = c.specialty || "";
+          const caseText = c.caseText || "";
+          const questionsArr =
+            Array.isArray(c.questions) && c.questions.length
+              ? c.questions
+              : [createEmptyQuestion()];
+
+          const questions = questionsArr.map((q) => ({
+            questionText: q.questionText || "",
+            optionA: q.optionA || "",
+            optionB: q.optionB || "",
+            optionC: q.optionC || "",
+            optionD: q.optionD || "",
+            correctOption: q.correctOption || "",
+            subtype: q.subtype || "salud_publica",
+            difficulty: q.difficulty || "media",
+            justification: q.justification || "",
+          }));
+
+          return { caseText, specialty, questions };
+        });
+
+        renderExamCases();
+        closeModal();
+      },
+    });
   });
 }
 
