@@ -74,9 +74,14 @@
               Administra los simulacros ENARM por sección.
             </p>
           </div>
-          <button id="admin-btn-add-exam" class="btn btn-primary">
-            + Agregar examen
-          </button>
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-btn-import-exams-json" class="btn btn-outline btn-sm">
+              Importar exámenes (JSON)
+            </button>
+            <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">
+              + Agregar examen
+            </button>
+          </div>
         </div>
 
         <!-- Lista de exámenes por sección -->
@@ -97,10 +102,13 @@
             </div>
 
             <div class="flex-row" style="justify-content:flex-end;">
-              <button id="admin-btn-add-case" class="btn btn-secondary">
+              <button id="admin-btn-import-exam" class="btn btn-outline btn-sm">
+                Importar examen (JSON)
+              </button>
+              <button id="admin-btn-add-case" class="btn btn-secondary btn-sm">
                 + Agregar caso clínico
               </button>
-              <button id="admin-btn-save-exam" class="btn btn-primary">
+              <button id="admin-btn-save-exam" class="btn btn-primary btn-sm">
                 Guardar examen
               </button>
             </div>
@@ -108,16 +116,8 @@
 
           <!-- Contenedor de casos clínicos + preguntas -->
           <div id="admin-exam-cases" class="cards-list"></div>
-
-          <!-- FOOTER CON BOTONES DUPLICADOS -->
-          <div class="flex-row admin-exam-footer" style="justify-content:flex-end;margin-top:16px;">
-            <button id="admin-btn-add-case-bottom" class="btn btn-secondary">
-              + Agregar caso clínico
-            </button>
-            <button id="admin-btn-save-exam-bottom" class="btn btn-primary">
-              Guardar examen
-            </button>
-          </div>
+          <!-- Los botones inferiores (Agregar caso / Guardar examen)
+               ahora los genera dinámicamente admin.js dentro de renderExamCases() -->
         </section>
       </section>
 
