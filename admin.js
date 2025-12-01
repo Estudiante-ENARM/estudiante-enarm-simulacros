@@ -39,7 +39,6 @@ import {
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-
 /****************************************************
  * REFERENCIAS DOM
  ****************************************************/
@@ -71,7 +70,7 @@ const panelLanding = document.getElementById("admin-panel-landing");
 const currentSectionTitle = document.getElementById("admin-current-section-title");
 const examsListEl = document.getElementById("admin-exams-list");
 const btnAddExam = document.getElementById("admin-btn-add-exam");
-const btnImportExamsJson = document.getElementById("admin-btn-import-exams-json"); // NUEVO (importar varios exámenes)
+const btnImportExamsJson = document.getElementById("admin-btn-import-exams-json");
 
 // Vista detalle examen
 const examDetailView = document.getElementById("admin-exam-detail");
@@ -79,8 +78,8 @@ const btnBackToExams = document.getElementById("admin-btn-back-to-exams");
 const examTitleInput = document.getElementById("admin-exam-title-input");
 const examCasesContainer = document.getElementById("admin-exam-cases");
 const btnSaveExamAll = document.getElementById("admin-btn-save-exam");
-const btnImportExam = document.getElementById("admin-btn-import-exam"); // NUEVO (importar examen abierto)
-
+const btnAddCaseTop = document.getElementById("admin-btn-add-case");
+const btnImportExamJson = document.getElementById("admin-btn-import-exam");
 
 // ==================== PANEL USUARIOS ====================
 const newUserNameInput = document.getElementById("admin-new-user-name");
@@ -154,7 +153,9 @@ let currentSectionId = null;       // Sección seleccionada
 let currentExamId = null;          // Examen abierto
 let currentExamCases = [];         // Casos clínicos en memoria
 
-
+// MINI EXÁMENES
+let miniCases = [];
+let miniCasesLoadedOnce = false;
 
 /****************************************************
  * UTILIDADES UI
@@ -200,6 +201,43 @@ function renderEmptyMessage(container, text) {
   `;
 }
 
+/**
+ * Abre un input file y devuelve el JSON parseado al callback.
+ */
+function openJsonFilePicker(onLoaded) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result);
+        if (typeof onLoaded === "function") {
+          onLoaded(json);
+        }
+      } catch (err) {
+        console.error("JSON inválido:", err);
+        alert("El archivo no contiene un JSON válido.");
+      }
+    };
+
+    reader.onerror = () => {
+      console.error("Error leyendo el archivo JSON.");
+      alert("No se pudo leer el archivo JSON.");
+    };
+
+    reader.readAsText(file);
+  });
+
+  input.click();
+}
+
 /****************************************************
  * MODAL GENÉRICO
  ****************************************************/
@@ -240,6 +278,7 @@ if (modalBtnOk) {
     }
   });
 }
+
 /****************************************************
  * PANEL USUARIOS – TABLA DE USUARIOS
  ****************************************************/
@@ -254,7 +293,6 @@ async function loadUsersTable() {
   `;
 
   try {
-    // Puedes ordenar por email para tener la lista estable
     const qUsers = query(collection(db, "users"), orderBy("email"));
     const snap = await getDocs(qUsers);
 
@@ -333,7 +371,6 @@ async function loadUsersTable() {
  ****************************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    // No hay sesión: fuera al login
     window.location.href = "index.html";
     return;
   }
@@ -374,8 +411,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 2) Cargar datos del panel (cada bloque con su propio try/catch
-  //    para que si algo falla, no se caiga todo el panel)
+  // 2) Cargar datos del panel
   try {
     await loadSections();
   } catch (err) {
@@ -408,7 +444,6 @@ onAuthStateChanged(auth, async (user) => {
 
   console.log("admin.js cargado correctamente y panel inicializado.");
 });
-
 
 /****************************************************
  * NAVEGACIÓN LATERAL
@@ -480,11 +515,7 @@ if (btnNavLanding) {
 async function loadSections() {
   if (!sectionsList) return;
 
-  const qSec = query(
-    collection(db, "sections"),
-    orderBy("order", "asc")
-  );
-
+  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
   const snap = await getDocs(qSec);
   sectionsList.innerHTML = "";
 
@@ -516,9 +547,7 @@ async function loadSections() {
       </div>
     `;
 
-    // Click en el recuadro → seleccionar sección
     li.addEventListener("click", (e) => {
-      // Evitar que editar/eliminar disparen select
       if (
         e.target.classList.contains("admin-edit-section") ||
         e.target.classList.contains("admin-delete-section")
@@ -528,7 +557,6 @@ async function loadSections() {
       selectSection(id, name);
     });
 
-    // Editar
     li
       .querySelector(".admin-edit-section")
       .addEventListener("click", (e) => {
@@ -536,7 +564,6 @@ async function loadSections() {
         openEditSectionModal(id, name);
       });
 
-    // Eliminar
     li
       .querySelector(".admin-delete-section")
       .addEventListener("click", async (e) => {
@@ -554,7 +581,7 @@ async function loadSections() {
         }
       });
 
-    // Drag & drop (solo orden visual + update order)
+    // Drag & drop
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", id);
@@ -563,7 +590,6 @@ async function loadSections() {
 
     li.addEventListener("dragend", () => {
       li.classList.remove("dragging");
-      // Recalcular orden y guardar en Firestore
       saveSectionsOrder();
     });
 
@@ -582,7 +608,6 @@ async function loadSections() {
 
     sectionsList.appendChild(li);
 
-    // Seleccionar la primera sección al cargar
     if (first) {
       first = false;
       selectSection(id, name);
@@ -595,7 +620,6 @@ function selectSection(id, name) {
   currentSectionId = id;
   currentSectionTitle.textContent = name || "Sección";
 
-  // Resaltar activa
   sectionsList
     .querySelectorAll(".sidebar__section-item")
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
@@ -606,7 +630,6 @@ function selectSection(id, name) {
     activeLi.classList.add("sidebar__section-item--active");
   }
 
-  // Cargar exámenes de esa sección
   loadExamsForSection(id);
 }
 
@@ -627,7 +650,6 @@ async function saveSectionsOrder() {
 }
 
 async function deleteSectionWithAllData(sectionId) {
-  // Eliminar exámenes de esta sección y sus preguntas (casos)
   const qEx = query(
     collection(db, "exams"),
     where("sectionId", "==", sectionId)
@@ -707,7 +729,6 @@ if (btnAddSection) {
         setLoadingButton(btn, true);
 
         try {
-          // Calcular orden = última posición
           const qSec = await getDocs(collection(db, "sections"));
           const order = qSec.size;
 
@@ -728,6 +749,34 @@ if (btnAddSection) {
       },
     });
   });
+}
+
+/**
+ * Devuelve el ID de la sección por nombre; si no existe, la crea.
+ */
+async function getOrCreateSectionByName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) throw new Error("sectionName vacío en JSON.");
+
+  const qByName = query(
+    collection(db, "sections"),
+    where("name", "==", trimmed)
+  );
+  const snap = await getDocs(qByName);
+  if (!snap.empty) {
+    return snap.docs[0].id;
+  }
+
+  const all = await getDocs(collection(db, "sections"));
+  const order = all.size;
+
+  const ref = await addDoc(collection(db, "sections"), {
+    name: trimmed,
+    order,
+    createdAt: serverTimestamp(),
+  });
+
+  return ref.id;
 }
 
 /****************************************************
@@ -840,7 +889,6 @@ if (btnAddExam) {
           });
           await loadExamsForSection(currentSectionId);
           closeModal();
-          // Abrir directamente el examen recién creado
           openExamDetail(docRef.id, name);
         } catch (err) {
           console.error(err);
@@ -892,178 +940,122 @@ function openEditExamNameModal(examId, currentName) {
 }
 
 /**
- * IMPORTAR VARIOS EXÁMENES DESDE UN SOLO JSON
- * - Usa la sección actualmente seleccionada (currentSectionId)
- * - Crea todos los exámenes y sus casos/preguntas en Firestore.
- *
- * Formatos aceptados:
- * 1) { "exams": [ { "name": "...", "cases": [...] }, ... ] }
- * 2) [ { "name": "...", "cases": [...] }, ... ]
- * 3) { "name": "...", "cases": [...] }  // se toma como un solo examen
+ * Importar varios exámenes desde un JSON (botón "Importar exámenes JSON")
+ * Estructura esperada (ejemplo):
+ * [
+ *   {
+ *     "sectionName": "Medicina interna",
+ *     "examName": "Examen 1",
+ *     "cases": [ { caseText, specialty, questions:[...] } ]
+ *   }
+ * ]
+ * o bien { "exams": [ ... ] }
  */
-function openImportExamsJsonModal() {
-  if (!currentSectionId) {
-    alert("Selecciona primero una sección para asignar los exámenes importados.");
+async function importExamsFromJson(json) {
+  let examsArray = [];
+
+  if (Array.isArray(json)) {
+    examsArray = json;
+  } else if (json && Array.isArray(json.exams)) {
+    examsArray = json.exams;
+  }
+
+  if (!examsArray.length) {
+    alert("El JSON no contiene ningún examen (se esperaba un arreglo).");
     return;
   }
 
-  openModal({
-    title: "Importar exámenes desde JSON",
-    bodyHtml: `
-      <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
-        Pega un JSON con uno o varios exámenes. Todos se crearán en la sección seleccionada.
-      </p>
-      <p style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
-        Ejemplos válidos:
-        <br>
-        <code>{"exams":[{ "name":"Examen 1", "cases":[...] }, ...]}</code>
-        <br>
-        <code>[{ "name":"Examen 1", "cases":[...] }, { "name":"Examen 2", "cases":[...] }]</code>
-      </p>
-      <textarea id="admin-import-exams-json"
-        style="width:100%;min-height:260px;font-family:monospace;font-size:12px;"></textarea>
-    `,
-    onOk: async () => {
-      const textarea = document.getElementById("admin-import-exams-json");
-      const raw = textarea.value.trim();
-      if (!raw) {
-        alert("Pega el JSON de los exámenes.");
-        return;
-      }
+  const ok = window.confirm(
+    `Se crearán ${examsArray.length} exámenes nuevos a partir del JSON. ` +
+    `Cada examen incluirá sus casos clínicos y preguntas.\n\n¿Continuar?`
+  );
+  if (!ok) return;
 
-      let parsed;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (err) {
-        console.error(err);
-        alert("El texto no es un JSON válido.");
-        return;
-      }
+  for (const examSpec of examsArray) {
+    const sectionName = examSpec.sectionName || examSpec.section || null;
+    const examName = examSpec.examName || examSpec.name || "Examen sin título";
 
-      let examsArray = [];
-      if (Array.isArray(parsed)) {
-        examsArray = parsed;
-      } else if (Array.isArray(parsed.exams)) {
-        examsArray = parsed.exams;
-      } else if (parsed.name && Array.isArray(parsed.cases)) {
-        examsArray = [parsed];
-      }
+    if (!sectionName) {
+      console.warn("Examen sin sectionName, se omite:", examSpec);
+      continue;
+    }
 
-      if (!examsArray.length) {
-        alert(
-          "El JSON debe ser un arreglo de exámenes o un objeto con la propiedad 'exams'."
+    const sectionId = await getOrCreateSectionByName(sectionName);
+
+    const examRef = await addDoc(collection(db, "exams"), {
+      name: examName,
+      sectionId,
+      createdAt: serverTimestamp(),
+    });
+    const examId = examRef.id;
+
+    const casesArr = Array.isArray(examSpec.cases) ? examSpec.cases : [];
+
+    for (const caseSpec of casesArr) {
+      const caseText = caseSpec.caseText || caseSpec.case || "";
+      const specialty = caseSpec.specialty || "";
+
+      const questionsSrc = Array.isArray(caseSpec.questions)
+        ? caseSpec.questions
+        : [];
+
+      const questionsFormatted = questionsSrc
+        .map((q) => ({
+          questionText: q.questionText || q.question || "",
+          optionA: q.optionA || q.a || "",
+          optionB: q.optionB || q.b || "",
+          optionC: q.optionC || q.c || "",
+          optionD: q.optionD || q.d || "",
+          correctOption: q.correctOption || q.correct || q.answer || "",
+          subtype: q.subtype || "salud_publica",
+          difficulty: q.difficulty || "media",
+          justification: q.justification || q.explanation || "",
+        }))
+        .filter(
+          (q) =>
+            q.questionText &&
+            q.optionA &&
+            q.optionB &&
+            q.optionC &&
+            q.optionD &&
+            q.correctOption &&
+            q.justification
         );
-        return;
+
+      if (!caseText || !questionsFormatted.length) {
+        console.warn("Caso omitido por falta de datos:", caseSpec);
+        continue;
       }
 
-      const btn = modalBtnOk;
-      setLoadingButton(btn, true, "Importar");
+      await addDoc(collection(db, "questions"), {
+        examId,
+        caseText,
+        specialty,
+        questions: questionsFormatted,
+        createdAt: serverTimestamp(),
+      });
+    }
+  }
 
-      try {
-        for (const examObj of examsArray) {
-          const examName = examObj.name || "Examen sin título";
-          const casesArr = Array.isArray(examObj.cases)
-            ? examObj.cases
-            : [];
+  alert("Importación de exámenes desde JSON completada.");
 
-          // Crear examen
-          const examRef = await addDoc(collection(db, "exams"), {
-            name: examName,
-            sectionId: currentSectionId,
-            createdAt: serverTimestamp(),
-          });
-
-          // Crear casos clínicos de ese examen
-          for (const c of casesArr) {
-            const caseText = c.caseText || "";
-            if (!caseText) {
-              alert(
-                `Falta 'caseText' en un caso clínico del examen "${examName}".`
-              );
-              throw new Error("Caso sin texto");
-            }
-
-            const specialty = c.specialty || "";
-            const questionsRaw = Array.isArray(c.questions)
-              ? c.questions
-              : [];
-
-            if (!questionsRaw.length) {
-              alert(
-                `El caso "${caseText.slice(
-                  0,
-                  40
-                )}..." del examen "${examName}" no tiene preguntas.`
-              );
-              throw new Error("Caso sin preguntas");
-            }
-
-            const questions = [];
-
-            for (const q of questionsRaw) {
-              const questionText = q.questionText || "";
-              const optionA = q.optionA || "";
-              const optionB = q.optionB || "";
-              const optionC = q.optionC || "";
-              const optionD = q.optionD || "";
-              const correctOption = q.correctOption || "";
-              const subtype = q.subtype || "salud_publica";
-              const difficulty = q.difficulty || "media";
-              const justification = q.justification || "";
-
-              if (
-                !questionText ||
-                !optionA ||
-                !optionB ||
-                !optionC ||
-                !optionD ||
-                !correctOption ||
-                !justification
-              ) {
-                alert(
-                  `Hay campos incompletos en una pregunta del examen "${examName}".`
-                );
-                throw new Error("Pregunta incompleta");
-              }
-
-              questions.push({
-                questionText,
-                optionA,
-                optionB,
-                optionC,
-                optionD,
-                correctOption,
-                subtype,
-                difficulty,
-                justification,
-              });
-            }
-
-            await addDoc(collection(db, "questions"), {
-              examId: examRef.id,
-              caseText,
-              specialty,
-              questions,
-              createdAt: serverTimestamp(),
-            });
-          }
-        }
-
-        alert("Exámenes importados correctamente.");
-        await loadExamsForSection(currentSectionId);
-        closeModal();
-      } catch (err) {
-        console.error(err);
-        // El alert específico ya se mostró arriba
-      } finally {
-        setLoadingButton(btn, false, "Importar");
-      }
-    },
-  });
+  await loadSections();
+  if (currentSectionId) {
+    await loadExamsForSection(currentSectionId);
+  }
 }
 
 if (btnImportExamsJson) {
-  btnImportExamsJson.addEventListener("click", openImportExamsJsonModal);
+  btnImportExamsJson.addEventListener("click", () => {
+    openJsonFilePicker(async (json) => {
+      try {
+        await importExamsFromJson(json);
+      } catch (err) {
+        console.error("Error importando exámenes desde JSON:", err);
+        alert("Hubo un error al importar los exámenes. Revisa la consola.");
+      }
+    });
+  });
 }
 
 /****************************************************
@@ -1088,14 +1080,13 @@ function createEmptyCase() {
   return {
     caseText: "",
     specialty: "",
-    questions: [createEmptyQuestion()], // al menos 1 pregunta vacía
+    questions: [createEmptyQuestion()],
   };
 }
 
 /**
- * Sincroniza lo que está actualmente escrito en el DOM
- * con el arreglo currentExamCases, para no perder nada
- * cuando agregas un nuevo caso o vuelves a renderizar.
+ * Sincroniza currentExamCases con TODO lo escrito en el DOM actual.
+ * Sirve para no perder lo que ya se escribió al agregar/eliminar casos.
  */
 function syncCurrentExamCasesFromDOM() {
   if (!examCasesContainer) return;
@@ -1115,14 +1106,10 @@ function syncCurrentExamCasesFromDOM() {
     qBlocks.forEach((qb) => {
       const questionText =
         qb.querySelector(".admin-q-question")?.value.trim() || "";
-      const optionA =
-        qb.querySelector(".admin-q-a")?.value.trim() || "";
-      const optionB =
-        qb.querySelector(".admin-q-b")?.value.trim() || "";
-      const optionC =
-        qb.querySelector(".admin-q-c")?.value.trim() || "";
-      const optionD =
-        qb.querySelector(".admin-q-d")?.value.trim() || "";
+      const optionA = qb.querySelector(".admin-q-a")?.value.trim() || "";
+      const optionB = qb.querySelector(".admin-q-b")?.value.trim() || "";
+      const optionC = qb.querySelector(".admin-q-c")?.value.trim() || "";
+      const optionD = qb.querySelector(".admin-q-d")?.value.trim() || "";
       const correctOption =
         qb.querySelector(".admin-q-correct")?.value || "";
       const subtype =
@@ -1155,7 +1142,6 @@ function syncCurrentExamCasesFromDOM() {
       });
     });
 
-    // Si caso + preguntas están totalmente vacíos, lo saltamos
     if (!caseText && !questions.length) return;
 
     newCases.push({
@@ -1277,10 +1263,9 @@ function renderExamCases() {
     wrapper
       .querySelector(".admin-delete-case")
       .addEventListener("click", () => {
-        // Guardar lo ya escrito antes de eliminar
-        syncCurrentExamCasesFromDOM();
         const idx = parseInt(wrapper.dataset.caseIndex, 10);
         if (Number.isNaN(idx)) return;
+        syncCurrentExamCasesFromDOM();
         currentExamCases.splice(idx, 1);
         renderExamCases();
       });
@@ -1443,7 +1428,7 @@ if (btnBackToExams) {
   });
 }
 
-// Guardar examen (botón superior)
+// Guardar examen
 if (btnSaveExamAll) {
   btnSaveExamAll.addEventListener("click", async () => {
     if (!currentExamId) {
@@ -1569,15 +1554,13 @@ if (btnSaveExamAll) {
   });
 }
 
-// Botón "Agregar caso clínico" SUPERIOR
-const btnAddCase = document.getElementById("admin-btn-add-case");
-if (btnAddCase) {
-  btnAddCase.addEventListener("click", () => {
+// Botón "Agregar caso clínico" superior
+if (btnAddCaseTop) {
+  btnAddCaseTop.addEventListener("click", () => {
     if (!currentExamId) {
       alert("Primero abre un examen.");
       return;
     }
-
     syncCurrentExamCasesFromDOM();
     currentExamCases.push(createEmptyCase());
     renderExamCases();
@@ -1585,111 +1568,85 @@ if (btnAddCase) {
 }
 
 /**
- * IMPORTAR EL EXAMEN ACTUAL DESDE JSON (solo en memoria).
- * Luego usas "Guardar examen" para mandarlo a Firestore.
+ * Importar un solo examen (JSON) directamente al formulario del examen abierto.
+ * No guarda nada hasta que presiones "Guardar examen".
  */
-if (btnImportExam) {
-  btnImportExam.addEventListener("click", () => {
-    if (!currentExamId) {
-      alert("Primero abre un examen.");
-      return;
-    }
-
-    openModal({
-      title: "Importar examen (JSON)",
-      bodyHtml: `
-        <p style="font-size:13px;color:#6b7280;margin-bottom:8px;">
-          Pega el JSON del examen. Solo se modificará el examen actualmente abierto.
-        </p>
-        <p style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
-          Formatos aceptados:
-          <code>{"name":"Examen 1","cases":[...]}</code>
-          o
-          <code>{"cases":[...]}</code>.
-        </p>
-        <textarea id="admin-import-exam-json"
-          style="width:100%;min-height:260px;font-family:monospace;font-size:12px;"></textarea>
-      `,
-      onOk: () => {
-        const textarea = document.getElementById("admin-import-exam-json");
-        const raw = textarea.value.trim();
-        if (!raw) {
-          alert("Pega el JSON del examen.");
-          return;
-        }
-
-        let parsed;
-        try {
-          parsed = JSON.parse(raw);
-        } catch (err) {
-          console.error(err);
-          alert("El texto no es un JSON válido.");
-          return;
-        }
-
-        const examObj =
-          Array.isArray(parsed.exams) && parsed.exams.length
-            ? parsed.exams[0]
-            : parsed;
-
-        if (!Array.isArray(examObj.cases) || !examObj.cases.length) {
-          alert("El JSON debe tener una propiedad 'cases' con al menos un caso clínico.");
-          return;
-        }
-
-        if (examObj.name && examTitleInput) {
-          examTitleInput.value = String(examObj.name);
-        }
-
-        currentExamCases = examObj.cases.map((c) => {
-          const specialty = c.specialty || "";
-          const caseText = c.caseText || "";
-          const questionsArr =
-            Array.isArray(c.questions) && c.questions.length
-              ? c.questions
-              : [createEmptyQuestion()];
-
-          const questions = questionsArr.map((q) => ({
-            questionText: q.questionText || "",
-            optionA: q.optionA || "",
-            optionB: q.optionB || "",
-            optionC: q.optionC || "",
-            optionD: q.optionD || "",
-            correctOption: q.correctOption || "",
-            subtype: q.subtype || "salud_publica",
-            difficulty: q.difficulty || "media",
-            justification: q.justification || "",
-          }));
-
-          return { caseText, specialty, questions };
-        });
-
-        renderExamCases();
-        closeModal();
-      },
-    });
-  });
+function normalizeQuestionFromJson(raw) {
+  return {
+    questionText: raw.questionText || raw.question || "",
+    optionA: raw.optionA || raw.a || "",
+    optionB: raw.optionB || raw.b || "",
+    optionC: raw.optionC || raw.c || "",
+    optionD: raw.optionD || raw.d || "",
+    correctOption: raw.correctOption || raw.correct || raw.answer || "",
+    subtype: raw.subtype || "salud_publica",
+    difficulty: raw.difficulty || "media",
+    justification: raw.justification || raw.explanation || "",
+  };
 }
 
-// Botón "Agregar caso clínico" SUPERIOR
-const btnAddCase = document.getElementById("admin-btn-add-case");
-if (btnAddCase) {
-  btnAddCase.addEventListener("click", () => {
-    if (!currentExamId) {
-      alert("Primero abre un examen.");
+function loadExamFromJsonIntoUI(json) {
+  const examName =
+    (json && (json.examName || json.name)) ||
+    (examTitleInput ? examTitleInput.value : "");
+
+  if (examTitleInput && examName) {
+    examTitleInput.value = examName;
+  }
+
+  let casesArr = [];
+
+  if (Array.isArray(json)) {
+    casesArr = json;
+  } else if (Array.isArray(json.cases)) {
+    casesArr = json.cases;
+  } else {
+    alert(
+      "El JSON debe ser un objeto con propiedad 'cases' o un arreglo de casos clínicos."
+    );
+    return;
+  }
+
+  if (!casesArr.length) {
+    alert("El JSON no contiene casos clínicos.");
+    return;
+  }
+
+  currentExamCases = casesArr.map((c) => {
+    const caseText = c.caseText || c.case || "";
+    const specialty = c.specialty || "";
+    const qsRaw = Array.isArray(c.questions) ? c.questions : [];
+    const questions =
+      qsRaw.length > 0
+        ? qsRaw.map((q) => normalizeQuestionFromJson(q))
+        : [createEmptyQuestion()];
+
+    return { caseText, specialty, questions };
+  });
+
+  renderExamCases();
+}
+
+if (btnImportExamJson) {
+  btnImportExamJson.addEventListener("click", () => {
+    if (!examDetailView || examDetailView.classList.contains("hidden")) {
+      alert("Abre primero un examen para poder importar.");
       return;
     }
 
-    // Igual que abajo: sincronizar lo escrito y luego agregar caso
-    syncCurrentExamCasesFromDOM();
-    currentExamCases.push(createEmptyCase());
-    renderExamCases();
+    openJsonFilePicker((json) => {
+      try {
+        loadExamFromJsonIntoUI(json);
+      } catch (err) {
+        console.error("Error cargando examen desde JSON:", err);
+        alert("No se pudo cargar el examen desde el JSON.");
+      }
+    });
   });
 }
 
 /****************************************************
  * MINI EXÁMENES – BANCO GLOBAL DE CASOS
- * Colección en Firestore: "miniQuestions"
  ****************************************************/
 
 // Elementos del DOM del panel de mini exámenes
@@ -1697,14 +1654,9 @@ const miniCasesContainer = document.getElementById("admin-mini-cases");
 const btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
 const btnMiniSaveAll = document.getElementById("admin-mini-btn-save-all");
 
-// Estado en memoria del banco global
-let miniCases = [];
-let miniCasesLoadedOnce = false;
-
 /**
  * Reconstruye miniCases leyendo TODO lo que está escrito
  * actualmente en el DOM (casos + preguntas).
- * Sirve para NO perder cambios al agregar un nuevo caso.
  */
 function syncMiniCasesFromDOM() {
   if (!miniCasesContainer) return;
@@ -1716,9 +1668,8 @@ function syncMiniCasesFromDOM() {
     const idx = parseInt(block.dataset.caseIndex, 10);
     const prev = !Number.isNaN(idx) && miniCases[idx] ? miniCases[idx] : {};
 
-    const caseText = block
-      .querySelector(".admin-mini-case-text")
-      ?.value.trim() || "";
+    const caseText =
+      block.querySelector(".admin-mini-case-text")?.value.trim() || "";
     const specialty =
       block.querySelector(".admin-mini-case-specialty")?.value || "";
 
@@ -1732,14 +1683,15 @@ function syncMiniCasesFromDOM() {
       const optionB = qb.querySelector(".admin-q-b")?.value.trim() || "";
       const optionC = qb.querySelector(".admin-q-c")?.value.trim() || "";
       const optionD = qb.querySelector(".admin-q-d")?.value.trim() || "";
-      const correctOption = qb.querySelector(".admin-q-correct")?.value || "A";
-      const subtype = qb.querySelector(".admin-q-subtype")?.value || "salud_publica";
+      const correctOption =
+        qb.querySelector(".admin-q-correct")?.value || "A";
+      const subtype =
+        qb.querySelector(".admin-q-subtype")?.value || "salud_publica";
       const difficulty =
         qb.querySelector(".admin-q-difficulty")?.value || "media";
       const justification =
         qb.querySelector(".admin-q-justification")?.value.trim() || "";
 
-      // Si TODA la pregunta está vacía, la saltamos
       const allEmpty =
         !questionText &&
         !optionA &&
@@ -1763,7 +1715,6 @@ function syncMiniCasesFromDOM() {
       });
     });
 
-    // Si el caso y TODAS sus preguntas están vacíos, no se agrega
     if (!caseText && !questions.length) return;
 
     newCases.push({
@@ -1774,7 +1725,6 @@ function syncMiniCasesFromDOM() {
     });
   });
 
-  // Si el admin borró todo manualmente, dejamos al menos un caso vacío
   miniCases =
     newCases.length > 0
       ? newCases
@@ -1788,11 +1738,9 @@ function syncMiniCasesFromDOM() {
         ];
 }
 
-// Carga inicial del banco desde Firestore
 async function loadMiniCases() {
   if (!miniCasesContainer) return;
 
-  // Si ya se cargó una vez y hay estado en memoria, reusar (no pisar lo que edite)
   if (miniCasesLoadedOnce && miniCases.length) {
     renderMiniCases();
     return;
@@ -1842,12 +1790,10 @@ async function loadMiniCases() {
   renderMiniCases();
 }
 
-// Pinta todos los casos del banco global en el panel
 function renderMiniCases() {
   if (!miniCasesContainer) return;
   miniCasesContainer.innerHTML = "";
 
-  // Si no hay casos, mostramos mensaje y un caso vacío
   if (!miniCases.length) {
     miniCases.push({
       id: null,
@@ -1916,14 +1862,12 @@ function renderMiniCases() {
       });
     }
 
-    // Agregar nueva pregunta dentro del caso
     wrapper
       .querySelector(".admin-mini-add-question")
       .addEventListener("click", () => {
         qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
       });
 
-    // Eliminar caso del arreglo y volver a pintar
     wrapper
       .querySelector(".admin-mini-delete-case")
       .addEventListener("click", () => {
@@ -1936,7 +1880,6 @@ function renderMiniCases() {
     miniCasesContainer.appendChild(wrapper);
   });
 
-  // Botones inferiores duplicados
   const bottom = document.createElement("div");
   bottom.className = "flex-row";
   bottom.style.justifyContent = "flex-end";
@@ -1964,10 +1907,8 @@ function renderMiniCases() {
   miniCasesContainer.appendChild(bottom);
 }
 
-// Botón superior: agregar caso al banco global
 if (btnMiniAddCase && miniCasesContainer) {
   btnMiniAddCase.addEventListener("click", () => {
-    // Antes de agregar, capturamos TODO lo que ya esté escrito
     syncMiniCasesFromDOM();
     miniCases.push({
       id: null,
@@ -1979,11 +1920,9 @@ if (btnMiniAddCase && miniCasesContainer) {
   });
 }
 
-// Handler común para "Guardar banco"
 async function handleSaveMiniBank() {
   if (!miniCasesContainer) return;
 
-  // Reconstruir desde el DOM para asegurarnos de tomar lo último
   syncMiniCasesFromDOM();
 
   if (!miniCases.length) {
@@ -1996,16 +1935,13 @@ async function handleSaveMiniBank() {
     }
   }
 
-  // Validaciones rápidas
   for (const c of miniCases) {
     if (!c.caseText.trim()) {
       alert("Escribe el texto del caso clínico en todos los casos.");
       return;
     }
     if (!c.questions.length) {
-      alert(
-        "Cada caso clínico del banco debe tener al menos una pregunta."
-      );
+      alert("Cada caso clínico del banco debe tener al menos una pregunta.");
       return;
     }
     for (const q of c.questions) {
@@ -2028,13 +1964,11 @@ async function handleSaveMiniBank() {
   if (btn) setLoadingButton(btn, true, "Guardar banco");
 
   try {
-    // 1) Borrar banco previo
     const prevSnap = await getDocs(collection(db, "miniQuestions"));
     for (const d of prevSnap.docs) {
       await deleteDoc(d.ref);
     }
 
-    // 2) Guardar nuevo banco COMPLETO
     for (const c of miniCases) {
       await addDoc(collection(db, "miniQuestions"), {
         caseText: c.caseText,
@@ -2053,19 +1987,16 @@ async function handleSaveMiniBank() {
   }
 }
 
-// Botón “Guardar banco” – sobrescribe la colección miniQuestions
 if (btnMiniSaveAll && miniCasesContainer) {
   btnMiniSaveAll.addEventListener("click", handleSaveMiniBank);
 }
 
-// Cargar banco al iniciar (si el panel existe)
 if (typeof panelMini !== "undefined" && panelMini && miniCasesContainer) {
   loadMiniCases();
 }
 
-
 /****************************************************
- * USUARIOS (CRUD)
+ * USUARIOS (CRUD) – (resto de tu código original)
  ****************************************************/
 
 async function loadUsers() {
@@ -2291,7 +2222,7 @@ function openUserEditModal(userId) {
 }
 
 /****************************************************
- * PANTALLA PRINCIPAL / LANDING (settings/landingPage)
+ * PANTALLA PRINCIPAL / LANDING
  ****************************************************/
 
 async function loadLandingSettings() {
@@ -2302,7 +2233,6 @@ async function loadLandingSettings() {
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
-      // Valores por defecto
       landingTextArea.value =
         "Aquí podrás conocer todo lo que incluye la plataforma Estudiante ENARM.";
       monthlyLabelInput.value = "Plan mensual";
@@ -2367,7 +2297,7 @@ if (btnSaveLanding) {
 }
 
 /****************************************************
- * SOCIAL LINKS (settings/socialLinks)
+ * SOCIAL LINKS
  ****************************************************/
 
 async function loadSocialLinks() {
@@ -2378,7 +2308,6 @@ async function loadSocialLinks() {
 
     const data = snap.data();
 
-    // Sidebar icons
     adminSocialIcons.forEach((icon) => {
       const network = icon.dataset.network;
       if (data[network]) {
@@ -2401,7 +2330,6 @@ async function loadSocialLinks() {
   });
 }
 
-// Para panel de pantalla principal
 async function loadSocialLinksIntoLanding() {
   try {
     const ref = doc(db, "settings", "socialLinks");
@@ -2410,16 +2338,18 @@ async function loadSocialLinksIntoLanding() {
 
     const data = snap.data();
 
-    if (landingInstagramInput) landingInstagramInput.value = data.instagram || "";
-    if (landingWhatsappLinkInput) landingWhatsappLinkInput.value = data.whatsapp || "";
+    if (landingInstagramInput)
+      landingInstagramInput.value = data.instagram || "";
+    if (landingWhatsappLinkInput)
+      landingWhatsappLinkInput.value = data.whatsapp || "";
     if (landingTiktokInput) landingTiktokInput.value = data.tiktok || "";
-    if (landingTelegramInput) landingTelegramInput.value = data.telegram || "";
+    if (landingTelegramInput)
+      landingTelegramInput.value = data.telegram || "";
   } catch (err) {
     console.error("Error cargando socialLinks para panel landing:", err);
   }
 }
 
-// Guardar links de redes en pantalla principal
 const btnSaveSocialLinks = document.getElementById("admin-btn-save-social-links");
 if (btnSaveSocialLinks) {
   btnSaveSocialLinks.addEventListener("click", async () => {
@@ -2445,7 +2375,6 @@ if (btnSaveSocialLinks) {
       );
 
       alert("Links de redes sociales guardados.");
-      // Recargar para sidebar
       loadSocialLinks();
     } catch (err) {
       console.error(err);
@@ -2457,7 +2386,7 @@ if (btnSaveSocialLinks) {
 }
 
 /****************************************************
- * ANALYTICS BÁSICOS (administrador)
+ * ANALYTICS BÁSICOS
  ****************************************************/
 
 async function loadAnalyticsSummary() {
@@ -2489,14 +2418,12 @@ async function loadAnalyticsSummary() {
       </div>
     `;
 
-    // Promedios de usuarios (por ahora: promedio global de sus exámenes)
     const userRows = [];
     for (const u of usersSnap.docs) {
       const userData = u.data();
       const email = userData.email || u.id;
       const name = userData.name || email;
 
-      // Subcolección examAttempts
       const attemptsSnap = await getDocs(
         collection(db, "users", email, "examAttempts")
       );
