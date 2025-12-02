@@ -299,36 +299,37 @@
       log("Iniciando importación...");
 
       try {
-        // 1) RESOLVER SECTION
-        let finalSectionId = sectionIdFromJson;
+// 1) RESOLVER SECTION (corregido: reusar sección existente por nombre)
+let finalSectionId = sectionIdFromJson;
 
-        if (!finalSectionId) {
-          if (!sectionName) {
-            throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
-          }
+if (!finalSectionId) {
+  if (!sectionName) {
+    throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
+  }
 
-          // PRIMERO buscar si ya existe una sección con ese name
-          const qSec = query(
-            collection(db, "sections"),
-            where("name", "==", sectionName)
-          );
-          const secSnap = await getDocs(qSec);
+  // 1. Intentar encontrar una sección EXISTENTE con ese nombre
+  const qSec = query(
+    collection(db, "sections"),
+    where("name", "==", sectionName)
+  );
+  const secSnap = await getDocs(qSec);
 
-          if (!secSnap.empty) {
-            const reused = secSnap.docs[0];
-            finalSectionId = reused.id;
-            log(`Se usará sección EXISTENTE "${sectionName}" (id: ${finalSectionId}).`);
-          } else {
-            // Si no existe, entonces sí creamos una nueva
-            const secRef = await addDoc(collection(db, "sections"), {
-              name: sectionName
-            });
-            finalSectionId = secRef.id;
-            log(`Sección creada: "${sectionName}" (id: ${finalSectionId}).`);
-          }
-        } else {
-          log(`Se utilizará la sección existente con id: ${finalSectionId}`);
-        }
+  if (!secSnap.empty) {
+    // Usar la primera coincidencia
+    const docSec = secSnap.docs[0];
+    finalSectionId = docSec.id;
+    log(`Se usará sección EXISTENTE "${sectionName}" (id: ${finalSectionId}).`);
+  } else {
+    // 2. Si no existe, ahora sí crear una nueva
+    const secRef = await addDoc(collection(db, "sections"), {
+      name: sectionName
+    });
+    finalSectionId = secRef.id;
+    log(`Sección creada: "${sectionName}" (id: ${finalSectionId}).`);
+  }
+} else {
+  log(`Se utilizará la sección existente con id: ${finalSectionId}`);
+}
 
         // 2) RESOLVER EXAMEN (reusar o crear)
         let examRef;
