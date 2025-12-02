@@ -184,7 +184,9 @@
       getDoc,
       getDocs,
       query,
-      where
+      where,
+      updateDoc,
+      serverTimestamp
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
     // ==========================
@@ -226,7 +228,8 @@
         currentUser = null;
         isAdmin = false;
         authStatusEl.className = "status error";
-        authStatusEl.textContent = "No hay sesión iniciada. Inicia sesión como ADMIN en index.html y vuelve a abrir esta página.";
+        authStatusEl.textContent =
+          "No hay sesión iniciada. Inicia sesión como ADMIN en index.html y vuelve a abrir esta página.";
         btnImport.disabled = true;
         return;
       }
@@ -247,7 +250,9 @@
         if (data.role !== "admin") {
           isAdmin = false;
           authStatusEl.className = "status error";
-          authStatusEl.textContent = `El usuario ${user.email} no es admin (role actual: ${data.role || "sin definir"}).`;
+          authStatusEl.textContent = `El usuario ${user.email} no es admin (role actual: ${
+            data.role || "sin definir"
+          }).`;
           btnImport.disabled = true;
           return;
         }
@@ -283,11 +288,11 @@
         return;
       }
 
-      const sectionName      = parsed.sectionName || null;
+      const sectionName = parsed.sectionName || null;
       const sectionIdFromJson = parsed.sectionId || null;
-      const examName         = parsed.examName || null;
-      const cases            = Array.isArray(parsed.cases) ? parsed.cases : [];
-      const examIdFromJson   = parsed.examId || null;
+      const examName = parsed.examName || null;
+      const cases = Array.isArray(parsed.cases) ? parsed.cases : [];
+      const examIdFromJson = parsed.examId || null; // opcional para reutilizar examen exacto
 
       if (!examName || !cases.length) {
         alert("El JSON debe incluir 'examName' y un arreglo 'cases' con al menos 1 caso clínico.");
@@ -299,72 +304,95 @@
       log("Iniciando importación...");
 
       try {
-// 1) RESOLVER SECTION (corregido: reusar sección existente por nombre)
-let finalSectionId = sectionIdFromJson;
+        // 1) RESOLVER SECTION
+        let finalSectionId = sectionIdFromJson;
 
-if (!finalSectionId) {
-  if (!sectionName) {
-    throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
-  }
+        if (!finalSectionId) {
+          if (!sectionName) {
+            throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
+          }
 
-  // 1. Intentar encontrar una sección EXISTENTE con ese nombre
-  const qSec = query(
-    collection(db, "sections"),
-    where("name", "==", sectionName)
-  );
-  const secSnap = await getDocs(qSec);
+          // buscar sección existente con ese nombre
+          const qSec = query(collection(db, "sections"), where("name", "==", sectionName));
+          const snapSec = await getDocs(qSec);
 
-  if (!secSnap.empty) {
-    // Usar la primera coincidencia
-    const docSec = secSnap.docs[0];
-    finalSectionId = docSec.id;
-    log(`Se usará sección EXISTENTE "${sectionName}" (id: ${finalSectionId}).`);
-  } else {
-    // 2. Si no existe, ahora sí crear una nueva
-    const secRef = await addDoc(collection(db, "sections"), {
-      name: sectionName
-    });
-    finalSectionId = secRef.id;
-    log(`Sección creada: "${sectionName}" (id: ${finalSectionId}).`);
-  }
-} else {
-  log(`Se utilizará la sección existente con id: ${finalSectionId}`);
-}
+          if (!snapSec.empty) {
+            finalSectionId = snapSec.docs[0].id;
+            log(`Sección existente reutilizada: "${sectionName}" (id: ${finalSectionId})`);
+          } else {
+            const secRef = await addDoc(collection(db, "sections"), {
+              name: sectionName,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            finalSectionId = secRef.id;
+            log(`Sección creada: "${sectionName}" (id: ${finalSectionId})`);
+          }
+        } else {
+          log(`Se utilizará la sección existente con id: ${finalSectionId}`);
+        }
 
-        // 2) RESOLVER EXAMEN (reusar o crear)
+        // 2) RESOLVER / CREAR EXAMEN
         let examRef;
+        let examId;
 
         if (examIdFromJson) {
-          // a) Usar examen existente por ID
+          // usar examen ya existente por ID
           examRef = doc(db, "exams", examIdFromJson);
           const exSnap = await getDoc(examRef);
           if (!exSnap.exists()) {
-            throw new Error(`El examId ${examIdFromJson} no existe en la colección 'exams'.`);
+            throw new Error(`El examId ${examIdFromJson} no existe en 'exams'.`);
           }
+
+          const exData = exSnap.data() || {};
+          const updates = { updatedAt: serverTimestamp() };
+          if (!exData.createdAt) {
+            updates.createdAt = serverTimestamp();
+          }
+          await updateDoc(examRef, updates);
+
+          examId = examIdFromJson;
           log(`Se usará examen EXISTENTE por examId: ${examIdFromJson}`);
         } else {
-          // b) Buscar examen con mismo nombre en esa sección
+          // buscar examen por sectionId + name
           let existingExamId = null;
 
-          const qEx = query(
-            collection(db, "exams"),
-            where("sectionId", "==", finalSectionId),
-            where("name", "==", examName)
-          );
-          const snapEx = await getDocs(qEx);
-          if (!snapEx.empty) {
-            existingExamId = snapEx.docs[0].id;
+          if (finalSectionId && examName) {
+            const qEx = query(
+              collection(db, "exams"),
+              where("sectionId", "==", finalSectionId),
+              where("name", "==", examName)
+            );
+            const snapEx = await getDocs(qEx);
+            if (!snapEx.empty) {
+              existingExamId = snapEx.docs[0].id;
+            }
           }
 
           if (existingExamId) {
+            // reutilizar examen existente y solo agregar más casos/preguntas
             examRef = doc(db, "exams", existingExamId);
+            const exSnap = await getDoc(examRef);
+            const exData = exSnap.data() || {};
+            const updates = { updatedAt: serverTimestamp() };
+            if (!exData.createdAt) {
+              updates.createdAt = serverTimestamp();
+            }
+            await updateDoc(examRef, updates);
+
+            examId = existingExamId;
             log(`Se usará examen EXISTENTE "${examName}" (id: ${existingExamId}) para añadir preguntas.`);
           } else {
-            examRef = await addDoc(collection(db, "exams"), {
+            // crear examen nuevo con createdAt / updatedAt
+            const newExamRef = await addDoc(collection(db, "exams"), {
               name: examName,
-              sectionId: finalSectionId
+              sectionId: finalSectionId,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
             });
-            log(`Examen creado: "${examName}" (id: ${examRef.id}).`);
+            examRef = newExamRef;
+            examId = newExamRef.id;
+            log(`Examen creado: "${examName}" (id: ${examId})`);
           }
         }
 
@@ -372,9 +400,9 @@ if (!finalSectionId) {
         let totalQuestions = 0;
 
         for (const [index, c] of cases.entries()) {
-          const caseText  = c.caseText || "";
+          const caseText = c.caseText || "";
           const specialty = c.specialty || null;
-          const qArr      = Array.isArray(c.questions) ? c.questions : [];
+          const qArr = Array.isArray(c.questions) ? c.questions : [];
 
           if (!qArr.length) {
             log(`Caso clínico ${index + 1} sin preguntas, se omite.`);
@@ -382,34 +410,38 @@ if (!finalSectionId) {
           }
 
           const questionsForDoc = qArr.map((q) => ({
-            questionText:  q.questionText || "",
-            optionA:       q.optionA || "",
-            optionB:       q.optionB || "",
-            optionC:       q.optionC || "",
-            optionD:       q.optionD || "",
+            questionText: q.questionText || "",
+            optionA: q.optionA || "",
+            optionB: q.optionB || "",
+            optionC: q.optionC || "",
+            optionD: q.optionD || "",
             correctOption: q.correctOption || "A",
             justification: q.justification || "",
-            difficulty:    q.difficulty || "baja",
-            subtype:       q.subtype || "salud_publica"
+            difficulty: q.difficulty || "baja",
+            subtype: q.subtype || "salud_publica",
           }));
 
           const qRef = await addDoc(collection(db, "questions"), {
-            examId:    examRef.id,
+            examId: examId,
             caseText,
             specialty,
-            questions: questionsForDoc
+            questions: questionsForDoc,
           });
 
           totalQuestions += questionsForDoc.length;
-          log(`Caso clínico ${index + 1} creado en 'questions' (id: ${qRef.id}, preguntas: ${questionsForDoc.length}).`);
+          log(
+            `Caso clínico ${index + 1} creado en 'questions' (id: ${qRef.id}, preguntas: ${
+              questionsForDoc.length
+            })`
+          );
         }
 
         log(`IMPORTACIÓN COMPLETA. Total de preguntas creadas en esta importación: ${totalQuestions}.`);
         alert(
           `Examen importado correctamente.\n` +
-          `SectionID: ${finalSectionId}\n` +
-          `ExamID: ${examRef.id}\n` +
-          `Total de nuevas preguntas creadas: ${totalQuestions}`
+            `SectionID: ${finalSectionId}\n` +
+            `ExamID: ${examId}\n` +
+            `Total de nuevas preguntas creadas: ${totalQuestions}`
         );
       } catch (err) {
         console.error(err);
@@ -427,43 +459,51 @@ if (!finalSectionId) {
     // ==========================
     btnFillExample.addEventListener("click", () => {
       const example = {
-        "sectionName": "Vuelta 1",
-        "examName": "Examen 76 - Vuelta 1",
-        "cases": [
+        sectionName: "Vuelta 1",
+        examName: "Examen 76 - Vuelta 1",
+        cases: [
           {
-            "caseText": "Paciente masculino de 68 años, antecedente de EPOC GOLD D, exfumador de 40 paquetes-año, con oxígeno domiciliario. Acude a urgencias por disnea progresiva de 3 días, aumento de volumen y purulencia del esputo, fiebre de 38.3 °C y uso de músculos accesorios. TA 130/80 mmHg, FC 112 lpm, FR 30 rpm, SatO2 84% al aire ambiente. A la exploración estertores y sibilancias difusas, uso de músculos accesorios, tiraje intercostal.",
-            "specialty": "medicina_interna",
-            "questions": [
+            caseText:
+              "Paciente masculino de 68 años, antecedente de EPOC GOLD D, exfumador de 40 paquetes-año, con oxígeno domiciliario. Acude a urgencias por disnea progresiva de 3 días, aumento de volumen y purulencia del esputo, fiebre de 38.3 °C y uso de músculos accesorios. TA 130/80 mmHg, FC 112 lpm, FR 30 rpm, SatO2 84% al aire ambiente. A la exploración estertores y sibilancias difusas, uso de músculos accesorios, tiraje intercostal.",
+            specialty: "medicina_interna",
+            questions: [
               {
-                "questionText": "¿Cuál es el siguiente paso MÁS adecuado en el manejo inicial de este paciente en el servicio de urgencias?",
-                "optionA": "Iniciar antibiótico oral y dar de alta con vigilancia estrecha",
-                "optionB": "Administrar broncodilatadores inhalados de acción corta y reevaluar en 48 horas",
-                "optionC": "Iniciar oxígeno suplementario, broncodilatadores inhalados y valorar ventilación no invasiva",
-                "optionD": "Solicitar espirometría inmediata para ajustar el tratamiento de base",
-                "correctOption": "C",
-                "justification": "Se trata de una exacerbación grave de EPOC con datos de insuficiencia respiratoria aguda (taquipnea, hipoxemia, uso de músculos accesorios). El manejo inicial incluye oxígeno suplementario controlado, broncodilatadores de acción corta y valoración temprana de ventilación no invasiva.",
-                "difficulty": "media",
-                "subtype": "urgencias"
+                questionText:
+                  "¿Cuál es el siguiente paso MÁS adecuado en el manejo inicial de este paciente en el servicio de urgencias?",
+                optionA: "Iniciar antibiótico oral y dar de alta con vigilancia estrecha",
+                optionB: "Administrar broncodilatadores inhalados de acción corta y reevaluar en 48 horas",
+                optionC:
+                  "Iniciar oxígeno suplementario, broncodilatadores inhalados y valorar ventilación no invasiva",
+                optionD: "Solicitar espirometría inmediata para ajustar el tratamiento de base",
+                correctOption: "C",
+                justification:
+                  "Se trata de una exacerbación grave de EPOC con datos de insuficiencia respiratoria aguda. El manejo inicial incluye oxígeno suplementario controlado, broncodilatadores de acción corta y valoración temprana de ventilación no invasiva.",
+                difficulty: "media",
+                subtype: "urgencias",
               },
               {
-                "questionText": "Tras el manejo inicial, el paciente persiste con trabajo respiratorio importante y acidosis respiratoria en gasometría. ¿Qué parámetro gasométrico es el MÁS útil para decidir ventilación no invasiva?",
-                "optionA": "Frecuencia cardíaca mayor de 100 lpm",
-                "optionB": "PaO2 mayor de 60 mmHg con oxígeno suplementario",
-                "optionC": "PaCO2 elevada con pH menor de 7.35",
-                "optionD": "Bicarbonato sérico disminuido con anion gap elevado",
-                "correctOption": "C",
-                "justification": "La indicación clásica de ventilación no invasiva en exacerbación de EPOC es la presencia de acidosis respiratoria (PaCO2 elevada con pH < 7.35), en el contexto de insuficiencia respiratoria aguda.",
-                "difficulty": "alta",
-                "subtype": "urgencias"
-              }
-            ]
-          }
-        ]
+                questionText:
+                  "Tras el manejo inicial, el paciente persiste con trabajo respiratorio importante y acidosis respiratoria en gasometría. ¿Qué parámetro gasométrico es el MÁS útil para decidir ventilación no invasiva?",
+                optionA: "Frecuencia cardíaca mayor de 100 lpm",
+                optionB: "PaO2 mayor de 60 mmHg con oxígeno suplementario",
+                optionC: "PaCO2 elevada con pH menor de 7.35",
+                optionD: "Bicarbonato sérico disminuido con anion gap elevado",
+                correctOption: "C",
+                justification:
+                  "La indicación clásica de ventilación no invasiva en exacerbación de EPOC es la presencia de acidosis respiratoria (PaCO2 elevada con pH < 7.35), en el contexto de insuficiencia respiratoria aguda.",
+                difficulty: "alta",
+                subtype: "urgencias",
+              },
+            ],
+          },
+          // aquí puedes añadir más casos 2, 3, 4, 5 ... con su arreglo completo de questions
+        ],
       };
 
       jsonInput.value = JSON.stringify(example, null, 2);
       log("Ejemplo de JSON (Examen 76) cargado en el textarea.");
     });
   </script>
+
 </body>
 </html>
