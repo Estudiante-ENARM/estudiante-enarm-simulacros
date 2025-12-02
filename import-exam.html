@@ -3,297 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <title>Importar examen ENARM</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Fuente -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-  <style>
-    body {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0f172a;
-      color: #e5e7eb;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 24px;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 920px;
-      background: #020617;
-      border-radius: 16px;
-      padding: 20px 18px;
-      border: 1px solid rgba(148, 163, 184, 0.6);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-    }
-
-    h1 {
-      font-size: 20px;
-      margin-bottom: 6px;
-      font-weight: 600;
-    }
-
-    .subtitle {
-      font-size: 13px;
-      color: #9ca3af;
-      margin-bottom: 16px;
-    }
-
-    .field {
-      margin-bottom: 14px;
-    }
-
-    .field label {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #e5e7eb;
-    }
-
-    input[type="email"],
-    input[type="password"] {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      background: #020617;
-      color: #e5e7eb;
-      font-size: 13px;
-      outline: none;
-    }
-
-    input[type="email"]:focus,
-    input[type="password"]:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 260px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid #334155;
-      background: #020617;
-      color: #e5e7eb;
-      font-size: 13px;
-      resize: vertical;
-      white-space: pre;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
-
-    textarea:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
-    }
-
-    .hint {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 4px;
-      line-height: 1.4;
-    }
-
-    .btn-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    button {
-      padding: 9px 16px;
-      border-radius: 999px;
-      border: 1px solid transparent;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    #btn-import {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      color: #f9fafb;
-      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
-    }
-
-    #btn-import:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    #btn-back {
-      background: transparent;
-      color: #e5e7eb;
-      border-color: #4b5563;
-    }
-
-    #btn-login {
-      background: transparent;
-      color: #e5e7eb;
-      border-color: #3b82f6;
-    }
-
-    #btn-login:disabled {
-      opacity: 0.5;
-      cursor: wait;
-    }
-
-    #status {
-      margin-top: 14px;
-      font-size: 13px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid #334155;
-      display: none;
-      white-space: pre-wrap;
-    }
-
-    .status-ok {
-      border-color: #16a34a !important;
-      color: #bbf7d0;
-    }
-
-    .status-error {
-      border-color: #b91c1c !important;
-      color: #fecaca;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: 11px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid #374151;
-      color: #e5e7eb;
-    }
-
-    .pill-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #22c55e;
-    }
-
-    .top-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
-
-    #login-box {
-      margin-bottom: 16px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid #334155;
-      font-size: 13px;
-    }
-
-    #login-info {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-bottom: 6px;
-    }
-
-    #current-user-label {
-      font-size: 12px;
-      color: #a5b4fc;
-      margin-top: 6px;
-    }
-
-    .login-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    @media (max-width: 700px) {
-      .login-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <div class="top-row">
-      <div>
-        <h1>Importar examen ENARM</h1>
-        <p class="subtitle">
-          Usa este panel solo tú (admin) para convertir un JSON en:
-          sección + examen + casos clínicos + preguntas dentro de Firestore.
-        </p>
-      </div>
-      <div class="pill">
-        <span class="pill-dot"></span>
-        Solo administrador
-      </div>
-    </div>
+  <h1>Importar examen por JSON</h1>
 
-    <!-- LOGIN ADMIN -->
-    <div id="login-box">
-      <div id="login-info">
-        Inicia sesión con tu correo de administrador.  
-        Las escrituras en <code>sections</code>, <code>exams</code> y <code>questions</code> solo se permiten a usuarios con <strong>role = "admin"</strong> en la colección <code>users</code>.
-      </div>
+  <p>
+    Esta página crea un examen en las colecciones:<br>
+    <strong>sections</strong> → <strong>exams</strong> → <strong>questions</strong><br>
+    sin modificar nada de tu plataforma actual.
+  </p>
 
-      <div class="login-grid">
-        <div class="field">
-          <label for="loginEmail">Correo admin</label>
-          <input type="email" id="loginEmail" placeholder="admin@tucorreo.com" />
-        </div>
-        <div class="field">
-          <label for="loginPassword">Contraseña</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" />
-        </div>
-      </div>
-
-      <div class="btn-row" style="margin-top:10px;">
-        <button id="btn-login">Iniciar sesión</button>
-        <span id="current-user-label"></span>
-      </div>
-    </div>
-
-    <!-- JSON DEL EXAMEN -->
-    <div class="field">
-      <label for="examJsonInput">JSON del examen</label>
-      <textarea id="examJsonInput" spellcheck="false" placeholder='Pega aquí el JSON del examen, por ejemplo:
-
-{
-  "sectionName": "Vuelta 1",
-  "examName": "Examen 76 – Vuelta 1",
-  "cases": [ ... ]
-}'></textarea>
-      <div class="hint">
-        • Si incluyes <strong>"sectionId"</strong>, se usará esa sección existente.<br>
-        • Si solo incluyes <strong>"sectionName"</strong>, se buscará por nombre y si no existe se creará.<br>
-        • Cada elemento de <code>cases[]</code> creará un documento en <code>questions</code>.
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button id="btn-import" disabled>Importar examen a Firestore</button>
-      <button id="btn-back" onclick="window.location.href='index.html'">Volver al login</button>
-    </div>
-
-    <div id="status"></div>
+  <div style="margin:16px 0;">
+    <label>
+      <strong>JSON del examen:</strong><br>
+      <textarea id="json-input" rows="18" cols="90"
+        placeholder='Pega aquí el JSON del examen'></textarea>
+    </label>
   </div>
 
-  <!-- FIREBASE + IMPORTADOR -->
+  <button id="btn-import">Importar examen</button>
+
+  <pre id="log" style="margin-top:16px;font-size:13px;background:#111;color:#eee;padding:10px;max-width:900px;"></pre>
+
   <script type="module">
+    // ===========================
+    // 1) IMPORTS FIREBASE CDN
+    // ===========================
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import {
       getFirestore,
@@ -301,18 +36,16 @@
       doc,
       getDoc,
       getDocs,
+      addDoc,
+      setDoc,
       query,
       where,
-      addDoc,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-    import {
-      getAuth,
-      onAuthStateChanged,
-      signInWithEmailAndPassword
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-    // === CONFIGURACIÓN FIREBASE (MISMA QUE EN LA PLATAFORMA) ===
+    // ===========================
+    // 2) CONFIGURACIÓN FIREBASE
+    // ===========================
     const firebaseConfig = {
       apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
       authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -324,241 +57,199 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app);
 
-    const textarea = document.getElementById("examJsonInput");
+    const jsonInput = document.getElementById("json-input");
     const btnImport = document.getElementById("btn-import");
-    const statusBox = document.getElementById("status");
-    const btnLogin = document.getElementById("btn-login");
-    const loginEmailInput = document.getElementById("loginEmail");
-    const loginPasswordInput = document.getElementById("loginPassword");
-    const currentUserLabel = document.getElementById("current-user-label");
+    const logEl = document.getElementById("log");
 
-    let isAdmin = false;
-
-    function setStatus(message, isOk) {
-      statusBox.style.display = "block";
-      statusBox.textContent = message;
-      statusBox.classList.remove("status-ok", "status-error");
-      statusBox.classList.add(isOk ? "status-ok" : "status-error");
+    function log(msg) {
+      console.log(msg);
+      logEl.textContent += msg + "\\n";
     }
 
-    function setImportEnabled(enabled) {
-      btnImport.disabled = !enabled;
+    // ===========================
+    // 3) UTILIDADES
+    // ===========================
+    function difficultyWeight(difficulty) {
+      if (difficulty === "alta") return 3;
+      if (difficulty === "media") return 2;
+      return 1; // baja o sin definir
     }
 
-    async function checkAdminRole(user) {
-      if (!user) {
-        isAdmin = false;
-        currentUserLabel.textContent = "No autenticado.";
-        setImportEnabled(false);
-        return;
-      }
-
-      currentUserLabel.textContent = "Verificando rol...";
-      try {
-        const userDocRef = doc(db, "users", user.email);
-        const snap = await getDoc(userDocRef);
-
-        if (!snap.exists()) {
-          isAdmin = false;
-          currentUserLabel.textContent = "Usuario sin documento en 'users'.";
-          setStatus("Tu correo no tiene documento en la colección 'users'.", false);
-          setImportEnabled(false);
-          return;
-        }
-
-        const data = snap.data();
-        if (data.role === "admin") {
-          isAdmin = true;
-          currentUserLabel.textContent = "Autenticado como admin: " + (data.name || user.email);
-          setStatus("Listo. Tienes rol ADMIN, ya puedes importar exámenes.", true);
-          setImportEnabled(true);
-        } else {
-          isAdmin = false;
-          currentUserLabel.textContent = "Rol: " + (data.role || "desconocido");
-          setStatus("Tu rol no es 'admin'. No puedes escribir en sections/exams/questions.", false);
-          setImportEnabled(false);
-        }
-      } catch (err) {
-        console.error(err);
-        isAdmin = false;
-        currentUserLabel.textContent = "Error leyendo rol.";
-        setStatus("Error leyendo tu usuario en 'users': " + err.message, false);
-        setImportEnabled(false);
-      }
-    }
-
-    // Escuchar cambios de sesión
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        currentUserLabel.textContent = "No autenticado.";
-        setImportEnabled(false);
-        return;
-      }
-      checkAdminRole(user);
-    });
-
-    // Botón de login
-    btnLogin.addEventListener("click", async () => {
-      const email = loginEmailInput.value.trim();
-      const password = loginPasswordInput.value;
-
-      if (!email || !password) {
-        setStatus("Ingresa correo y contraseña de admin.", false);
-        return;
-      }
-
-      btnLogin.disabled = true;
-      setStatus("Iniciando sesión...", true);
-
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        await checkAdminRole(cred.user);
-      } catch (err) {
-        console.error(err);
-        setStatus("Error al iniciar sesión: " + err.message, false);
-      } finally {
-        btnLogin.disabled = false;
-      }
-    });
-
-    async function findOrCreateSectionId({ sectionId, sectionName }) {
-      // Si ya viene un sectionId explícito, lo usamos tal cual
-      if (sectionId) {
-        const ref = doc(db, "sections", sectionId);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) {
-          throw new Error("El sectionId proporcionado no existe: " + sectionId);
-        }
-        return sectionId;
-      }
-
-      if (!sectionName) {
-        throw new Error("Debes incluir sectionId o sectionName en el JSON.");
-      }
-
-      // Buscar por nombre
-      const qSections = query(
+    async function getOrCreateSection(sectionName) {
+      const qSec = query(
         collection(db, "sections"),
         where("name", "==", sectionName)
       );
-      const snap = await getDocs(qSections);
-
+      const snap = await getDocs(qSec);
       if (!snap.empty) {
-        return snap.docs[0].id;
+        const docFound = snap.docs[0];
+        log("Sección encontrada: " + sectionName + " (" + docFound.id + ")");
+        return docFound.id;
       }
 
-      // Crear nueva sección
-      const newSectionRef = await addDoc(collection(db, "sections"), {
+      const docRef = await addDoc(collection(db, "sections"), {
         name: sectionName,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
       });
-
-      return newSectionRef.id;
+      log("Sección creada: " + sectionName + " (" + docRef.id + ")");
+      return docRef.id;
     }
 
-    async function importExamFromJson() {
-      if (!isAdmin) {
-        setStatus("Debes estar autenticado como ADMIN para importar exámenes.", false);
-        return;
-      }
+    async function createExam(sectionId, examName) {
+      const docRef = await addDoc(collection(db, "exams"), {
+        name: examName,
+        sectionId,
+        attemptsCount: 0,
+        createdAt: serverTimestamp(),
+      });
+      log("Examen creado: " + examName + " (" + docRef.id + ")");
+      return docRef.id;
+    }
 
-      btnImport.disabled = true;
-      setStatus("Importando examen, por favor espera...", true);
+    async function createCaseQuestions(examId, casesArray) {
+      let countCases = 0;
+      let countQuestions = 0;
 
-      try {
-        const raw = textarea.value.trim();
-        if (!raw) {
-          throw new Error("El textarea está vacío. Pega primero el JSON del examen.");
+      for (const caseItem of casesArray) {
+        if (!caseItem) continue;
+
+        const caseText = (caseItem.caseText || "").trim();
+        const specialty = caseItem.specialty || ""; // ej. "medicina_interna"
+        const questionsArr = Array.isArray(caseItem.questions)
+          ? caseItem.questions
+          : [];
+
+        if (!caseText || questionsArr.length === 0) {
+          log("Saltando caso SIN texto o SIN preguntas.");
+          continue;
         }
 
-        let data;
-        try {
-          data = JSON.parse(raw);
-        } catch (e) {
-          console.error(e);
-          throw new Error("El contenido no es un JSON válido. Revisa comas, llaves y comillas.");
-        }
+        // Transformar TODAS las preguntas de este caso en un solo array
+        const questionsForDoc = questionsArr.map((q) => {
+          const difficulty = q.difficulty || "media";
+          const subtype = q.subtype || "salud_publica";
 
-        const sectionId = data.sectionId || null;
-        const sectionName = data.sectionName || null;
-        const examName = data.examName || null;
-        const cases = Array.isArray(data.cases) ? data.cases : [];
+          countQuestions++;
 
-        if (!examName) {
-          throw new Error('Falta "examName" en el JSON.');
-        }
-        if (!cases.length) {
-          throw new Error('El arreglo "cases" está vacío o no existe.');
-        }
-
-        // 1) Conseguir sectionId (existente o nueva)
-        const finalSectionId = await findOrCreateSectionId({ sectionId, sectionName });
-
-        // 2) Crear EXAM
-        const examRef = await addDoc(collection(db, "exams"), {
-          name: examName,
-          sectionId: finalSectionId,
-          createdAt: serverTimestamp()
-        });
-
-        const examId = examRef.id;
-
-        // 3) Crear QUESTIONS
-        let totalQuestions = 0;
-        for (const caseItem of cases) {
-          const caseText = caseItem.caseText || "";
-          const specialty = caseItem.specialty || null;
-          const qArr = Array.isArray(caseItem.questions) ? caseItem.questions : [];
-
-          if (!qArr.length) continue;
-
-          totalQuestions += qArr.length;
-
-          const normalizedQuestions = qArr.map((q) => ({
+          return {
             questionText: q.questionText || "",
             optionA: q.optionA || "",
             optionB: q.optionB || "",
             optionC: q.optionC || "",
             optionD: q.optionD || "",
-            correctOption: q.correctOption || "A",
+            correctOption: q.correctOption || "",
             justification: q.justification || "",
-            difficulty: q.difficulty || "baja",
-            subtype: q.subtype || "salud_publica"
-          }));
+            difficulty,
+            difficultyWeight: difficultyWeight(difficulty),
+            subtype,
+          };
+        });
 
-          await addDoc(collection(db, "questions"), {
-            examId,
-            caseText,
-            specialty,
-            questions: normalizedQuestions,
-            createdAt: serverTimestamp()
-          });
-        }
+        await addDoc(collection(db, "questions"), {
+          examId,
+          caseText,
+          specialty,
+          questions: questionsForDoc,
+          createdAt: serverTimestamp(),
+        });
 
-        if (!totalQuestions) {
-          throw new Error("Se creó el examen pero no se detectaron preguntas válidas en cases[].");
-        }
-
-        setStatus(
-          `Importación completa:\n\n` +
-          `• sectionId usado: ${finalSectionId}\n` +
-          `• examId creado: ${examId}\n` +
-          `• Total de preguntas: ${totalQuestions}\n\n` +
-          `Ya puedes ir al panel admin, abrir esa sección y ver el nuevo examen.`,
-          true
-        );
-
-      } catch (err) {
-        console.error(err);
-        setStatus("ERROR: " + err.message, false);
-      } finally {
-        btnImport.disabled = false;
+        countCases++;
       }
+
+      log("Casos clínicos creados: " + countCases);
+      log("Preguntas totales cargadas: " + countQuestions);
     }
 
-    btnImport.addEventListener("click", importExamFromJson);
+    // ===========================
+    // 4) IMPORTAR DESDE JSON
+    // ===========================
+    /*
+      ESTRUCTURA ESPERADA DEL JSON:
+
+      {
+        "sectionName": "Simulacro Vuelta 1",
+        "examName": "Examen 76",
+        "cases": [
+          {
+            "caseText": "Paciente masculino de 65 años...",
+            "specialty": "medicina_interna", // (opcional, pero recomendado)
+            "questions": [
+              {
+                "questionText": "¿Cuál es el diagnóstico más probable?",
+                "optionA": "...",
+                "optionB": "...",
+                "optionC": "...",
+                "optionD": "...",
+                "correctOption": "B",
+                "justification": "Según la GPC...",
+                "difficulty": "media",          // "baja" | "media" | "alta"
+                "subtype": "medicina_familiar"  // "salud_publica" | "medicina_familiar" | "urgencias"
+              },
+              {
+                "questionText": "¿Qué estudio pedirías como siguiente paso?",
+                "optionA": "...",
+                "optionB": "...",
+                "optionC": "...",
+                "optionD": "...",
+                "correctOption": "D",
+                "justification": "Porque...",
+                "difficulty": "alta",
+                "subtype": "urgencias"
+              }
+            ]
+          },
+          ...
+        ]
+      }
+    */
+
+    btnImport.addEventListener("click", async () => {
+      logEl.textContent = "";
+      try {
+        const raw = jsonInput.value.trim();
+        if (!raw) {
+          alert("Pega primero el JSON del examen.");
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch (err) {
+          log("ERROR: JSON inválido.");
+          console.error(err);
+          alert("JSON inválido. Revisa comas, llaves, etc.");
+          return;
+        }
+
+        const sectionName = (data.sectionName || "").trim();
+        const examName = (data.examName || "").trim();
+        const casesArray = Array.isArray(data.cases) ? data.cases : [];
+
+        if (!sectionName || !examName || casesArray.length === 0) {
+          alert("Faltan datos obligatorios: sectionName, examName o cases.");
+          log("Faltan datos obligatorios.");
+          return;
+        }
+
+        log("=== INICIANDO IMPORTACIÓN ===");
+        log("Sección: " + sectionName);
+        log("Examen: " + examName);
+        log("Casos a importar: " + casesArray.length);
+
+        const sectionId = await getOrCreateSection(sectionName);
+        const examId = await createExam(sectionId, examName);
+        await createCaseQuestions(examId, casesArray);
+
+        log("=== IMPORTACIÓN COMPLETADA ===");
+        alert("Examen importado correctamente. Revisa tu panel de admin.");
+      } catch (err) {
+        console.error(err);
+        log("ERROR GENERAL: " + (err.message || err));
+        alert("Ocurrió un error en la importación. Revisa la consola.");
+      }
+    });
   </script>
 </body>
 </html>
