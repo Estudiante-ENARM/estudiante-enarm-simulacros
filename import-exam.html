@@ -5,7 +5,7 @@
   <title>Importar examen ENARM</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Fuente para que se vea similar -->
+  <!-- Fuente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 
   <style>
@@ -51,6 +51,24 @@
       font-size: 13px;
       margin-bottom: 4px;
       color: #e5e7eb;
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
     }
 
     textarea {
@@ -105,7 +123,7 @@
 
     #btn-import:disabled {
       opacity: 0.55;
-      cursor: wait;
+      cursor: not-allowed;
       box-shadow: none;
     }
 
@@ -113,6 +131,17 @@
       background: transparent;
       color: #e5e7eb;
       border-color: #4b5563;
+    }
+
+    #btn-login {
+      background: transparent;
+      color: #e5e7eb;
+      border-color: #3b82f6;
+    }
+
+    #btn-login:disabled {
+      opacity: 0.5;
+      cursor: wait;
     }
 
     #status {
@@ -163,6 +192,39 @@
       margin-bottom: 10px;
       flex-wrap: wrap;
     }
+
+    #login-box {
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid #334155;
+      font-size: 13px;
+    }
+
+    #login-info {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    #current-user-label {
+      font-size: 12px;
+      color: #a5b4fc;
+      margin-top: 6px;
+    }
+
+    .login-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    @media (max-width: 700px) {
+      .login-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -181,13 +243,38 @@
       </div>
     </div>
 
+    <!-- LOGIN ADMIN -->
+    <div id="login-box">
+      <div id="login-info">
+        Inicia sesión con tu correo de administrador.  
+        Las escrituras en <code>sections</code>, <code>exams</code> y <code>questions</code> solo se permiten a usuarios con <strong>role = "admin"</strong> en la colección <code>users</code>.
+      </div>
+
+      <div class="login-grid">
+        <div class="field">
+          <label for="loginEmail">Correo admin</label>
+          <input type="email" id="loginEmail" placeholder="admin@tucorreo.com" />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Contraseña</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" />
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:10px;">
+        <button id="btn-login">Iniciar sesión</button>
+        <span id="current-user-label"></span>
+      </div>
+    </div>
+
+    <!-- JSON DEL EXAMEN -->
     <div class="field">
       <label for="examJsonInput">JSON del examen</label>
       <textarea id="examJsonInput" spellcheck="false" placeholder='Pega aquí el JSON del examen, por ejemplo:
 
 {
-  "sectionName": "Simulacros ENARM 2026 - Medicina interna",
-  "examName": "Examen 76 - Urgencias mixtas",
+  "sectionName": "Vuelta 1",
+  "examName": "Examen 76 – Vuelta 1",
   "cases": [ ... ]
 }'></textarea>
       <div class="hint">
@@ -198,7 +285,7 @@
     </div>
 
     <div class="btn-row">
-      <button id="btn-import">Importar examen a Firestore</button>
+      <button id="btn-import" disabled>Importar examen a Firestore</button>
       <button id="btn-back" onclick="window.location.href='index.html'">Volver al login</button>
     </div>
 
@@ -217,11 +304,15 @@
       query,
       where,
       addDoc,
-      setDoc,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-    // === CONFIGURACIÓN FIREBASE (TU MISMA QUE EN LA PLATAFORMA) ===
+    // === CONFIGURACIÓN FIREBASE (MISMA QUE EN LA PLATAFORMA) ===
     const firebaseConfig = {
       apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
       authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -233,10 +324,17 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
     const textarea = document.getElementById("examJsonInput");
     const btnImport = document.getElementById("btn-import");
     const statusBox = document.getElementById("status");
+    const btnLogin = document.getElementById("btn-login");
+    const loginEmailInput = document.getElementById("loginEmail");
+    const loginPasswordInput = document.getElementById("loginPassword");
+    const currentUserLabel = document.getElementById("current-user-label");
+
+    let isAdmin = false;
 
     function setStatus(message, isOk) {
       statusBox.style.display = "block";
@@ -244,6 +342,86 @@
       statusBox.classList.remove("status-ok", "status-error");
       statusBox.classList.add(isOk ? "status-ok" : "status-error");
     }
+
+    function setImportEnabled(enabled) {
+      btnImport.disabled = !enabled;
+    }
+
+    async function checkAdminRole(user) {
+      if (!user) {
+        isAdmin = false;
+        currentUserLabel.textContent = "No autenticado.";
+        setImportEnabled(false);
+        return;
+      }
+
+      currentUserLabel.textContent = "Verificando rol...";
+      try {
+        const userDocRef = doc(db, "users", user.email);
+        const snap = await getDoc(userDocRef);
+
+        if (!snap.exists()) {
+          isAdmin = false;
+          currentUserLabel.textContent = "Usuario sin documento en 'users'.";
+          setStatus("Tu correo no tiene documento en la colección 'users'.", false);
+          setImportEnabled(false);
+          return;
+        }
+
+        const data = snap.data();
+        if (data.role === "admin") {
+          isAdmin = true;
+          currentUserLabel.textContent = "Autenticado como admin: " + (data.name || user.email);
+          setStatus("Listo. Tienes rol ADMIN, ya puedes importar exámenes.", true);
+          setImportEnabled(true);
+        } else {
+          isAdmin = false;
+          currentUserLabel.textContent = "Rol: " + (data.role || "desconocido");
+          setStatus("Tu rol no es 'admin'. No puedes escribir en sections/exams/questions.", false);
+          setImportEnabled(false);
+        }
+      } catch (err) {
+        console.error(err);
+        isAdmin = false;
+        currentUserLabel.textContent = "Error leyendo rol.";
+        setStatus("Error leyendo tu usuario en 'users': " + err.message, false);
+        setImportEnabled(false);
+      }
+    }
+
+    // Escuchar cambios de sesión
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        currentUserLabel.textContent = "No autenticado.";
+        setImportEnabled(false);
+        return;
+      }
+      checkAdminRole(user);
+    });
+
+    // Botón de login
+    btnLogin.addEventListener("click", async () => {
+      const email = loginEmailInput.value.trim();
+      const password = loginPasswordInput.value;
+
+      if (!email || !password) {
+        setStatus("Ingresa correo y contraseña de admin.", false);
+        return;
+      }
+
+      btnLogin.disabled = true;
+      setStatus("Iniciando sesión...", true);
+
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        await checkAdminRole(cred.user);
+      } catch (err) {
+        console.error(err);
+        setStatus("Error al iniciar sesión: " + err.message, false);
+      } finally {
+        btnLogin.disabled = false;
+      }
+    });
 
     async function findOrCreateSectionId({ sectionId, sectionName }) {
       // Si ya viene un sectionId explícito, lo usamos tal cual
@@ -268,7 +446,6 @@
       const snap = await getDocs(qSections);
 
       if (!snap.empty) {
-        // Usar la primera coincidencia
         return snap.docs[0].id;
       }
 
@@ -282,6 +459,11 @@
     }
 
     async function importExamFromJson() {
+      if (!isAdmin) {
+        setStatus("Debes estar autenticado como ADMIN para importar exámenes.", false);
+        return;
+      }
+
       btnImport.disabled = true;
       setStatus("Importando examen, por favor espera...", true);
 
@@ -334,7 +516,6 @@
 
           totalQuestions += qArr.length;
 
-          // Normalizamos cada pregunta (aseguramos campos)
           const normalizedQuestions = qArr.map((q) => ({
             questionText: q.questionText || "",
             optionA: q.optionA || "",
