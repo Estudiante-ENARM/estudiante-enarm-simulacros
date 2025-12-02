@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Importar examen a Firestore | Estudiante ENARM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 800px;
+      background: #020617;
+      border-radius: 16px;
+      padding: 20px 22px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.8);
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin: 10px 0 4px;
+      font-size: 13px;
+      color: #cbd5f5;
+    }
+    textarea, input {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: monospace;
+      min-height: 140px;
+    }
+    input {
+      min-height: auto;
+      font-family: inherit;
+    }
+    button {
+      margin-top: 14px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      background: linear-gradient(135deg, #2563eb, #1e3a8a);
+      color: #f9fafb;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    pre {
+      margin-top: 16px;
+      background: #020617;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.2);
+      color: #bfdbfe;
+      font-size: 11px;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Importar examen desde JSON</h1>
+    <p>
+      Esta herramienta solo escribe en las colecciones existentes:
+      <span class="tag">sections</span>
+      <span class="tag">exams</span>
+      <span class="tag">questions</span><br/>
+      No modifica tu código, solo inserta documentos nuevos.
+    </p>
+
+    <label for="json-input">JSON del examen</label>
+    <textarea id="json-input" placeholder='Pega aquí el JSON del examen'></textarea>
+
+    <label for="section-id-input">
+      sectionId (opcional, si lo dejas vacío se usará sectionName del JSON)
+    </label>
+    <input id="section-id-input" placeholder="ID de la sección ya existente (opcional)" />
+
+    <button id="btn-import">Importar examen a Firestore</button>
+
+    <pre id="log"></pre>
+  </div>
+
+  <script type="module">
+    // -------------------------------------------------
+    // Imports Firebase (MISMO FORMATO QUE TU PROYECTO)
+    // -------------------------------------------------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      addDoc,
+      setDoc,
+      query,
+      where,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    // --- CONFIGURACIÓN (LA MISMA QUE YA USAS) ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+      authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+      projectId: "simulacros-plataforma-enarm",
+      storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+      messagingSenderId: "1012829203040",
+      appId: "1:1012829203040:web:71de568ff8606a1c8d7105",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const btnImport     = document.getElementById("btn-import");
+    const jsonInput     = document.getElementById("json-input");
+    const sectionIdInp  = document.getElementById("section-id-input");
+    const logEl         = document.getElementById("log");
+
+    function log(msg) {
+      console.log(msg);
+      logEl.textContent += msg + "\\n";
+    }
+
+    function difficultyToWeight(diff) {
+      if (diff === "alta")  return 3;
+      if (diff === "media") return 2;
+      return 1; // baja u otro
+    }
+
+    // -------------------------------------------------
+    // Resolver sección: devuelve sectionId
+    // -------------------------------------------------
+    async function resolveSectionId(importData, manualSectionId) {
+      if (manualSectionId && manualSectionId.trim()) {
+        const sid = manualSectionId.trim();
+        const snap = await getDoc(doc(db, "sections", sid));
+        if (!snap.exists()) {
+          throw new Error("El sectionId manual no existe en 'sections': " + sid);
+        }
+        log("✔ Usando sectionId manual: " + sid);
+        return sid;
+      }
+
+      if (importData.sectionId) {
+        const sid = importData.sectionId.trim();
+        const snap = await getDoc(doc(db, "sections", sid));
+        if (!snap.exists()) {
+          throw new Error("El sectionId del JSON no existe en 'sections': " + sid);
+        }
+        log("✔ Usando sectionId del JSON: " + sid);
+        return sid;
+      }
+
+      if (!importData.sectionName) {
+        throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
+      }
+
+      const name = importData.sectionName.trim();
+      log("Buscando sección por nombre: " + name);
+
+      const qSec = query(
+        collection(db, "sections"),
+        where("name", "==", name)
+      );
+      const snap = await getDocs(qSec);
+
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        log("✔ Sección encontrada: " + name + " (id=" + docSnap.id + ")");
+        return docSnap.id;
+      }
+
+      // Crear nueva sección
+      const newSecRef = await addDoc(collection(db, "sections"), {
+        name,
+        createdAt: serverTimestamp()
+      });
+      log("✔ Sección creada: " + name + " (id=" + newSecRef.id + ")");
+      return newSecRef.id;
+    }
+
+    // -------------------------------------------------
+    // Importar examen completo
+    // -------------------------------------------------
+    async function importExam() {
+      logEl.textContent = "";
+      btnImport.disabled = true;
+      log("Iniciando importación...");
+
+      let data;
+      try {
+        data = JSON.parse(jsonInput.value);
+      } catch (err) {
+        log("❌ Error al parsear JSON: " + err.message);
+        btnImport.disabled = false;
+        return;
+      }
+
+      if (!data.examName || !Array.isArray(data.cases)) {
+        log("❌ JSON inválido. Debe tener 'examName' y 'cases' como arreglo.");
+        btnImport.disabled = false;
+        return;
+      }
+
+      try {
+        // 1) Resolver sección
+        const finalSectionId = await resolveSectionId(data, sectionIdInp.value);
+
+        // 2) Crear examen
+        log("Creando examen: " + data.examName + "...");
+        const examRef = await addDoc(collection(db, "exams"), {
+          name: data.examName,
+          sectionId: finalSectionId,
+          attemptsCount: 0,
+          createdAt: serverTimestamp(),
+          fromJsonImport: true
+        });
+
+        const examId = examRef.id;
+        log("✔ Examen creado con id=" + examId);
+
+        // 3) Crear casos clínicos y preguntas en 'questions'
+        let totalCases = 0;
+        let totalQuestions = 0;
+
+        for (const caseItem of data.cases) {
+          totalCases++;
+          const caseText   = caseItem.caseText || "";
+          const specialty  = caseItem.specialty || "";
+          const questions  = Array.isArray(caseItem.questions)
+            ? caseItem.questions
+            : [];
+
+          const mappedQuestions = questions.map((q) => {
+            const difficulty = q.difficulty || "baja";
+            return {
+              questionText:  q.questionText  || "",
+              optionA:       q.optionA       || "",
+              optionB:       q.optionB       || "",
+              optionC:       q.optionC       || "",
+              optionD:       q.optionD       || "",
+              correctOption: q.correctOption || "",
+              justification: q.justification || "",
+              difficulty,
+              difficultyWeight: difficultyToWeight(difficulty),
+              subtype: q.subtype || "salud_publica"
+            };
+          });
+
+          totalQuestions += mappedQuestions.length;
+
+          await addDoc(collection(db, "questions"), {
+            examId,
+            caseText,
+            specialty,
+            questions: mappedQuestions,
+            createdAt: serverTimestamp()
+          });
+        }
+
+        log("✔ Casos clínicos creados: " + totalCases);
+        log("✔ Preguntas totales creadas: " + totalQuestions);
+        log("✅ Importación completada sin errores.");
+        log("Ahora deberías ver el examen en tu panel admin y en el modo estudiante.");
+
+      } catch (err) {
+        console.error(err);
+        log("❌ Error durante la importación: " + err.message);
+      }
+
+      btnImport.disabled = false;
+    }
+
+    btnImport.addEventListener("click", () => {
+      importExam();
+    });
+
+    log("Herramienta lista. Pega tu JSON y pulsa 'Importar examen a Firestore'.");
+  </script>
+</body>
+</html>
