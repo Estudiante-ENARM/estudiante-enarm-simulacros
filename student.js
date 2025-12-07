@@ -1,4 +1,4 @@
-/***********************************************
+//***********************************************
  * student.js
  * Panel del Estudiante - Estudiante ENARM
  ***********************************************/
@@ -19,7 +19,6 @@ import {
   setDoc,
   serverTimestamp,
   arrayUnion,
-  orderBy, // <-- agregado para ordenar secciones
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 import {
@@ -68,7 +67,6 @@ const progressView = document.getElementById("student-progress-view");
 const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
 const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
 const miniRandomCheckbox = document.getElementById("student-mini-random");
-// Botón grande visual (el pill azul/gris)
 const miniRandomToggleBtn = document.getElementById("student-mini-random-toggle");
 const miniStartBtn = document.getElementById("student-mini-start-btn");
 
@@ -98,7 +96,6 @@ const progressChartCanvas = document.getElementById("student-progress-chart");
 
 let progressChartInstance = null;
 
-
 /***********************************************
  * ESTADO GLOBAL
  ***********************************************/
@@ -110,18 +107,22 @@ let examRules = {
   timePerQuestionSeconds: DEFAULT_TIME_PER_QUESTION,
 };
 
-let currentView = "section";    // "mini" | "section" | "progress"
+let currentView = "section"; // "mini" | "section" | "progress"
 let currentSectionId = null;
 let currentSectionName = null;
 
-let currentExamMode = null;     // "section" | "mini"
+let currentExamMode = null; // "section" | "mini"
 let currentExamId = null;
 let currentExamQuestions = [];
 let currentExamTotalSeconds = 0;
 let currentExamTimerId = null;
 let currentExamPreviousAttempts = 0;
 
-let miniCasesCache = [];        // docs de miniQuestions
+let miniCasesCache = [];
+
+// Tokens para evitar superposición de datos asíncronos
+let examsLoadToken = 0;
+let progressLoadToken = 0;
 
 /***********************************************
  * UTILIDADES
@@ -310,7 +311,6 @@ if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
     const chip = cb.closest(".mini-specialty-chip");
     if (!chip) return;
 
-    // estado inicial visual
     if (cb.checked) {
       chip.classList.add("mini-specialty-chip--active");
     } else {
@@ -318,7 +318,7 @@ if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
     }
 
     chip.addEventListener("click", (e) => {
-      e.preventDefault(); // evitamos doble toggle del label
+      e.preventDefault();
       const newVal = !cb.checked;
       cb.checked = newVal;
 
@@ -333,7 +333,6 @@ if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
 
 /* ====== BOTÓN ALEATORIO ON / OFF ====== */
 if (miniRandomToggleBtn && miniRandomCheckbox) {
-  // estado inicial
   if (miniRandomCheckbox.checked) {
     miniRandomToggleBtn.classList.add("is-active");
   } else {
@@ -345,10 +344,8 @@ if (miniRandomToggleBtn && miniRandomCheckbox) {
     miniRandomCheckbox.checked = newVal;
 
     if (newVal) {
-      // ON (azul)
       miniRandomToggleBtn.classList.add("is-active");
     } else {
-      // OFF (gris)
       miniRandomToggleBtn.classList.remove("is-active");
     }
   });
@@ -449,13 +446,9 @@ async function loadSocialLinksForStudent() {
 
 /***********************************************
  * CARGA DE SECCIONES (BARRA LATERAL)
- * (ordenadas por 'order' igual que en admin)
  ***********************************************/
 async function loadSectionsForStudent() {
-  // Ahora se respeta el orden que define el admin con el campo "order"
-  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
-  const snap = await getDocs(qSec);
-
+  const snap = await getDocs(collection(db, "sections"));
   sidebarSections.innerHTML = "";
 
   if (snap.empty) {
@@ -520,186 +513,230 @@ async function loadSectionsForStudent() {
 }
 
 /***********************************************
- * LISTA DE EXÁMENES POR SECCIÓN
- * (ordenados alfabética/numéricamente por nombre)
+ * LISTA DE EXÁMENES POR SECCIÓN (OPTIMIZADO)
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
-  examsList.innerHTML = "";
+  const thisToken = ++examsLoadToken;
+
+  if (!examsList) return;
+  examsList.innerHTML = `
+    <div class="card">
+      <p class="panel-subtitle">Cargando exámenes…</p>
+    </div>
+  `;
 
   if (!sectionId) {
+    if (thisToken !== examsLoadToken) return;
     renderEmptyMessage(examsList, "No se ha seleccionado ninguna sección.");
     return;
   }
 
-  const qEx = query(
-    collection(db, "exams"),
-    where("sectionId", "==", sectionId)
-  );
-  const snap = await getDocs(qEx);
+  try {
+    const qEx = query(
+      collection(db, "exams"),
+      where("sectionId", "==", sectionId)
+    );
 
-  if (snap.empty) {
-    renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
-    return;
-  }
+    const snap = await getDocs(qEx);
 
-  // Ordenar exámenes por nombre (alfabético / numérico)
-  const sortedDocs = snap.docs
-    .slice()
-    .sort((a, b) => {
-      const nameA = (a.data().name || "").toString();
-      const nameB = (b.data().name || "").toString();
-      return nameA.localeCompare(nameB, "es", {
-        numeric: true,
-        sensitivity: "base",
-      });
-    });
-
-  for (const docSnap of sortedDocs) {
-    const exData = docSnap.data();
-    const examId = docSnap.id;
-    const examName = exData.name || "Examen sin título";
-
-    let attemptsUsed = 0;
-    let lastAttemptText = "Sin intentos previos.";
-
-    if (currentUser) {
-      const attemptRef = doc(
-        db,
-        "users",
-        currentUser.email,
-        "examAttempts",
-        examId
-      );
-      const attemptSnap = await getDoc(attemptRef);
-      if (attemptSnap.exists()) {
-        const at = attemptSnap.data();
-        attemptsUsed = at.attempts || 0;
-        if (at.lastAttempt && typeof at.lastAttempt.toDate === "function") {
-          lastAttemptText = at.lastAttempt.toDate().toLocaleDateString();
-        }
-      }
+    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) {
+      // El usuario cambió de sección mientras cargábamos
+      return;
     }
 
-    const qQuestions = query(
-      collection(db, "questions"),
-      where("examId", "==", examId)
+    if (snap.empty) {
+      renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    // Cargamos en paralelo intents y preguntas por examen
+    const examsData = await Promise.all(
+      snap.docs.map(async (docSnap) => {
+        const exData = docSnap.data();
+        const examId = docSnap.id;
+        const examName = exData.name || "Examen sin título";
+
+        let attemptsUsed = 0;
+        let lastAttemptText = "Sin intentos previos.";
+        let totalQuestions = 0;
+
+        const qQuestions = query(
+          collection(db, "questions"),
+          where("examId", "==", examId)
+        );
+
+        if (currentUser) {
+          const attemptRef = doc(
+            db,
+            "users",
+            currentUser.email,
+            "examAttempts",
+            examId
+          );
+
+          const [attemptSnap, qSnap] = await Promise.all([
+            getDoc(attemptRef),
+            getDocs(qQuestions),
+          ]);
+
+          if (attemptSnap.exists()) {
+            const at = attemptSnap.data();
+            attemptsUsed = at.attempts || 0;
+            if (at.lastAttempt && typeof at.lastAttempt.toDate === "function") {
+              lastAttemptText = at.lastAttempt.toDate().toLocaleDateString();
+            }
+          }
+
+          qSnap.forEach((qDoc) => {
+            const qData = qDoc.data();
+            const arr = Array.isArray(qData.questions) ? qData.questions : [];
+            totalQuestions += arr.length;
+          });
+        } else {
+          const qSnap = await getDocs(qQuestions);
+          qSnap.forEach((qDoc) => {
+            const qData = qDoc.data();
+            const arr = Array.isArray(qData.questions) ? qData.questions : [];
+            totalQuestions += arr.length;
+          });
+        }
+
+        return {
+          examId,
+          examName,
+          attemptsUsed,
+          lastAttemptText,
+          totalQuestions,
+        };
+      })
     );
-    const qSnap = await getDocs(qQuestions);
 
-    let totalQuestions = 0;
-    qSnap.forEach((qDoc) => {
-      const qData = qDoc.data();
-      const arr = Array.isArray(qData.questions) ? qData.questions : [];
-      totalQuestions += arr.length;
-    });
+    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) {
+      return;
+    }
 
-    if (totalQuestions === 0) {
-      const card = document.createElement("div");
-      card.className = "card-item";
-      card.innerHTML = `
-        <div class="card-item__title-row">
-          <div class="card-item__title">${examName}</div>
-          <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
-        </div>
-        <div class="panel-subtitle" style="margin-top:8px;">
-          Aún no hay preguntas cargadas para este examen.
-        </div>
-      `;
-      examsList.appendChild(card);
-      continue;
+    if (!examsData.length) {
+      renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
+      return;
     }
 
     const maxAttempts = examRules.maxAttempts;
     const timePerQuestion = examRules.timePerQuestionSeconds;
-    const totalSeconds = totalQuestions * timePerQuestion;
-    const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
 
-    const disabled = attemptsUsed >= maxAttempts;
+    examsData.forEach(
+      ({ examId, examName, attemptsUsed, lastAttemptText, totalQuestions }) => {
+        if (totalQuestions === 0) {
+          const card = document.createElement("div");
+          card.className = "card-item";
+          card.innerHTML = `
+            <div class="card-item__title-row">
+              <div class="card-item__title">${examName}</div>
+              <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
+            </div>
+            <div class="panel-subtitle" style="margin-top:8px;">
+              Aún no hay preguntas cargadas para este examen.
+            </div>
+          `;
+          fragment.appendChild(card);
+          return;
+        }
 
-    const card = document.createElement("div");
-    card.className = "card-item";
+        const totalSeconds = totalQuestions * timePerQuestion;
+        const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
+        const disabled = attemptsUsed >= maxAttempts;
+        const statusText = disabled ? "Sin intentos disponibles" : "Disponible";
 
-    if (disabled) {
-      card.style.opacity = 0.7;
-    }
+        const card = document.createElement("div");
+        card.className = "card-item";
+        if (disabled) card.style.opacity = 0.7;
 
-    const statusText = disabled
-      ? "Sin intentos disponibles"
-      : "Disponible";
+        card.innerHTML = `
+          <div class="card-item__title-row" style="align-items:flex-start;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
+                <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
+                  <rect x="3" y="4" width="18" height="15" rx="2"></rect>
+                  <line x1="7" y1="9" x2="17" y2="9"></line>
+                  <line x1="7" y1="13" x2="12" y2="13"></line>
+                </svg>
+              </div>
+              <div>
+                <div class="card-item__title">${examName}</div>
+                <div class="panel-subtitle" style="margin-top:3px;">
+                  Simulacro ENARM · ${currentSectionName || "Sección"}
+                </div>
+              </div>
+            </div>
 
-    card.innerHTML = `
-      <div class="card-item__title-row" style="align-items:flex-start;">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
-            <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
-              <rect x="3" y="4" width="18" height="15" rx="2"></rect>
-              <line x1="7" y1="9" x2="17" y2="9"></line>
-              <line x1="7" y1="13" x2="12" y2="13"></line>
-            </svg>
+            <span class="badge">
+              <span class="badge-dot"></span>${statusText}
+            </span>
           </div>
-          <div>
-            <div class="card-item__title">${examName}</div>
-            <div class="panel-subtitle" style="margin-top:3px;">
-              Simulacro ENARM · ${currentSectionName || "Sección"}
+
+          <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${svgIcon("questions")}
+              <div>
+                <strong>${totalQuestions} preguntas</strong>
+                <div class="panel-subtitle">Casos clínicos</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${svgIcon("time")}
+              <div>
+                <strong>${totalTimeFormatted}</strong>
+                <div class="panel-subtitle">Tiempo estimado</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;">
+              ${svgIcon("attempts")}
+              <div>
+                <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
+                <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <span class="badge">
-          <span class="badge-dot"></span>${statusText}
-        </span>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${svgIcon("questions")}
-          <div>
-            <strong>${totalQuestions} preguntas</strong>
-            <div class="panel-subtitle">Casos clínicos</div>
+          <div style="margin-top:14px;text-align:right;">
+            ${
+              disabled
+                ? `<button class="btn btn-outline" disabled>Sin intentos disponibles</button>`
+                : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
+            }
           </div>
-        </div>
+        `;
 
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${svgIcon("time")}
-          <div>
-            <strong>${totalTimeFormatted}</strong>
-            <div class="panel-subtitle">Tiempo estimado</div>
-          </div>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${svgIcon("attempts")}
-          <div>
-            <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
-            <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:14px;text-align:right;">
-        ${
-          disabled
-            ? `<button class="btn btn-outline" disabled>Sin intentos disponibles</button>`
-            : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
+        if (!disabled) {
+          const btnStart = card.querySelector(".student-start-exam-btn");
+          btnStart.addEventListener("click", () => {
+            startSectionExamForStudent({
+              examId,
+              examName,
+              totalQuestions,
+              totalSeconds,
+              attemptsUsed,
+              maxAttempts,
+            });
+          });
         }
-      </div>
-    `;
 
-    if (!disabled) {
-      const btnStart = card.querySelector(".student-start-exam-btn");
-      btnStart.addEventListener("click", () => {
-        startSectionExamForStudent({
-          examId,
-          examName,
-          totalQuestions,
-          totalSeconds,
-          attemptsUsed,
-          maxAttempts,
-        });
-      });
-    }
+        fragment.appendChild(card);
+      }
+    );
 
-    examsList.appendChild(card);
+    examsList.innerHTML = "";
+    examsList.appendChild(fragment);
+  } catch (err) {
+    console.error("Error cargando exámenes de la sección:", err);
+    if (thisToken !== examsLoadToken) return;
+    renderEmptyMessage(
+      examsList,
+      "Hubo un error al cargar los exámenes. Intenta nuevamente."
+    );
   }
 }
 
@@ -1304,14 +1341,14 @@ async function submitExamForStudent(auto = false) {
         totalQuestions,
         sectionId: currentSectionId,
         sectionName: currentSectionName || "",
-        createdAt: new Date(), // fecha normal para el array
+        createdAt: new Date(),
       };
 
       await setDoc(
         attemptRef,
         {
           attempts: oldAttempts + 1,
-          lastAttempt: serverTimestamp(), // aquí sí usamos serverTimestamp
+          lastAttempt: serverTimestamp(),
           score: scoreWeighted,
           scoreRaw,
           correctCount: globalCorrect,
@@ -1514,172 +1551,220 @@ function handleBackFromExam() {
 }
 
 /***********************************************
- * PROGRESO DEL ESTUDIANTE
+ * PROGRESO DEL ESTUDIANTE (OPTIMIZADO)
  ***********************************************/
 async function loadStudentProgress() {
   if (!currentUser) return;
+
+  const thisToken = ++progressLoadToken;
 
   if (progressUsername) {
     progressUsername.textContent =
       "Estudiante: " + (currentUserProfile?.name || currentUser.email);
   }
 
-  const sectionsSnap = await getDocs(collection(db, "sections"));
-  const sectionsMap = {};
-  sectionsSnap.forEach((docSnap) => {
-    sectionsMap[docSnap.id] = {
-      id: docSnap.id,
-      name: docSnap.data().name || "Sección",
-    };
-  });
+  if (progressSectionsContainer) {
+    progressSectionsContainer.innerHTML = `
+      <div class="card">
+        <p class="panel-subtitle">Cargando progreso…</p>
+      </div>
+    `;
+  }
+  if (progressGlobalEl) {
+    progressGlobalEl.innerHTML = "";
+  }
 
-  const sectionStats = {};
-  Object.values(sectionsMap).forEach((s) => {
-    sectionStats[s.id] = {
-      name: s.name,
-      totalScore: 0,
-      examsCount: 0,
-      correct: 0,
-      totalQuestions: 0,
-    };
-  });
+  try {
+    const [sectionsSnap, examsSnap, attemptsSnap] = await Promise.all([
+      getDocs(collection(db, "sections")),
+      getDocs(collection(db, "exams")),
+      getDocs(
+        collection(db, "users", currentUser.email, "examAttempts")
+      ),
+    ]);
 
-  const examLatestResults = [];
-  const examHistoryResults = [];
+    if (thisToken !== progressLoadToken) return;
 
-  const examsSnap = await getDocs(collection(db, "exams"));
-
-  for (const ex of examsSnap.docs) {
-    const exData = ex.data();
-    const examId = ex.id;
-    const sectionId = exData.sectionId;
-    const sectionName = sectionsMap[sectionId]?.name || "Sección";
-
-    const attemptRef = doc(
-      db,
-      "users",
-      currentUser.email,
-      "examAttempts",
-      examId
-    );
-    const attemptSnap = await getDoc(attemptRef);
-    if (!attemptSnap.exists()) continue;
-
-    const at = attemptSnap.data();
-
-    const score = typeof at.score === "number" ? at.score : 0;
-    const correct = at.correctCount || 0;
-    const totalQ = at.totalQuestions || 0;
-    const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
-
-    examLatestResults.push({
-      examId,
-      examName: exData.name || "Examen",
-      sectionId,
-      sectionName,
-      score,
-      correctCount: correct,
-      totalQuestions: totalQ,
-      lastAttempt,
+    // Mapa de secciones
+    const sectionsMap = {};
+    sectionsSnap.forEach((docSnap) => {
+      sectionsMap[docSnap.id] = {
+        id: docSnap.id,
+        name: docSnap.data().name || "Sección",
+      };
     });
 
-    if (sectionStats[sectionId]) {
-      sectionStats[sectionId].totalScore += score;
-      sectionStats[sectionId].examsCount++;
-      sectionStats[sectionId].correct += correct;
-      sectionStats[sectionId].totalQuestions += totalQ;
-    }
+    // Stats por sección
+    const sectionStats = {};
+    Object.values(sectionsMap).forEach((s) => {
+      sectionStats[s.id] = {
+        name: s.name,
+        totalScore: 0,
+        examsCount: 0,
+        correct: 0,
+        totalQuestions: 0,
+      };
+    });
 
-    const historyArr = Array.isArray(at.history) ? at.history : [];
+    // Mapa de exámenes
+    const examsMap = {};
+    examsSnap.forEach((docSnap) => {
+      const d = docSnap.data();
+      examsMap[docSnap.id] = {
+        examId: docSnap.id,
+        name: d.name || "Examen",
+        sectionId: d.sectionId || null,
+      };
+    });
 
-    if (historyArr.length === 0) {
-      examHistoryResults.push({
+    const examLatestResults = [];
+    const examHistoryResults = [];
+
+    attemptsSnap.forEach((docSnap) => {
+      const at = docSnap.data();
+      const examId = docSnap.id;
+      const examDef = examsMap[examId] || {};
+
+      const examName = examDef.name || at.examName || "Examen";
+      const sectionId =
+        at.sectionId || examDef.sectionId || null;
+      const sectionName =
+        at.sectionName ||
+        (sectionId && sectionsMap[sectionId]?.name) ||
+        "Sección";
+
+      const score = typeof at.score === "number" ? at.score : 0;
+      const correct = at.correctCount || 0;
+      const totalQ = at.totalQuestions || 0;
+      const lastAttempt = at.lastAttempt
+        ? at.lastAttempt.toDate()
+        : null;
+
+      examLatestResults.push({
         examId,
-        examName: exData.name || "Examen",
+        examName,
         sectionId,
         sectionName,
         score,
+        correctCount: correct,
+        totalQuestions: totalQ,
         lastAttempt,
       });
-    } else {
-      historyArr.forEach((h) => {
-        const hScore =
-          typeof h.score === "number" ? h.score : score;
-        let hDate = h.createdAt || h.date || at.lastAttempt;
-        if (hDate && typeof hDate.toDate === "function") {
-          hDate = hDate.toDate();
-        }
-        examHistoryResults.push({
-          examId,
-          examName: exData.name || "Examen",
-          sectionId,
-          sectionName,
-          score: hScore,
-          lastAttempt: hDate || lastAttempt,
-        });
-      });
-    }
-  }
 
-  if (progressSectionsContainer) {
-    progressSectionsContainer.innerHTML = "";
-
-    Object.values(sectionsMap).forEach((s) => {
-      const st = sectionStats[s.id];
-      const examsCnt = st?.examsCount || 0;
-
-      const card = document.createElement("div");
-      card.className = "progress-section-card";
-
-      if (!examsCnt) {
-        card.innerHTML = `
-          <div class="progress-section-title">${s.name}</div>
-          <div>Sin intentos aún.</div>
-        `;
-      } else {
-        const avg = st.totalScore / examsCnt;
-        card.innerHTML = `
-          <div class="progress-section-title">${s.name}</div>
-          <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
-          <div><strong>Aciertos:</strong> ${st.correct} / ${
-          st.totalQuestions
-        }</div>
-          <div><strong>Exámenes realizados:</strong> ${examsCnt}</div>
-        `;
+      if (sectionId && sectionStats[sectionId]) {
+        sectionStats[sectionId].totalScore += score;
+        sectionStats[sectionId].examsCount++;
+        sectionStats[sectionId].correct += correct;
+        sectionStats[sectionId].totalQuestions += totalQ;
       }
 
-      progressSectionsContainer.appendChild(card);
+      const historyArr = Array.isArray(at.history) ? at.history : [];
+      if (historyArr.length === 0) {
+        examHistoryResults.push({
+          examId,
+          examName,
+          sectionId,
+          sectionName,
+          score,
+          lastAttempt,
+        });
+      } else {
+        historyArr.forEach((h) => {
+          const hScore =
+            typeof h.score === "number" ? h.score : score;
+          let hDate = h.createdAt || h.date || at.lastAttempt;
+          if (hDate && typeof hDate.toDate === "function") {
+            hDate = hDate.toDate();
+          }
+          examHistoryResults.push({
+            examId,
+            examName,
+            sectionId,
+            sectionName,
+            score: hScore,
+            lastAttempt: hDate || lastAttempt,
+          });
+        });
+      }
     });
+
+    // Tarjetas de progreso por sección
+    if (progressSectionsContainer) {
+      progressSectionsContainer.innerHTML = "";
+
+      Object.values(sectionsMap).forEach((s) => {
+        const st = sectionStats[s.id] || {
+          examsCount: 0,
+          totalScore: 0,
+          correct: 0,
+          totalQuestions: 0,
+        };
+        const examsCnt = st.examsCount || 0;
+
+        const card = document.createElement("div");
+        card.className = "progress-section-card";
+
+        if (!examsCnt) {
+          card.innerHTML = `
+            <div class="progress-section-title">${s.name}</div>
+            <div>Sin intentos aún.</div>
+          `;
+        } else {
+          const avg = st.totalScore / examsCnt;
+          card.innerHTML = `
+            <div class="progress-section-title">${s.name}</div>
+            <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
+            <div><strong>Aciertos:</strong> ${st.correct} / ${
+            st.totalQuestions
+          }</div>
+            <div><strong>Exámenes realizados:</strong> ${examsCnt}</div>
+          `;
+        }
+
+        progressSectionsContainer.appendChild(card);
+      });
+    }
+
+    // Resumen global
+    const totalExams = examLatestResults.length;
+    const totalCorrect = examLatestResults.reduce(
+      (sum, r) => sum + (r.correctCount || 0),
+      0
+    );
+    const totalQuestions = examLatestResults.reduce(
+      (sum, r) => sum + (r.totalQuestions || 0),
+      0
+    );
+    const globalAvg =
+      totalExams > 0
+        ? examLatestResults.reduce((sum, r) => sum + (r.score || 0), 0) /
+          totalExams
+        : 0;
+
+    if (progressGlobalEl) {
+      progressGlobalEl.innerHTML = `
+        <div><strong>Exámenes realizados:</strong> ${totalExams}</div>
+        <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
+        <div><strong>Promedio general:</strong> ${toFixedNice(globalAvg, 1)}%</div>
+      `;
+    }
+
+    renderProgressChart(examHistoryResults);
+  } catch (err) {
+    console.error("Error cargando progreso del estudiante:", err);
+    if (thisToken !== progressLoadToken) return;
+    if (progressSectionsContainer) {
+      progressSectionsContainer.innerHTML = `
+        <div class="card">
+          <p class="panel-subtitle">No se pudo cargar el progreso.</p>
+        </div>
+      `;
+    }
   }
-
-  const totalExams = examLatestResults.length;
-  const totalCorrect = examLatestResults.reduce(
-    (sum, r) => sum + (r.correctCount || 0),
-    0
-  );
-  const totalQuestions = examLatestResults.reduce(
-    (sum, r) => sum + (r.totalQuestions || 0),
-    0
-  );
-  const globalAvg =
-    totalExams > 0
-      ? examLatestResults.reduce((sum, r) => sum + (r.score || 0), 0) /
-        totalExams
-      : 0;
-
-  if (progressGlobalEl) {
-    progressGlobalEl.innerHTML = `
-      <div><strong>Exámenes realizados:</strong> ${totalExams}</div>
-      <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
-      <div><strong>Promedio general:</strong> ${toFixedNice(globalAvg, 1)}%</div>
-    `;
-  }
-
-  renderProgressChart(examHistoryResults);
 }
 
 /***********************************************
- * GRÁFICA DE PROGRESO (Chart.js)
+ * GRÁFICA DE PROGRESO (Chart.js) – etiquetas cortas
  ***********************************************/
 function renderProgressChart(examResults) {
   if (!progressChartCanvas) return;
@@ -1703,9 +1788,8 @@ function renderProgressChart(examResults) {
     return;
   }
 
-  const labels = sorted.map(
-    (r, i) => `${i + 1}. ${r.examName} (${r.sectionName})`
-  );
+  // Etiquetas cortas para no deformar la gráfica
+  const labels = sorted.map((_, i) => `Intento ${i + 1}`);
   const data = sorted.map((r) =>
     typeof r.score === "number" ? r.score : 0
   );
@@ -1745,6 +1829,16 @@ function renderProgressChart(examResults) {
       },
       plugins: {
         legend: { display: false },
+        tooltip: {
+          callbacks: {
+            // En el tooltip mostramos el nombre completo del examen y sección
+            title: (items) => {
+              const idx = items[0].dataIndex;
+              const r = sorted[idx];
+              return `${r.examName} (${r.sectionName})`;
+            },
+          },
+        },
       },
     },
   });
