@@ -781,6 +781,7 @@ async function getOrCreateSectionByName(name) {
 
 /****************************************************
  * EXÁMENES (LISTA POR SECCIÓN)
+ * AHORA ORDENADOS ALFABÉTICA/NUMÉRICAMENTE POR NOMBRE
  ****************************************************/
 
 async function loadExamsForSection(sectionId) {
@@ -789,8 +790,7 @@ async function loadExamsForSection(sectionId) {
 
   const qEx = query(
     collection(db, "exams"),
-    where("sectionId", "==", sectionId),
-    orderBy("createdAt", "desc")
+    where("sectionId", "==", sectionId)
   );
   const snap = await getDocs(qEx);
 
@@ -802,7 +802,19 @@ async function loadExamsForSection(sectionId) {
     return;
   }
 
-  snap.forEach((docSnap) => {
+  // Ordenar exámenes alfabética/numéricamente por nombre
+  const sortedDocs = snap.docs
+    .slice()
+    .sort((a, b) => {
+      const nameA = (a.data().name || "").toString();
+      const nameB = (b.data().name || "").toString();
+      return nameA.localeCompare(nameB, "es", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+  sortedDocs.forEach((docSnap) => {
     const examId = docSnap.id;
     const data = docSnap.data();
     const name = data.name || "Examen sin título";
