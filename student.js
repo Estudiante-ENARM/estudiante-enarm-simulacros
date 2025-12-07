@@ -1,7 +1,3 @@
-//***********************************************
- * student.js
- * Panel del Estudiante - Estudiante ENARM
- ***********************************************/
 import { auth, db } from "./firebase-config.js";
 
 import {
@@ -26,24 +22,20 @@ import {
   SUBTYPES,
   DIFFICULTIES,
   DIFFICULTY_WEIGHTS,
-  DEFAULT_MAX_ATTEMPTS,
-  DEFAULT_TIME_PER_QUESTION,
-  MINI_EXAM_QUESTION_OPTIONS,
-  SPECIALTY_LABELS as EXPORTED_SPECIALTY_LABELS,
-  SUBTYPE_LABELS as EXPORTED_SUBTYPE_LABELS,
-  DIFFICULTY_LABELS as EXPORTED_DIFFICULTY_LABELS,
+  DEFAULT_EXAM_RULES,
 } from "./shared-constants.js";
 
-/***********************************************
- * LABELS (FALLBACKS)
- ***********************************************/
-const SPECIALTY_LABELS = EXPORTED_SPECIALTY_LABELS || SPECIALTIES || {};
-const SUBTYPE_LABELS = EXPORTED_SUBTYPE_LABELS || SUBTYPES || {};
-const DIFFICULTY_LABELS = EXPORTED_DIFFICULTY_LABELS || DIFFICULTIES || {};
+/****************************************************
+ * LABELS
+ ****************************************************/
+const SPECIALTY_LABELS = SPECIALTIES || {};
+const SUBTYPE_LABELS = SUBTYPES || {};
+const DIFFICULTY_LABELS = DIFFICULTIES || {};
 
-/***********************************************
- * REFERENCIAS DOM
- ***********************************************/
+/****************************************************
+ * DOM
+ ****************************************************/
+// Layout / navegación
 const sidebar = document.getElementById("sidebar");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
@@ -53,6 +45,7 @@ const btnProgressView = document.getElementById("student-progress-btn");
 
 const socialButtons = document.querySelectorAll(".social-icon");
 
+// Header
 const studentUserEmailSpan = document.getElementById("student-user-email");
 const btnLogout = document.getElementById("student-btn-logout");
 
@@ -63,7 +56,7 @@ const examsView = document.getElementById("student-exams-view");
 const examDetailView = document.getElementById("student-exam-detail-view");
 const progressView = document.getElementById("student-progress-view");
 
-// Mini examen (builder)
+// Mini examen (constructor)
 const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
 const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
 const miniRandomCheckbox = document.getElementById("student-mini-random");
@@ -96,18 +89,18 @@ const progressChartCanvas = document.getElementById("student-progress-chart");
 
 let progressChartInstance = null;
 
-/***********************************************
- * ESTADO GLOBAL
- ***********************************************/
+/****************************************************
+ * ESTADO
+ ****************************************************/
 let currentUser = null;
 let currentUserProfile = null;
 
 let examRules = {
-  maxAttempts: DEFAULT_MAX_ATTEMPTS,
-  timePerQuestionSeconds: DEFAULT_TIME_PER_QUESTION,
+  maxAttempts: DEFAULT_EXAM_RULES?.maxAttempts || 3,
+  timePerQuestionSeconds: DEFAULT_EXAM_RULES?.timePerQuestionSeconds || 90,
 };
 
-let currentView = "section"; // "mini" | "section" | "progress"
+let currentView = "section";
 let currentSectionId = null;
 let currentSectionName = null;
 
@@ -118,15 +111,16 @@ let currentExamTotalSeconds = 0;
 let currentExamTimerId = null;
 let currentExamPreviousAttempts = 0;
 
+// Mini exámenes
 let miniCasesCache = [];
 
-// Tokens para evitar superposición de datos asíncronos
+// Tokens anti-superposición
 let examsLoadToken = 0;
 let progressLoadToken = 0;
 
-/***********************************************
+/****************************************************
  * UTILIDADES
- ***********************************************/
+ ****************************************************/
 function show(el) {
   if (el) el.classList.remove("hidden");
 }
@@ -159,9 +153,6 @@ function renderEmptyMessage(container, text) {
   `;
 }
 
-/***********************************************
- * ICONOS SVG — EXÁMENES
- ***********************************************/
 function svgIcon(type) {
   if (type === "questions") {
     return `
@@ -194,7 +185,7 @@ function svgIcon(type) {
 }
 
 /****************************************************
- * AUTH / VERIFICACIÓN DE ESTUDIANTE
+ * AUTH ESTUDIANTE
  ****************************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -256,9 +247,9 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-/***********************************************
+/****************************************************
  * LISTENERS GENERALES
- ***********************************************/
+ ****************************************************/
 if (btnToggleSidebar) {
   btnToggleSidebar.addEventListener("click", () => {
     sidebar.classList.toggle("sidebar--open");
@@ -305,33 +296,26 @@ if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 }
 
-/* ====== INTERACCIÓN ESPECIALIDADES (chips) ====== */
+/* chips especialidades mini examen */
 if (miniSpecialtyCheckboxes && miniSpecialtyCheckboxes.length) {
   miniSpecialtyCheckboxes.forEach((cb) => {
     const chip = cb.closest(".mini-specialty-chip");
     if (!chip) return;
 
-    if (cb.checked) {
-      chip.classList.add("mini-specialty-chip--active");
-    } else {
-      chip.classList.remove("mini-specialty-chip--active");
-    }
+    if (cb.checked) chip.classList.add("mini-specialty-chip--active");
+    else chip.classList.remove("mini-specialty-chip--active");
 
     chip.addEventListener("click", (e) => {
       e.preventDefault();
       const newVal = !cb.checked;
       cb.checked = newVal;
-
-      if (newVal) {
-        chip.classList.add("mini-specialty-chip--active");
-      } else {
-        chip.classList.remove("mini-specialty-chip--active");
-      }
+      if (newVal) chip.classList.add("mini-specialty-chip--active");
+      else chip.classList.remove("mini-specialty-chip--active");
     });
   });
 }
 
-/* ====== BOTÓN ALEATORIO ON / OFF ====== */
+/* toggle aleatorio mini examen */
 if (miniRandomToggleBtn && miniRandomCheckbox) {
   if (miniRandomCheckbox.checked) {
     miniRandomToggleBtn.classList.add("is-active");
@@ -342,18 +326,14 @@ if (miniRandomToggleBtn && miniRandomCheckbox) {
   miniRandomToggleBtn.addEventListener("click", () => {
     const newVal = !miniRandomCheckbox.checked;
     miniRandomCheckbox.checked = newVal;
-
-    if (newVal) {
-      miniRandomToggleBtn.classList.add("is-active");
-    } else {
-      miniRandomToggleBtn.classList.remove("is-active");
-    }
+    if (newVal) miniRandomToggleBtn.classList.add("is-active");
+    else miniRandomToggleBtn.classList.remove("is-active");
   });
 }
 
-/***********************************************
+/****************************************************
  * CAMBIO DE VISTAS
- ***********************************************/
+ ****************************************************/
 function switchToMiniView() {
   currentView = "mini";
   hide(examsView);
@@ -385,17 +365,13 @@ async function switchToProgressView() {
   await loadStudentProgress();
 }
 
-/***********************************************
- * CARGA DE CONFIGURACIÓN GLOBAL
- ***********************************************/
+/****************************************************
+ * CONFIGURACIÓN GLOBAL
+ ****************************************************/
 async function loadExamRules() {
   try {
     const snap = await getDoc(doc(db, "examRules", "default"));
-    if (!snap.exists()) {
-      examRules.maxAttempts = DEFAULT_MAX_ATTEMPTS;
-      examRules.timePerQuestionSeconds = DEFAULT_TIME_PER_QUESTION;
-      return;
-    }
+    if (!snap.exists()) return;
 
     const data = snap.data();
     if (typeof data.maxAttempts === "number") {
@@ -406,14 +382,12 @@ async function loadExamRules() {
     }
   } catch (err) {
     console.error("Error leyendo examRules/default:", err);
-    examRules.maxAttempts = DEFAULT_MAX_ATTEMPTS;
-    examRules.timePerQuestionSeconds = DEFAULT_TIME_PER_QUESTION;
   }
 }
 
-/***********************************************
+/****************************************************
  * REDES SOCIALES
- ***********************************************/
+ ****************************************************/
 async function loadSocialLinksForStudent() {
   try {
     const snap = await getDoc(doc(db, "settings", "socialLinks"));
@@ -421,11 +395,8 @@ async function loadSocialLinksForStudent() {
       const data = snap.data();
       socialButtons.forEach((btn) => {
         const network = btn.dataset.network;
-        if (data[network]) {
-          btn.dataset.url = data[network];
-        } else {
-          delete btn.dataset.url;
-        }
+        if (data[network]) btn.dataset.url = data[network];
+        else delete btn.dataset.url;
       });
     }
   } catch (err) {
@@ -444,9 +415,9 @@ async function loadSocialLinksForStudent() {
   });
 }
 
-/***********************************************
- * CARGA DE SECCIONES (BARRA LATERAL)
- ***********************************************/
+/****************************************************
+ * SECCIONES (ESTUDIANTE)
+ ****************************************************/
 async function loadSectionsForStudent() {
   const snap = await getDocs(collection(db, "sections"));
   sidebarSections.innerHTML = "";
@@ -502,9 +473,7 @@ async function loadSectionsForStudent() {
     currentSectionName = firstSectionName;
 
     const firstLi = sidebarSections.querySelector(".sidebar__section-item");
-    if (firstLi) {
-      firstLi.classList.add("sidebar__section-item--active");
-    }
+    if (firstLi) firstLi.classList.add("sidebar__section-item--active");
 
     sectionTitle.textContent = currentSectionName;
     sectionSubtitle.textContent = "Simulacros de esta sección.";
@@ -512,9 +481,9 @@ async function loadSectionsForStudent() {
   }
 }
 
-/***********************************************
- * LISTA DE EXÁMENES POR SECCIÓN (OPTIMIZADO)
- ***********************************************/
+/****************************************************
+ * EXÁMENES POR SECCIÓN (LISTA OPTIMIZADA)
+ ****************************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   const thisToken = ++examsLoadToken;
 
@@ -536,11 +505,9 @@ async function loadExamsForSectionForStudent(sectionId) {
       collection(db, "exams"),
       where("sectionId", "==", sectionId)
     );
-
     const snap = await getDocs(qEx);
 
     if (thisToken !== examsLoadToken || sectionId !== currentSectionId) {
-      // El usuario cambió de sección mientras cargábamos
       return;
     }
 
@@ -551,7 +518,6 @@ async function loadExamsForSectionForStudent(sectionId) {
 
     const fragment = document.createDocumentFragment();
 
-    // Cargamos en paralelo intents y preguntas por examen
     const examsData = await Promise.all(
       snap.docs.map(async (docSnap) => {
         const exData = docSnap.data();
@@ -740,9 +706,9 @@ async function loadExamsForSectionForStudent(sectionId) {
   }
 }
 
-/***********************************************
+/****************************************************
  * SHUFFLE
- ***********************************************/
+ ****************************************************/
 function shuffleArray(arr) {
   const copy = arr.slice();
   for (let i = copy.length - 1; i > 0; i--) {
@@ -752,9 +718,9 @@ function shuffleArray(arr) {
   return copy;
 }
 
-/***********************************************
- * MINI EXÁMENES — CARGA INICIAL (miniQuestions)
- ***********************************************/
+/****************************************************
+ * MINI EXÁMENES – CARGA BANCO
+ ****************************************************/
 async function loadMiniCasesOnce() {
   if (miniCasesCache.length > 0) return;
 
@@ -789,19 +755,16 @@ async function loadMiniCasesOnce() {
   }
 }
 
-/***********************************************
- * MINI EXÁMENES — CONSTRUIR Y ARRANCAR
- ***********************************************/
+/****************************************************
+ * MINI EXÁMENES – CONSTRUIR EXAMEN
+ ****************************************************/
 async function startMiniExamFromBuilder() {
   if (!miniNumQuestionsSelect) {
     alert("El módulo de mini exámenes no está configurado en esta vista.");
     return;
   }
 
-  const numQuestions =
-    parseInt(miniNumQuestionsSelect.value, 10) ||
-    MINI_EXAM_QUESTION_OPTIONS[0] ||
-    5;
+  const numQuestions = parseInt(miniNumQuestionsSelect.value, 10) || 10;
 
   const selectedSpecialties = Array.from(miniSpecialtyCheckboxes)
     .filter((cb) => cb.checked)
@@ -989,9 +952,9 @@ async function startMiniExamFromBuilder() {
   startExamTimer(currentExamTotalSeconds);
 }
 
-/***********************************************
- * EXÁMENES POR SECCIÓN — INICIAR
- ***********************************************/
+/****************************************************
+ * EXÁMENES POR SECCIÓN – INICIAR
+ ****************************************************/
 async function startSectionExamForStudent({
   examId,
   examName,
@@ -1041,9 +1004,9 @@ async function startSectionExamForStudent({
   startExamTimer(currentExamTotalSeconds);
 }
 
-/***********************************************
- * CARGAR PREGUNTAS DE EXAMEN (POR SECCIÓN)
- ***********************************************/
+/****************************************************
+ * CARGAR PREGUNTAS EXAMEN POR SECCIÓN
+ ****************************************************/
 async function loadQuestionsForSectionExam(examId) {
   questionsList.innerHTML = "";
 
@@ -1154,9 +1117,9 @@ async function loadQuestionsForSectionExam(examId) {
   });
 }
 
-/***********************************************
+/****************************************************
  * CRONÓMETRO
- ***********************************************/
+ ****************************************************/
 function startExamTimer(totalSeconds) {
   if (!examTimerEl) return;
 
@@ -1183,19 +1146,16 @@ function startExamTimer(totalSeconds) {
   }, 1000);
 }
 
-/***********************************************
- * ENVÍO DE EXAMEN (MINI + POR SECCIÓN)
- ***********************************************/
+/****************************************************
+ * ENVÍO DE EXAMEN
+ ****************************************************/
 async function submitExamForStudent(auto = false) {
   if (!currentExamQuestions.length) {
     alert("No hay examen cargado.");
     return;
   }
 
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = true;
-  }
-
+  if (btnSubmitExam) btnSubmitExam.disabled = true;
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
     currentExamTimerId = null;
@@ -1389,9 +1349,9 @@ async function submitExamForStudent(auto = false) {
   }
 }
 
-/***********************************************
- * RENDERIZAR RESULTADOS (3 TABLAS)
- ***********************************************/
+/****************************************************
+ * RESULTADOS – TABLAS
+ ****************************************************/
 function renderPremiumResults({
   auto,
   globalCorrect,
@@ -1460,7 +1420,8 @@ function renderPremiumResults({
           .map((key) => {
             const st = specStats[key] || {};
             const sp = st.subtypes?.salud_publica || { correct: 0, total: 0 };
-            const mf = st.subtypes?.medicina_familiar || { correct: 0, total: 0 };
+            const mf =
+              st.subtypes?.medicina_familiar || { correct: 0, total: 0 };
             const ur = st.subtypes?.urgencias || { correct: 0, total: 0 };
             return `
               <tr>
@@ -1514,9 +1475,9 @@ function renderPremiumResults({
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-/***********************************************
- * BOTÓN "VOLVER A EXÁMENES"
- ***********************************************/
+/****************************************************
+ * VOLVER DESDE EXAMEN
+ ****************************************************/
 function handleBackFromExam() {
   const cameFromMini = currentExamMode === "mini";
 
@@ -1550,9 +1511,9 @@ function handleBackFromExam() {
   }
 }
 
-/***********************************************
- * PROGRESO DEL ESTUDIANTE (OPTIMIZADO)
- ***********************************************/
+/****************************************************
+ * PROGRESO DEL ESTUDIANTE
+ ****************************************************/
 async function loadStudentProgress() {
   if (!currentUser) return;
 
@@ -1585,7 +1546,6 @@ async function loadStudentProgress() {
 
     if (thisToken !== progressLoadToken) return;
 
-    // Mapa de secciones
     const sectionsMap = {};
     sectionsSnap.forEach((docSnap) => {
       sectionsMap[docSnap.id] = {
@@ -1594,7 +1554,6 @@ async function loadStudentProgress() {
       };
     });
 
-    // Stats por sección
     const sectionStats = {};
     Object.values(sectionsMap).forEach((s) => {
       sectionStats[s.id] = {
@@ -1606,7 +1565,6 @@ async function loadStudentProgress() {
       };
     });
 
-    // Mapa de exámenes
     const examsMap = {};
     examsSnap.forEach((docSnap) => {
       const d = docSnap.data();
@@ -1626,8 +1584,7 @@ async function loadStudentProgress() {
       const examDef = examsMap[examId] || {};
 
       const examName = examDef.name || at.examName || "Examen";
-      const sectionId =
-        at.sectionId || examDef.sectionId || null;
+      const sectionId = at.sectionId || examDef.sectionId || null;
       const sectionName =
         at.sectionName ||
         (sectionId && sectionsMap[sectionId]?.name) ||
@@ -1688,7 +1645,6 @@ async function loadStudentProgress() {
       }
     });
 
-    // Tarjetas de progreso por sección
     if (progressSectionsContainer) {
       progressSectionsContainer.innerHTML = "";
 
@@ -1725,7 +1681,6 @@ async function loadStudentProgress() {
       });
     }
 
-    // Resumen global
     const totalExams = examLatestResults.length;
     const totalCorrect = examLatestResults.reduce(
       (sum, r) => sum + (r.correctCount || 0),
@@ -1763,9 +1718,9 @@ async function loadStudentProgress() {
   }
 }
 
-/***********************************************
- * GRÁFICA DE PROGRESO (Chart.js) – etiquetas cortas
- ***********************************************/
+/****************************************************
+ * GRÁFICA DE PROGRESO – Chart.js
+ ****************************************************/
 function renderProgressChart(examResults) {
   if (!progressChartCanvas) return;
 
@@ -1788,7 +1743,7 @@ function renderProgressChart(examResults) {
     return;
   }
 
-  // Etiquetas cortas para no deformar la gráfica
+  // Etiquetas cortas
   const labels = sorted.map((_, i) => `Intento ${i + 1}`);
   const data = sorted.map((r) =>
     typeof r.score === "number" ? r.score : 0
@@ -1831,7 +1786,6 @@ function renderProgressChart(examResults) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            // En el tooltip mostramos el nombre completo del examen y sección
             title: (items) => {
               const idx = items[0].dataIndex;
               const r = sorted[idx];
