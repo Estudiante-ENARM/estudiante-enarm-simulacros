@@ -19,6 +19,7 @@ import {
   setDoc,
   serverTimestamp,
   arrayUnion,
+  orderBy, // <-- agregado para ordenar secciones
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 import {
@@ -448,9 +449,13 @@ async function loadSocialLinksForStudent() {
 
 /***********************************************
  * CARGA DE SECCIONES (BARRA LATERAL)
+ * (ordenadas por 'order' igual que en admin)
  ***********************************************/
 async function loadSectionsForStudent() {
-  const snap = await getDocs(collection(db, "sections"));
+  // Ahora se respeta el orden que define el admin con el campo "order"
+  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
+  const snap = await getDocs(qSec);
+
   sidebarSections.innerHTML = "";
 
   if (snap.empty) {
@@ -516,6 +521,7 @@ async function loadSectionsForStudent() {
 
 /***********************************************
  * LISTA DE EXÁMENES POR SECCIÓN
+ * (ordenados alfabética/numéricamente por nombre)
  ***********************************************/
 async function loadExamsForSectionForStudent(sectionId) {
   examsList.innerHTML = "";
@@ -529,7 +535,6 @@ async function loadExamsForSectionForStudent(sectionId) {
     collection(db, "exams"),
     where("sectionId", "==", sectionId)
   );
-
   const snap = await getDocs(qEx);
 
   if (snap.empty) {
@@ -537,7 +542,19 @@ async function loadExamsForSectionForStudent(sectionId) {
     return;
   }
 
-  for (const docSnap of snap.docs) {
+  // Ordenar exámenes por nombre (alfabético / numérico)
+  const sortedDocs = snap.docs
+    .slice()
+    .sort((a, b) => {
+      const nameA = (a.data().name || "").toString();
+      const nameB = (b.data().name || "").toString();
+      return nameA.localeCompare(nameB, "es", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+  for (const docSnap of sortedDocs) {
     const exData = docSnap.data();
     const examId = docSnap.id;
     const examName = exData.name || "Examen sin título";
