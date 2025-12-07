@@ -153,6 +153,9 @@ let currentSectionId = null;       // Sección seleccionada
 let currentExamId = null;          // Examen abierto
 let currentExamCases = [];         // Casos clínicos en memoria
 
+// Token para evitar “superposición” de exámenes entre secciones
+let examsLoadToken = 0;
+
 // MINI EXÁMENES
 let miniCases = [];
 let miniCasesLoadedOnce = false;
@@ -280,12 +283,12 @@ if (modalBtnOk) {
 }
 
 /****************************************************
- * PANEL USUARIOS – TABLA DE USUARIOS
+ * PANEL USUARIOS – TABLA “RESUMEN” (OPCIONAL)
+ * (Ya no se carga al inicio para no hacer más pesada la carga)
  ****************************************************/
 async function loadUsersTable() {
   if (!usersTableContainer) return;
 
-  // Mensaje mientras carga
   usersTableContainer.innerHTML = `
     <div class="card">
       <p class="panel-subtitle">Cargando usuarios…</p>
@@ -368,6 +371,7 @@ async function loadUsersTable() {
 
 /****************************************************
  * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
+ * - Solo cargamos lo mínimo para no tardar 20+ segundos.
  ****************************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -411,17 +415,13 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 2) Cargar datos del panel
+  // 2) Cargar SOLO lo básico al inicio:
+  //    - Secciones (para poder trabajar)
+  //    - Landing (config ligera)
   try {
     await loadSections();
   } catch (err) {
     console.error("Error cargando secciones:", err);
-  }
-
-  try {
-    await loadUsersTable();
-  } catch (err) {
-    console.error("Error cargando usuarios:", err);
   }
 
   try {
@@ -430,19 +430,7 @@ onAuthStateChanged(auth, async (user) => {
     console.error("Error cargando configuración de landing:", err);
   }
 
-  try {
-    await loadMiniCases();
-  } catch (err) {
-    console.error("Error cargando banco de mini exámenes:", err);
-  }
-
-  try {
-    await loadAnalyticsSummary();
-  } catch (err) {
-    console.error("Error cargando analytics:", err);
-  }
-
-  console.log("admin.js cargado correctamente y panel inicializado.");
+  console.log("admin.js cargado correctamente y panel inicializado (carga mínima).");
 });
 
 /****************************************************
@@ -474,6 +462,8 @@ if (btnNavMini) {
     btnNavMini.classList.add("sidebar-btn--active");
     setActivePanel("mini");
     sidebar.classList.remove("sidebar--open");
+    // Cargar mini exámenes SOLO cuando entras a este panel
+    loadMiniCases();
   });
 }
 
@@ -483,6 +473,7 @@ if (btnNavUsers) {
     btnNavUsers.classList.add("sidebar-btn--active");
     setActivePanel("users");
     sidebar.classList.remove("sidebar--open");
+    // Cargar CRUD de usuarios sólo al entrar
     loadUsers();
   });
 }
@@ -493,6 +484,7 @@ if (btnNavAnalytics) {
     btnNavAnalytics.classList.add("sidebar-btn--active");
     setActivePanel("analytics");
     sidebar.classList.remove("sidebar--open");
+    // Cargar resumen solo cuando lo necesitas
     loadAnalyticsSummary();
   });
 }
@@ -781,18 +773,27 @@ async function getOrCreateSectionByName(name) {
 
 /****************************************************
  * EXÁMENES (LISTA POR SECCIÓN)
- * AHORA ORDENADOS ALFABÉTICA/NUMÉRICAMENTE POR NOMBRE
+ * - Ordenados alfabética/numéricamente
+ * - Protegidos contra condiciones de carrera
  ****************************************************/
 
 async function loadExamsForSection(sectionId) {
   if (!examsListEl) return;
   examsListEl.innerHTML = "";
 
+  // Token para saber si esta carga sigue siendo la más reciente
+  const thisLoadToken = ++examsLoadToken;
+
   const qEx = query(
     collection(db, "exams"),
     where("sectionId", "==", sectionId)
   );
   const snap = await getDocs(qEx);
+
+  // Si mientras se cargaba cambió la sección o se lanzó otra carga, abortamos
+  if (thisLoadToken !== examsLoadToken || sectionId !== currentSectionId) {
+    return;
+  }
 
   if (snap.empty) {
     renderEmptyMessage(
@@ -953,15 +954,6 @@ function openEditExamNameModal(examId, currentName) {
 
 /**
  * Importar varios exámenes desde un JSON (botón "Importar exámenes JSON")
- * Estructura esperada (ejemplo):
- * [
- *   {
- *     "sectionName": "Medicina interna",
- *     "examName": "Examen 1",
- *     "cases": [ { caseText, specialty, questions:[...] } ]
- *   }
- * ]
- * o bien { "exams": [ ... ] }
  */
 async function importExamsFromJson(json) {
   let examsArray = [];
@@ -1098,7 +1090,6 @@ function createEmptyCase() {
 
 /**
  * Sincroniza currentExamCases con TODO lo escrito en el DOM actual.
- * Sirve para no perder lo que ya se escribió al agregar/eliminar casos.
  */
 function syncCurrentExamCasesFromDOM() {
   if (!examCasesContainer) return;
@@ -1581,7 +1572,6 @@ if (btnAddCaseTop) {
 
 /**
  * Importar un solo examen (JSON) directamente al formulario del examen abierto.
- * No guarda nada hasta que presiones "Guardar examen".
  */
 function normalizeQuestionFromJson(raw) {
   return {
@@ -1661,15 +1651,10 @@ if (btnImportExamJson) {
  * MINI EXÁMENES – BANCO GLOBAL DE CASOS
  ****************************************************/
 
-// Elementos del DOM del panel de mini exámenes
 const miniCasesContainer = document.getElementById("admin-mini-cases");
 const btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
 const btnMiniSaveAll = document.getElementById("admin-mini-btn-save-all");
 
-/**
- * Reconstruye miniCases leyendo TODO lo que está escrito
- * actualmente en el DOM (casos + preguntas).
- */
 function syncMiniCasesFromDOM() {
   if (!miniCasesContainer) return;
 
@@ -2003,12 +1988,8 @@ if (btnMiniSaveAll && miniCasesContainer) {
   btnMiniSaveAll.addEventListener("click", handleSaveMiniBank);
 }
 
-if (typeof panelMini !== "undefined" && panelMini && miniCasesContainer) {
-  loadMiniCases();
-}
-
 /****************************************************
- * USUARIOS (CRUD) – (resto de tu código original)
+ * USUARIOS (CRUD)
  ****************************************************/
 
 async function loadUsers() {
@@ -2399,6 +2380,7 @@ if (btnSaveSocialLinks) {
 
 /****************************************************
  * ANALYTICS BÁSICOS
+ * (Solo se carga al entrar al panel de “Análisis”)
  ****************************************************/
 
 async function loadAnalyticsSummary() {
@@ -2507,4 +2489,4 @@ async function loadAnalyticsSummary() {
 /****************************************************
  * FIN ADMIN.JS
  ****************************************************/
-console.log("admin.js cargado correctamente.");
+console.log("admin.js cargado correctamente (optimizado).");
