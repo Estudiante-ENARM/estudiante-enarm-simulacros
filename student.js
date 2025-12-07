@@ -12,10 +12,12 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
   setDoc,
   serverTimestamp,
   arrayUnion,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
 
 import {
   SPECIALTIES,
@@ -419,7 +421,10 @@ async function loadSocialLinksForStudent() {
  * SECCIONES (ESTUDIANTE)
  ****************************************************/
 async function loadSectionsForStudent() {
-  const snap = await getDocs(collection(db, "sections"));
+  // Usar el mismo orden que en admin: campo "order" ascendente
+  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
+  const snap = await getDocs(qSec);
+
   sidebarSections.innerHTML = "";
 
   if (snap.empty) {
@@ -439,7 +444,7 @@ async function loadSectionsForStudent() {
     const id = docSnap.id;
     const name = data.name || "Sección sin título";
 
-    if (!firstSectionId) {
+    if (firstSectionId == null) {
       firstSectionId = id;
       firstSectionName = name;
     }
@@ -468,6 +473,7 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
+  // Seleccionar y cargar la primera sección en el orden definido
   if (firstSectionId) {
     currentSectionId = firstSectionId;
     currentSectionName = firstSectionName;
