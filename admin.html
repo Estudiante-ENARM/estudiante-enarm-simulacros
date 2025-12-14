@@ -1,350 +1,582 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Estudiante ENARM | Administrador</title>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-  <!-- Fuente moderna -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+/**
+ * ==========================
+ * CONFIG FIREBASE
+ * ==========================
+ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+  authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+  projectId: "simulacros-plataforma-enarm",
+  storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
+  messagingSenderId: "1012829203040",
+  appId: "1:1012829203040:web:71de568ff8606a1c8d7105",
+};
 
-  <!-- Estilos compartidos -->
-  <link rel="stylesheet" href="style.css" />
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-  <!-- Favicon (evita error 404 /favicon.ico) -->
-  <link rel="icon" type="image/png" href="logo.png" />
-</head>
+/**
+ * ==========================
+ * HELPERS UI
+ * ==========================
+ */
+const $ = (id) => document.getElementById(id);
+const show = (el) => el.classList.remove("hidden");
+const hide = (el) => el.classList.add("hidden");
 
-<body>
-  <section id="admin-view" class="view">
+function escapeHtml(str = "") {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-    <!-- HEADER -->
-    <header class="header">
-      <button id="admin-btn-toggle-sidebar" class="hamburger-btn">☰</button>
-      <div class="header-right">
-        <span id="admin-user-email"></span>
-        <button id="admin-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+function toast(msg) {
+  // Minimalista: usa alert para no romper tu CSS/JS existente.
+  alert(msg);
+}
+
+/**
+ * ==========================
+ * AUTH / ROLE CHECK
+ * ==========================
+ */
+let currentUser = null;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "index.html";
+    return;
+  }
+
+  currentUser = user;
+  $("admin-user-email").textContent = user.email || "";
+
+  const uref = doc(db, "users", user.email);
+  const usnap = await getDoc(uref);
+
+  if (!usnap.exists()) {
+    toast("Tu usuario no existe en la colección 'users'.");
+    await signOut(auth);
+    window.location.href = "index.html";
+    return;
+  }
+
+  const udata = usnap.data() || {};
+  if (udata.role !== "admin") {
+    toast("No tienes permisos de administrador.");
+    await signOut(auth);
+    window.location.href = "index.html";
+    return;
+  }
+
+  // ✅ Admin ok: inicializa todo
+  initUI();
+  await loadSectionsSidebar();
+  await loadMiniBank();
+  await loadBankFirstPage(); // banco preguntas
+});
+
+$("admin-btn-logout").addEventListener("click", async () => {
+  await signOut(auth);
+  window.location.href = "index.html";
+});
+
+/**
+ * ==========================
+ * SIDEBAR TOGGLE
+ * ==========================
+ */
+$("admin-btn-toggle-sidebar").addEventListener("click", () => {
+  const sidebar = $("admin-sidebar");
+  sidebar.classList.toggle("open");
+});
+
+/**
+ * ==========================
+ * PANEL NAV
+ * ==========================
+ */
+const panels = {
+  exams: $("admin-panel-exams"),
+  bank: $("admin-panel-bank"),
+  mini: $("admin-panel-mini"),
+  users: $("admin-panel-users"),
+  analytics: $("admin-panel-analytics"),
+  landing: $("admin-panel-landing"),
+};
+
+function setActiveNav(btnId) {
+  const ids = [
+    "admin-btn-nav-exams",
+    "admin-btn-nav-bank",
+    "admin-btn-nav-mini",
+    "admin-btn-nav-users",
+    "admin-btn-nav-analytics",
+    "admin-btn-nav-landing",
+  ];
+  ids.forEach((id) => {
+    const b = $(id);
+    if (!b) return;
+    b.classList.toggle("sidebar-btn--active", id === btnId);
+  });
+}
+
+function openPanel(name) {
+  Object.values(panels).forEach((p) => hide(p));
+  show(panels[name]);
+}
+
+function initUI() {
+  $("admin-btn-nav-exams").addEventListener("click", () => {
+    setActiveNav("admin-btn-nav-exams");
+    openPanel("exams");
+  });
+
+  // ✅ NUEVO
+  $("admin-btn-nav-bank").addEventListener("click", async () => {
+    setActiveNav("admin-btn-nav-bank");
+    openPanel("bank");
+    // si no hay data cargada, carga primera página
+    if (!bankState.loadedOnce) await loadBankFirstPage();
+  });
+
+  $("admin-btn-nav-mini").addEventListener("click", async () => {
+    setActiveNav("admin-btn-nav-mini");
+    openPanel("mini");
+    await loadMiniBank();
+  });
+
+  $("admin-btn-nav-users").addEventListener("click", () => {
+    setActiveNav("admin-btn-nav-users");
+    openPanel("users");
+  });
+
+  $("admin-btn-nav-analytics").addEventListener("click", () => {
+    setActiveNav("admin-btn-nav-analytics");
+    openPanel("analytics");
+  });
+
+  $("admin-btn-nav-landing").addEventListener("click", () => {
+    setActiveNav("admin-btn-nav-landing");
+    openPanel("landing");
+  });
+
+  // Banco: filtros
+  $("admin-bank-btn-apply").addEventListener("click", loadBankFirstPage);
+  $("admin-bank-btn-clear").addEventListener("click", () => {
+    $("admin-bank-search").value = "";
+    $("admin-bank-topic").value = "";
+    $("admin-bank-specialty").value = "";
+    $("admin-bank-examid").value = "";
+    loadBankFirstPage();
+  });
+  $("admin-bank-btn-refresh").addEventListener("click", loadBankFirstPage);
+  $("admin-bank-btn-load-more").addEventListener("click", loadBankNextPage);
+
+  // Banco -> mini
+  $("admin-bank-btn-add-to-mini").addEventListener("click", addSelectedBankCasesToMini);
+}
+
+/**
+ * ==========================
+ * SECTIONS / EXAMS (mínimo necesario sin tocar tu estudiante)
+ * Nota: aquí solo dejo la base para no romper tu UI.
+ * Si tu admin.js anterior tenía más lógica específica, se integra sobre este mismo patrón.
+ * ==========================
+ */
+let currentSectionId = null;
+
+async function loadSectionsSidebar() {
+  const list = $("admin-sections-list");
+  list.innerHTML = "";
+
+  const snap = await getDocs(query(collection(db, "sections"), orderBy("createdAt", "desc")));
+  snap.forEach((d) => {
+    const data = d.data() || {};
+    const li = document.createElement("li");
+    li.className = "sidebar-section-item";
+    li.textContent = data.name || d.id;
+    li.style.cursor = "pointer";
+    li.addEventListener("click", async () => {
+      currentSectionId = d.id;
+      $("admin-current-section-title").textContent = data.name || "Sección";
+      await loadExamsForSection(d.id);
+      setActiveNav("admin-btn-nav-exams");
+      openPanel("exams");
+    });
+    list.appendChild(li);
+  });
+}
+
+async function loadExamsForSection(sectionId) {
+  const container = $("admin-exams-list");
+  container.innerHTML = "";
+
+  const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
+  const snap = await getDocs(qEx);
+
+  if (snap.empty) {
+    container.innerHTML = `<div class="card"><p class="panel-subtitle">No hay exámenes en esta sección.</p></div>`;
+    return;
+  }
+
+  snap.forEach((d) => {
+    const ex = d.data() || {};
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h3 style="margin:0 0 6px 0;">${escapeHtml(ex.name || "Examen")}</h3>
+      <p class="panel-subtitle" style="margin:0;">ExamID: <code>${d.id}</code></p>
+    `;
+    container.appendChild(card);
+  });
+}
+
+/**
+ * ==========================
+ * MINI BANK (miniQuestions)
+ * ==========================
+ */
+async function loadMiniBank() {
+  const container = $("admin-mini-cases");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const snap = await getDocs(query(collection(db, "miniQuestions"), orderBy("createdAt", "desc"), limit(100)));
+  if (snap.empty) {
+    container.innerHTML = `<div class="card"><p class="panel-subtitle">Aún no hay casos en miniQuestions.</p></div>`;
+    return;
+  }
+
+  snap.forEach((d) => {
+    const data = d.data() || {};
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <h3 style="margin:0 0 6px 0;">${escapeHtml(data.topic || "Sin tema")} <span style="opacity:.65;font-size:12px;">(${escapeHtml(data.specialty || "")})</span></h3>
+      <p class="panel-subtitle" style="margin:0 0 8px 0;">MiniID: <code>${d.id}</code>${data.sourceQuestionId ? ` · Origen: <code>${escapeHtml(data.sourceQuestionId)}</code>` : ""}</p>
+      <details>
+        <summary style="cursor:pointer;">Ver caso</summary>
+        <pre style="white-space:pre-wrap;">${escapeHtml(data.caseText || "")}</pre>
+      </details>
+    `;
+    container.appendChild(card);
+  });
+}
+
+/**
+ * ==========================
+ * ✅ BANCO DE PREGUNTAS (questions)
+ * - Paginación (Spark-friendly)
+ * - Filtros
+ * - Edición y guardado
+ * - Selección múltiple -> copiar a miniQuestions
+ * ==========================
+ */
+const bankState = {
+  pageSize: 20,
+  lastDoc: null,
+  hasMore: true,
+  loadedOnce: false,
+  selected: new Map(), // questionId -> data
+};
+
+function getBankFilters() {
+  return {
+    searchText: ($("admin-bank-search")?.value || "").trim(),
+    topic: ($("admin-bank-topic")?.value || "").trim(),
+    specialty: ($("admin-bank-specialty")?.value || "").trim(),
+    examId: ($("admin-bank-examid")?.value || "").trim(),
+  };
+}
+
+function buildBankQuery({ forNextPage = false } = {}) {
+  const { topic, specialty, examId } = getBankFilters();
+
+  // Base: ordena por createdAt desc (si no existe, Firestore puede fallar; por eso en import-exam.html ya lo agregamos)
+  let qRef = collection(db, "questions");
+  let clauses = [];
+
+  if (examId) clauses.push(where("examId", "==", examId));
+  if (specialty) clauses.push(where("specialty", "==", specialty));
+  if (topic) clauses.push(where("topic", "==", topic));
+
+  // Orden y límites
+  const parts = [
+    ...clauses,
+    orderBy("createdAt", "desc"),
+    limit(bankState.pageSize),
+  ];
+
+  // paginación
+  if (forNextPage && bankState.lastDoc) {
+    parts.splice(parts.length - 1, 0, startAfter(bankState.lastDoc));
+  }
+
+  return query(qRef, ...parts);
+}
+
+async function loadBankFirstPage() {
+  bankState.lastDoc = null;
+  bankState.hasMore = true;
+  bankState.loadedOnce = true;
+  bankState.selected.clear();
+  updateBankSelectionUI();
+
+  $("admin-bank-list").innerHTML = "";
+  await loadBankPage({ next: false });
+}
+
+async function loadBankNextPage() {
+  if (!bankState.hasMore) return;
+  await loadBankPage({ next: true });
+}
+
+async function loadBankPage({ next }) {
+  const container = $("admin-bank-list");
+  const filters = getBankFilters();
+  const qBank = buildBankQuery({ forNextPage: next });
+
+  let snap;
+  try {
+    snap = await getDocs(qBank);
+  } catch (err) {
+    console.error(err);
+    toast(
+      "Firestore rechazó esta consulta. Esto suele pasar cuando necesitas un ÍNDICE COMPUESTO.\n" +
+      "Abre la consola del navegador: ahí Firestore te muestra el link directo para crear el índice."
+    );
+    return;
+  }
+
+  if (snap.empty) {
+    if (!next) {
+      container.innerHTML = `<div class="card"><p class="panel-subtitle">No hay resultados con estos filtros.</p></div>`;
+    }
+    bankState.hasMore = false;
+    return;
+  }
+
+  // Actualiza lastDoc
+  bankState.lastDoc = snap.docs[snap.docs.length - 1];
+  bankState.hasMore = snap.size === bankState.pageSize;
+
+  // Render
+  snap.forEach((d) => {
+    const data = d.data() || {};
+
+    // Filtro de texto (client-side, para no requerir “full text search”)
+    if (filters.searchText) {
+      const t = filters.searchText.toLowerCase();
+      const hay = (data.caseText || "").toLowerCase();
+      if (!hay.includes(t)) return;
+    }
+
+    container.appendChild(renderBankCard(d.id, data));
+  });
+}
+
+function renderBankCard(id, data) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.dataset.qid = id;
+
+  const checked = bankState.selected.has(id) ? "checked" : "";
+
+  const topic = data.topic || "";
+  const specialty = data.specialty || "";
+  const examId = data.examId || "";
+  const caseText = data.caseText || "";
+  const questionsArr = Array.isArray(data.questions) ? data.questions : [];
+
+  card.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <input type="checkbox" class="bank-select" ${checked} />
+        <div>
+          <h3 style="margin:0 0 6px 0;">
+            ${escapeHtml(topic || "Sin tema")}
+            <span style="opacity:.65;font-size:12px;">(${escapeHtml(specialty)})</span>
+          </h3>
+          <p class="panel-subtitle" style="margin:0;">
+            QID: <code>${escapeHtml(id)}</code> · ExamID: <code>${escapeHtml(examId)}</code> · Preguntas: <strong>${questionsArr.length}</strong>
+          </p>
+        </div>
       </div>
-    </header>
 
-    <!-- SIDEBAR ADMIN -->
-    <aside id="admin-sidebar">
-      <div class="sidebar-logo">
-        <img src="logo.png" alt="Estudiante ENARM" class="sidebar-logo-img" />
-        <h2 class="sidebar-title">Estudiante ENARM</h2>
-      </div>
-
-      <!-- Secciones dinámicas -->
-      <ul id="admin-sections-list" class="sidebar-sections"></ul>
-
-      <!-- Botón agregar sección -->
-      <button id="admin-btn-add-section" class="sidebar-btn btn-outline">
-        + Agregar sección
-      </button>
-
-      <!-- Navegación de paneles -->
-      <div style="margin-top:12px;">
-        <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
-          Secciones y exámenes
-        </button>
-        <button id="admin-btn-nav-mini" class="sidebar-btn">
-          Mini exámenes
-        </button>
-        <button id="admin-btn-nav-users" class="sidebar-btn">
-          Usuarios
-        </button>
-        <button id="admin-btn-nav-analytics" class="sidebar-btn">
-          Análisis
-        </button>
-        <button id="admin-btn-nav-landing" class="sidebar-btn">
-          Pantalla principal
-        </button>
-      </div>
-    </aside>
-
-    <!-- CONTENIDO PRINCIPAL -->
-    <main id="content">
-
-      <!-- ================= PANEL: SECCIONES + EXÁMENES ================= -->
-      <section id="admin-panel-exams" class="panel">
-        <div class="panel-header">
-          <div>
-            <h2 id="admin-current-section-title">Selecciona una sección</h2>
-            <p class="panel-subtitle">
-              Administra los simulacros ENARM por sección.
-            </p>
-          </div>
-          <div class="flex-row" style="justify-content:flex-end;">
-            <button id="admin-btn-import-exams-json" class="btn btn-outline btn-sm">
-              Importar exámenes (JSON)
-            </button>
-            <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">
-              + Agregar examen
-            </button>
-          </div>
-        </div>
-
-        <!-- Lista de exámenes por sección -->
-        <div id="admin-exams-list" class="cards-list"></div>
-
-        <!-- DETALLE DE EXAMEN (CASOS CLÍNICOS) -->
-        <section id="admin-exam-detail" class="panel hidden">
-          <div class="panel-header" style="align-items:flex-end;gap:12px;">
-            <button id="admin-btn-back-to-exams" class="btn btn-outline">
-              ← Volver a exámenes
-            </button>
-
-            <div style="flex:1;">
-              <label class="field">
-                <span>Nombre del examen</span>
-                <input type="text" id="admin-exam-title-input" />
-              </label>
-            </div>
-
-            <div class="flex-row" style="justify-content:flex-end;">
-              <button id="admin-btn-import-exam" class="btn btn-outline btn-sm">
-                Importar examen (JSON)
-              </button>
-              <button id="admin-btn-add-case" class="btn btn-secondary btn-sm">
-                + Agregar caso clínico
-              </button>
-              <button id="admin-btn-save-exam" class="btn btn-primary btn-sm">
-                Guardar examen
-              </button>
-            </div>
-          </div>
-
-          <!-- ================= NUEVO BLOQUE: BUSCADOR DE BANCO DE CASOS ================= -->
-          <div class="card" style="margin-top:14px;">
-            <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
-
-            <label class="field">
-              <span>Buscar por tema</span>
-              <input
-                type="text"
-                id="admin-bank-search-input"
-                placeholder="Ej. apendicitis aguda, preeclampsia, hemorragia posparto"
-              />
-            </label>
-
-            <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
-          </div>
-          <!-- ================= FIN BLOQUE NUEVO ================= -->
-
-          <!-- Contenedor de casos clínicos + preguntas -->
-          <div id="admin-exam-cases" class="cards-list"></div>
-          <!-- Los botones inferiores (Agregar caso / Guardar examen)
-               ahora los genera dinámicamente admin.js dentro de renderExamCases() -->
-        </section>
-      </section>
-
-      <!-- ================= PANEL: MINI EXÁMENES (BANCO GLOBAL) ================= -->
-      <section id="admin-panel-mini" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Mini exámenes</h2>
-            <p class="panel-subtitle">
-              Banco global de casos clínicos para los mini exámenes del estudiante.
-            </p>
-          </div>
-
-          <div class="flex-row" style="justify-content:flex-end;">
-            <button id="admin-mini-btn-add-case" class="btn btn-secondary">
-              + Agregar caso clínico
-            </button>
-            <button id="admin-mini-btn-save-all" class="btn btn-primary">
-              Guardar banco
-            </button>
-          </div>
-        </div>
-
-        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
-        <div id="admin-mini-cases" class="cards-list"></div>
-      </section>
-
-      <!-- ================= PANEL: USUARIOS ================= -->
-      <section id="admin-panel-users" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Usuarios</h2>
-            <p class="panel-subtitle">
-              Crea, edita y administra los accesos a la plataforma.
-            </p>
-          </div>
-        </div>
-
-        <!-- Formulario nuevo usuario -->
-        <div id="create-user-card">
-          <h3>Nuevo usuario</h3>
-
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Nombre completo</span>
-              <input type="text" id="admin-new-user-name" placeholder="Nombre del estudiante o admin" />
-            </div>
-
-            <div class="field">
-              <span>Correo (ID del documento)</span>
-              <input type="email" id="admin-new-user-email" placeholder="correo@ejemplo.com" />
-            </div>
-
-            <div class="field">
-              <span>Contraseña (referencia)</span>
-              <input type="text" id="admin-new-user-password" placeholder="Misma que en Authentication" />
-            </div>
-
-            <div class="field">
-              <span>Rol</span>
-              <select id="admin-new-user-role">
-                <option value="usuario">Usuario</option>
-                <option value="admin">Administrador</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <span>Estado</span>
-              <select id="admin-new-user-status">
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <span>Fecha de vencimiento</span>
-              <input type="date" id="admin-new-user-expiry" />
-            </div>
-          </div>
-
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-create-user" class="btn btn-primary">
-              Agregar usuario
-            </button>
-          </div>
-        </div>
-
-        <!-- Tabla de usuarios -->
-        <div id="admin-users-table"></div>
-      </section>
-
-      <!-- ================= PANEL: ANÁLISIS ================= -->
-      <section id="admin-panel-analytics" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Análisis</h2>
-            <p class="panel-subtitle">
-              Estadísticas globales de secciones, exámenes y desempeño de los estudiantes.
-            </p>
-          </div>
-        </div>
-
-        <div id="admin-analytics-summary" class="cards-list"></div>
-        <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
-      </section>
-
-      <!-- ================= PANEL: PANTALLA PRINCIPAL / LANDING ================= -->
-      <section id="admin-panel-landing" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Pantalla principal</h2>
-            <p class="panel-subtitle">
-              Configura el texto de bienvenida, precios y enlaces de la interfaz pública.
-            </p>
-          </div>
-        </div>
-
-        <!-- Bloque de texto principal -->
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
-          <label class="field">
-            <span>Texto que aparece debajo del panel de acceso</span>
-            <textarea id="admin-landing-text" rows="5" placeholder="Descripción de la plataforma Estudiante ENARM"></textarea>
-          </label>
-        </div>
-
-        <!-- Precios y WhatsApp -->
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
-
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Etiqueta plan mensual</span>
-              <input type="text" id="admin-monthly-label" placeholder="Plan mensual" />
-            </div>
-            <div class="field">
-              <span>Precio plan mensual (MXN)</span>
-              <input type="number" id="admin-monthly-price" min="0" step="1" />
-            </div>
-
-            <div class="field">
-              <span>Etiqueta plan ENARM 2026</span>
-              <input type="text" id="admin-enarm-label" placeholder="Plan ENARM 2026" />
-            </div>
-            <div class="field">
-              <span>Precio plan ENARM 2026 (MXN)</span>
-              <input type="number" id="admin-enarm-price" min="0" step="1" />
-            </div>
-
-            <div class="field">
-              <span>Número de WhatsApp</span>
-              <input type="text" id="admin-whatsapp-phone" placeholder="+525515656316" />
-            </div>
-          </div>
-
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-save-landing" class="btn btn-primary">
-              Guardar pantalla principal
-            </button>
-          </div>
-        </div>
-
-        <!-- Links de redes sociales -->
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
-
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Instagram</span>
-              <input type="url" id="admin-instagram-link" placeholder="https://instagram.com/..." />
-            </div>
-            <div class="field">
-              <span>WhatsApp (URL completa)</span>
-              <input type="url" id="admin-whatsapp-link" placeholder="https://wa.me/..." />
-            </div>
-            <div class="field">
-              <span>TikTok</span>
-              <input type="url" id="admin-tiktok-link" placeholder="https://www.tiktok.com/..." />
-            </div>
-            <div class="field">
-              <span>Telegram</span>
-              <input type="url" id="admin-telegram-link" placeholder="https://t.me/..." />
-            </div>
-          </div>
-
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-save-social-links" class="btn btn-primary">
-              Guardar redes sociales
-            </button>
-          </div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- MODAL GENÉRICO -->
-    <div id="admin-modal-overlay" class="modal-overlay hidden">
-      <div id="admin-modal" class="modal">
-        <h3 id="admin-modal-title"></h3>
-        <div id="admin-modal-body"></div>
-        <div class="modal-actions">
-          <button id="admin-modal-cancel" class="btn btn-outline">Cancelar</button>
-          <button id="admin-modal-ok" class="btn btn-primary">Guardar</button>
-        </div>
+      <div class="flex-row" style="justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm bank-btn-edit">Editar</button>
+        <button class="btn btn-primary btn-sm bank-btn-save hidden">Guardar</button>
       </div>
     </div>
 
-  </section>
+    <div style="margin-top:10px;">
+      <label class="field">
+        <span>Tema (topic)</span>
+        <input class="bank-topic-input" type="text" value="${escapeHtml(topic)}" disabled />
+      </label>
 
-  <!-- LÓGICA ADMIN -->
-  <script type="module" src="admin.js"></script>
-</body>
+      <label class="field" style="margin-top:8px;">
+        <span>Especialidad</span>
+        <input class="bank-specialty-input" type="text" value="${escapeHtml(specialty)}" disabled />
+      </label>
+
+      <label class="field" style="margin-top:8px;">
+        <span>CaseText</span>
+        <textarea class="bank-casetext" rows="5" disabled>${escapeHtml(caseText)}</textarea>
+      </label>
+
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;">Ver/editar preguntas (${questionsArr.length})</summary>
+        <textarea class="bank-questions-json" rows="10" disabled>${escapeHtml(JSON.stringify(questionsArr, null, 2))}</textarea>
+        <p class="panel-subtitle" style="margin-top:6px;">
+          Este JSON debe conservar la estructura: questionText, optionA-D, correctOption, justification, difficulty, subtype.
+        </p>
+      </details>
+    </div>
+  `;
+
+  // Handlers
+  const checkbox = card.querySelector(".bank-select");
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) bankState.selected.set(id, data);
+    else bankState.selected.delete(id);
+    updateBankSelectionUI();
+  });
+
+  const btnEdit = card.querySelector(".bank-btn-edit");
+  const btnSave = card.querySelector(".bank-btn-save");
+
+  btnEdit.addEventListener("click", () => {
+    setBankCardEditable(card, true);
+    btnSave.classList.remove("hidden");
+  });
+
+  btnSave.addEventListener("click", async () => {
+    await saveBankCard(card, id);
+    setBankCardEditable(card, false);
+    btnSave.classList.add("hidden");
+  });
+
+  return card;
+}
+
+function setBankCardEditable(card, editable) {
+  card.querySelector(".bank-topic-input").disabled = !editable;
+  card.querySelector(".bank-specialty-input").disabled = !editable;
+  card.querySelector(".bank-casetext").disabled = !editable;
+  card.querySelector(".bank-questions-json").disabled = !editable;
+}
+
+function updateBankSelectionUI() {
+  const btn = $("admin-bank-btn-add-to-mini");
+  const n = bankState.selected.size;
+  btn.disabled = n === 0;
+  btn.textContent = n === 0
+    ? "Agregar seleccionados a Mini exámenes"
+    : `Agregar ${n} seleccionados a Mini exámenes`;
+}
+
+async function saveBankCard(card, id) {
+  const topic = (card.querySelector(".bank-topic-input").value || "").trim();
+  const specialty = (card.querySelector(".bank-specialty-input").value || "").trim();
+  const caseText = (card.querySelector(".bank-casetext").value || "").trim();
+  const qJson = (card.querySelector(".bank-questions-json").value || "").trim();
+
+  let questionsArr = [];
+  try {
+    questionsArr = JSON.parse(qJson);
+    if (!Array.isArray(questionsArr)) throw new Error("questions no es arreglo");
+  } catch (err) {
+    toast("El JSON de preguntas no es válido. No se guardó.\n" + err.message);
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "questions", id), {
+      topic,
+      specialty,
+      caseText,
+      questions: questionsArr,
+      updatedAt: serverTimestamp(),
+    });
+
+    toast("Caso actualizado correctamente.");
+
+    // actualiza cache selección si estaba seleccionado
+    if (bankState.selected.has(id)) {
+      bankState.selected.set(id, { ...(bankState.selected.get(id) || {}), topic, specialty, caseText, questions: questionsArr });
+    }
+  } catch (err) {
+    console.error(err);
+    toast("Error al guardar en Firestore. Revisa consola.");
+  }
+}
+
+async function addSelectedBankCasesToMini() {
+  const selectedIds = Array.from(bankState.selected.keys());
+  if (!selectedIds.length) return;
+
+  const ok = confirm(`Se copiarán ${selectedIds.length} casos a miniQuestions.\n¿Continuar?`);
+  if (!ok) return;
+
+  try {
+    let created = 0;
+
+    for (const qid of selectedIds) {
+      const data = bankState.selected.get(qid);
+      if (!data) continue;
+
+      await addDoc(collection(db, "miniQuestions"), {
+        caseText: data.caseText || "",
+        specialty: data.specialty || null,
+        topic: data.topic || "",
+        questions: Array.isArray(data.questions) ? data.questions : [],
+        sourceQuestionId: qid,          // ✅ trazabilidad
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      created++;
+    }
+
+    toast(`Listo. Se copiaron ${created} casos a miniQuestions.`);
+    bankState.selected.clear();
+    updateBankSelectionUI();
+
+    // Refresca panel mini si está abierto
+    await loadMiniBank();
+  } catch (err) {
+    console.error(err);
+    toast("Error copiando a miniQuestions. Revisa consola.");
+  }
+}
+
 </html>
