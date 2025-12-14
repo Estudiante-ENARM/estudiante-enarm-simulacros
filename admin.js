@@ -7,9 +7,12 @@
  * - Configuración de pantalla principal
  * - Analytics básicos
  *
- * ✅ MODIFICACIÓN PRINCIPAL (sin afectar el resto):
- * - Soporte para campo "topic" por caso clínico en colección "questions"
- *   (para que lo que importas desde import-exam.html no se pierda al editar/guardar)
+ * ✅ MODIFICACIONES IMPORTANTES (sin romper lo existente):
+ * 1) Se agregó el PANEL "Banco de preguntas" (colección: questions)
+ *    - Navegación lateral + render + filtros + paginación + edición básica
+ *    - Selección de casos y copia a miniQuestions (para usar "Agregar casos desde banco")
+ *
+ * 2) Imports Firestore: startAfter + limit (para paginación del panel banco)
  ****************************************************/
 
 // Firebase inicializado en firebase-config.js
@@ -41,6 +44,8 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  startAfter, // ✅ NUEVO
+  limit,      // ✅ NUEVO
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 /****************************************************
@@ -57,6 +62,10 @@ const sidebar = document.getElementById("admin-sidebar");
 const sectionsList = document.getElementById("admin-sections-list");
 const btnAddSection = document.getElementById("admin-btn-add-section");
 const btnNavExams = document.getElementById("admin-btn-nav-exams");
+
+// ✅ NUEVO: NAV BANCO
+const btnNavBank = document.getElementById("admin-btn-nav-bank");
+
 const btnNavMini = document.getElementById("admin-btn-nav-mini");
 const btnNavUsers = document.getElementById("admin-btn-nav-users");
 const btnNavAnalytics = document.getElementById("admin-btn-nav-analytics");
@@ -65,6 +74,10 @@ const adminSocialIcons = document.querySelectorAll(".admin-social-icon");
 
 // Paneles principales
 const panelExams = document.getElementById("admin-panel-exams");
+
+// ✅ NUEVO: PANEL BANCO (questions)
+const panelBank = document.getElementById("admin-panel-bank");
+
 const panelMini = document.getElementById("admin-panel-mini");
 const panelUsers = document.getElementById("admin-panel-users");
 const panelAnalytics = document.getElementById("admin-panel-analytics");
@@ -85,9 +98,23 @@ const btnSaveExamAll = document.getElementById("admin-btn-save-exam");
 const btnAddCaseTop = document.getElementById("admin-btn-add-case");
 const btnImportExamJson = document.getElementById("admin-btn-import-exam");
 
-// ==================== NUEVO: BUSCADOR BANCO ====================
+// ==================== BUSCADOR BANCO (miniQuestions) PARA AGREGAR CASOS A EXAMEN ====================
 const bankSearchInput = document.getElementById("admin-bank-search-input");
 const bankSearchResults = document.getElementById("admin-bank-search-results");
+
+// ==================== PANEL BANCO (questions) ====================
+const bankFilterCaseText = document.getElementById("admin-bank-search");
+const bankFilterTopic = document.getElementById("admin-bank-topic");
+const bankFilterSpecialty = document.getElementById("admin-bank-specialty");
+const bankFilterExamId = document.getElementById("admin-bank-examid");
+
+const bankBtnClear = document.getElementById("admin-bank-btn-clear");
+const bankBtnRefresh = document.getElementById("admin-bank-btn-refresh");
+const bankBtnApply = document.getElementById("admin-bank-btn-apply");
+const bankBtnAddToMini = document.getElementById("admin-bank-btn-add-to-mini");
+
+const bankListEl = document.getElementById("admin-bank-list");
+const bankBtnLoadMore = document.getElementById("admin-bank-btn-load-more");
 
 // ==================== PANEL USUARIOS ====================
 const newUserNameInput = document.getElementById("admin-new-user-name");
@@ -168,8 +195,8 @@ let examsLoadToken = 0;
 let miniCases = [];
 let miniCasesLoadedOnce = false;
 
-// ==================== NUEVO: CACHE BANCO PARA BUSCADOR ====================
-let bankCasesCache = [];           // Viene de miniQuestions (banco global)
+// CACHE BANCO miniQuestions PARA BUSCADOR (detalle examen)
+let bankCasesCache = [];
 let bankCasesLoadedOnce = false;
 let bankSearchDebounceTimer = null;
 
@@ -186,10 +213,11 @@ function hide(el) {
 }
 
 function setActivePanel(panelId) {
-  const panels = [panelExams, panelMini, panelUsers, panelAnalytics, panelLanding];
+  const panels = [panelExams, panelBank, panelMini, panelUsers, panelAnalytics, panelLanding];
   panels.forEach((p) => hide(p));
 
   if (panelId === "exams") show(panelExams);
+  if (panelId === "bank") show(panelBank);
   if (panelId === "mini") show(panelMini);
   if (panelId === "users") show(panelUsers);
   if (panelId === "analytics") show(panelAnalytics);
@@ -296,10 +324,7 @@ if (modalBtnOk) {
 }
 
 /****************************************************
- * NUEVO: BUSCADOR DE BANCO (miniQuestions) PARA AGREGAR CASOS A EXAMEN
- * - Carga bajo demanda (solo al abrir un examen)
- * - Búsqueda local (rápida) con debounce
- * - No toca el flujo actual de guardar/importar
+ * BUSCADOR DE BANCO (miniQuestions) PARA AGREGAR CASOS A EXAMEN
  ****************************************************/
 
 function normalizeText(str) {
@@ -307,7 +332,7 @@ function normalizeText(str) {
     .toString()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quitar acentos
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -319,8 +344,6 @@ function getSpecialtyLabel(key) {
 
 async function loadBankCasesIfNeeded() {
   if (bankCasesLoadedOnce) return;
-
-  // Si no existe UI, no hacemos nada.
   if (!bankSearchResults) return;
 
   bankSearchResults.innerHTML = `
@@ -349,7 +372,6 @@ async function loadBankCasesIfNeeded() {
 
     bankCasesLoadedOnce = true;
 
-    // Mensaje inicial
     renderEmptyMessage(
       bankSearchResults,
       bankCasesCache.length
@@ -419,7 +441,6 @@ function renderBankSearchResults(results, queryText) {
 
   bankSearchResults.innerHTML = html;
 
-  // Eventos: agregar caso al examen actual
   bankSearchResults
     .querySelectorAll(".admin-bank-add-case")
     .forEach((btn) => {
@@ -433,23 +454,22 @@ function renderBankSearchResults(results, queryText) {
           return;
         }
 
-        // Antes de modificar memoria, sincroniza lo escrito en el DOM
         syncCurrentExamCasesFromDOM();
 
-        // Clonar para evitar referencias al cache
+        const safeQuestions = Array.isArray(found.questions) ? found.questions : [];
         const cloned = {
           caseText: found.caseText || "",
           specialty: found.specialty || "",
-          topic: "", // ✅ NUEVO: por defecto vacío (puedes editarlo en el examen)
-          questions: Array.isArray(found.questions)
-            ? found.questions.map((q) => ({
-                questionText: q.questionText || "",
-                optionA: q.optionA || "",
-                optionB: q.optionB || "",
-                optionC: q.optionC || "",
-                optionD: q.optionD || "",
-                correctOption: q.correctOption || "",
-                justification: q.justification || "",
+          topic: "",
+          questions: safeQuestions.length
+            ? safeQuestions.map((q) => ({
+                questionText: q.questionText || q.question || "",
+                optionA: q.optionA || q.a || "",
+                optionB: q.optionB || q.b || "",
+                optionC: q.optionC || q.c || "",
+                optionD: q.optionD || q.d || "",
+                correctOption: q.correctOption || q.correct || q.answer || "",
+                justification: q.justification || q.explanation || "",
                 subtype: q.subtype || "salud_publica",
                 difficulty: q.difficulty || "media",
               }))
@@ -459,7 +479,6 @@ function renderBankSearchResults(results, queryText) {
         currentExamCases.push(cloned);
         renderExamCases();
 
-        // Feedback visual mínimo
         btn.textContent = "Agregado";
         btn.disabled = true;
       });
@@ -470,26 +489,21 @@ function searchBankCases(rawQuery) {
   const q = normalizeText(rawQuery);
   if (!q) return [];
 
-  // Tokens mínimos para precisión
   const tokens = q.split(" ").filter((t) => t.length >= 3);
   if (!tokens.length) return [];
 
-  // Búsqueda AND (todas las palabras) para que sea más “precisa”
-  // Se busca en caseText y también en textos de preguntas.
   const results = [];
   for (const c of bankCasesCache) {
     const haystack = `${c._normCase} ${c._normQs}`;
     const ok = tokens.every((t) => haystack.includes(t));
     if (ok) results.push(c);
-    if (results.length >= 20) break; // límite para UI rápida
+    if (results.length >= 20) break;
   }
   return results;
 }
 
 function initBankSearchUI() {
   if (!bankSearchInput || !bankSearchResults) return;
-
-  // Evita doble binding si por cualquier razón se llama varias veces.
   if (bankSearchInput.dataset.bound === "1") return;
   bankSearchInput.dataset.bound = "1";
 
@@ -505,14 +519,11 @@ function initBankSearchUI() {
 
 function resetBankSearchUI() {
   if (bankSearchInput) bankSearchInput.value = "";
-  if (bankSearchResults) {
-    bankSearchResults.innerHTML = "";
-  }
+  if (bankSearchResults) bankSearchResults.innerHTML = "";
 }
 
 /****************************************************
  * PANEL USUARIOS – TABLA “RESUMEN” (OPCIONAL)
- * (Ya no se carga al inicio para no hacer más pesada la carga)
  ****************************************************/
 async function loadUsersTable() {
   if (!usersTableContainer) return;
@@ -599,7 +610,6 @@ async function loadUsersTable() {
 
 /****************************************************
  * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
- * - Solo cargamos lo mínimo para no tardar 20+ segundos.
  ****************************************************/
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -643,12 +653,10 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Inicializar buscador (eventos)
+  // Inicializar buscador (miniQuestions) para detalle examen
   initBankSearchUI();
 
   // 2) Cargar SOLO lo básico al inicio:
-  //    - Secciones (para poder trabajar)
-  //    - Landing (config ligera)
   try {
     await loadSections();
   } catch (err) {
@@ -671,6 +679,7 @@ onAuthStateChanged(auth, async (user) => {
 function clearSidebarActive() {
   [
     btnNavExams,
+    btnNavBank,
     btnNavMini,
     btnNavUsers,
     btnNavAnalytics,
@@ -687,13 +696,24 @@ if (btnNavExams) {
   });
 }
 
+// ✅ NUEVO: NAV BANCO (questions)
+if (btnNavBank) {
+  btnNavBank.addEventListener("click", () => {
+    clearSidebarActive();
+    btnNavBank.classList.add("sidebar-btn--active");
+    setActivePanel("bank");
+    sidebar.classList.remove("sidebar--open");
+    initBankPanelOnce();
+    loadBankQuestions(true);
+  });
+}
+
 if (btnNavMini) {
   btnNavMini.addEventListener("click", () => {
     clearSidebarActive();
     btnNavMini.classList.add("sidebar-btn--active");
     setActivePanel("mini");
     sidebar.classList.remove("sidebar--open");
-    // Cargar mini exámenes SOLO cuando entras a este panel
     loadMiniCases();
   });
 }
@@ -704,7 +724,6 @@ if (btnNavUsers) {
     btnNavUsers.classList.add("sidebar-btn--active");
     setActivePanel("users");
     sidebar.classList.remove("sidebar--open");
-    // Cargar CRUD de usuarios sólo al entrar
     loadUsers();
   });
 }
@@ -715,7 +734,6 @@ if (btnNavAnalytics) {
     btnNavAnalytics.classList.add("sidebar-btn--active");
     setActivePanel("analytics");
     sidebar.classList.remove("sidebar--open");
-    // Cargar resumen solo cuando lo necesitas
     loadAnalyticsSummary();
   });
 }
@@ -1004,15 +1022,12 @@ async function getOrCreateSectionByName(name) {
 
 /****************************************************
  * EXÁMENES (LISTA POR SECCIÓN)
- * - Ordenados alfabética/numéricamente
- * - Protegidos contra condiciones de carrera
  ****************************************************/
 
 async function loadExamsForSection(sectionId) {
   if (!examsListEl) return;
   examsListEl.innerHTML = "";
 
-  // Token para saber si esta carga sigue siendo la más reciente
   const thisLoadToken = ++examsLoadToken;
 
   const qEx = query(
@@ -1021,7 +1036,6 @@ async function loadExamsForSection(sectionId) {
   );
   const snap = await getDocs(qEx);
 
-  // Si mientras se cargaba cambió la sección o se lanzó otra carga, abortamos
   if (thisLoadToken !== examsLoadToken || sectionId !== currentSectionId) {
     return;
   }
@@ -1034,7 +1048,6 @@ async function loadExamsForSection(sectionId) {
     return;
   }
 
-  // Ordenar exámenes alfabética/numéricamente por nombre
   const sortedDocs = snap.docs
     .slice()
     .sort((a, b) => {
@@ -1183,9 +1196,9 @@ function openEditExamNameModal(examId, currentName) {
   });
 }
 
-/**
- * Importar varios exámenes desde un JSON (botón "Importar exámenes JSON")
- */
+/****************************************************
+ * IMPORTAR VARIOS EXÁMENES JSON (CREA EXAMS + QUESTIONS CON examId)
+ ****************************************************/
 async function importExamsFromJson(json) {
   let examsArray = [];
 
@@ -1229,7 +1242,7 @@ async function importExamsFromJson(json) {
     for (const caseSpec of casesArr) {
       const caseText = caseSpec.caseText || caseSpec.case || "";
       const specialty = caseSpec.specialty || "";
-      const topic = (caseSpec.topic || "").toString().trim(); // ✅ NUEVO
+      const topic = (caseSpec.topic || "").toString().trim();
 
       const questionsSrc = Array.isArray(caseSpec.questions)
         ? caseSpec.questions
@@ -1267,7 +1280,7 @@ async function importExamsFromJson(json) {
         examId,
         caseText,
         specialty,
-        topic, // ✅ NUEVO (si viene en JSON)
+        topic,
         questions: questionsFormatted,
         createdAt: serverTimestamp(),
       });
@@ -1317,14 +1330,11 @@ function createEmptyCase() {
   return {
     caseText: "",
     specialty: "",
-    topic: "", // ✅ NUEVO
+    topic: "",
     questions: [createEmptyQuestion()],
   };
 }
 
-/**
- * Sincroniza currentExamCases con TODO lo escrito en el DOM actual.
- */
 function syncCurrentExamCasesFromDOM() {
   if (!examCasesContainer) return;
 
@@ -1337,7 +1347,6 @@ function syncCurrentExamCasesFromDOM() {
     const specialty =
       block.querySelector(".admin-case-specialty")?.value || "";
 
-    // ✅ NUEVO: topic por caso
     const topic =
       block.querySelector(".admin-case-topic")?.value.trim() || "";
 
@@ -1388,7 +1397,7 @@ function syncCurrentExamCasesFromDOM() {
     newCases.push({
       caseText,
       specialty,
-      topic, // ✅ NUEVO
+      topic,
       questions: questions.length ? questions : [createEmptyQuestion()],
     });
   });
@@ -1404,7 +1413,6 @@ async function openExamDetail(examId, examName) {
   show(panelExams);
   show(examDetailView);
 
-  // Reset buscador visual (no borra cache)
   resetBankSearchUI();
 
   if (examTitleInput) {
@@ -1425,14 +1433,13 @@ async function openExamDetail(examId, examName) {
   } else {
     currentExamCases = snap.docs.map((d) => ({
       id: d.id,
-      ...d.data(), // aquí ya viene topic si existe
-      topic: (d.data()?.topic || "").toString(), // ✅ asegura string
+      ...d.data(),
+      topic: (d.data()?.topic || "").toString(),
     }));
   }
 
   renderExamCases();
 
-  // Cargar banco solo cuando realmente estás en detalle de examen
   await loadBankCasesIfNeeded();
 }
 
@@ -1450,7 +1457,7 @@ function renderExamCases() {
     wrapper.dataset.caseIndex = index;
 
     const specialtyValue = caseData.specialty || "";
-    const topicValue = (caseData.topic || "").toString(); // ✅ NUEVO
+    const topicValue = (caseData.topic || "").toString();
     const questionsArr = Array.isArray(caseData.questions)
       ? caseData.questions
       : [];
@@ -1480,7 +1487,6 @@ function renderExamCases() {
         </select>
       </label>
 
-      <!-- ✅ NUEVO: TEMA (topic) POR CASO -->
       <label class="field">
         <span>Tema (topic)</span>
         <input type="text" class="admin-case-topic" value="${topicValue.replace(/"/g, "&quot;")}" placeholder="Ej. EPOC / Exacerbación / Apendicitis..." />
@@ -1529,7 +1535,6 @@ function renderExamCases() {
     examCasesContainer.appendChild(wrapper);
   });
 
-  // Botones inferiores
   const bottomActions = document.createElement("div");
   bottomActions.className = "flex-row";
   bottomActions.style.justifyContent = "flex-end";
@@ -1678,8 +1683,6 @@ if (btnBackToExams) {
     if (examCasesContainer) examCasesContainer.innerHTML = "";
     hide(examDetailView);
     show(panelExams);
-
-    // Reset buscador visual
     resetBankSearchUI();
 
     if (currentSectionId) {
@@ -1713,8 +1716,6 @@ if (btnSaveExamAll) {
     for (const block of caseBlocks) {
       const caseText = block.querySelector(".admin-case-text").value.trim();
       const specialty = block.querySelector(".admin-case-specialty").value;
-
-      // ✅ NUEVO: topic por caso
       const topic = block.querySelector(".admin-case-topic")?.value.trim() || "";
 
       if (!caseText) {
@@ -1772,7 +1773,7 @@ if (btnSaveExamAll) {
       casesToSave.push({
         caseText,
         specialty,
-        topic, // ✅ NUEVO
+        topic,
         questions,
       });
     }
@@ -1800,7 +1801,7 @@ if (btnSaveExamAll) {
           examId: currentExamId,
           caseText: c.caseText,
           specialty: c.specialty,
-          topic: c.topic || "", // ✅ NUEVO: se guarda topic (no se pierde)
+          topic: c.topic || "",
           questions: c.questions,
           createdAt: serverTimestamp(),
         });
@@ -1833,7 +1834,7 @@ if (btnAddCaseTop) {
 }
 
 /**
- * Importar un solo examen (JSON) directamente al formulario del examen abierto.
+ * Importar un solo examen (JSON) directo al UI del examen abierto (sin guardar aún).
  */
 function normalizeQuestionFromJson(raw) {
   return {
@@ -1879,14 +1880,14 @@ function loadExamFromJsonIntoUI(json) {
   currentExamCases = casesArr.map((c) => {
     const caseText = c.caseText || c.case || "";
     const specialty = c.specialty || "";
-    const topic = (c.topic || "").toString().trim(); // ✅ NUEVO
+    const topic = (c.topic || "").toString().trim();
     const qsRaw = Array.isArray(c.questions) ? c.questions : [];
     const questions =
       qsRaw.length > 0
         ? qsRaw.map((q) => normalizeQuestionFromJson(q))
         : [createEmptyQuestion()];
 
-    return { caseText, specialty, topic, questions }; // ✅ NUEVO
+    return { caseText, specialty, topic, questions };
   });
 
   renderExamCases();
@@ -1911,7 +1912,7 @@ if (btnImportExamJson) {
 }
 
 /****************************************************
- * MINI EXÁMENES – BANCO GLOBAL DE CASOS
+ * MINI EXÁMENES – BANCO GLOBAL (miniQuestions)
  ****************************************************/
 
 const miniCasesContainer = document.getElementById("admin-mini-cases");
@@ -2238,7 +2239,7 @@ async function handleSaveMiniBank() {
       });
     }
 
-    // Refrescar cache del buscador para que quede al día
+    // Refrescar cache del buscador del detalle examen
     bankCasesLoadedOnce = false;
     bankCasesCache = [];
 
@@ -2647,7 +2648,6 @@ if (btnSaveSocialLinks) {
 
 /****************************************************
  * ANALYTICS BÁSICOS
- * (Solo se carga al entrar al panel de “Análisis”)
  ****************************************************/
 
 async function loadAnalyticsSummary() {
@@ -2754,6 +2754,293 @@ async function loadAnalyticsSummary() {
 }
 
 /****************************************************
+ * ✅ PANEL BANCO DE PREGUNTAS (questions → miniQuestions)
+ ****************************************************/
+
+let bankPanelInited = false;
+let bankLastDoc = null;
+let bankLoading = false;
+let bankSelectedIds = new Set();
+
+function normalizeForIncludes(s) {
+  return (s || "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function updateBankSelectionUI() {
+  if (!bankBtnAddToMini) return;
+  bankBtnAddToMini.disabled = bankSelectedIds.size === 0;
+}
+
+function getBankFilters() {
+  return {
+    caseText: (bankFilterCaseText?.value || "").trim(),
+    topic: (bankFilterTopic?.value || "").trim(),
+    specialty: (bankFilterSpecialty?.value || "").trim(),
+    examId: (bankFilterExamId?.value || "").trim(),
+  };
+}
+
+function initBankPanelOnce() {
+  if (bankPanelInited) return;
+  bankPanelInited = true;
+
+  if (bankBtnApply) bankBtnApply.addEventListener("click", () => loadBankQuestions(true));
+  if (bankBtnRefresh) bankBtnRefresh.addEventListener("click", () => loadBankQuestions(true));
+
+  if (bankBtnClear) {
+    bankBtnClear.addEventListener("click", () => {
+      if (bankFilterCaseText) bankFilterCaseText.value = "";
+      if (bankFilterTopic) bankFilterTopic.value = "";
+      if (bankFilterSpecialty) bankFilterSpecialty.value = "";
+      if (bankFilterExamId) bankFilterExamId.value = "";
+      bankSelectedIds.clear();
+      updateBankSelectionUI();
+      loadBankQuestions(true);
+    });
+  }
+
+  if (bankBtnLoadMore) bankBtnLoadMore.addEventListener("click", () => loadBankQuestions(false));
+
+  if (bankBtnAddToMini) {
+    bankBtnAddToMini.addEventListener("click", async () => {
+      if (!bankSelectedIds.size) return;
+
+      const ok = confirm(`Se copiarán ${bankSelectedIds.size} casos seleccionados a miniQuestions. ¿Continuar?`);
+      if (!ok) return;
+
+      try {
+        bankBtnAddToMini.disabled = true;
+
+        const selectedDocs = [];
+        for (const id of bankSelectedIds) {
+          const ref = doc(db, "questions", id);
+          const snap = await getDoc(ref);
+          if (snap.exists()) selectedDocs.push(snap.data());
+        }
+
+        if (!selectedDocs.length) {
+          alert("No se encontró ningún documento seleccionado (questions).");
+          updateBankSelectionUI();
+          return;
+        }
+
+        for (const data of selectedDocs) {
+          const questionsArr = Array.isArray(data.questions) ? data.questions : [];
+          await addDoc(collection(db, "miniQuestions"), {
+            caseText: data.caseText || "",
+            specialty: data.specialty || "",
+            questions: questionsArr,
+            createdAt: serverTimestamp(),
+          });
+        }
+
+        // refrescar buscador del detalle examen
+        bankCasesLoadedOnce = false;
+        bankCasesCache = [];
+
+        alert(`Listo. Copiados: ${selectedDocs.length} casos a miniQuestions.`);
+        bankSelectedIds.clear();
+        updateBankSelectionUI();
+      } catch (err) {
+        console.error("Error copiando a miniQuestions:", err);
+        alert("Error copiando a miniQuestions. Revisa consola.");
+        updateBankSelectionUI();
+      }
+    });
+  }
+
+  updateBankSelectionUI();
+}
+
+function renderBankRow({ id, data }) {
+  const caseText = data.caseText || "";
+  const topic = data.topic || "";
+  const specialty = data.specialty || "";
+  const examId = data.examId || "";
+  const questionsArr = Array.isArray(data.questions) ? data.questions : [];
+
+  const checked = bankSelectedIds.has(id) ? "checked" : "";
+  const snippet = caseText.slice(0, 240);
+
+  const item = document.createElement("div");
+  item.className = "card-item";
+
+  item.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;">
+      <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;flex:1;">
+        <input type="checkbox" class="admin-bank-select" data-id="${id}" ${checked} />
+        <div style="min-width:0;flex:1;">
+          <div style="font-weight:600;font-size:13px;">
+            ${topic ? topic : "Caso"}${specialty ? ` · ${specialty}` : ""}${examId ? ` · examId: ${examId}` : ""}
+          </div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">
+            ${questionsArr.length} pregunta${questionsArr.length === 1 ? "" : "s"}
+          </div>
+        </div>
+      </label>
+
+      <button class="btn btn-sm btn-outline admin-bank-edit" data-id="${id}">
+        Editar
+      </button>
+    </div>
+
+    <div style="font-size:13px;line-height:1.45;color:#e5e7eb;margin-top:8px;">
+      ${snippet}${caseText.length > 240 ? "…" : ""}
+    </div>
+  `;
+
+  item.querySelector(".admin-bank-select").addEventListener("change", (e) => {
+    const did = e.target.dataset.id;
+    if (e.target.checked) bankSelectedIds.add(did);
+    else bankSelectedIds.delete(did);
+    updateBankSelectionUI();
+  });
+
+  item.querySelector(".admin-bank-edit").addEventListener("click", () => {
+    openModal({
+      title: "Editar caso (questions)",
+      bodyHtml: `
+        <label class="field">
+          <span>Tema (topic)</span>
+          <input type="text" id="modal-bank-topic" value="${String(topic).replace(/"/g, "&quot;")}" />
+        </label>
+        <label class="field">
+          <span>Especialidad</span>
+          <input type="text" id="modal-bank-specialty" value="${String(specialty).replace(/"/g, "&quot;")}" />
+        </label>
+        <label class="field">
+          <span>ExamID (opcional)</span>
+          <input type="text" id="modal-bank-examid" value="${String(examId).replace(/"/g, "&quot;")}" />
+        </label>
+        <label class="field">
+          <span>Texto del caso clínico</span>
+          <textarea id="modal-bank-casetext" rows="5">${caseText}</textarea>
+        </label>
+        <div class="card" style="margin-top:10px;padding:10px;">
+          <div style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
+            Nota: aquí no editamos preguntas una por una (se puede agregar después). Se conserva el arreglo questions tal cual.
+          </div>
+          <div style="font-size:12px;color:#9ca3af;">
+            Preguntas actuales: <strong>${questionsArr.length}</strong>
+          </div>
+        </div>
+      `,
+      onOk: async () => {
+        const newTopic = document.getElementById("modal-bank-topic").value.trim();
+        const newSpec = document.getElementById("modal-bank-specialty").value.trim();
+        const newExamId = document.getElementById("modal-bank-examid").value.trim();
+        const newCaseText = document.getElementById("modal-bank-casetext").value.trim();
+
+        if (!newCaseText) {
+          alert("caseText no puede ir vacío.");
+          return;
+        }
+
+        const btn = modalBtnOk;
+        setLoadingButton(btn, true);
+
+        try {
+          await updateDoc(doc(db, "questions", id), {
+            topic: newTopic,
+            specialty: newSpec,
+            examId: newExamId,
+            caseText: newCaseText,
+            updatedAt: serverTimestamp(),
+          });
+          closeModal();
+          loadBankQuestions(true);
+        } catch (err) {
+          console.error("Error editando caso:", err);
+          alert("No se pudo actualizar el caso.");
+        } finally {
+          setLoadingButton(btn, false, "Guardar");
+        }
+      },
+    });
+  });
+
+  return item;
+}
+
+async function loadBankQuestions(reset = false) {
+  if (!bankListEl) return;
+  if (bankLoading) return;
+  bankLoading = true;
+
+  try {
+    if (reset) {
+      bankLastDoc = null;
+      bankListEl.innerHTML = "";
+    }
+
+    const filters = getBankFilters();
+    const needle = normalizeForIncludes(filters.caseText);
+
+    const constraints = [];
+
+    if (filters.examId) constraints.push(where("examId", "==", filters.examId));
+    if (filters.specialty) constraints.push(where("specialty", "==", filters.specialty));
+    if (filters.topic) constraints.push(where("topic", "==", filters.topic));
+
+    constraints.push(orderBy("createdAt", "desc"));
+    if (bankLastDoc) constraints.push(startAfter(bankLastDoc));
+
+    const LIMIT = 25;
+    constraints.push(limit(LIMIT));
+
+    const qFinal = query(collection(db, "questions"), ...constraints);
+    const snap = await getDocs(qFinal);
+
+    if (snap.empty) {
+      if (reset) renderEmptyMessage(bankListEl, "No hay resultados con esos filtros (questions).");
+      bankLoading = false;
+      return;
+    }
+
+    bankLastDoc = snap.docs[snap.docs.length - 1];
+
+    let rendered = 0;
+
+    for (const d of snap.docs) {
+      const data = d.data() || {};
+      const caseText = data.caseText || "";
+
+      if (needle) {
+        const hay = normalizeForIncludes(caseText);
+        if (!hay.includes(needle)) continue;
+      }
+
+      bankListEl.appendChild(renderBankRow({ id: d.id, data }));
+      rendered++;
+    }
+
+    if (reset && rendered === 0) {
+      renderEmptyMessage(bankListEl, "No hay resultados con ese texto en caseText (en este batch). Prueba Refrescar o filtros más amplios.");
+    }
+
+    updateBankSelectionUI();
+  } catch (err) {
+    console.error("Error cargando banco (questions):", err);
+
+    if (reset) {
+      bankListEl.innerHTML = `
+        <div class="card" style="padding:12px 14px;font-size:13px;color:#fecaca;border:1px solid rgba(248,113,113,.35);">
+          Error al cargar el banco (questions). Revisa la consola (posible índice requerido o reglas).
+        </div>
+      `;
+    }
+  } finally {
+    bankLoading = false;
+  }
+}
+
+/****************************************************
  * FIN ADMIN.JS
  ****************************************************/
-console.log("admin.js cargado correctamente (optimizado + topic en questions).");
+console.log("admin.js cargado correctamente (panel banco questions + copia a miniQuestions + topic).");
