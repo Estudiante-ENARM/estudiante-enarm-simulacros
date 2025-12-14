@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estudiante ENARM | Administrador</title>
 
+  <!-- Fuente moderna -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos compartidos -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Favicon (evita error 404 /favicon.ico) -->
   <link rel="icon" type="image/png" href="logo.png" />
 </head>
 
@@ -43,22 +48,15 @@
           Secciones y exámenes
         </button>
 
-        <button id="admin-btn-nav-bank" class="sidebar-btn">
-          Banco de preguntas
-        </button>
-
         <button id="admin-btn-nav-mini" class="sidebar-btn">
           Mini exámenes
         </button>
-
         <button id="admin-btn-nav-users" class="sidebar-btn">
           Usuarios
         </button>
-
         <button id="admin-btn-nav-analytics" class="sidebar-btn">
           Análisis
         </button>
-
         <button id="admin-btn-nav-landing" class="sidebar-btn">
           Pantalla principal
         </button>
@@ -117,7 +115,7 @@
             </div>
           </div>
 
-          <!-- ✅ BUSCADOR: AGREGAR CASOS DESDE BANCO (questions) -->
+          <!-- ================= BUSCADOR: AGREGAR CASOS DESDE BANCO (miniQuestions) ================= -->
           <div class="card" style="margin-top:14px;">
             <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
 
@@ -132,71 +130,14 @@
 
             <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
           </div>
+          <!-- ================= FIN BUSCADOR ================= -->
 
           <!-- Contenedor de casos clínicos + preguntas -->
           <div id="admin-exam-cases" class="cards-list"></div>
         </section>
       </section>
 
-      <!-- ================= PANEL: BANCO DE PREGUNTAS (questions) ================= -->
-      <section id="admin-panel-bank" class="panel hidden">
-        <div class="panel-header">
-          <div>
-            <h2>Banco de preguntas</h2>
-            <p class="panel-subtitle">
-              Edita directamente los casos del banco general (<code>questions</code>).
-            </p>
-          </div>
-        </div>
-
-        <!-- Filtros -->
-        <div class="card">
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Buscar texto (caseText / preguntas)</span>
-              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso o preguntas..." />
-            </div>
-
-            <div class="field">
-              <span>Tema (topic)</span>
-              <input id="admin-bank-topic" type="text" placeholder="Filtra por topic exacto..." />
-            </div>
-
-            <div class="field">
-              <span>Especialidad</span>
-              <input id="admin-bank-specialty" type="text" placeholder="Filtra por specialty exacto..." />
-            </div>
-
-            <div class="field">
-              <span>ExamID</span>
-              <input id="admin-bank-examid" type="text" placeholder="Filtrar por examId exacto..." />
-            </div>
-          </div>
-
-          <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
-            <button id="admin-bank-btn-clear" class="btn btn-outline btn-sm">Limpiar</button>
-            <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
-            <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
-          </div>
-        </div>
-
-        <!-- Lista del banco -->
-        <div id="admin-bank-list" class="cards-list"></div>
-
-        <!-- Paginación -->
-        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">
-            Cargar más
-          </button>
-        </div>
-
-        <!-- Botón opcional (si luego lo reactivas en JS) -->
-        <div class="hidden">
-          <button id="admin-bank-btn-add-to-mini"></button>
-        </div>
-      </section>
-
-      <!-- ================= PANEL: MINI EXÁMENES ================= -->
+      <!-- ================= PANEL: MINI EXÁMENES (BANCO GLOBAL) ================= -->
       <section id="admin-panel-mini" class="panel hidden">
         <div class="panel-header">
           <div>
@@ -216,6 +157,24 @@
           </div>
         </div>
 
+        <!-- ✅ NUEVO: buscador para agregar casos desde el banco (miniQuestions) -->
+        <div class="card" style="margin-bottom:14px;">
+          <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
+
+          <label class="field">
+            <span>Buscar</span>
+            <input
+              type="text"
+              id="admin-mini-bank-search-input"
+              placeholder="Escribe para buscar..."
+            />
+          </label>
+
+          <div id="admin-mini-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
+        </div>
+        <!-- ✅ FIN buscador -->
+
+        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
         <div id="admin-mini-cases" class="cards-list"></div>
       </section>
 
@@ -230,6 +189,7 @@
           </div>
         </div>
 
+        <!-- Formulario nuevo usuario -->
         <div id="create-user-card">
           <h3>Nuevo usuario</h3>
 
@@ -278,6 +238,7 @@
           </div>
         </div>
 
+        <!-- Tabla de usuarios -->
         <div id="admin-users-table"></div>
       </section>
 
@@ -307,6 +268,7 @@
           </div>
         </div>
 
+        <!-- Bloque de texto principal -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
           <label class="field">
@@ -315,6 +277,7 @@
           </label>
         </div>
 
+        <!-- Precios y WhatsApp -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
 
@@ -350,6 +313,7 @@
           </div>
         </div>
 
+        <!-- Links de redes sociales -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
 
@@ -396,6 +360,7 @@
 
   </section>
 
+  <!-- LÓGICA ADMIN -->
   <script type="module" src="admin.js"></script>
 </body>
 </html>
