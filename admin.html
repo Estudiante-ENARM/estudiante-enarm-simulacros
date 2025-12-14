@@ -1,317 +1,417 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin - Estudiante ENARM</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudiante ENARM | Administrador</title>
 
+  <!-- Fuente moderna -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos compartidos -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Favicon (evita error 404 /favicon.ico) -->
   <link rel="icon" type="image/png" href="logo.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --bg:#0f172a;
-      --panel:#020617;
-      --border:rgba(148,163,184,.25);
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --primary:#2563eb;
-      --primary2:#1d4ed8;
-      --danger:#ef4444;
-      --card:rgba(148,163,184,.06);
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-      background:var(--bg);
-      color:var(--text);
-    }
-    .hidden{display:none !important;}
-    .layout{
-      display:grid;
-      grid-template-columns: 290px 1fr;
-      min-height:100vh;
-    }
-    header{
-      position:sticky; top:0;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:14px 16px;
-      background:rgba(2,6,23,.85);
-      border-bottom:1px solid var(--border);
-      backdrop-filter: blur(8px);
-      z-index:5;
-    }
-    .hdr-left{display:flex; align-items:center; gap:10px;}
-    .brand{font-weight:600;}
-    .hdr-right{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px;}
-    .btn{
-      border:none; border-radius:10px;
-      padding:10px 12px;
-      cursor:pointer;
-      font-weight:600;
-      font-size:13px;
-    }
-    .btn-sm{padding:8px 10px; border-radius:9px; font-size:12px;}
-    .btn-primary{
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      color:#fff;
-    }
-    .btn-outline{
-      background:transparent;
-      color:var(--text);
-      border:1px solid var(--border);
-    }
-    .btn-danger{
-      background:rgba(239,68,68,.12);
-      color:#fecaca;
-      border:1px solid rgba(248,113,113,.35);
-    }
-    .sidebar{
-      background:var(--panel);
-      border-right:1px solid var(--border);
-      padding:14px;
-      overflow:auto;
-    }
-    .sidebar.open{ /* para móvil */ }
-    .sidebar h3{
-      margin:10px 0 8px 0;
-      font-size:13px;
-      color:var(--muted);
-      font-weight:600;
-      letter-spacing:.2px;
-      text-transform:uppercase;
-    }
-    .nav{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-bottom:14px;
-    }
-    .sidebar-btn{
-      width:100%;
-      text-align:left;
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:rgba(148,163,184,.05);
-      color:var(--text);
-      cursor:pointer;
-      font-weight:600;
-      font-size:13px;
-    }
-    .sidebar-btn--active{
-      border-color: rgba(96,165,250,.6);
-      box-shadow: 0 0 0 1px rgba(37,99,235,.35);
-      background: rgba(37,99,235,.12);
-    }
-    #admin-sections-list{
-      list-style:none;
-      padding:0; margin:0;
-      display:flex; flex-direction:column;
-      gap:8px;
-    }
-    .sidebar-section-item{
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:rgba(148,163,184,.05);
-      color:var(--text);
-      font-size:13px;
-    }
-    main{
-      padding:14px 16px;
-    }
-    .panel-title{
-      margin:0 0 6px 0;
-      font-size:16px;
-      font-weight:700;
-    }
-    .panel-subtitle{
-      margin:0 0 12px 0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.4;
-    }
-    .card{
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:14px;
-      padding:12px;
-      margin-bottom:12px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.25);
-    }
-    .grid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-    }
-    @media (min-width: 900px){
-      .grid{grid-template-columns: 1fr 1fr;}
-    }
-    label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px;}
-    input[type="text"], textarea, select{
-      width:100%;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.35);
-      background:#020617;
-      color:var(--text);
-      padding:10px 12px;
-      font-size:13px;
-      outline:none;
-    }
-    textarea{resize:vertical;}
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    code{color:#c7d2fe}
-    .topbar-mobile{
-      display:none;
-    }
-    @media (max-width: 880px){
-      .layout{grid-template-columns:1fr;}
-      .sidebar{display:none;}
-      .sidebar.open{display:block;}
-      .topbar-mobile{display:flex;}
-    }
-  </style>
 </head>
 
 <body>
+  <section id="admin-view" class="view">
 
-  <header>
-    <div class="hdr-left">
-      <button id="admin-btn-toggle-sidebar" class="btn btn-outline btn-sm topbar-mobile">☰</button>
-      <div class="brand">Panel Admin</div>
-    </div>
+    <!-- HEADER -->
+    <header class="header">
+      <button id="admin-btn-toggle-sidebar" class="hamburger-btn">☰</button>
+      <div class="header-right">
+        <span id="admin-user-email"></span>
+        <button id="admin-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
 
-    <div class="hdr-right">
-      <span id="admin-user-email"></span>
-      <button id="admin-btn-logout" class="btn btn-danger btn-sm">Salir</button>
-    </div>
-  </header>
-
-  <div class="layout">
-    <aside id="admin-sidebar" class="sidebar">
-      <div class="nav">
-        <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">Exámenes</button>
-        <button id="admin-btn-nav-bank" class="sidebar-btn">Banco de preguntas</button>
-        <button id="admin-btn-nav-mini" class="sidebar-btn">Mini exámenes</button>
-        <button id="admin-btn-nav-users" class="sidebar-btn">Usuarios</button>
-        <button id="admin-btn-nav-analytics" class="sidebar-btn">Analytics</button>
-        <button id="admin-btn-nav-landing" class="sidebar-btn">Landing</button>
+    <!-- SIDEBAR ADMIN -->
+    <aside id="admin-sidebar">
+      <div class="sidebar-logo">
+        <img src="logo.png" alt="Estudiante ENARM" class="sidebar-logo-img" />
+        <h2 class="sidebar-title">Estudiante ENARM</h2>
       </div>
 
-      <h3>Secciones</h3>
-      <ul id="admin-sections-list"></ul>
+      <!-- Secciones dinámicas -->
+      <ul id="admin-sections-list" class="sidebar-sections"></ul>
+
+      <!-- Botón agregar sección -->
+      <button id="admin-btn-add-section" class="sidebar-btn btn-outline">
+        + Agregar sección
+      </button>
+
+      <!-- Navegación de paneles -->
+      <div style="margin-top:12px;">
+        <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
+          Secciones y exámenes
+        </button>
+
+        <!-- ✅ NUEVO: BANCO DE PREGUNTAS (solo admin) -->
+        <button id="admin-btn-nav-bank" class="sidebar-btn">
+          Banco de preguntas
+        </button>
+
+        <button id="admin-btn-nav-mini" class="sidebar-btn">
+          Mini exámenes
+        </button>
+        <button id="admin-btn-nav-users" class="sidebar-btn">
+          Usuarios
+        </button>
+        <button id="admin-btn-nav-analytics" class="sidebar-btn">
+          Análisis
+        </button>
+        <button id="admin-btn-nav-landing" class="sidebar-btn">
+          Pantalla principal
+        </button>
+      </div>
     </aside>
 
-    <main>
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content">
 
-      <!-- ==================== PANEL: EXAMS ==================== -->
-      <section id="admin-panel-exams" class="card">
-        <h2 id="admin-current-section-title" class="panel-title">Selecciona una sección</h2>
-        <p class="panel-subtitle">Aquí verás los exámenes de la sección seleccionada.</p>
-
-        <div id="admin-exams-list"></div>
-      </section>
-
-      <!-- ==================== PANEL: BANK ==================== -->
-      <section id="admin-panel-bank" class="card hidden">
-        <h2 class="panel-title">Banco de preguntas (colección: <code>questions</code>)</h2>
-        <p class="panel-subtitle">
-          Filtra por ExamID / especialidad / tema. El buscador de texto es local (sobre <code>caseText</code>).
-        </p>
-
-        <div class="grid">
-          <div class="card" style="margin:0;">
-            <h3 class="panel-title" style="font-size:14px;">Filtros</h3>
-
-            <div class="row">
-              <div style="flex:1; min-width:240px;">
-                <label>Buscar en caseText</label>
-                <input id="admin-bank-search" type="text" placeholder="Ej. apendicitis, preeclampsia..." />
-              </div>
-
-              <div style="flex:1; min-width:220px;">
-                <label>Tema (topic)</label>
-                <input id="admin-bank-topic" type="text" placeholder="Ej. Abdomen agudo" />
-              </div>
-            </div>
-
-            <div class="row" style="margin-top:10px;">
-              <div style="flex:1; min-width:220px;">
-                <label>Especialidad</label>
-                <input id="admin-bank-specialty" type="text" placeholder="Ej. medicina_interna" />
-              </div>
-
-              <div style="flex:1; min-width:220px;">
-                <label>ExamID</label>
-                <input id="admin-bank-examid" type="text" placeholder="Pega el examId" />
-              </div>
-            </div>
-
-            <div class="row" style="margin-top:12px;">
-              <button id="admin-bank-btn-apply" class="btn btn-primary">Aplicar</button>
-              <button id="admin-bank-btn-clear" class="btn btn-outline">Limpiar</button>
-              <button id="admin-bank-btn-refresh" class="btn btn-outline">Refrescar</button>
-            </div>
-          </div>
-
-          <div class="card" style="margin:0;">
-            <h3 class="panel-title" style="font-size:14px;">Acciones</h3>
-            <p class="panel-subtitle" style="margin-bottom:10px;">
-              Selecciona casos y copia a <code>miniQuestions</code>.
+      <!-- ================= PANEL: SECCIONES + EXÁMENES ================= -->
+      <section id="admin-panel-exams" class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="admin-current-section-title">Selecciona una sección</h2>
+            <p class="panel-subtitle">
+              Administra los simulacros ENARM por sección.
             </p>
-            <button id="admin-bank-btn-add-to-mini" class="btn btn-primary" disabled>
-              Agregar seleccionados a Mini exámenes
+          </div>
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-btn-import-exams-json" class="btn btn-outline btn-sm">
+              Importar exámenes (JSON)
+            </button>
+            <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">
+              + Agregar examen
             </button>
           </div>
         </div>
 
-        <div class="row" style="justify-content:space-between;margin-top:12px;">
-          <div class="panel-subtitle" style="margin:0;">
-            Resultados (paginados)
+        <!-- Lista de exámenes por sección -->
+        <div id="admin-exams-list" class="cards-list"></div>
+
+        <!-- DETALLE DE EXAMEN (CASOS CLÍNICOS) -->
+        <section id="admin-exam-detail" class="panel hidden">
+          <div class="panel-header" style="align-items:flex-end;gap:12px;">
+            <button id="admin-btn-back-to-exams" class="btn btn-outline">
+              ← Volver a exámenes
+            </button>
+
+            <div style="flex:1;">
+              <label class="field">
+                <span>Nombre del examen</span>
+                <input type="text" id="admin-exam-title-input" />
+              </label>
+            </div>
+
+            <div class="flex-row" style="justify-content:flex-end;">
+              <button id="admin-btn-import-exam" class="btn btn-outline btn-sm">
+                Importar examen (JSON)
+              </button>
+              <button id="admin-btn-add-case" class="btn btn-secondary btn-sm">
+                + Agregar caso clínico
+              </button>
+              <button id="admin-btn-save-exam" class="btn btn-primary btn-sm">
+                Guardar examen
+              </button>
+            </div>
           </div>
-          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">Cargar más</button>
+
+          <!-- ================= NUEVO BLOQUE: BUSCADOR DE BANCO DE CASOS ================= -->
+          <div class="card" style="margin-top:14px;">
+            <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
+
+            <label class="field">
+              <span>Buscar por tema</span>
+              <input
+                type="text"
+                id="admin-bank-search-input"
+                placeholder="Ej. apendicitis aguda, preeclampsia, hemorragia posparto"
+              />
+            </label>
+
+            <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
+          </div>
+          <!-- ================= FIN BLOQUE NUEVO ================= -->
+
+          <!-- Contenedor de casos clínicos + preguntas -->
+          <div id="admin-exam-cases" class="cards-list"></div>
+        </section>
+      </section>
+
+      <!-- ================= ✅ NUEVO PANEL: BANCO DE PREGUNTAS (questions) ================= -->
+      <section id="admin-panel-bank" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Banco de preguntas</h2>
+            <p class="panel-subtitle">
+              Edita casos del banco general (<code>questions</code>) y selecciona cuáles copiar a Mini exámenes (<code>miniQuestions</code>).
+            </p>
+          </div>
         </div>
 
-        <div id="admin-bank-list" style="margin-top:12px;"></div>
+        <!-- Filtros -->
+        <div class="card">
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Buscar texto (caseText)</span>
+              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso clínico..." />
+            </div>
+
+            <div class="field">
+              <span>Tema (topic)</span>
+              <input id="admin-bank-topic" type="text" placeholder="Ej. Apendicitis / Preeclampsia..." />
+            </div>
+
+            <div class="field">
+              <span>Especialidad</span>
+              <input id="admin-bank-specialty" type="text" placeholder="Ej. medicina_interna / gine_obstetricia..." />
+            </div>
+
+            <div class="field">
+              <span>ExamID</span>
+              <input id="admin-bank-examid" type="text" placeholder="Filtrar por ID de examen..." />
+            </div>
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
+            <button id="admin-bank-btn-clear" class="btn btn-outline btn-sm">Limpiar</button>
+            <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
+            <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
+          </div>
+        </div>
+
+        <!-- Acciones selección -->
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div class="panel-subtitle" style="margin:0;">
+            Selecciona casos (checkbox) para copiarlos a Mini exámenes.
+          </div>
+          <button id="admin-bank-btn-add-to-mini" class="btn btn-primary btn-sm" disabled>
+            Agregar seleccionados a Mini exámenes
+          </button>
+        </div>
+
+        <!-- Lista del banco -->
+        <div id="admin-bank-list" class="cards-list"></div>
+
+        <!-- Paginación -->
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">
+            Cargar más
+          </button>
+        </div>
       </section>
 
-      <!-- ==================== PANEL: MINI ==================== -->
-      <section id="admin-panel-mini" class="card hidden">
-        <h2 class="panel-title">Mini exámenes (colección: <code>miniQuestions</code>)</h2>
-        <p class="panel-subtitle">Vista rápida del banco global actual.</p>
+      <!-- ================= PANEL: MINI EXÁMENES (BANCO GLOBAL) ================= -->
+      <section id="admin-panel-mini" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Mini exámenes</h2>
+            <p class="panel-subtitle">
+              Banco global de casos clínicos para los mini exámenes del estudiante.
+            </p>
+          </div>
 
-        <div id="admin-mini-cases"></div>
+          <div class="flex-row" style="justify-content:flex-end;">
+            <button id="admin-mini-btn-add-case" class="btn btn-secondary">
+              + Agregar caso clínico
+            </button>
+            <button id="admin-mini-btn-save-all" class="btn btn-primary">
+              Guardar banco
+            </button>
+          </div>
+        </div>
+
+        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
+        <div id="admin-mini-cases" class="cards-list"></div>
       </section>
 
-      <!-- ==================== PANEL: USERS ==================== -->
-      <section id="admin-panel-users" class="card hidden">
-        <h2 class="panel-title">Usuarios</h2>
-        <p class="panel-subtitle">Este panel está en blanco aquí para no tocar tu flujo actual. Tu lógica puede llenarlo después.</p>
+      <!-- ================= PANEL: USUARIOS ================= -->
+      <section id="admin-panel-users" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Usuarios</h2>
+            <p class="panel-subtitle">
+              Crea, edita y administra los accesos a la plataforma.
+            </p>
+          </div>
+        </div>
+
+        <!-- Formulario nuevo usuario -->
+        <div id="create-user-card">
+          <h3>Nuevo usuario</h3>
+
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Nombre completo</span>
+              <input type="text" id="admin-new-user-name" placeholder="Nombre del estudiante o admin" />
+            </div>
+
+            <div class="field">
+              <span>Correo (ID del documento)</span>
+              <input type="email" id="admin-new-user-email" placeholder="correo@ejemplo.com" />
+            </div>
+
+            <div class="field">
+              <span>Contraseña (referencia)</span>
+              <input type="text" id="admin-new-user-password" placeholder="Misma que en Authentication" />
+            </div>
+
+            <div class="field">
+              <span>Rol</span>
+              <select id="admin-new-user-role">
+                <option value="usuario">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <span>Estado</span>
+              <select id="admin-new-user-status">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <span>Fecha de vencimiento</span>
+              <input type="date" id="admin-new-user-expiry" />
+            </div>
+          </div>
+
+          <div style="text-align:right;margin-top:10px;">
+            <button id="admin-btn-create-user" class="btn btn-primary">
+              Agregar usuario
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla de usuarios -->
+        <div id="admin-users-table"></div>
       </section>
 
-      <!-- ==================== PANEL: ANALYTICS ==================== -->
-      <section id="admin-panel-analytics" class="card hidden">
-        <h2 class="panel-title">Analytics</h2>
-        <p class="panel-subtitle">Este panel está en blanco aquí para no tocar tu flujo actual.</p>
+      <!-- ================= PANEL: ANÁLISIS ================= -->
+      <section id="admin-panel-analytics" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Análisis</h2>
+            <p class="panel-subtitle">
+              Estadísticas globales de secciones, exámenes y desempeño de los estudiantes.
+            </p>
+          </div>
+        </div>
+
+        <div id="admin-analytics-summary" class="cards-list"></div>
+        <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
       </section>
 
-      <!-- ==================== PANEL: LANDING ==================== -->
-      <section id="admin-panel-landing" class="card hidden">
-        <h2 class="panel-title">Landing</h2>
-        <p class="panel-subtitle">Este panel está en blanco aquí para no tocar tu flujo actual.</p>
+      <!-- ================= PANEL: PANTALLA PRINCIPAL / LANDING ================= -->
+      <section id="admin-panel-landing" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Pantalla principal</h2>
+            <p class="panel-subtitle">
+              Configura el texto de bienvenida, precios y enlaces de la interfaz pública.
+            </p>
+          </div>
+        </div>
+
+        <!-- Bloque de texto principal -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
+          <label class="field">
+            <span>Texto que aparece debajo del panel de acceso</span>
+            <textarea id="admin-landing-text" rows="5" placeholder="Descripción de la plataforma Estudiante ENARM"></textarea>
+          </label>
+        </div>
+
+        <!-- Precios y WhatsApp -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
+
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Etiqueta plan mensual</span>
+              <input type="text" id="admin-monthly-label" placeholder="Plan mensual" />
+            </div>
+            <div class="field">
+              <span>Precio plan mensual (MXN)</span>
+              <input type="number" id="admin-monthly-price" min="0" step="1" />
+            </div>
+
+            <div class="field">
+              <span>Etiqueta plan ENARM 2026</span>
+              <input type="text" id="admin-enarm-label" placeholder="Plan ENARM 2026" />
+            </div>
+            <div class="field">
+              <span>Precio plan ENARM 2026 (MXN)</span>
+              <input type="number" id="admin-enarm-price" min="0" step="1" />
+            </div>
+
+            <div class="field">
+              <span>Número de WhatsApp</span>
+              <input type="text" id="admin-whatsapp-phone" placeholder="+525515656316" />
+            </div>
+          </div>
+
+          <div style="text-align:right;margin-top:10px;">
+            <button id="admin-btn-save-landing" class="btn btn-primary">
+              Guardar pantalla principal
+            </button>
+          </div>
+        </div>
+
+        <!-- Links de redes sociales -->
+        <div class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
+
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Instagram</span>
+              <input type="url" id="admin-instagram-link" placeholder="https://instagram.com/..." />
+            </div>
+            <div class="field">
+              <span>WhatsApp (URL completa)</span>
+              <input type="url" id="admin-whatsapp-link" placeholder="https://wa.me/..." />
+            </div>
+            <div class="field">
+              <span>TikTok</span>
+              <input type="url" id="admin-tiktok-link" placeholder="https://www.tiktok.com/..." />
+            </div>
+            <div class="field">
+              <span>Telegram</span>
+              <input type="url" id="admin-telegram-link" placeholder="https://t.me/..." />
+            </div>
+          </div>
+
+          <div style="text-align:right;margin-top:10px;">
+            <button id="admin-btn-save-social-links" class="btn btn-primary">
+              Guardar redes sociales
+            </button>
+          </div>
+        </div>
       </section>
 
     </main>
-  </div>
 
-  <!-- Tu lógica va aquí -->
-  <script type="module" src="./admin.js"></script>
+    <!-- MODAL GENÉRICO -->
+    <div id="admin-modal-overlay" class="modal-overlay hidden">
+      <div id="admin-modal" class="modal">
+        <h3 id="admin-modal-title"></h3>
+        <div id="admin-modal-body"></div>
+        <div class="modal-actions">
+          <button id="admin-modal-cancel" class="btn btn-outline">Cancelar</button>
+          <button id="admin-modal-ok" class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- LÓGICA ADMIN -->
+  <script type="module" src="admin.js"></script>
 </body>
 </html>
