@@ -47,6 +47,7 @@
       border-radius:10px; border:1px solid rgba(148,163,184,.4);
       font-size:12px; max-height:260px; overflow:auto;
     }
+    code { background: rgba(148,163,184,.12); padding: 2px 6px; border-radius: 6px; }
   </style>
 </head>
 
@@ -56,7 +57,10 @@
   <p class="subtitle">
     1) Inicia sesión como <strong>admin</strong>.<br>
     2) Abre esta página en la misma sesión.<br>
-    3) Escribe el tema del lote y pega el JSON.
+    3) Escribe el tema del lote y pega el JSON.<br>
+    <span style="color:#9ca3af;">
+      Importa a <code>questions</code> (banco general). El campo <code>topic</code> se toma del JSON o del input.
+    </span>
   </p>
 
   <div id="auth-status" class="status error">Verificando autenticación…</div>
@@ -78,8 +82,16 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getFirestore, collection, addDoc, doc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    doc,
+    getDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+  // ⚠️ Recomendación: mueve estas llaves a firebase-config.js si vas a desplegar público.
   const firebaseConfig = {
     apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
     authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
@@ -94,26 +106,110 @@
   const topicInput = document.getElementById("topicInput");
   const jsonInput = document.getElementById("jsonInput");
   const btnImport = document.getElementById("btnImport");
+  const btnFillExample = document.getElementById("btnFillExample");
   const logEl = document.getElementById("log");
 
   function log(msg) {
     const time = new Date().toLocaleTimeString();
     logEl.textContent += `[${time}] ${msg}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function safeStr(v) {
+    return (v === null || v === undefined) ? "" : String(v);
+  }
+
+  function normalizeQuestion(q) {
+    const questionText = safeStr(q.questionText || q.question).trim();
+    const optionA = safeStr(q.optionA || q.a).trim();
+    const optionB = safeStr(q.optionB || q.b).trim();
+    const optionC = safeStr(q.optionC || q.c).trim();
+    const optionD = safeStr(q.optionD || q.d).trim();
+    const correctOption = safeStr(q.correctOption || q.correct || q.answer).trim();
+    const subtype = safeStr(q.subtype || "salud_publica").trim() || "salud_publica";
+    const difficulty = safeStr(q.difficulty || "media").trim() || "media";
+    const justification = safeStr(q.justification || q.explanation).trim();
+
+    return {
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+      subtype,
+      difficulty,
+      justification
+    };
+  }
+
+  function normalizeCase(c, fallbackTopic) {
+    const caseText = safeStr(c.caseText || c.case).trim();
+    const specialty = safeStr(c.specialty).trim();
+    const topic = safeStr(c.topic).trim() || fallbackTopic;
+
+    const questionsRaw = Array.isArray(c.questions) ? c.questions : [];
+    const questions = questionsRaw.map(normalizeQuestion).filter(q =>
+      q.questionText && q.optionA && q.optionB && q.optionC && q.optionD && q.correctOption && q.justification
+    );
+
+    return { caseText, specialty, topic, questions };
   }
 
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      authStatusEl.textContent = "No hay sesión iniciada.";
+      authStatusEl.className = "status error";
+      authStatusEl.textContent = "No hay sesión iniciada. Inicia sesión como admin.";
+      btnImport.disabled = true;
       return;
     }
-    const snap = await getDoc(doc(db, "users", user.email));
-    if (!snap.exists() || snap.data().role !== "admin") {
-      authStatusEl.textContent = "No eres admin.";
-      return;
+
+    try {
+      const snap = await getDoc(doc(db, "users", user.email));
+      if (!snap.exists() || snap.data().role !== "admin") {
+        authStatusEl.className = "status error";
+        authStatusEl.textContent = "Acceso denegado: este usuario no es admin.";
+        btnImport.disabled = true;
+        return;
+      }
+
+      authStatusEl.className = "status ok";
+      authStatusEl.textContent = `Admin autenticado: ${user.email}`;
+      btnImport.disabled = false;
+    } catch (err) {
+      console.error(err);
+      authStatusEl.className = "status error";
+      authStatusEl.textContent = "Error verificando autenticación. Revisa consola.";
+      btnImport.disabled = true;
     }
-    authStatusEl.className = "status ok";
-    authStatusEl.textContent = `Admin autenticado: ${user.email}`;
-    btnImport.disabled = false;
+  });
+
+  btnFillExample?.addEventListener("click", () => {
+    topicInput.value = "Preeclampsia";
+    jsonInput.value = JSON.stringify({
+      sectionName: "Ginecología y obstetricia",
+      examName: "Lote 1",
+      cases: [
+        {
+          caseText: "Mujer de 28 años, 34 SDG, TA 160/110, cefalea y fosfenos...",
+          specialty: "gine_obstetricia",
+          topic: "Preeclampsia",
+          questions: [
+            {
+              questionText: "¿Conducta inicial más adecuada?",
+              optionA: "Alta con vigilancia",
+              optionB: "Sulfato de magnesio y control de TA",
+              optionC: "Solo antihipertensivo VO",
+              optionD: "No realizar manejo",
+              correctOption: "B",
+              subtype: "urgencias",
+              difficulty: "media",
+              justification: "..."
+            }
+          ]
+        }
+      ]
+    }, null, 2);
   });
 
   btnImport.addEventListener("click", async () => {
@@ -125,25 +221,58 @@
       return;
     }
 
-    const topic = topicInput.value.trim();
-    const cases = parsed.cases || [];
-
-    for (const c of cases) {
-      await addDoc(collection(db, "questions"), {
-        caseText: c.caseText || "",
-        specialty: c.specialty || "",
-        topic: c.topic || topic,
-        questions: c.questions || [],
-        createdAt: serverTimestamp(),
-      });
+    const fallbackTopic = topicInput.value.trim();
+    if (!fallbackTopic && !(parsed && parsed.cases && parsed.cases.some(c => c.topic))) {
+      alert("Escribe el tema del lote o incluye 'topic' en cada caso.");
+      return;
     }
 
-    log(`Importación completa. Casos: ${cases.length}`);
-    alert("Importado correctamente");
+    const casesRaw = Array.isArray(parsed?.cases) ? parsed.cases : [];
+    if (!casesRaw.length) {
+      alert("El JSON no contiene 'cases' o está vacío.");
+      return;
+    }
+
+    btnImport.disabled = true;
+    log("Iniciando importación a questions…");
+
+    let okCount = 0;
+    let skipCount = 0;
+
+    try {
+      for (let i = 0; i < casesRaw.length; i++) {
+        const normalized = normalizeCase(casesRaw[i], fallbackTopic);
+
+        if (!normalized.caseText || !normalized.questions.length) {
+          skipCount++;
+          log(`Caso ${i + 1} omitido (caseText vacío o preguntas incompletas).`);
+          continue;
+        }
+
+        await addDoc(collection(db, "questions"), {
+          // ✅ En questions NO depende de examId (banco general)
+          caseText: normalized.caseText,
+          specialty: normalized.specialty,
+          topic: normalized.topic,
+          questions: normalized.questions,
+          createdAt: serverTimestamp(),
+        });
+
+        okCount++;
+        log(`Caso ${i + 1} importado (${normalized.questions.length} preguntas).`);
+      }
+
+      log(`Importación terminada. OK: ${okCount}, omitidos: ${skipCount}.`);
+      alert(`Importado correctamente.\nOK: ${okCount}\nOmitidos: ${skipCount}`);
+    } catch (err) {
+      console.error(err);
+      log("Error en importación. Revisa consola.");
+      alert("Error importando. Revisa consola.");
+    } finally {
+      btnImport.disabled = false;
+    }
   });
 </script>
 
 </body>
-</html>
-
 </html>
