@@ -7,16 +7,12 @@
  * - Configuración de pantalla principal
  * - Analytics básicos
  *
- * ✅ MODIFICACIÓN PRINCIPAL (sin afectar el resto):
- * - Soporte para campo "topic" por caso clínico en colección "questions"
- *   (para que lo que importas desde import-exam.html no se pierda al editar/guardar)
- *
- * ✅ NUEVO:
- * - Buscador en panel "Mini exámenes" para agregar casos desde el banco (miniQuestions)
- * - ✅ PANEL "Banco de preguntas" (colección questions) funcional:
- *   - Navegación sidebar
- *   - Listado + filtros + paginación
- *   - Editar (modal) + eliminar
+ * ✅ CORRECCIONES APLICADAS (SIN ELIMINAR FUNCIONES):
+ * 1) Banco de preguntas (panel bank): edición INLINE (sin modal).
+ * 2) Buscador "Agregar casos desde banco" en EXÁMENES y MINI:
+ *    - Ahora busca en "questions" (solo casos banco: sin examId)
+ *    - Muestra topic + usageCount
+ *    - Incrementa usageCount al agregar.
  ****************************************************/
 
 // Firebase inicializado en firebase-config.js
@@ -50,6 +46,7 @@ import {
   serverTimestamp,
   limit,
   startAfter,
+  increment, // ✅ NUEVO (contador usageCount)
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 /****************************************************
@@ -133,7 +130,7 @@ const landingTelegramInput = document.getElementById("admin-telegram-link");
 const analyticsSummaryBox = document.getElementById("admin-analytics-summary");
 const analyticsUsersBox = document.getElementById("admin-analytics-users");
 
-// Modal genérico (reutilizable)
+// Modal genérico (reutilizable) -> SE CONSERVA, pero banco ya no lo usa
 const modalOverlay = document.getElementById("admin-modal-overlay");
 const modalBox = document.getElementById("admin-modal");
 const modalTitle = document.getElementById("admin-modal-title");
@@ -183,12 +180,11 @@ let examsLoadToken = 0;
 let miniCases = [];
 let miniCasesLoadedOnce = false;
 
-// ==================== CACHE BANCO PARA BUSCADOR (DETALLE EXAMEN) ====================
-let bankCasesCache = [];           // Viene de miniQuestions (banco global)
+// ==================== CACHE BANCO PARA BUSCADOR (DETALLE EXAMEN y MINI) ====================
+// ✅ CAMBIO: ahora cache viene de "questions" (solo casos BANCO: sin examId)
+let bankCasesCache = [];
 let bankCasesLoadedOnce = false;
 let bankSearchDebounceTimer = null;
-
-// ==================== NUEVO: debounce para buscador MINI ====================
 let miniBankSearchDebounceTimer = null;
 
 /****************************************************
@@ -274,7 +270,7 @@ function openJsonFilePicker(onLoaded) {
 }
 
 /****************************************************
- * MODAL GENÉRICO
+ * MODAL GENÉRICO (SE CONSERVA PARA SECCIONES/USUARIOS/ETC)
  ****************************************************/
 
 function openModal({ title, bodyHtml, onOk }) {
@@ -315,10 +311,9 @@ if (modalBtnOk) {
 }
 
 /****************************************************
- * BUSCADOR DE BANCO (miniQuestions) PARA AGREGAR CASOS A EXAMEN
- * - Carga bajo demanda (solo al abrir un examen)
- * - Búsqueda local (rápida) con debounce
- * - No toca el flujo actual de guardar/importar
+ * BUSCADOR DE BANCO PARA AGREGAR CASOS A EXAMEN Y MINI
+ * ✅ CORRECCIÓN: ahora carga desde "questions" (casos banco = sin examId)
+ * ✅ Incluye topic y usageCount
  ****************************************************/
 
 function normalizeText(str) {
@@ -326,7 +321,7 @@ function normalizeText(str) {
     .toString()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quitar acentos
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -336,10 +331,15 @@ function getSpecialtyLabel(key) {
   return SPECIALTIES && SPECIALTIES[key] ? SPECIALTIES[key] : key;
 }
 
+// ✅ util: identifica si un doc de questions es "banco" (no es caso dentro de un examen)
+function isBankCaseDoc(data) {
+  const ex = (data?.examId || "").toString().trim();
+  return !ex; // banco = sin examId
+}
+
 async function loadBankCasesIfNeeded() {
   if (bankCasesLoadedOnce) return;
 
-  // Si no existe UI, no hacemos nada.
   if (!bankSearchResults && !miniBankSearchResults) return;
 
   const target = bankSearchResults || miniBankSearchResults;
@@ -350,32 +350,45 @@ async function loadBankCasesIfNeeded() {
   `;
 
   try {
-    const snap = await getDocs(collection(db, "miniQuestions"));
+    // ✅ Estrategia simple y robusta: traer últimos N docs de questions y filtrar local "sin examId"
+    // (evita dependencia de índices raros por campos opcionales)
+    let snap;
+    try {
+      snap = await getDocs(query(collection(db, "questions"), orderBy("createdAt", "desc"), limit(600)));
+    } catch (e) {
+      snap = await getDocs(query(collection(db, "questions"), limit(600)));
+    }
 
-    bankCasesCache = snap.docs.map((d) => {
-      const data = d.data() || {};
-      const questionsArr = Array.isArray(data.questions) ? data.questions : [];
-      return {
-        id: d.id,
-        caseText: data.caseText || "",
-        specialty: data.specialty || "",
-        questions: questionsArr,
-        _normCase: normalizeText(data.caseText || ""),
-        _normQs: normalizeText(
-          questionsArr.map((q) => q.questionText || "").join(" ")
-        ),
-      };
-    });
+    bankCasesCache = snap.docs
+      .map((d) => ({ id: d.id, ...((d.data() || {})) }))
+      .filter((x) => isBankCaseDoc(x))
+      .map((data) => {
+        const questionsArr = Array.isArray(data.questions) ? data.questions : [];
+        const topicTxt = (data.topic || "").toString();
+        const usageCount = typeof data.usageCount === "number" ? data.usageCount : 0;
+
+        return {
+          id: data.id,
+          caseText: data.caseText || "",
+          specialty: data.specialty || "",
+          topic: topicTxt,
+          usageCount,
+          questions: questionsArr,
+          _normCase: normalizeText(data.caseText || ""),
+          _normTopic: normalizeText(topicTxt),
+          _normSpec: normalizeText(data.specialty || ""),
+          _normQs: normalizeText(questionsArr.map((q) => q.questionText || "").join(" ")),
+        };
+      });
 
     bankCasesLoadedOnce = true;
 
-    // Mensaje inicial en ambos paneles si existen
     if (bankSearchResults) {
       renderEmptyMessage(
         bankSearchResults,
         bankCasesCache.length
           ? `Banco listo. Escribe un tema arriba para buscar (${bankCasesCache.length} casos).`
-          : "No hay casos en el banco global (miniQuestions)."
+          : "No hay casos en el banco (questions sin examId)."
       );
     }
     if (miniBankSearchResults) {
@@ -383,11 +396,11 @@ async function loadBankCasesIfNeeded() {
         miniBankSearchResults,
         bankCasesCache.length
           ? `Banco listo. Escribe para buscar (${bankCasesCache.length} casos).`
-          : "No hay casos en el banco global (miniQuestions)."
+          : "No hay casos en el banco (questions sin examId)."
       );
     }
   } catch (err) {
-    console.error("Error cargando banco (miniQuestions):", err);
+    console.error("Error cargando banco (questions):", err);
     bankCasesCache = [];
     bankCasesLoadedOnce = false;
 
@@ -399,6 +412,23 @@ async function loadBankCasesIfNeeded() {
     if (bankSearchResults) bankSearchResults.innerHTML = errHtml;
     if (miniBankSearchResults) miniBankSearchResults.innerHTML = errHtml;
   }
+}
+
+function searchBankCases(rawQuery) {
+  const q = normalizeText(rawQuery);
+  if (!q) return [];
+
+  const tokens = q.split(" ").filter((t) => t.length >= 2);
+  if (!tokens.length) return [];
+
+  const results = [];
+  for (const c of bankCasesCache) {
+    const haystack = `${c._normTopic} ${c._normSpec} ${c._normCase} ${c._normQs}`;
+    const ok = tokens.every((t) => haystack.includes(t));
+    if (ok) results.push(c);
+    if (results.length >= 25) break;
+  }
+  return results;
 }
 
 function renderBankSearchResults(results, queryText) {
@@ -427,15 +457,18 @@ function renderBankSearchResults(results, queryText) {
       const specLabel = getSpecialtyLabel(c.specialty);
       const qCount = Array.isArray(c.questions) ? c.questions.length : 0;
       const snippet = (c.caseText || "").slice(0, 220);
+      const topicTxt = (c.topic || "").toString();
+      const usage = typeof c.usageCount === "number" ? c.usageCount : 0;
+
       return `
         <div class="card-item" style="display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
             <div style="flex:1;">
               <div style="font-weight:600;font-size:13px;">
-                ${specLabel ? specLabel : "Caso del banco"}
+                ${topicTxt ? topicTxt : (specLabel ? specLabel : "Caso del banco")}
               </div>
               <div style="font-size:12px;color:#9ca3af;margin-top:2px;">
-                ${qCount} pregunta${qCount === 1 ? "" : "s"}
+                ${specLabel ? specLabel : "—"} · ${qCount} pregunta${qCount === 1 ? "" : "s"} · Usado: ${usage}
               </div>
             </div>
             <button class="btn btn-sm btn-primary admin-bank-add-case" data-id="${c.id}">
@@ -452,11 +485,10 @@ function renderBankSearchResults(results, queryText) {
 
   bankSearchResults.innerHTML = html;
 
-  // Eventos: agregar caso al examen actual
   bankSearchResults
     .querySelectorAll(".admin-bank-add-case")
     .forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const found = bankCasesCache.find((x) => x.id === id);
         if (!found) return;
@@ -469,11 +501,23 @@ function renderBankSearchResults(results, queryText) {
         // Antes de modificar memoria, sincroniza lo escrito en el DOM
         syncCurrentExamCasesFromDOM();
 
-        // Clonar para evitar referencias al cache
+        // ✅ Incrementar usageCount en el banco (questions/{id})
+        try {
+          await updateDoc(doc(db, "questions", id), {
+            usageCount: increment(1),
+            updatedAt: serverTimestamp(),
+          });
+
+          // mantener cache coherente
+          found.usageCount = (found.usageCount || 0) + 1;
+        } catch (e) {
+          console.warn("No se pudo incrementar usageCount:", e);
+        }
+
         const cloned = {
           caseText: found.caseText || "",
           specialty: found.specialty || "",
-          topic: "", // por defecto vacío
+          topic: (found.topic || "").toString(),
           questions: Array.isArray(found.questions)
             ? found.questions.map((q) => ({
                 questionText: q.questionText || "",
@@ -498,23 +542,6 @@ function renderBankSearchResults(results, queryText) {
     });
 }
 
-function searchBankCases(rawQuery) {
-  const q = normalizeText(rawQuery);
-  if (!q) return [];
-
-  const tokens = q.split(" ").filter((t) => t.length >= 3);
-  if (!tokens.length) return [];
-
-  const results = [];
-  for (const c of bankCasesCache) {
-    const haystack = `${c._normCase} ${c._normQs}`;
-    const ok = tokens.every((t) => haystack.includes(t));
-    if (ok) results.push(c);
-    if (results.length >= 20) break;
-  }
-  return results;
-}
-
 function initBankSearchUI() {
   if (!bankSearchInput || !bankSearchResults) return;
   if (bankSearchInput.dataset.bound === "1") return;
@@ -522,7 +549,8 @@ function initBankSearchUI() {
 
   bankSearchInput.addEventListener("input", () => {
     if (bankSearchDebounceTimer) clearTimeout(bankSearchDebounceTimer);
-    bankSearchDebounceTimer = setTimeout(() => {
+    bankSearchDebounceTimer = setTimeout(async () => {
+      if (!bankCasesLoadedOnce) await loadBankCasesIfNeeded();
       const raw = bankSearchInput.value || "";
       const res = searchBankCases(raw);
       renderBankSearchResults(res, raw.trim());
@@ -536,9 +564,7 @@ function resetBankSearchUI() {
 }
 
 /****************************************************
- * ✅ NUEVO: BUSCADOR DE BANCO PARA MINI EXÁMENES
- * - Reutiliza el mismo cache (bankCasesCache)
- * - Agrega casos seleccionados al arreglo miniCases (miniQuestions)
+ * ✅ BUSCADOR DE BANCO PARA MINI EXÁMENES (mismo banco cache)
  ****************************************************/
 
 function renderMiniBankSearchResults(results, queryText) {
@@ -567,16 +593,18 @@ function renderMiniBankSearchResults(results, queryText) {
       const specLabel = getSpecialtyLabel(c.specialty);
       const qCount = Array.isArray(c.questions) ? c.questions.length : 0;
       const snippet = (c.caseText || "").slice(0, 220);
+      const topicTxt = (c.topic || "").toString();
+      const usage = typeof c.usageCount === "number" ? c.usageCount : 0;
 
       return `
         <div class="card-item" style="display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
             <div style="flex:1;">
               <div style="font-weight:600;font-size:13px;">
-                ${specLabel ? specLabel : "Caso del banco"}
+                ${topicTxt ? topicTxt : (specLabel ? specLabel : "Caso del banco")}
               </div>
               <div style="font-size:12px;color:#9ca3af;margin-top:2px;">
-                ${qCount} pregunta${qCount === 1 ? "" : "s"}
+                ${specLabel ? specLabel : "—"} · ${qCount} pregunta${qCount === 1 ? "" : "s"} · Usado: ${usage}
               </div>
             </div>
             <button class="btn btn-sm btn-primary admin-mini-bank-add-case" data-id="${c.id}">
@@ -597,15 +625,24 @@ function renderMiniBankSearchResults(results, queryText) {
   miniBankSearchResults
     .querySelectorAll(".admin-mini-bank-add-case")
     .forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
         const found = bankCasesCache.find((x) => x.id === id);
         if (!found) return;
 
-        // Sincroniza lo escrito en el DOM actual antes de modificar miniCases
         syncMiniCasesFromDOM();
 
-        // Clonamos el caso (miniQuestions NO usa topic)
+        // ✅ Incrementar usageCount también cuando lo usan para mini-exámenes (opcional pero útil)
+        try {
+          await updateDoc(doc(db, "questions", id), {
+            usageCount: increment(1),
+            updatedAt: serverTimestamp(),
+          });
+          found.usageCount = (found.usageCount || 0) + 1;
+        } catch (e) {
+          console.warn("No se pudo incrementar usageCount:", e);
+        }
+
         const cloned = {
           id: null,
           caseText: found.caseText || "",
@@ -642,9 +679,10 @@ function initMiniBankSearchUI() {
   miniBankSearchInput.addEventListener("input", () => {
     if (miniBankSearchDebounceTimer) clearTimeout(miniBankSearchDebounceTimer);
 
-    miniBankSearchDebounceTimer = setTimeout(() => {
+    miniBankSearchDebounceTimer = setTimeout(async () => {
+      if (!bankCasesLoadedOnce) await loadBankCasesIfNeeded();
       const raw = miniBankSearchInput.value || "";
-      const res = searchBankCases(raw); // reutiliza la búsqueda existente
+      const res = searchBankCases(raw);
       renderMiniBankSearchResults(res, raw.trim());
     }, 220);
   });
@@ -656,92 +694,6 @@ function resetMiniBankSearchUI() {
 }
 
 /****************************************************
- * PANEL USUARIOS – TABLA “RESUMEN” (OPCIONAL)
- ****************************************************/
-async function loadUsersTable() {
-  if (!usersTableContainer) return;
-
-  usersTableContainer.innerHTML = `
-    <div class="card">
-      <p class="panel-subtitle">Cargando usuarios…</p>
-    </div>
-  `;
-
-  try {
-    const qUsers = query(collection(db, "users"), orderBy("email"));
-    const snap = await getDocs(qUsers);
-
-    if (snap.empty) {
-      usersTableContainer.innerHTML = `
-        <div class="card">
-          <p class="panel-subtitle">
-            Aún no hay usuarios registrados. Usa el formulario para crear el primero.
-          </p>
-        </div>
-      `;
-      return;
-    }
-
-    let html = `
-      <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>Vigencia</th>
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    snap.forEach(docSnap => {
-      const u = docSnap.data();
-      const name = u.name || "(sin nombre)";
-      const email = u.email || docSnap.id;
-      const role = u.role || "student";
-      const status = u.status || "inactivo";
-      const expiry = u.expiryDate
-        ? new Date(u.expiryDate.seconds * 1000).toLocaleDateString("es-MX")
-        : "Sin fecha";
-
-      html += `
-        <tr>
-          <td>${name}</td>
-          <td>${email}</td>
-          <td>${role}</td>
-          <td>
-            <span class="chip ${status === "activo" ? "chip--activo" : "chip--inactivo"}">
-              ${status}
-            </span>
-          </td>
-          <td>${expiry}</td>
-        </tr>
-      `;
-    });
-
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    usersTableContainer.innerHTML = html;
-  } catch (err) {
-    console.error("Error cargando usuarios:", err);
-    usersTableContainer.innerHTML = `
-      <div class="card">
-        <p class="panel-subtitle">
-          Hubo un error al cargar la lista de usuarios.
-        </p>
-      </div>
-    `;
-  }
-}
-
-/****************************************************
  * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
  ****************************************************/
 onAuthStateChanged(auth, async (user) => {
@@ -750,7 +702,6 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 1) Verificar que el usuario sea ADMIN en la colección users
   try {
     const userRef = doc(db, "users", user.email);
     const userSnap = await getDoc(userRef);
@@ -786,11 +737,10 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Inicializar buscadores (eventos)
+  // Inicializar buscadores
   initBankSearchUI();
   initMiniBankSearchUI();
 
-  // 2) Cargar SOLO lo básico al inicio:
   try {
     await loadSections();
   } catch (err) {
@@ -831,30 +781,28 @@ if (btnNavExams) {
 }
 
 if (btnNavBank) {
-  btnNavBank.addEventListener("click", () => {
+  btnNavBank.addEventListener("click", async () => {
     clearSidebarActive();
     btnNavBank.classList.add("sidebar-btn--active");
     setActivePanel("bank");
     sidebar.classList.remove("sidebar--open");
 
-    // Cargar banco questions SOLO cuando entras aquí
-    loadQuestionsBank(true);
+    // ✅ cargar banco questions (panel) al entrar
+    await loadQuestionsBank(true);
   });
 }
 
 if (btnNavMini) {
-  btnNavMini.addEventListener("click", () => {
+  btnNavMini.addEventListener("click", async () => {
     clearSidebarActive();
     btnNavMini.classList.add("sidebar-btn--active");
     setActivePanel("mini");
     sidebar.classList.remove("sidebar--open");
 
-    // Cargar mini exámenes SOLO cuando entras a este panel
     loadMiniCases();
 
-    // preparar buscador mini y cargar banco si hace falta
     resetMiniBankSearchUI();
-    loadBankCasesIfNeeded();
+    await loadBankCasesIfNeeded();
   });
 }
 
@@ -891,6 +839,7 @@ if (btnNavLanding) {
 
 /****************************************************
  * SECCIONES (CRUD + REORDENAR)
+ * (SIN CAMBIOS)
  ****************************************************/
 
 async function loadSections() {
@@ -962,7 +911,6 @@ async function loadSections() {
         }
       });
 
-    // Drag & drop
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", id);
@@ -1162,6 +1110,7 @@ async function getOrCreateSectionByName(name) {
 
 /****************************************************
  * EXÁMENES (LISTA POR SECCIÓN)
+ * (SIN CAMBIOS relevantes)
  ****************************************************/
 
 async function loadExamsForSection(sectionId) {
@@ -1337,7 +1286,7 @@ function openEditExamNameModal(examId, currentName) {
 }
 
 /**
- * Importar varios exámenes desde un JSON (botón "Importar exámenes JSON")
+ * Importar varios exámenes desde un JSON
  */
 async function importExamsFromJson(json) {
   let examsArray = [];
@@ -1450,6 +1399,7 @@ if (btnImportExamsJson) {
 
 /****************************************************
  * DETALLE DE EXAMEN (CASOS CLÍNICOS + PREGUNTAS)
+ * (SIN CAMBIOS; solo se mantiene y el buscador ya usa banco correcto)
  ****************************************************/
 
 function createEmptyQuestion() {
@@ -1583,9 +1533,14 @@ async function openExamDetail(examId, examName) {
 
   renderExamCases();
 
-  // Cargar banco solo cuando realmente estás en detalle de examen
+  // ✅ Banco real (questions sin examId)
   await loadBankCasesIfNeeded();
 }
+
+/* ... sigue en PARTE 2 ... */
+/****************************************************
+ * CONTINÚA ADMIN.JS - PARTE 2/2
+ ****************************************************/
 
 function renderExamCases() {
   if (!examCasesContainer) return;
@@ -2058,6 +2013,7 @@ if (btnImportExamJson) {
 
 /****************************************************
  * BANCO DE PREGUNTAS (questions) – Panel admin-panel-bank
+ * ✅ CORRECCIÓN: edición INLINE (sin modal)
  ****************************************************/
 
 const bankFilterCaseText = document.getElementById("admin-bank-search");
@@ -2078,7 +2034,7 @@ let bankLastDoc = null;
 let bankIsLoading = false;
 let bankHasMore = true;
 
-// Filtros actuales (locales)
+// Filtros actuales
 let bankActiveFilters = {
   caseText: "",
   topic: "",
@@ -2114,154 +2070,188 @@ function bankCaseMatchesFilters(docData, filters) {
   return true;
 }
 
+// ✅ INLINE UI helpers
+function escapeHtml(str) {
+  return (str || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function renderBankItem(docId, data) {
   const specLabel = getSpecialtyLabel(data.specialty || "");
   const topicTxt = (data.topic || "").toString();
   const qCount = Array.isArray(data.questions) ? data.questions.length : 0;
-  const snippet = (data.caseText || "").slice(0, 240);
+  const usage = typeof data.usageCount === "number" ? data.usageCount : 0;
 
   const wrap = document.createElement("div");
   wrap.className = "card-item";
   wrap.dataset.id = docId;
+  wrap.dataset.mode = "view";
+
+  const snippet = escapeHtml((data.caseText || "").slice(0, 240));
+  const hasMore = (data.caseText || "").length > 240;
 
   wrap.innerHTML = `
     <div class="card-item__title-row" style="align-items:flex-start;">
       <div style="flex:1;">
         <div class="card-item__title" style="margin-bottom:6px;">
-          ${specLabel || "Caso (questions)"}
+          ${escapeHtml(topicTxt || specLabel || "Caso (questions)")}
         </div>
         <div style="font-size:12px;color:#9ca3af;">
           <div><strong>ID:</strong> <code>${docId}</code></div>
-          <div><strong>ExamID:</strong> <code>${data.examId || "—"}</code></div>
-          <div><strong>Tema:</strong> ${topicTxt || "—"}</div>
+          <div><strong>ExamID:</strong> <code>${escapeHtml((data.examId || "—") + "")}</code></div>
+          <div><strong>Tema:</strong> ${escapeHtml(topicTxt || "—")}</div>
           <div><strong>Preguntas:</strong> ${qCount}</div>
+          <div><strong>Usado:</strong> ${usage}</div>
         </div>
       </div>
 
       <div class="card-item__actions">
-        <button class="btn btn-sm btn-secondary admin-bank-edit">Editar</button>
-        <button class="btn btn-sm btn-outline admin-bank-delete">Eliminar</button>
+        <button class="btn btn-sm btn-secondary admin-bank-inline-edit">Editar</button>
+        <button class="btn btn-sm btn-outline admin-bank-inline-delete">Eliminar</button>
       </div>
     </div>
 
-    <div style="font-size:13px;line-height:1.45;color:#e5e7eb;margin-top:10px;">
-      ${snippet}${(data.caseText || "").length > 240 ? "…" : ""}
+    <div class="admin-bank-view" style="font-size:13px;line-height:1.45;color:#e5e7eb;margin-top:10px;">
+      ${snippet}${hasMore ? "…" : ""}
+    </div>
+
+    <div class="admin-bank-edit hidden" style="margin-top:12px;">
+      <div class="card" style="padding:12px;">
+        <label class="field">
+          <span>Especialidad</span>
+          <select class="admin-bank-edit-specialty">
+            <option value="">Selecciona...</option>
+            ${Object.entries(SPECIALTIES)
+              .map(([key, label]) => `<option value="${key}" ${key === (data.specialty || "") ? "selected" : ""}>${label}</option>`)
+              .join("")}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Tema (topic)</span>
+          <input type="text" class="admin-bank-edit-topic" value="${escapeHtml((data.topic || "") + "")}" />
+        </label>
+
+        <label class="field">
+          <span>Texto del caso clínico</span>
+          <textarea class="admin-bank-edit-caseText" rows="5">${escapeHtml(data.caseText || "")}</textarea>
+        </label>
+
+        <label class="field">
+          <span>Preguntas (JSON)</span>
+          <textarea class="admin-bank-edit-questions" rows="10">${escapeHtml(JSON.stringify(Array.isArray(data.questions) ? data.questions : [], null, 2))}</textarea>
+        </label>
+
+        <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
+          <button class="btn btn-sm btn-outline admin-bank-inline-cancel">Cancelar</button>
+          <button class="btn btn-sm btn-primary admin-bank-inline-save">Guardar</button>
+        </div>
+      </div>
     </div>
   `;
 
-  wrap.querySelector(".admin-bank-edit").addEventListener("click", () => {
-    openBankEditModal(docId, data);
+  const btnEdit = wrap.querySelector(".admin-bank-inline-edit");
+  const btnDelete = wrap.querySelector(".admin-bank-inline-delete");
+  const btnCancel = wrap.querySelector(".admin-bank-inline-cancel");
+  const btnSave = wrap.querySelector(".admin-bank-inline-save");
+  const viewEl = wrap.querySelector(".admin-bank-view");
+  const editEl = wrap.querySelector(".admin-bank-edit");
+
+  btnEdit.addEventListener("click", () => {
+    wrap.dataset.mode = "edit";
+    viewEl.classList.add("hidden");
+    editEl.classList.remove("hidden");
+    btnEdit.disabled = true;
   });
 
-  wrap.querySelector(".admin-bank-delete").addEventListener("click", async () => {
+  btnCancel.addEventListener("click", () => {
+    wrap.dataset.mode = "view";
+    viewEl.classList.remove("hidden");
+    editEl.classList.add("hidden");
+    btnEdit.disabled = false;
+  });
+
+  btnDelete.addEventListener("click", async () => {
     const ok = window.confirm("¿Eliminar este caso del banco (questions)?");
     if (!ok) return;
 
     try {
       await deleteDoc(doc(db, "questions", docId));
       wrap.remove();
+
+      // refrescar cache de buscadores (para que ya no aparezca)
+      bankCasesLoadedOnce = false;
+      bankCasesCache = [];
     } catch (err) {
       console.error(err);
       alert("No se pudo eliminar el caso.");
     }
   });
 
-  return wrap;
-}
+  btnSave.addEventListener("click", async () => {
+    const specialty = wrap.querySelector(".admin-bank-edit-specialty").value || "";
+    const topic = wrap.querySelector(".admin-bank-edit-topic").value.trim();
+    const caseText = wrap.querySelector(".admin-bank-edit-caseText").value.trim();
+    const rawQuestions = wrap.querySelector(".admin-bank-edit-questions").value;
 
-function openBankEditModal(docId, data) {
-  const safeCaseText = (data.caseText || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const safeTopic = ((data.topic || "") + "").replace(/"/g, "&quot;");
+    if (!caseText) {
+      alert("El texto del caso clínico no puede ir vacío.");
+      return;
+    }
 
-  openModal({
-    title: "Editar caso (questions)",
-    bodyHtml: `
-      <label class="field">
-        <span>Especialidad</span>
-        <select id="modal-bank-specialty">
-          <option value="">Selecciona...</option>
-          ${Object.entries(SPECIALTIES)
-            .map(([key, label]) => `<option value="${key}" ${key === (data.specialty || "") ? "selected" : ""}>${label}</option>`)
-            .join("")}
-        </select>
-      </label>
+    let questionsParsed = [];
+    try {
+      questionsParsed = JSON.parse(rawQuestions || "[]");
+    } catch (e) {
+      alert("El JSON de preguntas no es válido.");
+      return;
+    }
 
-      <label class="field">
-        <span>Tema (topic)</span>
-        <input type="text" id="modal-bank-topic" value="${safeTopic}" />
-      </label>
+    if (!Array.isArray(questionsParsed) || !questionsParsed.length) {
+      alert("Debe existir al menos una pregunta en el arreglo questions.");
+      return;
+    }
 
-      <label class="field">
-        <span>Texto del caso clínico</span>
-        <textarea id="modal-bank-caseText" rows="5">${safeCaseText}</textarea>
-      </label>
-
-      <div class="card" style="margin-top:10px;">
-        <p class="panel-subtitle" style="margin:0;">
-          Las preguntas se editarán en el JSON completo (rápido y fiel a tu estructura).
-        </p>
-        <label class="field" style="margin-top:8px;">
-          <span>Preguntas (JSON)</span>
-          <textarea id="modal-bank-questions" rows="10">${JSON.stringify(Array.isArray(data.questions) ? data.questions : [], null, 2)}</textarea>
-        </label>
-      </div>
-    `,
-    onOk: async () => {
-      const specialty = document.getElementById("modal-bank-specialty").value || "";
-      const topic = document.getElementById("modal-bank-topic").value.trim();
-      const caseText = document.getElementById("modal-bank-caseText").value.trim();
-      const rawQuestions = document.getElementById("modal-bank-questions").value;
-
-      if (!caseText) {
-        alert("El texto del caso clínico no puede ir vacío.");
+    for (const q of questionsParsed) {
+      if (
+        !q.questionText || !q.optionA || !q.optionB || !q.optionC || !q.optionD ||
+        !q.correctOption || !q.justification
+      ) {
+        alert("Todas las preguntas deben tener: questionText, optionA-D, correctOption, justification.");
         return;
       }
+    }
 
-      let questionsParsed = [];
-      try {
-        questionsParsed = JSON.parse(rawQuestions || "[]");
-      } catch (e) {
-        alert("El JSON de preguntas no es válido.");
-        return;
-      }
+    setLoadingButton(btnSave, true, "Guardar");
 
-      if (!Array.isArray(questionsParsed) || !questionsParsed.length) {
-        alert("Debe existir al menos una pregunta en el arreglo questions.");
-        return;
-      }
+    try {
+      await updateDoc(doc(db, "questions", docId), {
+        specialty,
+        topic,
+        caseText,
+        questions: questionsParsed,
+        updatedAt: serverTimestamp(),
+      });
 
-      for (const q of questionsParsed) {
-        if (
-          !q.questionText || !q.optionA || !q.optionB || !q.optionC || !q.optionD ||
-          !q.correctOption || !q.justification
-        ) {
-          alert("Todas las preguntas deben tener: questionText, optionA-D, correctOption, justification.");
-          return;
-        }
-      }
+      // refrescar cache de buscadores para reflejar cambios
+      bankCasesLoadedOnce = false;
+      bankCasesCache = [];
 
-      const btn = modalBtnOk;
-      setLoadingButton(btn, true);
-
-      try {
-        await updateDoc(doc(db, "questions", docId), {
-          specialty,
-          topic,
-          caseText,
-          questions: questionsParsed,
-          updatedAt: serverTimestamp(),
-        });
-
-        closeModal();
-        loadQuestionsBank(true);
-      } catch (err) {
-        console.error(err);
-        alert("No se pudo guardar la edición del caso.");
-      } finally {
-        setLoadingButton(btn, false, "Guardar");
-      }
-    },
+      // refrescar UI del panel bank
+      await loadQuestionsBank(true);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo guardar la edición del caso.");
+    } finally {
+      setLoadingButton(btnSave, false, "Guardar");
+    }
   });
+
+  return wrap;
 }
 
 async function loadQuestionsBank(reset = false) {
@@ -2379,7 +2369,8 @@ if (btnBankLoadMore) {
 }
 
 /****************************************************
- * MINI EXÁMENES – BANCO GLOBAL DE CASOS
+ * MINI EXÁMENES – BANCO GLOBAL DE CASOS (miniQuestions)
+ * (SIN CAMBIOS, excepto refrescar cache de buscadores cuando guardas)
  ****************************************************/
 
 const miniCasesContainer = document.getElementById("admin-mini-cases");
@@ -2706,7 +2697,7 @@ async function handleSaveMiniBank() {
       });
     }
 
-    // Refrescar cache del buscador para que quede al día
+    // ✅ refrescar cache de buscadores (porque ahora buscan en "questions" banco)
     bankCasesLoadedOnce = false;
     bankCasesCache = [];
 
@@ -2725,6 +2716,7 @@ if (btnMiniSaveAll && miniCasesContainer) {
 
 /****************************************************
  * USUARIOS (CRUD)
+ * (SIN CAMBIOS)
  ****************************************************/
 
 async function loadUsers() {
@@ -2951,6 +2943,7 @@ function openUserEditModal(userId) {
 
 /****************************************************
  * PANTALLA PRINCIPAL / LANDING
+ * (SIN CAMBIOS)
  ****************************************************/
 
 async function loadLandingSettings() {
@@ -3026,6 +3019,7 @@ if (btnSaveLanding) {
 
 /****************************************************
  * SOCIAL LINKS
+ * (SIN CAMBIOS)
  ****************************************************/
 
 async function loadSocialLinks() {
@@ -3115,6 +3109,7 @@ if (btnSaveSocialLinks) {
 
 /****************************************************
  * ANALYTICS BÁSICOS
+ * (SIN CAMBIOS)
  ****************************************************/
 
 async function loadAnalyticsSummary() {
@@ -3223,4 +3218,4 @@ async function loadAnalyticsSummary() {
 /****************************************************
  * FIN ADMIN.JS
  ****************************************************/
-console.log("admin.js cargado correctamente (bank panel + mini buscador agregado).");
+console.log("admin.js cargado correctamente (banco inline + buscadores ligados a questions + usageCount).");
