@@ -5,584 +5,145 @@
   <title>Importar Examen ENARM</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Fuente opcional para que se vea decente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-  <!-- Favicon (evita 404 /favicon.ico) -->
   <link rel="icon" type="image/png" href="logo.png" />
 
   <style>
     body {
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
       background: #0f172a;
       color: #e5e7eb;
       margin: 0;
       padding: 0;
     }
-
     .container {
       max-width: 900px;
       margin: 32px auto;
       background: #020617;
       border-radius: 12px;
       padding: 20px 22px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      box-shadow: 0 12px 30px rgba(15,23,42,0.5);
+      border: 1px solid rgba(148,163,184,.4);
     }
-
-    h1 {
-      font-size: 20px;
-      margin-bottom: 6px;
+    h1 { font-size: 20px; margin-bottom: 6px; }
+    .subtitle { font-size: 13px; color: #9ca3af; margin-bottom: 16px; }
+    .status { font-size: 13px; margin-bottom: 16px; padding: 8px 10px; border-radius: 8px; }
+    .status.error { background: rgba(220,38,38,.12); color:#fecaca; }
+    .status.ok { background: rgba(22,163,74,.12); color:#bbf7d0; }
+    label { font-size: 13px; display:block; margin-bottom:6px; }
+    input, textarea {
+      width:100%; border-radius:10px; border:1px solid rgba(148,163,184,.5);
+      padding:10px 12px; font-size:13px; background:#020617; color:#e5e7eb;
     }
-
-    .subtitle {
-      font-size: 13px;
-      color: #9ca3af;
-      margin-bottom: 16px;
-      line-height: 1.45;
-    }
-
-    .status {
-      font-size: 13px;
-      margin-bottom: 16px;
-      padding: 8px 10px;
-      border-radius: 8px;
-    }
-
-    .status.error {
-      background: rgba(220, 38, 38, 0.12);
-      border: 1px solid rgba(248, 113, 113, 0.4);
-      color: #fecaca;
-    }
-
-    .status.ok {
-      background: rgba(22, 163, 74, 0.12);
-      border: 1px solid rgba(74, 222, 128, 0.4);
-      color: #bbf7d0;
-    }
-
-    label {
-      font-size: 13px;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    input[type="text"]{
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid rgba(148, 163, 184, 0.5);
-      padding: 10px 12px;
-      font-size: 13px;
-      background: #020617;
-      color: #e5e7eb;
-      outline: none;
-    }
-
-    input[type="text"]:focus{
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 260px;
-      border-radius: 10px;
-      border: 1px solid rgba(148, 163, 184, 0.5);
-      padding: 10px 12px;
-      font-size: 13px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      background: #020617;
-      color: #e5e7eb;
-      resize: vertical;
-      outline: none;
-    }
-
-    textarea:focus {
-      border-color: #60a5fa;
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.6);
-    }
-
-    .btn-row {
-      margin-top: 14px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
+    textarea { min-height:260px; font-family:monospace; }
+    .btn-row { margin-top:14px; display:flex; gap:10px; }
     button {
-      padding: 9px 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
+      padding:9px 16px; border-radius:8px; border:none; cursor:pointer;
+      font-size:14px; font-weight:500;
     }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      color: #f9fafb;
-      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    .btn-secondary {
-      background: #4b5563;
-      color: #e5e7eb;
-    }
-
-    .hint {
-      font-size: 12px;
-      color: #9ca3af;
-      margin-top: 6px;
-      line-height: 1.4;
-    }
-
+    .btn-primary { background:#2563eb; color:white; }
+    .btn-secondary { background:#4b5563; color:white; }
     pre {
-      margin-top: 16px;
-      background: #020617;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(148, 163, 184, 0.4);
-      font-size: 12px;
-      max-height: 260px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .grid-two {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    @media (min-width: 760px){
-      .grid-two{
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    .field-block {
-      background: rgba(148, 163, 184, 0.06);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      border-radius: 12px;
-      padding: 12px;
-    }
-
-    .field-title {
-      font-size: 13px;
-      font-weight: 600;
-      margin: 0 0 10px 0;
-      color: #e5e7eb;
+      margin-top:16px; background:#020617; padding:10px;
+      border-radius:10px; border:1px solid rgba(148,163,184,.4);
+      font-size:12px; max-height:260px; overflow:auto;
     }
   </style>
 </head>
+
 <body>
+<div class="container">
+  <h1>Importar examen ENARM (JSON)</h1>
+  <p class="subtitle">
+    1) Inicia sesión como <strong>admin</strong>.<br>
+    2) Abre esta página en la misma sesión.<br>
+    3) Escribe el tema del lote y pega el JSON.
+  </p>
 
-  <div class="container">
-    <h1>Importar examen ENARM (JSON)</h1>
-    <p class="subtitle">
-      1) Inicia sesión como <strong>admin</strong> en <code>index.html</code>.<br>
-      2) Luego abre esta página (<code>import-exam.html</code>) en la misma sesión.<br>
-      3) Escribe el <strong>tema del lote</strong>, pega el JSON del examen y pulsa “Importar examen”.
-    </p>
+  <div id="auth-status" class="status error">Verificando autenticación…</div>
 
-    <div id="auth-status" class="status error">
-      Verificando autenticación...
-    </div>
+  <label>Tema del lote</label>
+  <input id="topicInput" type="text" placeholder="Ej. Apendicitis / Preeclampsia">
 
-    <div class="grid-two">
-      <div class="field-block">
-        <p class="field-title">Tema del lote (se guarda en cada caso clínico)</p>
-        <label for="topicInput">Tema</label>
-        <input
-          id="topicInput"
-          type="text"
-          placeholder="Ej. Apendicitis / Abdomen agudo / Preeclampsia..."
-        />
-        <div class="hint">
-          Este valor se guardará en cada documento de <code>questions</code> como <code>topic</code>.
-          Te sirve para buscar/filtrar luego en el admin.
-        </div>
-      </div>
+  <label style="margin-top:12px;">JSON del examen</label>
+  <textarea id="jsonInput" placeholder="Pega aquí el JSON…"></textarea>
 
-      <div class="field-block">
-        <p class="field-title">Opcional</p>
-        <div class="hint">
-          Si tu JSON ya trae un <code>topic</code> por caso, se respetará.<br>
-          Si no trae, se usará el <strong>Tema del lote</strong> de arriba.
-        </div>
-      </div>
-    </div>
-
-    <label for="jsonInput">JSON del examen</label>
-    <textarea id="jsonInput" placeholder="Pega aquí el JSON del examen..."></textarea>
-    <div class="hint">
-      Debe tener la estructura: <code>{ sectionName, examName, cases: [...] }</code><br>
-      Cada <code>case</code> lleva <code>caseText</code>, <code>specialty</code> y <code>questions</code>.
-    </div>
-
-    <div class="btn-row">
-      <button id="btnImport" class="btn-primary" disabled>Importar examen</button>
-      <button id="btnFillExample" class="btn-secondary" type="button">Poner ejemplo de Examen 76</button>
-    </div>
-
-    <pre id="log"></pre>
+  <div class="btn-row">
+    <button id="btnImport" class="btn-primary" disabled>Importar examen</button>
+    <button id="btnFillExample" class="btn-secondary" type="button">Ejemplo</button>
   </div>
 
-  <!-- Firebase (MODULAR) CDN -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      doc,
-      getDoc,
-      getDocs,
-      query,
-      where,
-      updateDoc,
-      serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  <pre id="log"></pre>
+</div>
 
-    // ==========================
-    // CONFIGURACIÓN FIREBASE
-    // ==========================
-    const firebaseConfig = {
-      apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
-      authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
-      projectId: "simulacros-plataforma-enarm",
-      storageBucket: "simulacros-plataforma-enarm.firebasestorage.app",
-      messagingSenderId: "1012829203040",
-      appId: "1:1012829203040:web:71de568ff8606a1c8d7105",
-    };
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, doc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAGsmp2qwZ2VBBKIDpUF0NUElcCLsGanQ",
+    authDomain: "simulacros-plataforma-enarm.firebaseapp.com",
+    projectId: "simulacros-plataforma-enarm",
+  };
 
-    const authStatusEl = document.getElementById("auth-status");
-    const topicInput = document.getElementById("topicInput");
-    const jsonInput = document.getElementById("jsonInput");
-    const btnImport = document.getElementById("btnImport");
-    const btnFillExample = document.getElementById("btnFillExample");
-    const logEl = document.getElementById("log");
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
 
-    let currentUser = null;
-    let isAdmin = false;
+  const authStatusEl = document.getElementById("auth-status");
+  const topicInput = document.getElementById("topicInput");
+  const jsonInput = document.getElementById("jsonInput");
+  const btnImport = document.getElementById("btnImport");
+  const logEl = document.getElementById("log");
 
-    function log(message) {
-      const time = new Date().toLocaleTimeString();
-      logEl.textContent += \`[\${time}] \${message}\n\`;
-      logEl.scrollTop = logEl.scrollHeight;
+  function log(msg) {
+    const time = new Date().toLocaleTimeString();
+    logEl.textContent += `[${time}] ${msg}\n`;
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      authStatusEl.textContent = "No hay sesión iniciada.";
+      return;
+    }
+    const snap = await getDoc(doc(db, "users", user.email));
+    if (!snap.exists() || snap.data().role !== "admin") {
+      authStatusEl.textContent = "No eres admin.";
+      return;
+    }
+    authStatusEl.className = "status ok";
+    authStatusEl.textContent = `Admin autenticado: ${user.email}`;
+    btnImport.disabled = false;
+  });
+
+  btnImport.addEventListener("click", async () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonInput.value);
+    } catch {
+      alert("JSON inválido");
+      return;
     }
 
-    // ==========================
-    // VERIFICAR QUE SEA ADMIN
-    // ==========================
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        currentUser = null;
-        isAdmin = false;
-        authStatusEl.className = "status error";
-        authStatusEl.textContent =
-          "No hay sesión iniciada. Inicia sesión como ADMIN en index.html y vuelve a abrir esta página.";
-        btnImport.disabled = true;
-        return;
-      }
+    const topic = topicInput.value.trim();
+    const cases = parsed.cases || [];
 
-      currentUser = user;
-      try {
-        const userDocRef = doc(db, "users", user.email);
-        const snap = await getDoc(userDocRef);
-
-        if (!snap.exists()) {
-          isAdmin = false;
-          authStatusEl.className = "status error";
-          authStatusEl.textContent = \`El usuario \${user.email} no tiene documento en 'users'.\`;
-          btnImport.disabled = true;
-          return;
-        }
-
-        const data = snap.data();
-        if (data.role !== "admin") {
-          isAdmin = false;
-          authStatusEl.className = "status error";
-          authStatusEl.textContent = \`El usuario \${user.email} no es admin (role actual: \${data.role || "sin definir"}).\`;
-          btnImport.disabled = true;
-          return;
-        }
-
-        isAdmin = true;
-        authStatusEl.className = "status ok";
-        authStatusEl.textContent = \`Autenticado como ADMIN: \${user.email}. Puedes importar exámenes.\`;
-        btnImport.disabled = false;
-      } catch (err) {
-        console.error(err);
-        isAdmin = false;
-        authStatusEl.className = "status error";
-        authStatusEl.textContent = "Error verificando role de admin en 'users'. Revisa la consola.";
-        btnImport.disabled = true;
-      }
-    });
-
-    // ==========================
-    // IMPORTAR EXAMEN DESDE JSON
-    // ==========================
-    async function importExamFromJson() {
-      if (!isAdmin) {
-        alert("Solo un admin puede importar exámenes.");
-        return;
-      }
-
-      const topicGlobal = (topicInput?.value || "").trim();
-
-      let parsed;
-      try {
-        parsed = JSON.parse(jsonInput.value);
-      } catch (err) {
-        alert("El JSON no es válido. Revisa comas, llaves y comillas.");
-        log("Error al parsear JSON: " + err.message);
-        return;
-      }
-
-      const sectionName = parsed.sectionName || null;
-      const sectionIdFromJson = parsed.sectionId || null;
-      const examName = parsed.examName || null;
-      const cases = Array.isArray(parsed.cases) ? parsed.cases : [];
-      const examIdFromJson = parsed.examId || null; // opcional para reutilizar examen exacto
-
-      if (!examName || !cases.length) {
-        alert("El JSON debe incluir 'examName' y un arreglo 'cases' con al menos 1 caso clínico.");
-        log("JSON incompleto: falta examName o cases.");
-        return;
-      }
-
-      // Si NO viene topic por caso en el JSON y el admin no escribió tema, avisamos (pero no bloqueamos)
-      const anyCaseHasTopic = cases.some(c => typeof c?.topic === "string" && c.topic.trim());
-      if (!anyCaseHasTopic && !topicGlobal) {
-        const ok = confirm(
-          "No escribiste 'Tema del lote' y el JSON tampoco trae 'topic' por caso.\n" +
-          "Se importará sin tema (topic vacío). ¿Continuar?"
-        );
-        if (!ok) return;
-      }
-
-      btnImport.disabled = true;
-      log("Iniciando importación...");
-
-      try {
-        // 1) RESOLVER SECTION
-        let finalSectionId = sectionIdFromJson;
-
-        if (!finalSectionId) {
-          if (!sectionName) {
-            throw new Error("Falta 'sectionId' o 'sectionName' en el JSON.");
-          }
-
-          const qSec = query(collection(db, "sections"), where("name", "==", sectionName));
-          const snapSec = await getDocs(qSec);
-
-          if (!snapSec.empty) {
-            finalSectionId = snapSec.docs[0].id;
-            log(\`Sección existente reutilizada: "\${sectionName}" (id: \${finalSectionId})\`);
-          } else {
-            const secRef = await addDoc(collection(db, "sections"), {
-              name: sectionName,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-            finalSectionId = secRef.id;
-            log(\`Sección creada: "\${sectionName}" (id: \${finalSectionId})\`);
-          }
-        } else {
-          log(\`Se utilizará la sección existente con id: \${finalSectionId}\`);
-        }
-
-        // 2) RESOLVER / CREAR EXAMEN
-        let examRef;
-        let examId;
-
-        if (examIdFromJson) {
-          examRef = doc(db, "exams", examIdFromJson);
-          const exSnap = await getDoc(examRef);
-          if (!exSnap.exists()) {
-            throw new Error(\`El examId \${examIdFromJson} no existe en 'exams'.\`);
-          }
-
-          const exData = exSnap.data() || {};
-          const updates = { updatedAt: serverTimestamp() };
-          if (!exData.createdAt) updates.createdAt = serverTimestamp();
-
-          await updateDoc(examRef, updates);
-
-          examId = examIdFromJson;
-          log(\`Se usará examen EXISTENTE por examId: \${examIdFromJson}\`);
-        } else {
-          let existingExamId = null;
-
-          if (finalSectionId && examName) {
-            const qEx = query(
-              collection(db, "exams"),
-              where("sectionId", "==", finalSectionId),
-              where("name", "==", examName)
-            );
-            const snapEx = await getDocs(qEx);
-            if (!snapEx.empty) existingExamId = snapEx.docs[0].id;
-          }
-
-          if (existingExamId) {
-            examRef = doc(db, "exams", existingExamId);
-            const exSnap = await getDoc(examRef);
-            const exData = exSnap.data() || {};
-            const updates = { updatedAt: serverTimestamp() };
-            if (!exData.createdAt) updates.createdAt = serverTimestamp();
-            await updateDoc(examRef, updates);
-
-            examId = existingExamId;
-            log(\`Se usará examen EXISTENTE "\${examName}" (id: \${existingExamId}) para añadir preguntas.\`);
-          } else {
-            const newExamRef = await addDoc(collection(db, "exams"), {
-              name: examName,
-              sectionId: finalSectionId,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-            examRef = newExamRef;
-            examId = newExamRef.id;
-            log(\`Examen creado: "\${examName}" (id: \${examId})\`);
-          }
-        }
-
-        // 3) CREAR QUESTIONS (cada caso = 1 doc en "questions")
-        let totalQuestions = 0;
-
-        for (const [index, c] of cases.entries()) {
-          const caseText = (c.caseText || "").toString();
-          const specialty = c.specialty || null;
-          const qArr = Array.isArray(c.questions) ? c.questions : [];
-
-          // Tema por caso: si viene en el JSON se respeta; si no, usa Tema del lote
-          const topicPerCase = (typeof c?.topic === "string" ? c.topic.trim() : "") || topicGlobal;
-
-          if (!qArr.length) {
-            log(\`Caso clínico \${index + 1} sin preguntas, se omite.\`);
-            continue;
-          }
-
-          const questionsForDoc = qArr.map((q) => ({
-            questionText: q.questionText || "",
-            optionA: q.optionA || "",
-            optionB: q.optionB || "",
-            optionC: q.optionC || "",
-            optionD: q.optionD || "",
-            correctOption: q.correctOption || "A",
-            justification: q.justification || "",
-            difficulty: q.difficulty || "baja",
-            subtype: q.subtype || "salud_publica",
-          }));
-
-          const qRef = await addDoc(collection(db, "questions"), {
-            examId: examId,
-            caseText,
-            specialty,
-            topic: topicPerCase || "",     // ✅ NUEVO: tema guardado por caso
-            questions: questionsForDoc,
-            createdAt: serverTimestamp(),
-          });
-
-          totalQuestions += questionsForDoc.length;
-          log(
-            \`Caso clínico \${index + 1} creado en 'questions' (id: \${qRef.id}, preguntas: \${questionsForDoc.length}, tema: "\${topicPerCase || ""}")\`
-          );
-        }
-
-        log(\`IMPORTACIÓN COMPLETA. Total de preguntas creadas en esta importación: \${totalQuestions}.\`);
-        alert(
-          \`Examen importado correctamente.\n\` +
-          \`SectionID: \${finalSectionId}\n\` +
-          \`ExamID: \${examId}\n\` +
-          \`Total de nuevas preguntas creadas: \${totalQuestions}\`
-        );
-      } catch (err) {
-        console.error(err);
-        log("ERROR durante la importación: " + err.message);
-        alert("Ocurrió un error al importar el examen. Revisa la consola y el log.");
-      } finally {
-        btnImport.disabled = false;
-      }
+    for (const c of cases) {
+      await addDoc(collection(db, "questions"), {
+        caseText: c.caseText || "",
+        specialty: c.specialty || "",
+        topic: c.topic || topic,
+        questions: c.questions || [],
+        createdAt: serverTimestamp(),
+      });
     }
 
-    btnImport.addEventListener("click", importExamFromJson);
-
-    // ==========================
-    // BOTÓN: PONER EJEMPLO EXAMEN 76
-    // ==========================
-    btnFillExample.addEventListener("click", () => {
-      const example = {
-        sectionName: "Vuelta 1",
-        examName: "Examen 76 - Vuelta 1",
-        cases: [
-          {
-            caseText:
-              "Paciente masculino de 68 años, antecedente de EPOC GOLD D, exfumador de 40 paquetes-año, con oxígeno domiciliario. Acude a urgencias por disnea progresiva de 3 días, aumento de volumen y purulencia del esputo, fiebre de 38.3 °C y uso de músculos accesorios. TA 130/80 mmHg, FC 112 lpm, FR 30 rpm, SatO2 84% al aire ambiente. A la exploración estertores y sibilancias difusas, uso de músculos accesorios, tiraje intercostal.",
-            specialty: "medicina_interna",
-            // topic: "EPOC"  // opcional por caso (si lo pones aquí, se respeta)
-            questions: [
-              {
-                questionText:
-                  "¿Cuál es el siguiente paso MÁS adecuado en el manejo inicial de este paciente en el servicio de urgencias?",
-                optionA: "Iniciar antibiótico oral y dar de alta con vigilancia estrecha",
-                optionB: "Administrar broncodilatadores inhalados de acción corta y reevaluar en 48 horas",
-                optionC:
-                  "Iniciar oxígeno suplementario, broncodilatadores inhalados y valorar ventilación no invasiva",
-                optionD: "Solicitar espirometría inmediata para ajustar el tratamiento de base",
-                correctOption: "C",
-                justification:
-                  "Se trata de una exacerbación grave de EPOC con datos de insuficiencia respiratoria aguda. El manejo inicial incluye oxígeno suplementario controlado, broncodilatadores de acción corta y valoración temprana de ventilación no invasiva.",
-                difficulty: "media",
-                subtype: "urgencias",
-              },
-              {
-                questionText:
-                  "Tras el manejo inicial, el paciente persiste con trabajo respiratorio importante y acidosis respiratoria en gasometría. ¿Qué parámetro gasométrico es el MÁS útil para decidir ventilación no invasiva?",
-                optionA: "Frecuencia cardíaca mayor de 100 lpm",
-                optionB: "PaO2 mayor de 60 mmHg con oxígeno suplementario",
-                optionC: "PaCO2 elevada con pH menor de 7.35",
-                optionD: "Bicarbonato sérico disminuido con anion gap elevado",
-                correctOption: "C",
-                justification:
-                  "La indicación clásica de ventilación no invasiva en exacerbación de EPOC es la presencia de acidosis respiratoria (PaCO2 elevada con pH < 7.35), en el contexto de insuficiencia respiratoria aguda.",
-                difficulty: "alta",
-                subtype: "urgencias",
-              },
-            ],
-          },
-        ],
-      };
-
-      jsonInput.value = JSON.stringify(example, null, 2);
-
-      // Por default te dejo un ejemplo de tema del lote también
-      if (topicInput && !topicInput.value.trim()) {
-        topicInput.value = "EPOC / Exacerbación";
-      }
-
-      log("Ejemplo de JSON (Examen 76) cargado en el textarea.");
-    });
-  </script>
+    log(`Importación completa. Casos: ${cases.length}`);
+    alert("Importado correctamente");
+  });
+</script>
 
 </body>
+</html>
+
 </html>
