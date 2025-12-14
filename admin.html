@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estudiante ENARM | Administrador</title>
 
-  <!-- Fuente moderna -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Estilos compartidos -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Favicon (evita error 404 /favicon.ico) -->
   <link rel="icon" type="image/png" href="logo.png" />
 </head>
 
@@ -48,7 +43,6 @@
           Secciones y exámenes
         </button>
 
-        <!-- ✅ BANCO DE PREGUNTAS (solo admin) -->
         <button id="admin-btn-nav-bank" class="sidebar-btn">
           Banco de preguntas
         </button>
@@ -56,12 +50,15 @@
         <button id="admin-btn-nav-mini" class="sidebar-btn">
           Mini exámenes
         </button>
+
         <button id="admin-btn-nav-users" class="sidebar-btn">
           Usuarios
         </button>
+
         <button id="admin-btn-nav-analytics" class="sidebar-btn">
           Análisis
         </button>
+
         <button id="admin-btn-nav-landing" class="sidebar-btn">
           Pantalla principal
         </button>
@@ -120,7 +117,7 @@
             </div>
           </div>
 
-          <!-- ================= BUSCADOR DE BANCO DE CASOS (miniQuestions) ================= -->
+          <!-- ✅ BUSCADOR: AGREGAR CASOS DESDE BANCO (questions) -->
           <div class="card" style="margin-top:14px;">
             <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
 
@@ -129,26 +126,25 @@
               <input
                 type="text"
                 id="admin-bank-search-input"
-                placeholder="Ej. apendicitis aguda, preeclampsia, hemorragia posparto"
+                placeholder="Escribe para buscar..."
               />
             </label>
 
             <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
           </div>
-          <!-- ================= FIN BUSCADOR BANCO ================= -->
 
           <!-- Contenedor de casos clínicos + preguntas -->
           <div id="admin-exam-cases" class="cards-list"></div>
         </section>
       </section>
 
-      <!-- ================= ✅ PANEL: BANCO DE PREGUNTAS (questions) ================= -->
+      <!-- ================= PANEL: BANCO DE PREGUNTAS (questions) ================= -->
       <section id="admin-panel-bank" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Banco de preguntas</h2>
             <p class="panel-subtitle">
-              Edita casos del banco general (<code>questions</code>) y selecciona cuáles copiar a Mini exámenes (<code>miniQuestions</code>).
+              Edita directamente los casos del banco general (<code>questions</code>).
             </p>
           </div>
         </div>
@@ -157,23 +153,23 @@
         <div class="card">
           <div class="create-user-grid">
             <div class="field">
-              <span>Buscar texto (caseText)</span>
-              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso clínico..." />
+              <span>Buscar texto (caseText / preguntas)</span>
+              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso o preguntas..." />
             </div>
 
             <div class="field">
               <span>Tema (topic)</span>
-              <input id="admin-bank-topic" type="text" placeholder="Ej. Apendicitis / Preeclampsia..." />
+              <input id="admin-bank-topic" type="text" placeholder="Filtra por topic exacto..." />
             </div>
 
             <div class="field">
               <span>Especialidad</span>
-              <input id="admin-bank-specialty" type="text" placeholder="Ej. medicina_interna / gine_obstetricia..." />
+              <input id="admin-bank-specialty" type="text" placeholder="Filtra por specialty exacto..." />
             </div>
 
             <div class="field">
               <span>ExamID</span>
-              <input id="admin-bank-examid" type="text" placeholder="Filtrar por ID de examen..." />
+              <input id="admin-bank-examid" type="text" placeholder="Filtrar por examId exacto..." />
             </div>
           </div>
 
@@ -182,16 +178,6 @@
             <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
             <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
           </div>
-        </div>
-
-        <!-- Acciones selección -->
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div class="panel-subtitle" style="margin:0;">
-            Selecciona casos (checkbox) para copiarlos a Mini exámenes.
-          </div>
-          <button id="admin-bank-btn-add-to-mini" class="btn btn-primary btn-sm" disabled>
-            Agregar seleccionados a Mini exámenes
-          </button>
         </div>
 
         <!-- Lista del banco -->
@@ -203,9 +189,14 @@
             Cargar más
           </button>
         </div>
+
+        <!-- Botón opcional (si luego lo reactivas en JS) -->
+        <div class="hidden">
+          <button id="admin-bank-btn-add-to-mini"></button>
+        </div>
       </section>
 
-      <!-- ================= PANEL: MINI EXÁMENES (BANCO GLOBAL) ================= -->
+      <!-- ================= PANEL: MINI EXÁMENES ================= -->
       <section id="admin-panel-mini" class="panel hidden">
         <div class="panel-header">
           <div>
@@ -225,7 +216,6 @@
           </div>
         </div>
 
-        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
         <div id="admin-mini-cases" class="cards-list"></div>
       </section>
 
@@ -240,7 +230,6 @@
           </div>
         </div>
 
-        <!-- Formulario nuevo usuario -->
         <div id="create-user-card">
           <h3>Nuevo usuario</h3>
 
@@ -289,7 +278,6 @@
           </div>
         </div>
 
-        <!-- Tabla de usuarios -->
         <div id="admin-users-table"></div>
       </section>
 
@@ -319,7 +307,6 @@
           </div>
         </div>
 
-        <!-- Bloque de texto principal -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
           <label class="field">
@@ -328,7 +315,6 @@
           </label>
         </div>
 
-        <!-- Precios y WhatsApp -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
 
@@ -364,7 +350,6 @@
           </div>
         </div>
 
-        <!-- Links de redes sociales -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
 
@@ -411,7 +396,6 @@
 
   </section>
 
-  <!-- LÓGICA ADMIN -->
   <script type="module" src="admin.js"></script>
 </body>
 </html>
