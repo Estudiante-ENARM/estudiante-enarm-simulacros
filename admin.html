@@ -11,7 +11,7 @@
   <!-- Estilos compartidos -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Favicon (evita error 404 /favicon.ico) -->
+  <!-- Favicon -->
   <link rel="icon" type="image/png" href="logo.png" />
 </head>
 
@@ -46,6 +46,11 @@
       <div style="margin-top:12px;">
         <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
           Secciones y exámenes
+        </button>
+
+        <!-- ✅ BANCO DE PREGUNTAS -->
+        <button id="admin-btn-nav-bank" class="sidebar-btn">
+          Banco de preguntas
         </button>
 
         <button id="admin-btn-nav-mini" class="sidebar-btn">
@@ -115,12 +120,12 @@
             </div>
           </div>
 
-          <!-- ================= BUSCADOR: AGREGAR CASOS DESDE BANCO (miniQuestions) ================= -->
+          <!-- ================= BUSCADOR PARA AGREGAR CASOS AL EXAMEN ================= -->
           <div class="card" style="margin-top:14px;">
             <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
 
             <label class="field">
-              <span>Buscar por tema</span>
+              <span>Buscar</span>
               <input
                 type="text"
                 id="admin-bank-search-input"
@@ -137,13 +142,73 @@
         </section>
       </section>
 
-      <!-- ================= PANEL: MINI EXÁMENES (BANCO GLOBAL) ================= -->
+      <!-- ================= PANEL: BANCO DE PREGUNTAS (questions) ================= -->
+      <section id="admin-panel-bank" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Banco de preguntas</h2>
+            <p class="panel-subtitle">
+              Administra el banco general (<code>questions</code>). Filtra, revisa y edita directamente.
+            </p>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card">
+          <div class="create-user-grid">
+            <div class="field">
+              <span>Buscar texto (caseText)</span>
+              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso clínico..." />
+            </div>
+
+            <div class="field">
+              <span>Tema (topic)</span>
+              <input id="admin-bank-topic" type="text" placeholder="Filtrar por tema..." />
+            </div>
+
+            <div class="field">
+              <span>Especialidad</span>
+              <input id="admin-bank-specialty" type="text" placeholder="Filtrar por especialidad..." />
+            </div>
+
+            <div class="field">
+              <span>ExamID</span>
+              <input id="admin-bank-examid" type="text" placeholder="Filtrar por ID de examen..." />
+            </div>
+          </div>
+
+          <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
+            <button id="admin-bank-btn-clear" class="btn btn-outline btn-sm">Limpiar</button>
+            <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
+            <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div class="panel-subtitle" style="margin:0;">
+            Aquí se muestra el caso completo para editarlo (incluye preguntas).
+          </div>
+        </div>
+
+        <!-- Lista del banco -->
+        <div id="admin-bank-list" class="cards-list"></div>
+
+        <!-- Paginación -->
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">
+            Cargar más
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= PANEL: MINI EXÁMENES ================= -->
       <section id="admin-panel-mini" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Mini exámenes</h2>
             <p class="panel-subtitle">
-              Banco global de casos clínicos para los mini exámenes del estudiante.
+              Banco global para mini exámenes del estudiante.
             </p>
           </div>
 
@@ -157,7 +222,7 @@
           </div>
         </div>
 
-        <!-- ✅ NUEVO: buscador para agregar casos desde el banco (miniQuestions) -->
+        <!-- ✅ BUSCADOR PARA AGREGAR CASOS AL BANCO DE MINI EXÁMENES -->
         <div class="card" style="margin-bottom:14px;">
           <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
 
@@ -172,9 +237,8 @@
 
           <div id="admin-mini-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
         </div>
-        <!-- ✅ FIN buscador -->
 
-        <!-- Aquí se pintan todos los casos clínicos de mini exámenes -->
+        <!-- Contenedor de mini casos -->
         <div id="admin-mini-cases" class="cards-list"></div>
       </section>
 
@@ -189,7 +253,6 @@
           </div>
         </div>
 
-        <!-- Formulario nuevo usuario -->
         <div id="create-user-card">
           <h3>Nuevo usuario</h3>
 
@@ -238,7 +301,6 @@
           </div>
         </div>
 
-        <!-- Tabla de usuarios -->
         <div id="admin-users-table"></div>
       </section>
 
@@ -248,7 +310,7 @@
           <div>
             <h2>Análisis</h2>
             <p class="panel-subtitle">
-              Estadísticas globales de secciones, exámenes y desempeño de los estudiantes.
+              Estadísticas globales de secciones, exámenes y desempeño.
             </p>
           </div>
         </div>
@@ -257,34 +319,32 @@
         <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
       </section>
 
-      <!-- ================= PANEL: PANTALLA PRINCIPAL / LANDING ================= -->
+      <!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
       <section id="admin-panel-landing" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Pantalla principal</h2>
             <p class="panel-subtitle">
-              Configura el texto de bienvenida, precios y enlaces de la interfaz pública.
+              Configura texto, precios y enlaces públicos.
             </p>
           </div>
         </div>
 
-        <!-- Bloque de texto principal -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
           <label class="field">
             <span>Texto que aparece debajo del panel de acceso</span>
-            <textarea id="admin-landing-text" rows="5" placeholder="Descripción de la plataforma Estudiante ENARM"></textarea>
+            <textarea id="admin-landing-text" rows="5"></textarea>
           </label>
         </div>
 
-        <!-- Precios y WhatsApp -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
 
           <div class="create-user-grid">
             <div class="field">
               <span>Etiqueta plan mensual</span>
-              <input type="text" id="admin-monthly-label" placeholder="Plan mensual" />
+              <input type="text" id="admin-monthly-label" />
             </div>
             <div class="field">
               <span>Precio plan mensual (MXN)</span>
@@ -293,7 +353,7 @@
 
             <div class="field">
               <span>Etiqueta plan ENARM 2026</span>
-              <input type="text" id="admin-enarm-label" placeholder="Plan ENARM 2026" />
+              <input type="text" id="admin-enarm-label" />
             </div>
             <div class="field">
               <span>Precio plan ENARM 2026 (MXN)</span>
@@ -302,7 +362,7 @@
 
             <div class="field">
               <span>Número de WhatsApp</span>
-              <input type="text" id="admin-whatsapp-phone" placeholder="+525515656316" />
+              <input type="text" id="admin-whatsapp-phone" />
             </div>
           </div>
 
@@ -313,26 +373,25 @@
           </div>
         </div>
 
-        <!-- Links de redes sociales -->
         <div class="card">
           <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
 
           <div class="create-user-grid">
             <div class="field">
               <span>Instagram</span>
-              <input type="url" id="admin-instagram-link" placeholder="https://instagram.com/..." />
+              <input type="url" id="admin-instagram-link" />
             </div>
             <div class="field">
               <span>WhatsApp (URL completa)</span>
-              <input type="url" id="admin-whatsapp-link" placeholder="https://wa.me/..." />
+              <input type="url" id="admin-whatsapp-link" />
             </div>
             <div class="field">
               <span>TikTok</span>
-              <input type="url" id="admin-tiktok-link" placeholder="https://www.tiktok.com/..." />
+              <input type="url" id="admin-tiktok-link" />
             </div>
             <div class="field">
               <span>Telegram</span>
-              <input type="url" id="admin-telegram-link" placeholder="https://t.me/..." />
+              <input type="url" id="admin-telegram-link" />
             </div>
           </div>
 
