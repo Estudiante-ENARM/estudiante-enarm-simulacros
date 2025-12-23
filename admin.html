@@ -2,59 +2,62 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>Estudiante ENARM | Administrador</title>
 
-  <!-- Fuente moderna -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Estilos compartidos -->
+  <!-- CSS principal -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="logo.png" />
+  <!-- Fuente Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Íconos (Font Awesome) -->
+  <script src="https://kit.fontawesome.com/a2e0e9d6c3.js" crossorigin="anonymous"></script>
 </head>
+<body class="theme-dark">
 
-<body>
-  <section id="admin-view" class="view">
+  <!-- HEADER ADMIN -->
+  <header class="admin-header">
+    <button class="btn btn-outline" id="admin-btn-toggle-sidebar" title="Menú">
+      <i class="fas fa-bars"></i>
+    </button>
 
-    <!-- HEADER -->
-    <header class="header">
-      <button id="admin-btn-toggle-sidebar" class="hamburger-btn">☰</button>
-      <div class="header-right">
-        <span id="admin-user-email"></span>
-        <button id="admin-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
-      </div>
-    </header>
+    <h1 class="admin-title">Panel Administrador</h1>
 
-    <!-- SIDEBAR ADMIN -->
-    <aside id="admin-sidebar">
-      <div class="sidebar-logo">
-        <img src="logo.png" alt="Estudiante ENARM" class="sidebar-logo-img" />
-        <h2 class="sidebar-title">Estudiante ENARM</h2>
-      </div>
-
-      <!-- Secciones dinámicas -->
-      <ul id="admin-sections-list" class="sidebar-sections"></ul>
-
-      <!-- Botón agregar sección -->
-      <button id="admin-btn-add-section" class="sidebar-btn btn-outline">
-        + Agregar sección
+    <div class="admin-userbox">
+      <span id="admin-user-email">admin@correo.com</span>
+      <button class="btn btn-outline btn-sm" id="admin-btn-logout">
+        Cerrar sesión
       </button>
+    </div>
+  </header>
 
-      <!-- Navegación de paneles -->
-      <div style="margin-top:12px;">
-        <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
-          Secciones y exámenes
+  <main class="admin-main">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="admin-sidebar">
+      <div class="sidebar-section">
+        <h2>Secciones</h2>
+        <div id="admin-sections-list" class="sidebar-list"></div>
+        <button class="btn btn-secondary btn-sm" id="admin-btn-add-section">
+          + Nueva sección
         </button>
+      </div>
 
-        <!-- ✅ BANCO DE PREGUNTAS -->
+      <hr class="sidebar-divider" />
+
+      <div class="sidebar-section">
+        <h2>Administración</h2>
+        <button id="admin-btn-nav-exams" class="sidebar-btn">
+          Exámenes
+        </button>
         <button id="admin-btn-nav-bank" class="sidebar-btn">
-          Banco de preguntas
+          Banco preguntas
         </button>
-
         <button id="admin-btn-nav-mini" class="sidebar-btn">
-          Mini exámenes
+          Mini-Exámenes
         </button>
         <button id="admin-btn-nav-users" class="sidebar-btn">
           Usuarios
@@ -65,45 +68,40 @@
         <button id="admin-btn-nav-landing" class="sidebar-btn">
           Pantalla principal
         </button>
-
-        <!-- ✅ Import / Export (redirige a import-exam.html) -->
-        <button
-          id="admin-btn-nav-import-export"
-          class="sidebar-btn btn-outline"
-          style="font-size:12px;padding:8px 11px;margin-left:10px;width:calc(100% - 10px);"
-        >
-          Importar / Exportar
+        <button id="admin-btn-nav-import-export" class="sidebar-btn">
+          Import / Export
         </button>
       </div>
     </aside>
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <main id="content">
+    <!-- CONTENEDOR PRINCIPAL -->
+    <section class="admin-content">
 
-      <!-- ================= PANEL: SECCIONES + EXÁMENES ================= -->
-      <section id="admin-panel-exams" class="panel">
+      <!-- PANEL EXÁMENES -->
+      <div id="admin-panel-exams" class="panel">
+
         <div class="panel-header">
           <div>
-            <h2 id="admin-current-section-title">Selecciona una sección</h2>
+            <h2 id="admin-current-section-title">Sección: (sin seleccionar)</h2>
             <p class="panel-subtitle">
-              Administra los simulacros ENARM por sección.
+              Administra exámenes dentro de la sección seleccionada.
             </p>
           </div>
-          <div class="flex-row" style="justify-content:flex-end;">
+
+          <div class="flex-row">
             <button id="admin-btn-import-exams-json" class="btn btn-outline btn-sm">
               Importar exámenes (JSON)
             </button>
-            <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">
-              + Agregar examen
+            <button id="admin-btn-add-exam" class="btn btn-primary">
+              + Nuevo examen
             </button>
           </div>
         </div>
 
-        <!-- Lista de exámenes por sección -->
-        <div id="admin-exams-list" class="cards-list"></div>
+        <div id="admin-exams-list" class="cards-grid"></div>
 
-        <!-- DETALLE DE EXAMEN (CASOS CLÍNICOS) -->
-        <section id="admin-exam-detail" class="panel hidden">
+        <!-- Vista detalle de un examen (hidden al inicio) -->
+        <div id="admin-exam-detail" class="panel hidden">
           <div class="panel-header" style="align-items:flex-end;gap:12px;">
             <button id="admin-btn-back-to-exams" class="btn btn-outline">
               ← Volver a exámenes
@@ -129,306 +127,297 @@
             </div>
           </div>
 
+      <div class="card" id="admin-auto-generator-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:260px;">
+            <h3 style="margin-bottom:4px;">Generador rápido (automático)</h3>
+            <p class="panel-subtitle" style="margin:0;">
+              Define temas y distribución por especialidad/subtipo. Se priorizan casos con menor <b>usageCount</b>.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label class="btn btn-sm btn-outline" style="cursor:pointer;">
+              <input type="checkbox" id="admin-auto-append" style="display:none;">
+              <span id="admin-auto-append-text">Reemplazar contenido</span>
+            </label>
+            <button class="btn btn-sm btn-secondary" id="admin-auto-btn-generate">Generar</button>
+          </div>
+        </div>
+
+        <div class="create-user-grid" style="margin-top:12px;">
+          <div class="field" style="grid-column:1 / -1;">
+            <span>Temas (uno por línea o separados por coma)</span>
+            <textarea id="admin-auto-topics" rows="3" placeholder="Ej: abdomen agudo, apendicitis, colecistitis, hernia incarcerada…"></textarea>
+          </div>
+
+          <div class="field">
+            <span>Total de preguntas (referencia)</span>
+            <input id="admin-auto-total-questions" type="number" min="1" step="1" value="280" />
+          </div>
+
+          <div class="field">
+            <span>Modo de prioridad</span>
+            <select id="admin-auto-priority-mode">
+              <option value="usageAsc" selected>Priorizar no usados (0→1→2…)</option>
+              <option value="random">Aleatorio</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="field" style="min-width:260px;flex:1;">
+              <span>Agregar especialidad</span>
+              <select id="admin-auto-add-specialty-select"></select>
+            </div>
+            <button class="btn btn-sm btn-primary" id="admin-auto-add-specialty-btn">Agregar</button>
+            <button class="btn btn-sm" id="admin-auto-autofill-btn">Autorrellenar 20/40/40</button>
+            <button class="btn btn-sm" id="admin-auto-clear-plan-btn">Limpiar</button>
+          </div>
+
+          <div id="admin-auto-plan-rows" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+          <div id="admin-auto-plan-summary" style="margin-top:10px;font-size:12px;color:#9ca3af;"></div>
+        </div>
+      </div>
+
           <!-- ================= BUSCADOR PARA AGREGAR CASOS AL EXAMEN ================= -->
           <div class="card" style="margin-top:14px;">
             <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
-
-            <label class="field">
-              <span>Buscar</span>
-              <input
-                type="text"
-                id="admin-bank-search-input"
-                placeholder="Escribe para buscar..."
-              />
-            </label>
-
-            <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
+            <p class="panel-subtitle" style="margin-top:-2px;">
+              Escribe un tema y elige casos del banco para agregarlos al examen.
+            </p>
+            <input
+              id="admin-bank-search-input"
+              type="text"
+              placeholder="Buscar por tema (ej. trauma, sepsis, embarazo ectópico)..."
+              class="input"
+            />
+            <div id="admin-bank-search-results" style="margin-top:10px;"></div>
           </div>
-          <!-- ================= FIN BUSCADOR ================= -->
 
-          <!-- Contenedor de casos clínicos + preguntas -->
-          <div id="admin-exam-cases" class="cards-list"></div>
-        </section>
-      </section>
+          <!-- Contenedor de casos del examen -->
+          <div id="admin-exam-cases" style="margin-top:14px;"></div>
+        </div>
+      </div>
 
-      <!-- ================= PANEL: BANCO DE PREGUNTAS (questions) ================= -->
-      <section id="admin-panel-bank" class="panel hidden">
+      <!-- PANEL BANCO -->
+      <div id="admin-panel-bank" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Banco de preguntas</h2>
             <p class="panel-subtitle">
-              Administra el banco general (<code>questions</code>). Filtra, revisa y edita directamente.
+              Agrega, edita y gestiona el banco de casos (no asociados a un examen).
             </p>
           </div>
         </div>
 
-        <!-- Filtros -->
-        <div class="card">
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Buscar texto (caseText)</span>
-              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso clínico..." />
-            </div>
+        <div id="admin-bank-container" class="cards-grid"></div>
+      </div>
 
-            <div class="field">
-              <span>Tema (topic)</span>
-              <input id="admin-bank-topic" type="text" placeholder="Filtrar por tema..." />
-            </div>
-
-            <div class="field">
-              <span>Especialidad</span>
-              <input id="admin-bank-specialty" type="text" placeholder="Filtrar por especialidad..." />
-            </div>
-
-            <div class="field">
-              <span>ExamID</span>
-              <input id="admin-bank-examid" type="text" placeholder="Filtrar por ID de examen..." />
-            </div>
-          </div>
-
-          <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
-            <button id="admin-bank-btn-clear" class="btn btn-outline btn-sm">Limpiar</button>
-            <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
-            <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
-          </div>
-        </div>
-
-        <!-- Acciones -->
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div class="panel-subtitle" style="margin:0;">
-            Aquí se muestra el caso completo para editarlo (incluye preguntas).
-          </div>
-        </div>
-
-        <!-- Lista del banco -->
-        <div id="admin-bank-list" class="cards-list"></div>
-
-        <!-- Paginación -->
-        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">
-            Cargar más
-          </button>
-        </div>
-      </section>
-
-      <!-- ================= PANEL: MINI EXÁMENES ================= -->
-      <section id="admin-panel-mini" class="panel hidden">
+      <!-- PANEL MINI-EXÁMENES -->
+      <div id="admin-panel-mini" class="panel hidden">
         <div class="panel-header">
           <div>
-            <h2>Mini exámenes</h2>
+            <h2>Mini-Exámenes</h2>
             <p class="panel-subtitle">
-              Banco global para mini exámenes del estudiante.
+              Administra los casos usados para mini-exámenes (selección aleatoria / por tema).
             </p>
           </div>
-
-          <div class="flex-row" style="justify-content:flex-end;">
-            <button id="admin-mini-btn-add-case" class="btn btn-secondary">
-              + Agregar caso clínico
-            </button>
-            <button id="admin-mini-btn-save-all" class="btn btn-primary">
-              Guardar banco
-            </button>
-          </div>
         </div>
 
-        <!-- ✅ BUSCADOR PARA AGREGAR CASOS AL BANCO DE MINI EXÁMENES -->
-        <div class="card" style="margin-bottom:14px;">
+        <div class="card">
           <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
+          <p class="panel-subtitle" style="margin-top:-2px;">
+            Busca y agrega casos del banco para mini-exámenes.
+          </p>
 
-          <label class="field">
-            <span>Buscar</span>
-            <input
-              type="text"
-              id="admin-mini-bank-search-input"
-              placeholder="Escribe para buscar..."
-            />
-          </label>
-
-          <div id="admin-mini-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
+          <input
+            id="admin-mini-bank-search-input"
+            type="text"
+            placeholder="Buscar por tema (ej. diabetes, asma, preeclampsia)..."
+            class="input"
+          />
+          <div id="admin-mini-bank-search-results" style="margin-top:10px;"></div>
         </div>
 
-        <!-- Contenedor de mini casos -->
-        <div id="admin-mini-cases" class="cards-list"></div>
-      </section>
+        <div id="admin-mini-container" style="margin-top:14px;"></div>
+      </div>
 
-      <!-- ================= PANEL: USUARIOS ================= -->
-      <section id="admin-panel-users" class="panel hidden">
+      <!-- PANEL USUARIOS -->
+      <div id="admin-panel-users" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Usuarios</h2>
             <p class="panel-subtitle">
-              Crea, edita y administra los accesos a la plataforma.
+              Crea usuarios, asigna rol, controla estatus y expiración.
             </p>
           </div>
         </div>
 
-        <div id="create-user-card">
-          <h3>Nuevo usuario</h3>
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:10px;">Crear nuevo usuario</h3>
 
           <div class="create-user-grid">
-            <div class="field">
-              <span>Nombre completo</span>
-              <input type="text" id="admin-new-user-name" placeholder="Nombre del estudiante o admin" />
-            </div>
+            <label class="field">
+              <span>Nombre</span>
+              <input id="admin-new-user-name" type="text" placeholder="Nombre completo" />
+            </label>
 
-            <div class="field">
-              <span>Correo (ID del documento)</span>
-              <input type="email" id="admin-new-user-email" placeholder="correo@ejemplo.com" />
-            </div>
+            <label class="field">
+              <span>Email</span>
+              <input id="admin-new-user-email" type="email" placeholder="correo@ejemplo.com" />
+            </label>
 
-            <div class="field">
-              <span>Contraseña (referencia)</span>
-              <input type="text" id="admin-new-user-password" placeholder="Misma que en Authentication" />
-            </div>
+            <label class="field">
+              <span>Password</span>
+              <input id="admin-new-user-password" type="text" placeholder="Contraseña" />
+            </label>
 
-            <div class="field">
+            <label class="field">
               <span>Rol</span>
               <select id="admin-new-user-role">
-                <option value="usuario">Usuario</option>
+                <option value="student">Estudiante</option>
                 <option value="admin">Administrador</option>
               </select>
-            </div>
+            </label>
 
-            <div class="field">
-              <span>Estado</span>
+            <label class="field">
+              <span>Estatus</span>
               <select id="admin-new-user-status">
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
               </select>
-            </div>
+            </label>
 
-            <div class="field">
-              <span>Fecha de vencimiento</span>
-              <input type="date" id="admin-new-user-expiry" />
-            </div>
+            <label class="field">
+              <span>Expiración</span>
+              <input id="admin-new-user-expiry" type="date" />
+            </label>
           </div>
 
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-create-user" class="btn btn-primary">
-              Agregar usuario
-            </button>
-          </div>
+          <button class="btn btn-primary" id="admin-btn-create-user" style="margin-top:12px;">
+            Crear usuario
+          </button>
         </div>
 
-        <div id="admin-users-table"></div>
-      </section>
+        <div class="card" style="margin-top:14px;">
+          <h3 style="font-size:15px;margin-bottom:10px;">Listado de usuarios</h3>
+          <div id="admin-users-table"></div>
+        </div>
+      </div>
 
-      <!-- ================= PANEL: ANÁLISIS ================= -->
-      <section id="admin-panel-analytics" class="panel hidden">
+      <!-- PANEL ANALYTICS -->
+      <div id="admin-panel-analytics" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Análisis</h2>
             <p class="panel-subtitle">
-              Estadísticas globales de secciones, exámenes y desempeño.
+              Métricas básicas de uso (logins, exámenes, mini-exámenes, etc.).
             </p>
           </div>
         </div>
 
-        <div id="admin-analytics-summary" class="cards-list"></div>
-        <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
-      </section>
+        <div class="cards-grid">
+          <div class="card">
+            <h3 style="font-size:15px;margin-bottom:10px;">Resumen</h3>
+            <div id="admin-analytics-summary"></div>
+          </div>
 
-      <!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
-      <section id="admin-panel-landing" class="panel hidden">
+          <div class="card">
+            <h3 style="font-size:15px;margin-bottom:10px;">Usuarios</h3>
+            <div id="admin-analytics-users"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL LANDING / SETTINGS -->
+      <div id="admin-panel-landing" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Pantalla principal</h2>
             <p class="panel-subtitle">
-              Configura texto, precios y enlaces públicos.
+              Edita el texto y los precios que ve el usuario en la pantalla principal (index).
             </p>
           </div>
         </div>
 
         <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
-          <label class="field">
-            <span>Texto que aparece debajo del panel de acceso</span>
-            <textarea id="admin-landing-text" rows="5"></textarea>
-          </label>
-        </div>
+          <h3 style="font-size:15px;margin-bottom:10px;">Texto principal</h3>
+          <textarea id="admin-landing-text" rows="5" class="input" placeholder="Texto de bienvenida..."></textarea>
 
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
+          <div class="create-user-grid" style="margin-top:12px;">
+            <label class="field">
+              <span>Etiqueta mensual</span>
+              <input id="admin-monthly-label" type="text" placeholder="Mensual" />
+            </label>
 
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Etiqueta plan mensual</span>
-              <input type="text" id="admin-monthly-label" />
-            </div>
-            <div class="field">
-              <span>Precio plan mensual (MXN)</span>
-              <input type="number" id="admin-monthly-price" min="0" step="1" />
-            </div>
+            <label class="field">
+              <span>Precio mensual</span>
+              <input id="admin-monthly-price" type="text" placeholder="$..." />
+            </label>
 
-            <div class="field">
-              <span>Etiqueta plan ENARM 2026</span>
-              <input type="text" id="admin-enarm-label" />
-            </div>
-            <div class="field">
-              <span>Precio plan ENARM 2026 (MXN)</span>
-              <input type="number" id="admin-enarm-price" min="0" step="1" />
-            </div>
+            <label class="field">
+              <span>Etiqueta ENARM</span>
+              <input id="admin-enarm-label" type="text" placeholder="ENARM" />
+            </label>
 
-            <div class="field">
-              <span>Número de WhatsApp</span>
-              <input type="text" id="admin-whatsapp-phone" />
-            </div>
+            <label class="field">
+              <span>Precio ENARM</span>
+              <input id="admin-enarm-price" type="text" placeholder="$..." />
+            </label>
+
+            <label class="field">
+              <span>WhatsApp (tel)</span>
+              <input id="admin-whatsapp-phone" type="text" placeholder="52..." />
+            </label>
           </div>
 
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-save-landing" class="btn btn-primary">
-              Guardar pantalla principal
-            </button>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
+          <h3 style="font-size:15px;margin:14px 0 10px;">Redes sociales</h3>
 
           <div class="create-user-grid">
-            <div class="field">
+            <label class="field">
               <span>Instagram</span>
-              <input type="url" id="admin-instagram-link" />
-            </div>
-            <div class="field">
-              <span>WhatsApp (URL completa)</span>
-              <input type="url" id="admin-whatsapp-link" />
-            </div>
-            <div class="field">
+              <input id="admin-instagram-link" type="text" placeholder="https://instagram.com/..." />
+            </label>
+            <label class="field">
+              <span>WhatsApp link</span>
+              <input id="admin-whatsapp-link" type="text" placeholder="https://wa.me/..." />
+            </label>
+            <label class="field">
               <span>TikTok</span>
-              <input type="url" id="admin-tiktok-link" />
-            </div>
-            <div class="field">
+              <input id="admin-tiktok-link" type="text" placeholder="https://tiktok.com/..." />
+            </label>
+            <label class="field">
               <span>Telegram</span>
-              <input type="url" id="admin-telegram-link" />
-            </div>
+              <input id="admin-telegram-link" type="text" placeholder="https://t.me/..." />
+            </label>
           </div>
 
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-save-social-links" class="btn btn-primary">
-              Guardar redes sociales
-            </button>
-          </div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- MODAL GENÉRICO -->
-    <div id="admin-modal-overlay" class="modal-overlay hidden">
-      <div id="admin-modal" class="modal">
-        <h3 id="admin-modal-title"></h3>
-        <div id="admin-modal-body"></div>
-        <div class="modal-actions">
-          <button id="admin-modal-cancel" class="btn btn-outline">Cancelar</button>
-          <button id="admin-modal-ok" class="btn btn-primary">Guardar</button>
+          <button class="btn btn-primary" id="admin-btn-save-landing" style="margin-top:14px;">
+            Guardar cambios
+          </button>
         </div>
       </div>
-    </div>
 
-  </section>
+      <!-- MODAL GENÉRICO -->
+      <div id="admin-modal-overlay" class="modal-overlay hidden">
+        <div id="admin-modal" class="modal">
+          <h3 id="admin-modal-title">Título modal</h3>
+          <div id="admin-modal-body"></div>
 
-  <!-- LÓGICA ADMIN -->
+          <div class="modal-actions">
+            <button id="admin-modal-cancel" class="btn btn-outline">Cancelar</button>
+            <button id="admin-modal-ok" class="btn btn-primary">Aceptar</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Firebase config -->
+  <script type="module" src="firebase-config.js"></script>
+  <!-- JS Admin -->
   <script type="module" src="admin.js"></script>
 </body>
 </html>
