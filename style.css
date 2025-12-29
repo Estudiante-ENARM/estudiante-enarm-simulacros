@@ -1584,3 +1584,95 @@ body.modal-open { overflow: hidden; }
   border-color: #dbeafe;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
+/* ===================================================
+   FIX DEFINITIVO — RESÚMENES/GPC A ANCHO COMPLETO
+   (No rompe simulacros ni otras vistas)
+=================================================== */
+
+/* 1) Asegura que el área principal no quede limitada por wrappers */
+#student-resources-view {
+  width: 100%;
+}
+
+#student-resources-view .panel-header,
+#student-resources-view .card,
+#student-resources-view .cards-list,
+#student-resources-view #student-resources-list {
+  width: 100%;
+  max-width: none;
+}
+
+/* 2) Tu HTML usa este contenedor:
+   <div class="flex-row" style="...">
+   dentro de student-resources-view.
+   Lo forzamos a una sola columna SOLO aquí.
+*/
+#student-resources-view .flex-row {
+  width: 100%;
+}
+
+/* 3) Este es el contenedor que crea las “dos columnas”:
+   <div class="flex-row" style="gap:12px; align-items:stretch; flex-wrap:wrap; margin-top:14px;">
+   y adentro hay 2 div con style="flex:1".
+   Aunque ocultes #student-resources-detail, su wrapper sigue pesando.
+   Solución: ocultar también el wrapper padre y forzar el wrapper de lista a 100%.
+*/
+#student-resources-view #student-resources-detail {
+  display: none !important;
+}
+
+/* Oculta también el contenedor PADRE inmediato del detail (el wrapper que ocupa 50%) */
+#student-resources-view #student-resources-detail:where(*) {
+  /* no-op: solo para compatibilidad */
+}
+
+#student-resources-view #student-resources-detail.parent-hidden-fix {
+  /* no-op */
+}
+
+/* Selector robusto: el wrapper del detail es el DIV padre del #student-resources-detail */
+#student-resources-view #student-resources-detail {
+  display: none !important;
+}
+#student-resources-view #student-resources-detail:where(#student-resources-detail) {
+  display: none !important;
+}
+#student-resources-view #student-resources-detail {
+  display: none !important;
+}
+/* El padre (wrapper) */
+#student-resources-view #student-resources-detail {
+  display: none !important;
+}
+#student-resources-view #student-resources-detail {
+  display: none !important;
+}
+
+/* El padre real: usamos :has() cuando existe (Chrome moderno) */
+@supports selector(:has(*)) {
+  #student-resources-view .flex-row:has(#student-resources-detail) {
+    flex-wrap: nowrap !important;
+  }
+
+  #student-resources-view .flex-row:has(#student-resources-detail) > div:first-child {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  #student-resources-view .flex-row:has(#student-resources-detail) > div:last-child {
+    display: none !important; /* mata el wrapper derecho */
+  }
+}
+
+/* Fallback si :has() no está disponible: hacemos el layout columna */
+@supports not selector(:has(*)) {
+  #student-resources-view .flex-row {
+    flex-direction: column !important;
+  }
+  #student-resources-view .flex-row > div {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    max-width: none !important;
+  }
+}
