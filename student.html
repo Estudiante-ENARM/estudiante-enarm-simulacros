@@ -14,35 +14,60 @@
   <!-- Favicon (evita error 404 /favicon.ico) -->
   <link rel="icon" type="image/png" href="logo.png" />
 
-  <!-- Google tag (gtag.js) - Google Analytics 4 -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-B43LFZV7MR');
-  </script>
-
-  <!-- Meta Pixel Code -->
-  <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '1146031771035535');
-    fbq('track', 'PageView');
-  </script>
-  <noscript>
-    <img height="1" width="1" style="display:none"
-         src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1"/>
-  </noscript>
-
   <!-- CHART.JS PARA LA GRÁFICA DE PROGRESO -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Consent-based loading (GA4 + Meta Pixel) -->
+  <script>
+    (function () {
+      const KEY = 'cookies_enarm_preference';
+      const GA_ID = 'G-B43LFZV7MR';
+      const META_PIXEL_ID = '1146031771035535';
+
+      function loadGA() {
+        if (window.__ga4_loaded) return;
+        window.__ga4_loaded = true;
+
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){ dataLayer.push(arguments); };
+        gtag('js', new Date());
+        gtag('config', GA_ID);
+
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
+        document.head.appendChild(s);
+      }
+
+      function loadMetaPixel() {
+        if (window.__mp_loaded) return;
+        window.__mp_loaded = true;
+
+        !function(f,b,e,v,n,t,s){
+          if(f.fbq) return;
+          n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+          if(!f._fbq) f._fbq=n;
+          n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[];
+          t=b.createElement(e); t.async=!0; t.src=v;
+          s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+        }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+        fbq('init', META_PIXEL_ID);
+        fbq('track', 'PageView');
+      }
+
+      window.__enableTracking = function () {
+        loadGA();
+        loadMetaPixel();
+      };
+
+      // Si ya aceptó en una visita anterior, cargamos trackers desde el inicio
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted') {
+        window.__enableTracking();
+      }
+    })();
+  </script>
 </head>
 
 <body>
@@ -188,25 +213,24 @@
               </div>
             </div>
 
-<!-- Modo de selección -->
-<div>
-  <span class="mini-field-label">Modo de selección</span>
-  <div class="mini-mode-row">
-    <!-- Checkbox real (lo usa student.js) -->
-    <input
-      type="checkbox"
-      id="student-mini-random"
-      class="mini-random-checkbox"
-      checked
-    />
+            <!-- Modo de selección -->
+            <div>
+              <span class="mini-field-label">Modo de selección</span>
+              <div class="mini-mode-row">
+                <!-- Checkbox real (lo usa student.js) -->
+                <input
+                  type="checkbox"
+                  id="student-mini-random"
+                  class="mini-random-checkbox"
+                  checked
+                />
 
-    <!-- Botón visual -->
-    <label for="student-mini-random" class="mini-random-toggle">
-      Selección aleatoria de casos clínicos
-    </label>
-  </div>
-</div>
-
+                <!-- Botón visual -->
+                <label for="student-mini-random" class="mini-random-toggle">
+                  Selección aleatoria de casos clínicos
+                </label>
+              </div>
+            </div>
 
             <!-- Botón iniciar -->
             <button id="student-mini-start-btn" class="btn btn-primary">
@@ -248,6 +272,15 @@
             <span class="panel-subtitle">Resultados</span>
             <div id="student-resources-count" style="font-weight:600;font-size:14px;">—</div>
           </div>
+        </div>
+
+        <!-- Estados: loading / empty (los usa student-resources.js) -->
+        <div id="student-resources-loading" class="card hidden" style="margin-top:14px;">
+          <div class="panel-subtitle">Cargando temas…</div>
+        </div>
+
+        <div id="student-resources-empty" class="card hidden" style="margin-top:14px;">
+          <div class="panel-subtitle">No hay resultados con esos filtros.</div>
         </div>
 
         <div class="card" style="margin-top:14px;">
@@ -378,16 +411,22 @@
   <!-- CÓDIGO DEL ESTUDIANTE -->
   <script type="module" src="student.js"></script>
 
-  <!-- LÓGICA DEL BANNER DE COOKIES -->
+  <!-- LÓGICA DEL BANNER DE COOKIES (con carga de trackers solo si acepta) -->
   <script>
     (function () {
       const banner = document.getElementById('cookie-banner');
       if (!banner) return;
 
       const KEY = 'cookies_enarm_preference';
-
       const stored = localStorage.getItem(KEY);
-      if (stored === 'accepted' || stored === 'declined') {
+
+      if (stored === 'accepted') {
+        banner.style.display = 'none';
+        window.__enableTracking && window.__enableTracking();
+        return;
+      }
+
+      if (stored === 'declined') {
         banner.style.display = 'none';
         return;
       }
@@ -398,6 +437,7 @@
       btnAccept && btnAccept.addEventListener('click', function () {
         localStorage.setItem(KEY, 'accepted');
         banner.style.display = 'none';
+        window.__enableTracking && window.__enableTracking();
       });
 
       btnDecline && btnDecline.addEventListener('click', function () {
