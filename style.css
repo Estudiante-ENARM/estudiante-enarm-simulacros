@@ -1367,156 +1367,219 @@ tr:last-child td {
     color: #e5e7eb;
   }
 }
-/* ===================================================
-   RESÚMENES Y GPC (NUEVA VISTA EN student.html)
-   Pega TODO este bloque AL FINAL de tu style.css actual
-=================================================== */
+/* ================================
+   BIBLIOTECA (RESÚMENES/GPC) — UI 2.0
+   Aislado para no afectar simulacros
+   ================================ */
 
-/* Botón extra en sidebar (usa el mismo look de sidebar-btn) */
-#student-resources-btn.sidebar-btn {
+body.modal-open { overflow: hidden; }
+
+/* En la biblioteca, colapsa el layout a 1 columna y desactiva el panel derecho */
+#student-resources-view[data-ui="cards"] .resources-columns { grid-template-columns: 1fr; }
+#student-resources-view[data-ui="cards"] #student-resources-detail { display: none; }
+
+/* Controles */
+#student-resources-view .resources-controls { gap: 10px; }
+
+#student-resources-view .resources-controls input,
+#student-resources-view .resources-controls select {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+#student-resources-view .resources-controls input:focus,
+#student-resources-view .resources-controls select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+}
+
+/* Grid de cards */
+#student-resources-view .resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 920px) {
+  #student-resources-view .resources-grid { grid-template-columns: 1fr; }
+}
+
+.resource-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.resource-card:hover {
+  transform: translateY(-2px);
+  border-color: #dbeafe;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.10);
+}
+
+.resource-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.resource-card__meta { min-width: 0; }
+
+.resource-card__specialty {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  margin-bottom: 8px;
+  white-space: nowrap;
+}
+
+.resource-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.resource-card__open { flex: 0 0 auto; }
+
+.resource-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 10px;
 }
 
-/* Controles superiores (búsqueda + filtros) */
-#student-resources-view .resources-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-  margin-bottom: 12px;
-}
-
-#student-resources-view .resources-search {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--text-main);
-  outline: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  #student-resources-view .resources-search {
-    background: #020617;
-  }
-}
-
-#student-resources-view .resources-search:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary-soft);
-}
-
-/* Filtros tipo “chips” */
-#student-resources-view .resources-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-#student-resources-view .resources-chip {
-  appearance: none;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-main);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  cursor: pointer;
-  user-select: none;
-}
-
-#student-resources-view .resources-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-card);
-}
-
-#student-resources-view .resources-chip--active {
-  border-color: var(--primary);
-  background: var(--primary-soft);
-  color: var(--primary-dark);
-}
-
-/* Tarjetas de temas */
-#student-resources-view .resource-topic-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-#student-resources-view .resource-topic-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-#student-resources-view .resource-topic-specialty {
+.resource-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  font-size: 12px;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 12px;
-  background: rgba(37, 99, 235, 0.12);
-  color: var(--primary-dark);
-  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
-#student-resources-view .resource-topic-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-main);
-  line-height: 1.25;
+.resource-badge--muted {
+  background: #f8fafc;
+  color: #64748b;
 }
 
-/* Botones de links dentro de cada tema */
-#student-resources-view .resource-links {
+/* Modal */
+.resources-modal.hidden { display: none; }
+
+.resources-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.resources-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.resources-modal__panel {
+  position: absolute;
+  right: 18px;
+  left: 18px;
+  top: 70px;
+  max-width: 860px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.resources-modal__header {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.resources-modal__headtext { min-width: 0; }
+
+.resources-modal__badge {
+  display: inline-flex;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.10);
+  color: #0369a1;
+  margin-bottom: 8px;
+}
+
+.resources-modal__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.resources-modal__body {
+  padding: 14px;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+}
+
+.resources-modal__section { margin-bottom: 14px; }
+
+.resources-modal__section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.resources-modal__buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-#student-resources-view .resource-link-btn {
+@media (max-width: 620px) {
+  .resources-modal__buttons { grid-template-columns: 1fr; }
+  .resources-modal__panel { top: 56px; }
+}
+
+.resource-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-main);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #0f172a;
   text-decoration: none;
-}
-
-#student-resources-view .resource-link-btn:hover {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary-soft);
-  transform: translateY(-1px);
-}
-
-/* Mensaje vacío */
-#student-resources-view .resources-empty {
-  padding: 12px 14px;
   font-size: 13px;
-  color: var(--text-muted);
+  font-weight: 600;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 
-/* Ajustes móviles */
-@media (max-width: 720px) {
-  #student-resources-view .resources-filters {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 6px;
-  }
-  #student-resources-view .resources-filters::-webkit-scrollbar {
-    height: 6px;
-  }
-  #student-resources-view .resources-filters::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.35);
-    border-radius: 999px;
-  }
+.resource-btn:hover {
+  transform: translateY(-1px);
+  border-color: #dbeafe;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
