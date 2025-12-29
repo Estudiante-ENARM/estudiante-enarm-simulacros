@@ -1,353 +1,216 @@
-// student-resources.js
-// Módulo NUEVO: UI de "Resúmenes y GPC" dentro del portal del estudiante.
-// No toca nada existente. Se activa desde student.js cuando el alumno entra a la vista.
+/* ================================
+   BIBLIOTECA (RESÚMENES/GPC) — UI 2.0
+   Aislado para no afectar simulacros
+   ================================ */
 
-import {
-  collection,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+body.modal-open { overflow: hidden; }
 
-import { libraryDb } from "./library-firebase.js";
+/* En la biblioteca, colapsa el layout a 1 columna y desactiva el panel derecho */
+#student-resources-view[data-ui="cards"] .resources-columns { grid-template-columns: 1fr; }
+#student-resources-view[data-ui="cards"] #student-resources-detail { display: none; }
 
-/**
- * IDs esperados en student.html:
- * - student-resources-view
- * - student-resources-search
- * - student-resources-specialty
- * - student-resources-count
- * - student-resources-list
- * - student-resources-detail
- */
+/* Controles */
+#student-resources-view .resources-controls { gap: 10px; }
 
-const DEFAULT_SPECIALTIES = [
-  "Todos",
-  "Acceso gratuito limitado",
-  "Cirugía general",
-  "Ginecología y Obstetricia",
-  "Pediatría",
-  "Medicina interna",
-];
-
-let temasCache = [];
-let loadedOnce = false;
-let loading = false;
-
-function stripDiacritics(s) {
-  return (s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+#student-resources-view .resources-controls input,
+#student-resources-view .resources-controls select {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+  transition: box-shadow 160ms ease, border-color 160ms ease;
 }
 
-function norm(s) {
-  return stripDiacritics(String(s || "").toLowerCase()).trim();
+#student-resources-view .resources-controls input:focus,
+#student-resources-view .resources-controls select:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
 }
 
-function safeText(s) {
-  return String(s || "").replace(/[<>&"]/g, (c) => {
-    if (c === "<") return "&lt;";
-    if (c === ">") return "&gt;";
-    if (c === "&") return "&amp;";
-    return "&quot;";
-  });
+/* Grid de cards */
+#student-resources-view .resources-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-function buildLinkCard(link) {
-  const label = safeText(link?.label || "Abrir");
-  const url = link?.url;
-
-  const btn = document.createElement("button");
-  btn.className = "btn btn-outline btn-sm";
-  btn.type = "button";
-  btn.textContent = label;
-
-  btn.addEventListener("click", () => {
-    if (!url) {
-      alert("Este enlace no está configurado correctamente.");
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
-  });
-
-  const row = document.createElement("div");
-  row.className = "flex-row";
-  row.style.justifyContent = "space-between";
-  row.style.alignItems = "center";
-  row.style.gap = "10px";
-
-  const left = document.createElement("div");
-  left.style.display = "flex";
-  left.style.flexDirection = "column";
-  left.style.gap = "2px";
-
-  const t = document.createElement("div");
-  t.style.fontWeight = "600";
-  t.style.fontSize = "13px";
-  t.textContent = link?.label || "Recurso";
-
-  const sub = document.createElement("div");
-  sub.className = "panel-subtitle";
-  sub.style.fontSize = "12px";
-  sub.textContent = (url || "").includes("drive.google")
-    ? "Google Drive"
-    : "Enlace externo";
-
-  left.appendChild(t);
-  left.appendChild(sub);
-
-  row.appendChild(left);
-  row.appendChild(btn);
-
-  const card = document.createElement("div");
-  card.className = "card";
-  card.style.padding = "10px 12px";
-  card.appendChild(row);
-
-  return card;
+@media (max-width: 920px) {
+  #student-resources-view .resources-grid { grid-template-columns: 1fr; }
 }
 
-function renderDetail(detailEl, tema) {
-  if (!detailEl) return;
-
-  if (!tema) {
-    detailEl.innerHTML = `
-      <div class="card" style="padding:12px 14px;">
-        <div style="font-weight:600;margin-bottom:6px;">Selecciona un tema</div>
-        <div class="panel-subtitle" style="font-size:13px;">
-          Aquí verás los botones para abrir resumen/Word, PDF y GPC del tema.
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  const title = tema.title || "Tema sin título";
-  const specialty = tema.specialty || "Sin especialidad";
-  const links = Array.isArray(tema.links) ? tema.links : [];
-
-  detailEl.innerHTML = "";
-
-  const head = document.createElement("div");
-  head.className = "card";
-  head.style.padding = "12px 14px";
-  head.style.marginBottom = "10px";
-
-  head.innerHTML = `
-    <div style="font-weight:700;font-size:16px;margin-bottom:4px;">${safeText(
-      title
-    )}</div>
-    <div class="panel-subtitle" style="font-size:13px;">
-      Especialidad: <strong>${safeText(specialty)}</strong>
-    </div>
-  `;
-
-  detailEl.appendChild(head);
-
-  if (!links.length) {
-    const empty = document.createElement("div");
-    empty.className = "card";
-    empty.style.padding = "12px 14px";
-    empty.innerHTML = `
-      <div style="font-weight:600;margin-bottom:6px;">Sin recursos</div>
-      <div class="panel-subtitle" style="font-size:13px;">
-        Este tema no tiene enlaces cargados en Firebase.
-      </div>
-    `;
-    detailEl.appendChild(empty);
-    return;
-  }
-
-  // Render por orden (tal cual exista en DB)
-  links.forEach((lk) => {
-    detailEl.appendChild(buildLinkCard(lk));
-  });
+.resource-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 
-function renderList(listEl, detailEl, temas) {
-  if (!listEl) return;
-
-  listEl.innerHTML = "";
-
-  if (!temas.length) {
-    listEl.innerHTML = `
-      <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
-        No hay temas para mostrar con los filtros actuales.
-      </div>
-    `;
-    renderDetail(detailEl, null);
-    return;
-  }
-
-  temas.forEach((tema) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "card";
-    btn.style.width = "100%";
-    btn.style.textAlign = "left";
-    btn.style.padding = "10px 12px";
-    btn.style.cursor = "pointer";
-    btn.style.display = "flex";
-    btn.style.flexDirection = "column";
-    btn.style.gap = "3px";
-
-    btn.innerHTML = `
-      <div style="font-weight:600;font-size:13px;">${safeText(
-        tema.title || "Tema"
-      )}</div>
-      <div class="panel-subtitle" style="font-size:12px;">
-        ${safeText(tema.specialty || "Sin especialidad")}
-      </div>
-    `;
-
-    btn.addEventListener("click", () => renderDetail(detailEl, tema));
-    listEl.appendChild(btn);
-  });
-
-  // Autoselección: primero de la lista
-  renderDetail(detailEl, temas[0]);
+.resource-card:hover {
+  transform: translateY(-2px);
+  border-color: #dbeafe;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.10);
 }
 
-function applyFilters({ searchValue, specialtyValue }) {
-  const q = norm(searchValue);
-  const sp = String(specialtyValue || "Todos");
-
-  // Regla: en "Todos", ocultar "Acceso gratuito limitado" (igual que tu otra página)
-  return temasCache.filter((t) => {
-    const titleOk = !q || norm(t.title).includes(q);
-    if (!titleOk) return false;
-
-    const tSp = t.specialty || "Sin especialidad";
-
-    if (sp === "Todos") {
-      if (tSp === "Acceso gratuito limitado") return false;
-      return true;
-    }
-    return tSp === sp;
-  });
+.resource-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-async function loadTemasFromLibraryDb() {
-  if (loadedOnce || loading) return;
-  loading = true;
+.resource-card__meta { min-width: 0; }
 
-  // Intento 1: orderBy("title")
-  try {
-    const q = query(collection(libraryDb, "temas"), orderBy("title"), limit(2000));
-    const snap = await getDocs(q);
-    temasCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    loadedOnce = true;
-    return;
-  } catch (err) {
-    console.warn("No se pudo orderBy(title) en temas. Intentando sin orderBy.", err);
-  }
-
-  // Intento 2: sin orderBy
-  try {
-    const q2 = query(collection(libraryDb, "temas"), limit(2000));
-    const snap2 = await getDocs(q2);
-    temasCache = snap2.docs.map((d) => ({ id: d.id, ...d.data() }));
-    temasCache.sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), "es", { sensitivity: "base" }));
-    loadedOnce = true;
-  } finally {
-    loading = false;
-  }
+.resource-card__specialty {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  margin-bottom: 8px;
+  white-space: nowrap;
 }
 
-/**
- * Inicializa listeners internos de la vista "Biblioteca".
- * No hace switch de vistas. Eso lo hace student.js
- */
-export function initStudentResourcesUI(options = {}) {
-  const specialties =
-    Array.isArray(options.specialties) && options.specialties.length
-      ? options.specialties
-      : DEFAULT_SPECIALTIES;
-
-  const viewEl = document.getElementById("student-resources-view");
-  const searchEl = document.getElementById("student-resources-search");
-  const specialtyEl = document.getElementById("student-resources-specialty");
-  const countEl = document.getElementById("student-resources-count");
-  const listEl = document.getElementById("student-resources-list");
-  const detailEl = document.getElementById("student-resources-detail");
-
-  if (!viewEl || !searchEl || !specialtyEl || !listEl || !detailEl) {
-    // Aún no existe el HTML; no hacemos nada.
-    return;
-  }
-
-  if (viewEl.dataset.bound === "1") return;
-  viewEl.dataset.bound = "1";
-
-  // Poblar select de especialidad
-  specialtyEl.innerHTML = specialties
-    .map((s) => `<option value="${safeText(s)}">${safeText(s)}</option>`)
-    .join("");
-
-  const refresh = () => {
-    const filtered = applyFilters({
-      searchValue: searchEl.value,
-      specialtyValue: specialtyEl.value,
-    });
-
-    if (countEl) {
-      countEl.textContent = `${filtered.length} tema(s)`;
-    }
-
-    renderList(listEl, detailEl, filtered);
-  };
-
-  // Listeners
-  searchEl.addEventListener("input", refresh);
-  specialtyEl.addEventListener("change", refresh);
-
-  // Estado inicial
-  renderDetail(detailEl, null);
-  if (countEl) countEl.textContent = "—";
+.resource-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
-/**
- * Llamar esto cuando el alumno ENTRE a la vista Biblioteca.
- */
-export async function activateStudentResources() {
-  const listEl = document.getElementById("student-resources-list");
-  const detailEl = document.getElementById("student-resources-detail");
-  const countEl = document.getElementById("student-resources-count");
-  const searchEl = document.getElementById("student-resources-search");
-  const specialtyEl = document.getElementById("student-resources-specialty");
+.resource-card__open { flex: 0 0 auto; }
 
-  if (!listEl || !detailEl || !searchEl || !specialtyEl) return;
+.resource-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
 
-  // Loading UI
-  listEl.innerHTML = `
-    <div class="card" style="padding:12px 14px;">
-      <div class="panel-subtitle" style="font-size:13px;">Cargando temas…</div>
-    </div>
-  `;
-  renderDetail(detailEl, null);
-  if (countEl) countEl.textContent = "Cargando…";
+.resource-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #0f172a;
+}
 
-  try {
-    await loadTemasFromLibraryDb();
+.resource-badge--muted {
+  background: #f8fafc;
+  color: #64748b;
+}
 
-    const filtered = applyFilters({
-      searchValue: searchEl.value,
-      specialtyValue: specialtyEl.value,
-    });
+/* Modal */
+.resources-modal.hidden { display: none; }
 
-    if (countEl) countEl.textContent = `${filtered.length} tema(s)`;
-    renderList(listEl, detailEl, filtered);
-  } catch (err) {
-    console.error("Error cargando temas desde libraryDb:", err);
-    listEl.innerHTML = `
-      <div class="card" style="padding:12px 14px;">
-        <div style="font-weight:600;margin-bottom:6px;">No se pudo cargar la biblioteca</div>
-        <div class="panel-subtitle" style="font-size:13px;">
-          Revisa reglas de Firestore del proyecto de resúmenes (lectura de colección <strong>temas</strong>).
-        </div>
-      </div>
-    `;
-    if (countEl) countEl.textContent = "Error";
-  }
+.resources-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.resources-modal__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.resources-modal__panel {
+  position: absolute;
+  right: 18px;
+  left: 18px;
+  top: 70px;
+  max-width: 860px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+}
+
+.resources-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.resources-modal__headtext { min-width: 0; }
+
+.resources-modal__badge {
+  display: inline-flex;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.10);
+  color: #0369a1;
+  margin-bottom: 8px;
+}
+
+.resources-modal__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.resources-modal__body {
+  padding: 14px;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+}
+
+.resources-modal__section { margin-bottom: 14px; }
+
+.resources-modal__section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.resources-modal__buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 620px) {
+  .resources-modal__buttons { grid-template-columns: 1fr; }
+  .resources-modal__panel { top: 56px; }
+}
+
+.resource-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.resource-btn:hover {
+  transform: translateY(-1px);
+  border-color: #dbeafe;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
