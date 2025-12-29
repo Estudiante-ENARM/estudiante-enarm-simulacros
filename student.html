@@ -72,6 +72,11 @@
         Mini exámenes
       </button>
 
+      <!-- ✅ NUEVO: BOTÓN RESÚMENES / GPC -->
+      <button id="student-resources-btn" class="sidebar-btn">
+        Resúmenes y GPC
+      </button>
+
       <!-- SECCIONES DINÁMICAS -->
       <ul id="student-sidebar-sections" class="sidebar-sections"></ul>
 
@@ -225,6 +230,47 @@
             <p class="panel-subtitle">
               Próximamente podrás crear tus propios mini exámenes desde aquí.
             </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ NUEVO: BIBLIOTECA (RESÚMENES / GPC) -->
+      <div id="student-resources-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Resúmenes y GPC</h2>
+            <p class="panel-subtitle">
+              Busca por tema y abre el resumen/Word, PDF y GPC.
+            </p>
+          </div>
+
+          <div style="margin-left:auto;text-align:right;">
+            <span class="panel-subtitle">Resultados</span>
+            <div id="student-resources-count" style="font-weight:600;font-size:14px;">—</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px;">
+          <div class="flex-row" style="gap:12px; flex-wrap:wrap;">
+            <label class="field" style="flex:1; min-width:240px;">
+              <span>Buscar</span>
+              <input id="student-resources-search" type="text" placeholder="Ej. apendicitis, preeclampsia, EVC..." />
+            </label>
+
+            <label class="field" style="min-width:240px;">
+              <span>Especialidad</span>
+              <select id="student-resources-specialty"></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex-row" style="gap:12px; align-items:stretch; flex-wrap:wrap; margin-top:14px;">
+          <div style="flex:1; min-width:280px;">
+            <div id="student-resources-list" class="cards-list"></div>
+          </div>
+
+          <div style="flex:1; min-width:280px;">
+            <div id="student-resources-detail" class="cards-list"></div>
           </div>
         </div>
       </div>
