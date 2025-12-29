@@ -2,7 +2,7 @@
 // Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
 // Objetivo: UI moderna + filtros robustos (sin romper simulacros).
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
   getFirestore,
   collection,
@@ -27,7 +27,13 @@ const RESOURCES_FIREBASE_CONFIG = {
 let resourcesDb = null;
 function ensureResourcesDb() {
   if (resourcesDb) return resourcesDb;
-  const app = initializeApp(RESOURCES_FIREBASE_CONFIG, "resourcesApp");
+
+  // Evita: FirebaseError: Firebase App named 'resourcesApp' already exists
+  const exists = getApps().some((a) => a.name === "resourcesApp");
+  const app = exists
+    ? getApp("resourcesApp")
+    : initializeApp(RESOURCES_FIREBASE_CONFIG, "resourcesApp");
+
   resourcesDb = getFirestore(app);
   return resourcesDb;
 }
