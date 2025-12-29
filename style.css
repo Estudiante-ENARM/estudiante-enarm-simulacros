@@ -1367,3 +1367,156 @@ tr:last-child td {
     color: #e5e7eb;
   }
 }
+/* ===================================================
+   RESÚMENES Y GPC (NUEVA VISTA EN student.html)
+   Pega TODO este bloque AL FINAL de tu style.css actual
+=================================================== */
+
+/* Botón extra en sidebar (usa el mismo look de sidebar-btn) */
+#student-resources-btn.sidebar-btn {
+  margin-top: 10px;
+}
+
+/* Controles superiores (búsqueda + filtros) */
+#student-resources-view .resources-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+#student-resources-view .resources-search {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-main);
+  outline: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  #student-resources-view .resources-search {
+    background: #020617;
+  }
+}
+
+#student-resources-view .resources-search:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary-soft);
+}
+
+/* Filtros tipo “chips” */
+#student-resources-view .resources-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#student-resources-view .resources-chip {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#student-resources-view .resources-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+
+#student-resources-view .resources-chip--active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+/* Tarjetas de temas */
+#student-resources-view .resource-topic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#student-resources-view .resource-topic-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#student-resources-view .resource-topic-specialty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-dark);
+  border: 1px solid rgba(37, 99, 235, 0.18);
+}
+
+#student-resources-view .resource-topic-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+/* Botones de links dentro de cada tema */
+#student-resources-view .resource-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#student-resources-view .resource-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-main);
+  text-decoration: none;
+}
+
+#student-resources-view .resource-link-btn:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+/* Mensaje vacío */
+#student-resources-view .resources-empty {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Ajustes móviles */
+@media (max-width: 720px) {
+  #student-resources-view .resources-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  #student-resources-view .resources-filters::-webkit-scrollbar {
+    height: 6px;
+  }
+  #student-resources-view .resources-filters::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+  }
+}
