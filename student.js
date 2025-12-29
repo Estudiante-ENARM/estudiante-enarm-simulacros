@@ -18,7 +18,6 @@ import {
   arrayUnion,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-
 import {
   SPECIALTIES,
   SUBTYPES,
@@ -26,6 +25,9 @@ import {
   DIFFICULTY_WEIGHTS,
   DEFAULT_EXAM_RULES,
 } from "./shared-constants.js";
+
+// ✅ NUEVO: Biblioteca de Resúmenes/GPC (2° proyecto Firebase)
+import { initStudentResourcesUI, activateStudentResources } from "./student-resources.js";
 
 /****************************************************
  * LABELS
@@ -45,6 +47,9 @@ const btnMiniExamsSidebar = document.getElementById("student-mini-exams-btn");
 const sidebarSections = document.getElementById("student-sidebar-sections");
 const btnProgressView = document.getElementById("student-progress-btn");
 
+// ✅ NUEVO: botón Biblioteca
+const btnResourcesView = document.getElementById("student-resources-btn");
+
 const socialButtons = document.querySelectorAll(".social-icon");
 
 // Header
@@ -58,11 +63,16 @@ const examsView = document.getElementById("student-exams-view");
 const examDetailView = document.getElementById("student-exam-detail-view");
 const progressView = document.getElementById("student-progress-view");
 
+// ✅ NUEVO: vista Biblioteca
+const resourcesView = document.getElementById("student-resources-view");
+
 // Mini examen (constructor)
 const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
 const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
 const miniRandomCheckbox = document.getElementById("student-mini-random");
-const miniRandomToggleBtn = document.querySelector('#student-mini-exams-view label.mini-random-toggle[for="student-mini-random"]');
+const miniRandomToggleBtn = document.querySelector(
+  '#student-mini-exams-view label.mini-random-toggle[for="student-mini-random"]'
+);
 const miniStartBtn = document.getElementById("student-mini-start-btn");
 
 // Exámenes por sección
@@ -240,6 +250,10 @@ onAuthStateChanged(auth, async (user) => {
     await loadExamRules();
     await loadSocialLinksForStudent();
     await loadSectionsForStudent();
+
+    // ✅ NUEVO: prepara UI de Biblioteca (sin cargar datos aún)
+    initStudentResourcesUI();
+
     switchToSectionView();
   } catch (err) {
     console.error("Error validando usuario estudiante", err);
@@ -273,6 +287,13 @@ if (btnLogout) {
 if (btnMiniExamsSidebar) {
   btnMiniExamsSidebar.addEventListener("click", () => {
     switchToMiniView();
+  });
+}
+
+// ✅ NUEVO: Biblioteca (Resúmenes y GPC)
+if (btnResourcesView) {
+  btnResourcesView.addEventListener("click", () => {
+    switchToResourcesView();
   });
 }
 
@@ -396,6 +417,7 @@ function switchToMiniView() {
   hide(examsView);
   hide(examDetailView);
   hide(progressView);
+  hide(resourcesView);
   if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   show(miniBuilderView);
   // Re-sincroniza chips/toggle al entrar a mini-exámenes
@@ -409,8 +431,29 @@ function switchToSectionView() {
   hide(miniExamPlaceholderView);
   hide(examDetailView);
   hide(progressView);
+  hide(resourcesView);
   show(examsView);
   sidebar.classList.remove("sidebar--open");
+}
+
+// ✅ NUEVO: Vista Biblioteca (Resúmenes y GPC)
+async function switchToResourcesView() {
+  currentView = "resources";
+  hide(miniBuilderView);
+  hide(miniExamPlaceholderView);
+  hide(examsView);
+  hide(examDetailView);
+  hide(progressView);
+  show(resourcesView);
+  sidebar.classList.remove("sidebar--open");
+
+  try {
+    // Inicializa UI (una sola vez) y luego carga datos del otro proyecto Firebase
+    initStudentResourcesUI();
+    await activateStudentResources();
+  } catch (err) {
+    console.error("Error activando la biblioteca:", err);
+  }
 }
 
 async function switchToProgressView() {
@@ -419,6 +462,7 @@ async function switchToProgressView() {
   hide(miniExamPlaceholderView);
   hide(examsView);
   hide(examDetailView);
+  hide(resourcesView);
   show(progressView);
   sidebar.classList.remove("sidebar--open");
   await loadStudentProgress();
@@ -907,6 +951,7 @@ async function startMiniExamFromBuilder() {
 
   hide(examsView);
   hide(progressView);
+  hide(resourcesView);
   hide(miniBuilderView);
   if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   show(examDetailView);
@@ -1044,6 +1089,7 @@ async function startSectionExamForStudent({
 
   hide(examsView);
   hide(progressView);
+  hide(resourcesView);
   hide(miniBuilderView);
   if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   show(examDetailView);
@@ -1566,6 +1612,7 @@ function handleBackFromExam() {
 
   hide(examDetailView);
   hide(progressView);
+  hide(resourcesView);
 
   if (cameFromMini) {
     switchToMiniView();
@@ -1602,9 +1649,7 @@ async function loadStudentProgress() {
     const [sectionsSnap, examsSnap, attemptsSnap] = await Promise.all([
       getDocs(collection(db, "sections")),
       getDocs(collection(db, "exams")),
-      getDocs(
-        collection(db, "users", currentUser.email, "examAttempts")
-      ),
+      getDocs(collection(db, "users", currentUser.email, "examAttempts")),
     ]);
 
     if (thisToken !== progressLoadToken) return;
@@ -1656,9 +1701,7 @@ async function loadStudentProgress() {
       const score = typeof at.score === "number" ? at.score : 0;
       const correct = at.correctCount || 0;
       const totalQ = at.totalQuestions || 0;
-      const lastAttempt = at.lastAttempt
-        ? at.lastAttempt.toDate()
-        : null;
+      const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
 
       examLatestResults.push({
         examId,
@@ -1690,8 +1733,7 @@ async function loadStudentProgress() {
         });
       } else {
         historyArr.forEach((h) => {
-          const hScore =
-            typeof h.score === "number" ? h.score : score;
+          const hScore = typeof h.score === "number" ? h.score : score;
           let hDate = h.createdAt || h.date || at.lastAttempt;
           if (hDate && typeof hDate.toDate === "function") {
             hDate = hDate.toDate();
@@ -1733,9 +1775,7 @@ async function loadStudentProgress() {
           card.innerHTML = `
             <div class="progress-section-title">${s.name}</div>
             <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
-            <div><strong>Aciertos:</strong> ${st.correct} / ${
-            st.totalQuestions
-          }</div>
+            <div><strong>Aciertos:</strong> ${st.correct} / ${st.totalQuestions}</div>
             <div><strong>Exámenes realizados:</strong> ${examsCnt}</div>
           `;
         }
@@ -1808,9 +1848,7 @@ function renderProgressChart(examResults) {
 
   // Etiquetas cortas
   const labels = sorted.map((_, i) => `Intento ${i + 1}`);
-  const data = sorted.map((r) =>
-    typeof r.score === "number" ? r.score : 0
-  );
+  const data = sorted.map((r) => (typeof r.score === "number" ? r.score : 0));
 
   const grad = ctx.createLinearGradient(0, 0, 0, 240);
   grad.addColorStop(0, "rgba(37,99,235,0.25)");
@@ -1857,9 +1895,15 @@ function renderProgressChart(examResults) {
             label: (item) => {
               const i = item.dataIndex;
               const r = sorted[i];
-              const score = typeof r.score === "number" ? toFixedNice(r.score, 1) : "0.0";
-              const when = r.lastAttempt instanceof Date ? r.lastAttempt.toLocaleString("es-MX") : "";
-              return when ? `Calificación: ${score}% — ${when}` : `Calificación: ${score}%`;
+              const score =
+                typeof r.score === "number" ? toFixedNice(r.score, 1) : "0.0";
+              const when =
+                r.lastAttempt instanceof Date
+                  ? r.lastAttempt.toLocaleString("es-MX")
+                  : "";
+              return when
+                ? `Calificación: ${score}% — ${when}`
+                : `Calificación: ${score}%`;
             },
           },
         },
