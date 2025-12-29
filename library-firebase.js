@@ -1,28 +1,21 @@
-/*******************************************************
+/***********************************************
  * library-firebase.js
- * Inicializa un 2º proyecto Firebase (Resúmenes / GPC)
- * SIN afectar el Firebase principal de Simulacros.
- *******************************************************/
+ * Segundo proyecto Firebase: "pagina-buena" (Resúmenes/GPC)
+ * - NO toca tu firebase-config.js (Simulacros)
+ * - Exporta libraryDb para leer la colección "temas"
+ ***********************************************/
 
 import {
   initializeApp,
-  getApp,
-  getApps
+  getApps,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 
 import {
-  getAuth
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-
-import {
-  getFirestore
+  getFirestore,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-/**
- * Config del proyecto de la página de Resúmenes/GPC (pagina-buena)
- * (tomado de tu app.js de esa web).
- */
-const LIBRARY_FIREBASE_CONFIG = {
+// Config del proyecto de Resúmenes (pagina-buena)
+const libraryFirebaseConfig = {
   apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
   authDomain: "pagina-buena.firebaseapp.com",
   projectId: "pagina-buena",
@@ -31,31 +24,12 @@ const LIBRARY_FIREBASE_CONFIG = {
   appId: "1:810208199031:web:707a76b931ee7d2f002172",
 };
 
-/**
- * Nombre del segundo app (para no colisionar con el principal).
- */
 const LIBRARY_APP_NAME = "libraryApp";
 
-/**
- * Inicializa (o reutiliza) el segundo app.
- * Importante: NO toca el app principal de Simulacros.
- */
-const libraryApp = getApps().some(a => a.name === LIBRARY_APP_NAME)
-  ? getApp(LIBRARY_APP_NAME)
-  : initializeApp(LIBRARY_FIREBASE_CONFIG, LIBRARY_APP_NAME);
+// Evita re-inicializar si el módulo se carga más de una vez
+const existing = getApps().find((a) => a.name === LIBRARY_APP_NAME);
+const libraryApp = existing || initializeApp(libraryFirebaseConfig, LIBRARY_APP_NAME);
 
-/**
- * Auth/DB del proyecto de Resúmenes/GPC
- * - libraryDb: lectura/escritura de Firestore (temas, changes, social_links)
- * - libraryAuth: login admin del proyecto "pagina-buena" (si lo usas después)
- */
-const libraryAuth = getAuth(libraryApp);
-const libraryDb = getFirestore(libraryApp);
-
-export {
-  LIBRARY_FIREBASE_CONFIG,
-  LIBRARY_APP_NAME,
-  libraryApp,
-  libraryAuth,
-  libraryDb
-};
+// Firestore del proyecto de Resúmenes
+export const libraryDb = getFirestore(libraryApp);
+export { libraryApp };
