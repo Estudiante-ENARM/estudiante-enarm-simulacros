@@ -1,6 +1,6 @@
 // student-resources.js
-// Biblioteca (Resúmenes/PDF/GPC) sin modales: abre inline en cada tarjeta.
-// Incluye filtro robusto (cirugía general + medicina interna ya no fallan).
+// Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
+// Objetivo: UI moderna + filtros robustos (sin romper simulacros).
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -13,6 +13,7 @@ import {
 
 /****************************************************
  * Firebase (proyecto de BIBLIOTECA)
+ * NOTA: estas keys ya existen en tu app original de biblioteca (no son “secretas”).
  ****************************************************/
 const RESOURCES_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCgxVWMPttDzvGxqo7jaP-jKgS4Cj8P30I",
@@ -20,7 +21,7 @@ const RESOURCES_FIREBASE_CONFIG = {
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.appspot.com",
   messagingSenderId: "1031211281182",
-  appId: "1:1031211281182:web:c1e26006b68b189acc4efd",
+  appId: "1:1031211281182:web:c1e26006b68b189acc4efd"
 };
 
 let resourcesDb = null;
@@ -37,15 +38,16 @@ function ensureResourcesDb() {
 let _uiInitialized = false;
 let _dataLoaded = false;
 let _allTopics = [];
-let _openTopicId = null;
 
 let selectedSpecialtyKey = "";
 let searchQuery = "";
 
-let viewEl, searchEl, specialtyEl, listEl, countEl, emptyEl, loadingEl;
+let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
+
+let modalRoot = null;
 
 /****************************************************
- * Normalización y mapeo (FIX filtro)
+ * Normalización y mapeo (FIX del filtro)
  ****************************************************/
 function normalizeText(s) {
   return String(s || "")
@@ -60,12 +62,12 @@ function normalizeText(s) {
 function canonicalizeSpecialty(raw) {
   const n = normalizeText(raw);
 
+  // “Acceso gratuito limitado” NO es una especialidad, lo tratamos como bucket aparte
   if (n.includes("acceso gratuito")) return "acceso_gratuito";
 
+  // Canonicalización robusta
   if (n.includes("cirugia")) return "cirugia_general";
-  if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) {
-    return "medicina_interna";
-  }
+  if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) return "medicina_interna";
   if (n.includes("pediatr")) return "pediatria";
   if (n.includes("gine") || n.includes("obst")) return "gine_obstetricia";
 
@@ -74,30 +76,20 @@ function canonicalizeSpecialty(raw) {
 
 function specialtyLabelFromKey(key) {
   switch (key) {
-    case "medicina_interna":
-      return "Medicina interna";
-    case "cirugia_general":
-      return "Cirugía general";
-    case "pediatria":
-      return "Pediatría";
-    case "gine_obstetricia":
-      return "Ginecología y Obstetricia";
-    case "acceso_gratuito":
-      return "Acceso gratuito limitado";
-    default:
-      return "Otros";
+    case "medicina_interna": return "Medicina interna";
+    case "cirugia_general": return "Cirugía general";
+    case "pediatria": return "Pediatría";
+    case "gine_obstetricia": return "Ginecología y Obstetricia";
+    case "acceso_gratuito": return "Acceso gratuito limitado";
+    default: return "Otros";
   }
 }
 
 /****************************************************
  * Helpers UI
  ****************************************************/
-function show(el) {
-  if (el) el.classList.remove("hidden");
-}
-function hide(el) {
-  if (el) el.classList.add("hidden");
-}
+function show(el) { if (el) el.classList.remove("hidden"); }
+function hide(el) { if (el) el.classList.add("hidden"); }
 
 function escapeHtml(str) {
   return String(str || "")
@@ -121,6 +113,7 @@ function guessLinkType(label, url) {
   if (l.includes("pdf") || u.includes(".pdf") || u.includes("application/pdf")) {
     return "pdf";
   }
+  // Drive file genérico: muchas GPC/PDF vienen así; si dice “gpc” en label, cae en gpc arriba.
   if (u.includes("drive.google.com/file")) return "pdf";
   return "otro";
 }
@@ -138,12 +131,115 @@ function buildLinkGroups(topic) {
     groups[type].push({ label, url });
   });
 
-  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => a.label.localeCompare(b.label)));
+  // Un poco de orden: Resumen primero, luego PDFs, luego GPC
+  groups.resumen.sort((a, b) => a.label.localeCompare(b.label));
+  groups.pdf.sort((a, b) => a.label.localeCompare(b.label));
+  groups.gpc.sort((a, b) => a.label.localeCompare(b.label));
+  groups.otro.sort((a, b) => a.label.localeCompare(b.label));
+
   return groups;
 }
 
 /****************************************************
- * Init UI
+ * Modal
+ ****************************************************/
+function ensureModal() {
+  if (modalRoot) return;
+
+  modalRoot = document.createElement("div");
+  modalRoot.id = "student-resources-modal";
+  modalRoot.className = "resources-modal hidden";
+  modalRoot.setAttribute("aria-hidden", "true");
+
+  modalRoot.innerHTML = `
+    <div class="resources-modal__overlay" data-close="1"></div>
+    <div class="resources-modal__panel" role="dialog" aria-modal="true" aria-label="Biblioteca de recursos">
+      <div class="resources-modal__header">
+        <div class="resources-modal__headtext">
+          <div class="resources-modal__badge" id="student-resources-modal-specialty">—</div>
+          <div class="resources-modal__title" id="student-resources-modal-title">—</div>
+        </div>
+        <button class="btn btn-outline btn-sm" id="student-resources-modal-close">Cerrar</button>
+      </div>
+      <div class="resources-modal__body" id="student-resources-modal-body"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modalRoot);
+
+  const closeBtn = modalRoot.querySelector("#student-resources-modal-close");
+  const overlay = modalRoot.querySelector("[data-close='1']");
+
+  closeBtn?.addEventListener("click", closeModal);
+  overlay?.addEventListener("click", closeModal);
+
+  // ESC para cerrar
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modalRoot && !modalRoot.classList.contains("hidden")) {
+      closeModal();
+    }
+  });
+}
+
+function openModalForTopic(topic) {
+  ensureModal();
+
+  const badge = modalRoot.querySelector("#student-resources-modal-specialty");
+  const title = modalRoot.querySelector("#student-resources-modal-title");
+  const body = modalRoot.querySelector("#student-resources-modal-body");
+
+  if (badge) badge.textContent = specialtyLabelFromKey(topic.specialtyKey);
+  if (title) title.textContent = topic.title;
+
+  const groups = buildLinkGroups(topic);
+
+  const section = (titleText, items) => {
+    if (!items.length) return "";
+    return `
+      <div class="resources-modal__section">
+        <div class="resources-modal__section-title">${escapeHtml(titleText)}</div>
+        <div class="resources-modal__buttons">
+          ${items
+            .map(
+              (l) => `
+                <a class="resource-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">
+                  ${escapeHtml(l.label)}
+                </a>
+              `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  };
+
+  const resumenTitle = groups.resumen.length > 1 ? "Resúmenes" : "Resumen";
+  const pdfTitle = groups.pdf.length > 1 ? "PDFs" : "PDF";
+  const gpcTitle = "GPC";
+
+  if (body) {
+    body.innerHTML = [
+      section(resumenTitle, groups.resumen),
+      section(pdfTitle, groups.pdf),
+      section(gpcTitle, groups.gpc),
+      section("Otros", groups.otro),
+    ].join("");
+  }
+
+  modalRoot.classList.remove("hidden");
+  modalRoot.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeModal() {
+  if (!modalRoot) return;
+  modalRoot.classList.add("hidden");
+  modalRoot.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+/****************************************************
+ * UI init
  ****************************************************/
 export function initStudentResourcesUI() {
   if (_uiInitialized) return;
@@ -153,15 +249,20 @@ export function initStudentResourcesUI() {
   searchEl = document.getElementById("student-resources-search");
   specialtyEl = document.getElementById("student-resources-specialty");
   listEl = document.getElementById("student-resources-list");
+  detailEl = document.getElementById("student-resources-detail");
   countEl = document.getElementById("student-resources-count");
   emptyEl = document.getElementById("student-resources-empty");
   loadingEl = document.getElementById("student-resources-loading");
 
-  if (viewEl) viewEl.setAttribute("data-ui", "cards-inline");
+  // Activar layout nuevo solo dentro de la biblioteca
+  if (viewEl) viewEl.setAttribute("data-ui", "cards");
 
+  // Mantener el panel derecho vacío (evita saturación)
+  if (detailEl) detailEl.innerHTML = "";
+
+  // Filtros
   if (specialtyEl && !specialtyEl.dataset.bound) {
     specialtyEl.dataset.bound = "1";
-    // Si ya tienes estas opciones en HTML, igual no pasa nada; esto las asegura consistentes.
     specialtyEl.innerHTML = `
       <option value="">Todas</option>
       <option value="medicina_interna">Medicina interna</option>
@@ -172,7 +273,6 @@ export function initStudentResourcesUI() {
     `;
     specialtyEl.addEventListener("change", () => {
       selectedSpecialtyKey = specialtyEl.value || "";
-      _openTopicId = null; // cierra cualquier expandido al filtrar
       render();
     });
   }
@@ -181,14 +281,15 @@ export function initStudentResourcesUI() {
     searchEl.dataset.bound = "1";
     searchEl.addEventListener("input", () => {
       searchQuery = String(searchEl.value || "").trim();
-      _openTopicId = null;
       render();
     });
   }
+
+  ensureModal();
 }
 
 /****************************************************
- * Activar + cargar data
+ * Load data
  ****************************************************/
 export async function activateStudentResources() {
   initStudentResourcesUI();
@@ -240,7 +341,7 @@ function applyFilters(topics) {
   const selected = selectedSpecialtyKey || "";
 
   return topics.filter((t) => {
-    // “Todas” excluye acceso_gratuito (como tu lógica original)
+    // Por defecto: “Todas” excluye “acceso_gratuito” (como tu página original)
     if (!selected) {
       if (t.specialtyKey === "acceso_gratuito") return false;
     } else {
@@ -253,25 +354,6 @@ function applyFilters(topics) {
     const sp = normalizeText(t.specialty);
     return title.includes(q) || sp.includes(q);
   });
-}
-
-function sectionHtml(titleText, items) {
-  if (!items.length) return "";
-  return `
-    <div class="resource-expand__section">
-      <div class="resource-expand__section-title">${escapeHtml(titleText)}</div>
-      <div class="resource-expand__buttons">
-        ${items
-          .map(
-            (l) => `
-            <a class="resource-btn-inline" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(l.label)}
-            </a>`
-          )
-          .join("")}
-      </div>
-    </div>
-  `;
 }
 
 function render() {
@@ -291,14 +373,12 @@ function render() {
 
   hide(emptyEl);
 
-  // Auto-fill: usa TODO el ancho, no se queda en 2 columnas
-  listEl.classList.add("resources-grid-autofill");
+  listEl.classList.add("resources-grid");
 
   const frag = document.createDocumentFragment();
 
   filtered.forEach((t) => {
     const groups = buildLinkGroups(t);
-
     const hasResumen = groups.resumen.length > 0;
     const pdfCount = groups.pdf.length;
     const gpcCount = groups.gpc.length;
@@ -312,59 +392,26 @@ function render() {
     if (gpcCount) badges.push(`<span class="resource-badge">GPC ${gpcCount}</span>`);
     if (otherCount) badges.push(`<span class="resource-badge resource-badge--muted">Otros ${otherCount}</span>`);
 
-    const isOpen = _openTopicId === t.id;
-
     const card = document.createElement("div");
     card.className = "resource-card";
-    if (isOpen) card.classList.add("resource-card--open");
-
     card.innerHTML = `
       <div class="resource-card__top">
         <div class="resource-card__meta">
           <div class="resource-card__specialty">${escapeHtml(spLabel)}</div>
-          <div class="resource-card__title" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
+          <div class="resource-card__title">${escapeHtml(t.title)}</div>
         </div>
-
-        <button class="btn btn-outline btn-sm resource-card__toggle" type="button" aria-expanded="${isOpen ? "true" : "false"}">
-          ${isOpen ? "Cerrar" : "Ver"}
-        </button>
+        <button class="btn btn-primary btn-sm resource-card__open">Ver</button>
       </div>
-
       <div class="resource-card__badges">${badges.join("")}</div>
-
-      <div class="resource-card__expand" ${isOpen ? "" : 'style="display:none;"'}>
-        ${sectionHtml(groups.resumen.length > 1 ? "Resúmenes" : "Resumen", groups.resumen)}
-        ${sectionHtml(groups.pdf.length > 1 ? "PDFs" : "PDF", groups.pdf)}
-        ${sectionHtml("GPC", groups.gpc)}
-        ${sectionHtml("Otros", groups.otro)}
-      </div>
     `;
 
-    const toggleBtn = card.querySelector(".resource-card__toggle");
-    const expand = card.querySelector(".resource-card__expand");
-
-    const toggle = () => {
-      // Cierra el anterior y abre este (solo 1 abierto a la vez)
-      if (_openTopicId === t.id) {
-        _openTopicId = null;
-      } else {
-        _openTopicId = t.id;
-      }
-      render();
-    };
-
-    toggleBtn?.addEventListener("click", (e) => {
+    card.querySelector(".resource-card__open")?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      toggle();
+      openModalForTopic(t);
     });
 
-    // Click sobre tarjeta: también toggle (excepto si se clickea un link)
-    card.addEventListener("click", (e) => {
-      const a = e.target?.closest?.("a");
-      if (a) return; // no cierres al abrir un link
-      toggle();
-    });
+    card.addEventListener("click", () => openModalForTopic(t));
 
     frag.appendChild(card);
   });
