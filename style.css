@@ -484,9 +484,10 @@ body, button, input, textarea, select {
 #content {
   margin-left: 260px;
   padding: 80px 24px 24px;
-  max-width: 1200px;
-  width: 100%;
+  width: calc(100% - 260px);
+  max-width: none;
 }
+
 
 .panel {
   display: block;
