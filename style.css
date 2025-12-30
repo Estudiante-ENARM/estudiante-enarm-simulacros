@@ -73,6 +73,8 @@
 
 html, body {
   height: 100%;
+  width: 100%;
+  overflow-x: hidden; /* ✅ evita scroll lateral global */
 }
 
 body {
@@ -110,6 +112,12 @@ body, button, input, textarea, select {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+}
+
+/* ✅ Evitar que tablas / elementos se salgan del layout */
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ===================================================
@@ -369,7 +377,6 @@ body, button, input, textarea, select {
   padding-right: 4px;
 }
 
-
 /* Scrollbar fino */
 .sidebar-sections::-webkit-scrollbar {
   width: 6px;
@@ -481,15 +488,24 @@ body, button, input, textarea, select {
    CONTENIDO PRINCIPAL (ADMIN / STUDENT)
 =================================================== */
 
+/* ✅ Clave para quitar la franja sin provocar overflow:
+   - El contenedor ocupa todo el ancho disponible
+   - Pero el contenido real (paneles) se centra y se limita con max-width
+*/
 #content {
   margin-left: 260px;
   padding: 80px 24px 24px;
-  max-width: 1200px;
-  width: 100%;
+  max-width: none;              /* ✅ permite usar ancho disponible */
+  width: calc(100% - 260px);    /* ✅ evita franja a la derecha */
+  overflow-x: hidden;           /* ✅ evita scroll lateral */
 }
 
+/* ✅ Limita y centra el contenido real dentro de #content (admin y student) */
 .panel {
   display: block;
+  width: 100%;
+  max-width: 1280px;            /* ✅ equilibrio: sin franja, sin desbordar */
+  margin: 0 auto;               /* ✅ centrado real */
 }
 
 .panel-header {
@@ -524,6 +540,7 @@ body, button, input, textarea, select {
   border: 1px solid var(--border-subtle);
   margin-bottom: 12px;
   box-shadow: var(--shadow-card);
+  max-width: 100%;
 }
 
 .card-item {
@@ -532,6 +549,7 @@ body, button, input, textarea, select {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-card);
+  max-width: 100%;
 }
 
 .card-item__title-row {
@@ -571,6 +589,7 @@ body, button, input, textarea, select {
 
 table {
   width: 100%;
+  max-width: 100%;
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
   border-collapse: collapse;
@@ -593,6 +612,7 @@ th, td {
   border-bottom: 1px solid var(--border-subtle);
   font-size: 14px;
   text-align: left;
+  word-break: break-word;
 }
 
 th {
@@ -613,21 +633,10 @@ tr:last-child td {
   color: #f9fafb;
 }
 
-.chip--activo {
-  background: var(--chip-success);
-}
-
-.chip--inactivo {
-  background: var(--chip-danger);
-}
-
-.chip--admin {
-  background: var(--chip-admin);
-}
-
-.chip--user {
-  background: var(--chip-user);
-}
+.chip--activo { background: var(--chip-success); }
+.chip--inactivo { background: var(--chip-danger); }
+.chip--admin { background: var(--chip-admin); }
+.chip--user { background: var(--chip-user); }
 
 /* ===================================================
    MODAL GENÉRICO (admin)
@@ -886,8 +895,14 @@ tr:last-child td {
 
   #content {
     margin-left: 0;
+    width: 100%;
     margin-top: 72px;
     padding: 72px 16px 24px;
+  }
+
+  .panel {
+    max-width: 100%;
+    margin: 0;
   }
 
   .hamburger-btn {
@@ -1078,7 +1093,6 @@ tr:last-child td {
 
 /* ===== MINI EXÁMENES – UI mejorada ===== */
 
-/* Select de número de preguntas con estilo de pastilla */
 .mini-num-select {
   width: 100%;
   padding: 10px 18px;
@@ -1140,16 +1154,9 @@ tr:last-child td {
 
 /* BOTÓN ALEATORIO – ESTADOS VISUALES (checkbox + label) */
 
-.mini-mode-row {
-  margin-top: 6px;
-}
+.mini-mode-row { margin-top: 6px; }
+.mini-random-checkbox { display: none; }
 
-/* ocultamos el checkbox real */
-.mini-random-checkbox {
-  display: none;
-}
-
-/* botón visual */
 .mini-random-toggle {
   display: inline-flex;
   align-items: center;
@@ -1162,7 +1169,6 @@ tr:last-child td {
   cursor: pointer;
   user-select: none;
 
-  /* APAGADO (gris, bien visible) */
   border: 1px solid #9ca3af;
   background: #e5e7eb;
   color: #111827;
@@ -1176,12 +1182,10 @@ tr:last-child td {
     transform 0.1s ease;
 }
 
-/* Hover solo cuando está apagado */
 .mini-mode-row input:not(:checked) + .mini-random-toggle:hover {
   background: #d1d5db;
 }
 
-/* estado ENCENDIDO cuando el checkbox está marcado */
 .mini-mode-row input:checked + .mini-random-toggle {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
@@ -1235,51 +1239,26 @@ tr:last-child td {
    ============================ */
 
 @media (prefers-color-scheme: dark) {
-  /* Títulos y descripciones */
-  #student-mini-exams-view .panel-title {
-    color: #f9fafb;
-  }
+  #student-mini-exams-view .panel-title { color: #f9fafb; }
+  #student-mini-exams-view .panel-subtitle { color: #cbd5f5; }
 
-  #student-mini-exams-view .panel-subtitle {
-    color: #cbd5f5;
-  }
-
-  /* Tarjeta principal */
   #student-mini-exams-view .mini-exam-card {
-    background: radial-gradient(
-      circle at 0% 0%,
-      rgba(59, 130, 246, 0.65),
-      #020617
-    );
+    background: radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.65), #020617);
     border-color: rgba(129, 140, 248, 0.9);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
   }
 
-  #student-mini-exams-view .mini-exam-card-title {
-    color: #f9fafb;
-  }
+  #student-mini-exams-view .mini-exam-card-title { color: #f9fafb; }
+  #student-mini-exams-view .mini-exam-card-description { color: #e5e7eb; }
 
-  #student-mini-exams-view .mini-exam-card-description {
-    color: #e5e7eb;
-  }
-
-  /* Chip “Mini examen personalizado” */
   #student-mini-exams-view .mini-exam-pill {
     background: rgba(37, 99, 235, 0.4);
     color: #e0e7ff;
   }
 
-  /* Icono circular derecho */
-  #student-mini-exams-view .mini-exam-icon {
-    background: rgba(15, 23, 42, 0.9);
-  }
+  #student-mini-exams-view .mini-exam-icon { background: rgba(15, 23, 42, 0.9); }
+  #student-mini-exams-view .mini-field-label { color: #e5e7eb; }
 
-  /* Etiquetas de campos (Número de preguntas, Especialidades, etc.) */
-  #student-mini-exams-view .mini-field-label {
-    color: #e5e7eb;
-  }
-
-  /* Select de número de preguntas */
   .mini-num-select {
     background: #020617;
     border-color: #1f2937;
@@ -1289,12 +1268,10 @@ tr:last-child td {
 
   .mini-num-select:focus {
     border-color: #60a5fa;
-    box-shadow:
-      0 0 0 1px rgba(96, 165, 250, 0.7),
-      0 16px 32px rgba(15, 23, 42, 0.95);
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.7),
+                0 16px 32px rgba(15, 23, 42, 0.95);
   }
 
-  /* Chips de especialidad (estado normal) */
   #student-mini-exams-view .mini-specialty-chip {
     background: rgba(15, 23, 42, 0.9);
     border-color: rgba(148, 163, 184, 0.9);
@@ -1306,7 +1283,6 @@ tr:last-child td {
     box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.7);
   }
 
-  /* Chips de especialidad (estado activo, se mantiene pero más brillante) */
   .mini-specialty-chip--active {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     border-color: #93c5fd;
@@ -1314,12 +1290,8 @@ tr:last-child td {
     transform: translateY(-1px);
   }
 
-  /* Texto del modo de selección */
-  #student-mini-exams-view .mini-mode-row {
-    color: #e5e7eb;
-  }
+  #student-mini-exams-view .mini-mode-row { color: #e5e7eb; }
 
-  /* Botón toggle de selección aleatoria (apagado) */
   .mini-random-toggle {
     background: #334155;
     color: #e5e7eb;
@@ -1327,12 +1299,10 @@ tr:last-child td {
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
   }
 
-  
-  /* Hover apagado (modo oscuro) */
   .mini-mode-row input:not(:checked) + .mini-random-toggle:hover {
     background: #475569;
   }
-/* Botón toggle de selección aleatoria (encendido) */
+
   .mini-mode-row input:checked + .mini-random-toggle {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     color: #ffffff;
@@ -1340,45 +1310,21 @@ tr:last-child td {
     box-shadow: 0 16px 36px rgba(37, 99, 235, 0.6);
   }
 
-  /* Texto inferior de la tarjeta */
   #student-mini-exams-view .mini-exam-card-footer {
     color: #cbd5f5;
     border-top-color: rgba(129, 140, 248, 0.7);
   }
 }
-/* ============================
-   MINI EXÁMENES – TEXTOS CLAROS EN DARK MODE
-   ============================ */
-@media (prefers-color-scheme: dark) {
 
-  /* Etiquetas del formulario dentro de la tarjeta */
-  #student-mini-exams-view .mini-field-label {
-    color: #e5e7eb !important;
-  }
-
-  /* Texto descriptivo bajo el botón */
-  #student-mini-exams-view .mini-exam-card-footer {
-    color: #d1d5db !important;
-    border-top-color: rgba(129, 140, 248, 0.7);
-  }
-
-  /* Por si alguna etiqueta está como span suelto dentro del body */
-  #student-mini-exams-view .mini-exam-card-body span {
-    color: #e5e7eb;
-  }
-}
 /* ================================
    BIBLIOTECA (RESÚMENES/GPC) — UI 2.0
-   Aislado para no afectar simulacros
    ================================ */
 
 body.modal-open { overflow: hidden; }
 
-/* En la biblioteca, colapsa el layout a 1 columna y desactiva el panel derecho */
-#student-resources-view[data-ui="cards"] .student-resources-split { display: block !important; }
+/* ✅ Cuando está en modo cards: no mostrar panel derecho (si existe) */
 #student-resources-view[data-ui="cards"] #student-resources-detail { display: none; }
 
-/* Controles */
 #student-resources-view .resources-controls { gap: 10px; }
 
 #student-resources-view .resources-controls input,
@@ -1388,6 +1334,7 @@ body.modal-open { overflow: hidden; }
   padding: 10px 12px;
   outline: none;
   transition: box-shadow 160ms ease, border-color 160ms ease;
+  max-width: 100%;
 }
 
 #student-resources-view .resources-controls input:focus,
@@ -1401,6 +1348,8 @@ body.modal-open { overflow: hidden; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 920px) {
@@ -1415,6 +1364,7 @@ body.modal-open { overflow: hidden; }
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
   cursor: pointer;
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  max-width: 100%;
 }
 
 .resource-card:hover {
@@ -1583,52 +1533,11 @@ body.modal-open { overflow: hidden; }
   border-color: #dbeafe;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
+
 /* ===================================================
-   RESÚMENES Y GPC (FIX + UI)
-   - Ancho completo en escritorio
-   - Panel único de Recursos
-   - Estado "Completado" llamativo
+   COMPLETADO (LISTA)
 =================================================== */
 
-@media (min-width: 1024px) {
-  #student-resources-view.panel {
-    max-width: none !important;
-    width: 100% !important;
-  }
-
-  #student-resources-view .panel-header,
-  #student-resources-view .card,
-  #student-resources-view .cards-list {
-    max-width: none !important;
-  }
-
-  .student-resources-split {
-    display: grid;
-    grid-template-columns: minmax(320px, 440px) 1fr;
-    gap: 16px;
-    align-items: start;
-  }
-
-  .student-resources-col--list {
-    position: sticky;
-    top: 92px;
-    max-height: calc(100vh - 120px);
-    overflow: auto;
-    padding-right: 6px;
-  }
-
-  .student-resources-col--detail {
-    min-width: 0;
-  }
-}
-
-@media (max-width: 1023px) {
-  .student-resources-split {
-    display: block;
-  }
-}
-
-/* COMPLETADO (LISTA) */
 .resource-card--completed {
   border: 2px solid #16a34a !important;
   background: #ecfdf5 !important;
@@ -1638,107 +1547,26 @@ body.modal-open { overflow: hidden; }
   color: #065f46 !important;
 }
 
-/* CHIP COMPLETADO (DETALLE) */
-.resource-detail-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid #16a34a;
-  background: #ecfdf5;
-  color: #065f46;
+/* ===================================================
+   IMPORTANTE: REVERTIR EL CAMBIO QUE TE ROMPIÓ EXÁMENES
+   - NO GRID
+   - NO SCROLL HORIZONTAL
+=================================================== */
+
+/* ✅ Asegura lista vertical como antes */
+#student-exams-list.cards-list{
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
 }
 
-/* PANEL ÚNICO */
-.resource-unified-card {
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  border-radius: 18px;
-  background: var(--bg-elevated, #fff);
+/* ✅ Previene que alguna tarjeta fuerce overflow */
+#student-exams-list .card-item,
+#student-exams-list .card,
+#student-exams-list .card-item *{
+  max-width: 100%;
 }
 
-.resource-unified-card__header {
-  padding: 14px 14px 0 14px;
-}
-
-.resource-unified-card__title {
-  font-size: 14px;
-  font-weight: 900;
-  color: var(--text-main, #111827);
-}
-
-.resource-unified-card__body {
-  padding: 12px 14px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.resource-unified-group {
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  background: #f9fafb;
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.resource-unified-group__label {
-  font-size: 12px;
-  font-weight: 900;
-  color: #374151;
-  margin-bottom: 8px;
-}
-
-.resource-unified-group__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.resource-unified-group__buttons .btn {
-  white-space: nowrap;
-}
-/* ================================
-   FIX LAYOUT — SOLO ESTUDIANTE
-   - Quita max-width que deja hueco a la derecha
-   - Arregla grid de Resúmenes/GPC en modo cards
-   ================================ */
-
-/* 1) Eliminar límite de ancho SOLO en la vista estudiante */
-#student-view #content{
-  max-width: none !important; /* antes 1200px */
-}
-
-/* 2) Resúmenes y GPC: tu HTML usa .student-resources-split (no .resources-columns) */
-#student-resources-view[data-ui="cards"] .student-resources-split{
-  display: block !important; /* mata el grid 2 columnas */
-}
-
-#student-resources-view[data-ui="cards"] .student-resources-col--detail{
-  display: none !important; /* por si no se ocultó por JS */
-}
-
-#student-resources-view[data-ui="cards"] .student-resources-col--list{
-  position: static !important;
-  max-height: none !important;
-  overflow: visible !important;
-  padding-right: 0 !important;
-}
-
-/* 3) (Recomendado) Exámenes: usar el ancho en pantallas grandes */
-@media (min-width: 1024px){
-  #student-exams-list.cards-list{
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-}
-
-/* 4) (Opcional) En pantallas MUY grandes, 3 columnas */
-@media (min-width: 1400px){
-  #student-exams-list.cards-list{
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
+/* ===================================================
+   FIN
+=================================================== */
