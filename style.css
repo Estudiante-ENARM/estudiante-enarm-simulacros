@@ -1583,3 +1583,120 @@ body.modal-open { overflow: hidden; }
   border-color: #dbeafe;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
 }
+/* ===================================================
+   RESÚMENES Y GPC (FIX + UI)
+   - Ancho completo en escritorio
+   - Panel único de Recursos
+   - Estado "Completado" llamativo
+=================================================== */
+
+@media (min-width: 1024px) {
+  #student-resources-view.panel {
+    max-width: none !important;
+    width: 100% !important;
+  }
+
+  #student-resources-view .panel-header,
+  #student-resources-view .card,
+  #student-resources-view .cards-list {
+    max-width: none !important;
+  }
+
+  .student-resources-split {
+    display: grid;
+    grid-template-columns: minmax(320px, 440px) 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .student-resources-col--list {
+    position: sticky;
+    top: 92px;
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+    padding-right: 6px;
+  }
+
+  .student-resources-col--detail {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .student-resources-split {
+    display: block;
+  }
+}
+
+/* COMPLETADO (LISTA) */
+.resource-card--completed {
+  border: 2px solid #16a34a !important;
+  background: #ecfdf5 !important;
+}
+
+.resource-card--completed .resource-card__title {
+  color: #065f46 !important;
+}
+
+/* CHIP COMPLETADO (DETALLE) */
+.resource-detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #16a34a;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+/* PANEL ÚNICO */
+.resource-unified-card {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: 18px;
+  background: var(--bg-elevated, #fff);
+}
+
+.resource-unified-card__header {
+  padding: 14px 14px 0 14px;
+}
+
+.resource-unified-card__title {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--text-main, #111827);
+}
+
+.resource-unified-card__body {
+  padding: 12px 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resource-unified-group {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: #f9fafb;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.resource-unified-group__label {
+  font-size: 12px;
+  font-weight: 900;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.resource-unified-group__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.resource-unified-group__buttons .btn {
+  white-space: nowrap;
+}
