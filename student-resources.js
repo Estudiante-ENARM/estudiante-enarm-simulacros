@@ -216,7 +216,6 @@ function makePreviewUrl(url) {
     if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
 
     // Google Docs: /preview
-    // Ej: https://docs.google.com/document/d/<id>/edit -> /preview
     if (n.includes("docs.google.com/document/d/")) {
       return u.replace(/\/edit(\?.*)?$/i, "/preview").replace(/\/view(\?.*)?$/i, "/preview");
     }
@@ -228,10 +227,9 @@ function makePreviewUrl(url) {
     }
   }
 
-  // PDFs directos (muchos navegadores los renderizan)
+  // PDFs directos
   if (n.endsWith(".pdf") || n.includes(".pdf?")) return u;
 
-  // Si no se puede previsualizar con certeza, devolvemos vacío (se abre en nueva pestaña si el usuario quiere)
   return "";
 }
 
@@ -365,7 +363,7 @@ export function initStudentResourcesUI() {
   // NUEVO: hacer que los temas ocupen TODO el ancho (oculta la columna derecha)
   // (No elimina nada del HTML; solo ajusta la vista aquí)
   if (detailEl) {
-    const rightCol = detailEl.closest("div"); // el <div style="flex:1; ..."> que lo contiene
+    const rightCol = detailEl.closest("div"); // el <div> que lo contiene
     if (rightCol) rightCol.classList.add("hidden");
   }
   if (listEl) {
@@ -389,7 +387,7 @@ export function initStudentResourcesUI() {
     `;
     specialtyEl.addEventListener("change", () => {
       selectedSpecialtyKey = specialtyEl.value || "";
-      _selectedTopicId = null;           // NUEVO: vuelve a lista al cambiar filtros
+      _selectedTopicId = null;
       _selectedPreviewUrl = "";
       render();
     });
@@ -399,7 +397,7 @@ export function initStudentResourcesUI() {
     searchEl.dataset.bound = "1";
     searchEl.addEventListener("input", () => {
       searchQuery = String(searchEl.value || "").trim();
-      _selectedTopicId = null;           // NUEVO: vuelve a lista al buscar
+      _selectedTopicId = null;
       _selectedPreviewUrl = "";
       render();
     });
@@ -470,7 +468,7 @@ function applyFilters(topics) {
   const selected = selectedSpecialtyKey || "";
 
   return topics.filter((t) => {
-    // Por defecto: “Todas” excluye “acceso_gratuito” (como tu página original)
+    // Por defecto: “Todas” excluye “acceso_gratuito”
     if (!selected) {
       if (t.specialtyKey === "acceso_gratuito") return false;
     } else {
@@ -539,7 +537,9 @@ function render() {
     if (otherCount) badges.push(`<span class="resource-badge resource-badge--muted">Otros ${otherCount}</span>`);
 
     const card = document.createElement("div");
-    card.className = "resource-card";
+    // ✅ AQUI: completado más llamativo
+    card.className = "resource-card" + (completed ? " resource-card--completed" : "");
+
     card.innerHTML = `
       <div class="resource-card__top">
         <div class="resource-card__meta">
@@ -572,6 +572,10 @@ function render() {
   listEl.appendChild(frag);
 }
 
+/****************************************************
+ * DETALLE DEL TEMA
+ * ✅ Ahora: UN SOLO RECUADRO "Recursos" con todo adentro.
+ ****************************************************/
 function renderTopicDetail(topic, filteredList) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
@@ -586,17 +590,12 @@ function renderTopicDetail(topic, filteredList) {
 
   const completed = isTopicCompleted(topic.id);
 
-  const buildButtons = (items, typeLabel) => {
+  const buildUnifiedGroup = (titleText, items) => {
     if (!items.length) return "";
     return `
-      <div class="card" style="margin-top:12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div>
-            <div style="font-weight:700;font-size:14px;">${escapeHtml(typeLabel)}</div>
-            <div class="panel-subtitle" style="margin-top:4px;">Selecciona un archivo para previsualizarlo abajo.</div>
-          </div>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      <div class="resource-unified-group">
+        <div class="resource-unified-group__label">${escapeHtml(titleText)}</div>
+        <div class="resource-unified-group__buttons">
           ${items.map((l) => `
             <button
               class="btn btn-outline btn-sm"
@@ -615,7 +614,7 @@ function renderTopicDetail(topic, filteredList) {
         <div class="card" style="margin-top:12px;">
           <div style="font-weight:700;font-size:14px;">Vista previa</div>
           <div class="panel-subtitle" style="margin-top:6px;">
-            Este recurso no se puede previsualizar aquí. Usa “Abrir en pestaña nueva”.
+            Selecciona un archivo en “Recursos”. Si no carga aquí, usa “Abrir en pestaña nueva”.
           </div>
         </div>
       `;
@@ -647,14 +646,20 @@ function renderTopicDetail(topic, filteredList) {
   })();
 
   listEl.classList.remove("resources-grid");
+
   listEl.innerHTML = `
     <div class="card" style="padding:14px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="min-width:240px;">
           <div class="panel-subtitle">${escapeHtml(spLabel)}</div>
-          <div style="font-weight:800;font-size:18px; margin-top:4px;">${escapeHtml(topic.title)}</div>
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap; margin-top:4px;">
+            <div style="font-weight:800;font-size:18px;">${escapeHtml(topic.title)}</div>
+            ${completed ? `<span class="resource-detail-chip">Completado</span>` : ``}
+          </div>
+
           <div class="panel-subtitle" style="margin-top:6px;">
-            Marca como completado cuando termines de estudiar este tema.
+            Selecciona un archivo en “Recursos” para previsualizarlo abajo.
           </div>
         </div>
 
@@ -667,46 +672,54 @@ function renderTopicDetail(topic, filteredList) {
       </div>
     </div>
 
-    ${buildButtons(groups.resumen, "Resúmenes")}
-    ${buildButtons(groups.pdf, "PDFs")}
-    ${buildButtons(groups.gpc, "GPC")}
-    ${buildButtons(groups.otro, "Otros")}
+    <div class="card resource-unified-card" style="margin-top:12px;">
+      <div class="resource-unified-card__header">
+        <div>
+          <div class="resource-unified-card__title">Recursos</div>
+          <div class="panel-subtitle" style="margin-top:4px;">
+            Todo en un solo panel: Resúmenes, PDFs, GPC y Otros.
+          </div>
+        </div>
+      </div>
+
+      <div class="resource-unified-card__body">
+        ${buildUnifiedGroup(groups.resumen.length > 1 ? "Resúmenes" : "Resumen", groups.resumen)}
+        ${buildUnifiedGroup(groups.pdf.length > 1 ? "PDFs" : "PDF", groups.pdf)}
+        ${buildUnifiedGroup("GPC", groups.gpc)}
+        ${buildUnifiedGroup("Otros", groups.otro)}
+      </div>
+    </div>
 
     ${previewBlock}
   `;
 
-  // Wire: volver
-  const backBtn = listEl.querySelector("#student-resources-back");
-  backBtn?.addEventListener("click", () => {
+  // Volver
+  listEl.querySelector("#student-resources-back")?.addEventListener("click", () => {
     _selectedTopicId = null;
     _selectedPreviewUrl = "";
     render();
   });
 
-  // Wire: completado
-  const completeBtn = listEl.querySelector("#student-resources-complete");
-  completeBtn?.addEventListener("click", () => {
+  // Completado
+  listEl.querySelector("#student-resources-complete")?.addEventListener("click", () => {
     toggleTopicCompleted(topic.id);
-    render(); // re-render para actualizar botón + badges en lista
+    render();
   });
 
-  // Wire: botones de preview
+  // Preview buttons
   listEl.querySelectorAll("button[data-preview-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.getAttribute("data-preview-url") || "";
       const preview = makePreviewUrl(raw);
 
-      // Si es PDF/Drive, intentamos preview inline; si no, no forzamos (el usuario puede abrir en pestaña nueva)
       if (preview) {
         _selectedPreviewUrl = preview;
       } else if (looksLikePdf(raw)) {
-        _selectedPreviewUrl = raw; // algunos PDFs directos sí cargan
+        _selectedPreviewUrl = raw;
       } else {
         _selectedPreviewUrl = "";
       }
 
-      // Si no hay preview posible, de todas formas dejamos al usuario abrir la URL original.
-      // Para eso, si preview está vacío, no cambiamos nada más. Render igual para refrescar el bloque.
       render();
     });
   });
