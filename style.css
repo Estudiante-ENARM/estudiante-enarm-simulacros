@@ -1375,7 +1375,7 @@ tr:last-child td {
 body.modal-open { overflow: hidden; }
 
 /* En la biblioteca, colapsa el layout a 1 columna y desactiva el panel derecho */
-#student-resources-view[data-ui="cards"] .resources-columns { grid-template-columns: 1fr; }
+#student-resources-view[data-ui="cards"] .student-resources-split { display: block !important; }
 #student-resources-view[data-ui="cards"] #student-resources-detail { display: none; }
 
 /* Controles */
@@ -1742,4 +1742,3 @@ body.modal-open { overflow: hidden; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-
