@@ -2,11 +2,10 @@
 // Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
 // Objetivo: UI moderna + filtros robustos (sin romper simulacros).
 //
-// FIX IMPORTANTE:
-// - Google Drive/Docs NO se puede previsualizar en iframe en github.io por CSP "frame-ancestors".
-//   Eso NO se puede "ignorar" con JS/CSS. La corrección real es NO iframar Drive/Docs.
-// - Resúmenes (DOCX/Docs): abrir directo en pestaña nueva (sin preview).
-// - PDFs/GPC: preview SOLO si el link NO es Drive/Docs; si es Drive/Docs => abrir en pestaña nueva.
+// FIX:
+// - PDFs/GPC de Drive/Docs: preview con /preview en ESCRITORIO.
+// - En MÓVIL/TABLET: NO preview (evita que se trabe); solo abrir en pestaña nueva.
+// - Resúmenes (DOCX/Docs): SIEMPRE abrir en pestaña nueva (sin preview).
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -122,9 +121,16 @@ function isDocxUrl(url) {
   return u.includes(".docx") || u.includes(".doc?");
 }
 
-function isGoogleDomain(url) {
+function isGoogleUrl(url) {
   const u = String(url || "").toLowerCase();
-  return u.includes("drive.google.com") || u.includes("docs.google.com") || u.includes("accounts.google.com");
+  return u.includes("drive.google.com") || u.includes("docs.google.com");
+}
+
+function isMobileLike() {
+  const ua = navigator.userAgent || "";
+  const touch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+  // iOS/Android + tablets típicos donde iframe de Drive/Docs suele trabarse
+  return /Android|iPhone|iPad|iPod/i.test(ua) || (touch && window.innerWidth < 1024);
 }
 
 function guessLinkType(label, url) {
@@ -204,37 +210,81 @@ function toggleTopicCompleted(topicId) {
 }
 
 /****************************************************
- * Preview helpers (SAFE)
- * Regla:
- * - NUNCA iframar Drive/Docs: genera errores CSP y se bloquea en github.io.
- * - Preview solo para URLs directas embebibles (ej. .pdf directo fuera de Google).
+ * Preview helpers (Drive/Docs -> /preview)
  ****************************************************/
+function extractDriveFileId(url) {
+  const u = String(url || "");
+  const m1 = u.match(/\/file\/d\/([^/]+)/i);
+  if (m1 && m1[1]) return m1[1];
+
+  const m2 = u.match(/[?&]id=([^&]+)/i);
+  if (m2 && m2[1]) return m2[1];
+
+  return "";
+}
+
+function drivePreviewUrl(raw) {
+  const id = extractDriveFileId(raw);
+  return id ? `https://drive.google.com/file/d/${id}/preview` : "";
+}
+
+function docsPreviewUrl(raw) {
+  // document/presentation/spreadsheets soportan /preview
+  // si viene /edit o /view, lo cambiamos a /preview
+  const u = String(raw || "");
+  const n = normalizeText(u);
+  if (
+    n.includes("docs.google.com/document/d/") ||
+    n.includes("docs.google.com/presentation/d/") ||
+    n.includes("docs.google.com/spreadsheets/d/")
+  ) {
+    return u
+      .replace(/\/edit(\?.*)?$/i, "/preview")
+      .replace(/\/view(\?.*)?$/i, "/preview");
+  }
+  return "";
+}
+
 function looksLikeDirectPdf(url) {
-  const u = String(url || "").toLowerCase();
+  const u = String(url || "").toLowerCase().trim();
   return u.endsWith(".pdf") || u.includes(".pdf?");
 }
 
 /**
  * kind: "resumen" | "pdf" | "gpc" | "otro"
- * Retorna URL para iframe si es seguro; si no, retorna "" (sin preview).
+ * Retorna URL para iframe o "" si no se debe/puede previsualizar.
  */
 function makePreviewUrl(url, kind = "otro") {
   const u = String(url || "").trim();
   if (!u) return "";
 
-  // Resúmenes: NO preview (por compatibilidad móvil + bloqueo Office/Google)
+  // Resúmenes: nunca preview
   if (kind === "resumen") return "";
 
-  // Bloqueo: nada de Google dentro de iframe
-  if (isGoogleDomain(u)) return "";
+  // En móvil/tablet: nunca preview (evita que se trabe la página)
+  if (isMobileLike()) return "";
 
-  // PDF/GPC: solo si es PDF directo embebible
+  // PDFs/GPC
   if (kind === "pdf" || kind === "gpc") {
-    return looksLikeDirectPdf(u) ? u : "";
+    // PDF directo (no Google)
+    if (!isGoogleUrl(u) && looksLikeDirectPdf(u)) return u;
+
+    // Drive file => /preview
+    if (normalizeText(u).includes("drive.google.com")) {
+      return drivePreviewUrl(u) || "";
+    }
+
+    // Docs (si fuera docs) => /preview
+    if (normalizeText(u).includes("docs.google.com")) {
+      return docsPreviewUrl(u) || "";
+    }
+
+    // fallback
+    return "";
   }
 
-  // Otros: best effort
-  if (looksLikeDirectPdf(u)) return u;
+  // Otros: best-effort (si es PDF directo)
+  if (!isGoogleUrl(u) && looksLikeDirectPdf(u)) return u;
 
   return "";
 }
@@ -595,7 +645,7 @@ function renderTopicDetail(topic) {
       `;
     };
 
-    // Resúmenes: abrir directo (sin preview)
+    // Resúmenes: SIEMPRE abrir directo (sin preview)
     const resumenLinks = (groups.resumen || []).map((l) => `
       <a class="btn btn-outline btn-sm"
          href="${escapeHtml(l.url)}"
@@ -604,7 +654,7 @@ function renderTopicDetail(topic) {
       >${escapeHtml(l.label)}</a>
     `).join("");
 
-    // PDFs/GPC/Otros: botones que intentan preview SOLO si es embebible
+    // PDFs/GPC/Otros: botones para preview (si aplica)
     const previewButtons = (items, kind) => (items || []).map((l) => `
       <button
         class="btn btn-outline btn-sm"
@@ -623,7 +673,7 @@ function renderTopicDetail(topic) {
         <div class="resource-unified-card__header">
           <div class="resource-unified-card__title">Recursos</div>
           <div class="panel-subtitle" style="margin-top:4px;">
-            Resúmenes (DOCX/Docs) abren en pestaña nueva. PDF/GPC se previsualizan solo si el link lo permite.
+            Resúmenes (Word/Docs): se abren directo. PDF/GPC: vista previa en escritorio; en móvil abre en pestaña nueva.
           </div>
         </div>
         <div class="resource-unified-card__body">
@@ -637,16 +687,16 @@ function renderTopicDetail(topic) {
   };
 
   const previewBlock = (() => {
-    // Si no hay preview posible, dejamos mensaje + botón al link REAL
-    if (!_selectedPreviewUrl) {
-      const isGoogle = isGoogleDomain(_selectedOpenUrl);
+    const mobile = isMobileLike();
+
+    if (!_selectedPreviewUrl || mobile) {
       return `
         <div class="card" style="margin-top:12px;">
           <div style="font-weight:700;font-size:14px;">Vista previa</div>
           <div class="panel-subtitle" style="margin-top:6px;">
-            ${isGoogle
-              ? `Google Drive/Docs bloquea la vista previa embebida (CSP). Usa "Abrir en pestaña nueva".`
-              : `Este recurso no se puede previsualizar aquí. Usa "Abrir en pestaña nueva".`
+            ${mobile
+              ? "En móvil/tablet la vista previa se desactiva para evitar bloqueos. Abre en una pestaña nueva."
+              : "Este recurso no se puede previsualizar aquí. Abre en una pestaña nueva."
             }
           </div>
           ${_selectedOpenUrl ? `
@@ -685,6 +735,7 @@ function renderTopicDetail(topic) {
             src="${escapeHtml(_selectedPreviewUrl)}"
             style="width:100%;height:100%;border:0;"
             loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
           ></iframe>
         </div>
       </div>
@@ -731,7 +782,7 @@ function renderTopicDetail(topic) {
     render();
   });
 
-  // preview buttons (PDFs/GPC/Otros) -> solo setea preview si es embebible
+  // preview buttons (PDFs/GPC/Otros)
   listEl.querySelectorAll("button[data-preview-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.getAttribute("data-preview-url") || "";
