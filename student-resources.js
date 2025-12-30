@@ -13,7 +13,6 @@ import {
 
 /****************************************************
  * Firebase (proyecto de BIBLIOTECA)
- * NOTA: estas keys ya existen en tu app original de biblioteca (no son “secretas”).
  ****************************************************/
 const RESOURCES_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCgxVWMPttDzvGxqo7jaP-jKgS4Cj8P30I",
@@ -28,7 +27,6 @@ let resourcesDb = null;
 function ensureResourcesDb() {
   if (resourcesDb) return resourcesDb;
 
-  // Evita: FirebaseError: Firebase App named 'resourcesApp' already exists
   const exists = getApps().some((a) => a.name === "resourcesApp");
   const app = exists
     ? getApp("resourcesApp")
@@ -48,11 +46,14 @@ let _allTopics = [];
 let selectedSpecialtyKey = "";
 let searchQuery = "";
 
-// NUEVO: estado de navegación (sin modal)
+// navegación (sin modal)
 let _selectedTopicId = null;
-let _selectedPreviewUrl = "";
 
-// NUEVO: progreso (localStorage por usuario)
+// ✅ NUEVO: guardamos link real y link de preview por separado
+let _selectedPreviewUrl = "";
+let _selectedOpenUrl = "";
+
+// progreso (localStorage por usuario)
 let _currentUserKey = "anon";
 
 let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
@@ -75,10 +76,7 @@ function normalizeText(s) {
 function canonicalizeSpecialty(raw) {
   const n = normalizeText(raw);
 
-  // “Acceso gratuito limitado” NO es una especialidad, lo tratamos como bucket aparte
   if (n.includes("acceso gratuito")) return "acceso_gratuito";
-
-  // Canonicalización robusta
   if (n.includes("cirugia")) return "cirugia_general";
   if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) return "medicina_interna";
   if (n.includes("pediatr")) return "pediatria";
@@ -117,6 +115,7 @@ function guessLinkType(label, url) {
   const l = normalizeText(label);
   const u = normalizeText(url);
 
+  // ✅ Resumen/Word/Docs -> NO se previsualiza (se abre link real)
   if (l.includes("resumen") || l.includes("word") || u.includes("docs.google.com/document") || u.includes(".doc")) {
     return "resumen";
   }
@@ -126,7 +125,6 @@ function guessLinkType(label, url) {
   if (l.includes("pdf") || u.includes(".pdf") || u.includes("application/pdf")) {
     return "pdf";
   }
-  // Drive file genérico: muchas GPC/PDF vienen así; si dice “gpc” en label, cae en gpc arriba.
   if (u.includes("drive.google.com/file")) return "pdf";
   return "otro";
 }
@@ -144,7 +142,6 @@ function buildLinkGroups(topic) {
     groups[type].push({ label, url });
   });
 
-  // Un poco de orden: Resumen primero, luego PDFs, luego GPC
   groups.resumen.sort((a, b) => a.label.localeCompare(b.label));
   groups.pdf.sort((a, b) => a.label.localeCompare(b.label));
   groups.gpc.sort((a, b) => a.label.localeCompare(b.label));
@@ -195,11 +192,9 @@ function toggleTopicCompleted(topicId) {
  ****************************************************/
 function extractDriveFileId(url) {
   const u = String(url || "");
-  // /file/d/<id>/
   const m1 = u.match(/\/file\/d\/([^/]+)/i);
   if (m1 && m1[1]) return m1[1];
 
-  // open?id=<id>
   const m2 = u.match(/[?&]id=([^&]+)/i);
   if (m2 && m2[1]) return m2[1];
 
@@ -210,12 +205,11 @@ function makePreviewUrl(url) {
   const u = String(url || "");
   const n = normalizeText(u);
 
-  // Google Drive file -> /preview
+  // Google Drive file -> /preview (OJO: puede estar bloqueado por CSP en algunos casos)
   if (n.includes("drive.google.com")) {
     const fileId = extractDriveFileId(u);
     if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
 
-    // Google Docs: /preview
     if (n.includes("docs.google.com/document/d/")) {
       return u.replace(/\/edit(\?.*)?$/i, "/preview").replace(/\/view(\?.*)?$/i, "/preview");
     }
@@ -227,7 +221,6 @@ function makePreviewUrl(url) {
     }
   }
 
-  // PDFs directos
   if (n.endsWith(".pdf") || n.includes(".pdf?")) return u;
 
   return "";
@@ -239,8 +232,7 @@ function looksLikePdf(url) {
 }
 
 /****************************************************
- * Modal (SE CONSERVA: no se elimina ninguna función)
- * Ya NO se usa para abrir temas (requisito del usuario: sin ventana emergente).
+ * Modal (SE CONSERVA)
  ****************************************************/
 function ensureModal() {
   if (modalRoot) return;
@@ -272,7 +264,6 @@ function ensureModal() {
   closeBtn?.addEventListener("click", closeModal);
   overlay?.addEventListener("click", closeModal);
 
-  // ESC para cerrar
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && modalRoot && !modalRoot.classList.contains("hidden")) {
       closeModal();
@@ -281,7 +272,6 @@ function ensureModal() {
 }
 
 function openModalForTopic(topic) {
-  // Se conserva por compatibilidad, pero ya no se llama.
   ensureModal();
 
   const badge = modalRoot.querySelector("#student-resources-modal-specialty");
@@ -354,16 +344,12 @@ export function initStudentResourcesUI() {
   emptyEl = document.getElementById("student-resources-empty");
   loadingEl = document.getElementById("student-resources-loading");
 
-  // Activar layout nuevo solo dentro de la biblioteca
   if (viewEl) viewEl.setAttribute("data-ui", "cards");
-
-  // Mantener el panel derecho vacío (evita saturación)
   if (detailEl) detailEl.innerHTML = "";
 
-  // NUEVO: hacer que los temas ocupen TODO el ancho (oculta la columna derecha)
-  // (No elimina nada del HTML; solo ajusta la vista aquí)
+  // Ocultar columna derecha (si existe) y usar todo el ancho para lista en modo "lista"
   if (detailEl) {
-    const rightCol = detailEl.closest("div"); // el <div> que lo contiene
+    const rightCol = detailEl.closest("div");
     if (rightCol) rightCol.classList.add("hidden");
   }
   if (listEl) {
@@ -374,7 +360,6 @@ export function initStudentResourcesUI() {
     }
   }
 
-  // Filtros
   if (specialtyEl && !specialtyEl.dataset.bound) {
     specialtyEl.dataset.bound = "1";
     specialtyEl.innerHTML = `
@@ -389,6 +374,7 @@ export function initStudentResourcesUI() {
       selectedSpecialtyKey = specialtyEl.value || "";
       _selectedTopicId = null;
       _selectedPreviewUrl = "";
+      _selectedOpenUrl = "";
       render();
     });
   }
@@ -399,11 +385,11 @@ export function initStudentResourcesUI() {
       searchQuery = String(searchEl.value || "").trim();
       _selectedTopicId = null;
       _selectedPreviewUrl = "";
+      _selectedOpenUrl = "";
       render();
     });
   }
 
-  // Conservamos modal (compat), pero ya no se usa
   ensureModal();
 }
 
@@ -453,8 +439,7 @@ export async function activateStudentResources() {
 }
 
 /****************************************************
- * API opcional: setear usuario (si student.js te puede pasar email)
- * NO rompe nada si nunca lo llamas.
+ * API opcional: setear usuario
  ****************************************************/
 export function setStudentResourcesUserIdentity(emailOrUid) {
   _currentUserKey = normalizeText(emailOrUid || "anon") || "anon";
@@ -468,7 +453,6 @@ function applyFilters(topics) {
   const selected = selectedSpecialtyKey || "";
 
   return topics.filter((t) => {
-    // Por defecto: “Todas” excluye “acceso_gratuito”
     if (!selected) {
       if (t.specialtyKey === "acceso_gratuito") return false;
     } else {
@@ -497,15 +481,13 @@ function render() {
     countEl.textContent = `${filtered.length} tema${filtered.length === 1 ? "" : "s"}`;
   }
 
-  // Si hay un tema seleccionado, renderizamos su vista (sin modal)
   const selected = getSelectedTopic();
   if (selected) {
     hide(emptyEl);
-    renderTopicDetail(selected, filtered);
+    renderTopicDetail(selected);
     return;
   }
 
-  // Vista lista
   if (!filtered.length) {
     listEl.innerHTML = "";
     show(emptyEl);
@@ -537,9 +519,7 @@ function render() {
     if (otherCount) badges.push(`<span class="resource-badge resource-badge--muted">Otros ${otherCount}</span>`);
 
     const card = document.createElement("div");
-    // ✅ AQUI: completado más llamativo
-    card.className = "resource-card" + (completed ? " resource-card--completed" : "");
-
+    card.className = `resource-card ${completed ? "resource-card--completed" : ""}`;
     card.innerHTML = `
       <div class="resource-card__top">
         <div class="resource-card__meta">
@@ -556,12 +536,14 @@ function render() {
       e.stopPropagation();
       _selectedTopicId = t.id;
       _selectedPreviewUrl = "";
+      _selectedOpenUrl = "";
       render();
     });
 
     card.addEventListener("click", () => {
       _selectedTopicId = t.id;
       _selectedPreviewUrl = "";
+      _selectedOpenUrl = "";
       render();
     });
 
@@ -572,50 +554,87 @@ function render() {
   listEl.appendChild(frag);
 }
 
-/****************************************************
- * DETALLE DEL TEMA
- * ✅ Ahora: UN SOLO RECUADRO "Recursos" con todo adentro.
- ****************************************************/
-function renderTopicDetail(topic, filteredList) {
+function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // Preferencia inicial de preview: primer PDF/GPC si existe
-  if (!_selectedPreviewUrl) {
+  // Preferencia inicial: primer PDF/GPC si existe
+  if (!_selectedOpenUrl) {
     const firstPdf = (groups.pdf[0]?.url) || "";
     const firstGpc = (groups.gpc[0]?.url) || "";
-    const candidate = firstPdf || firstGpc || "";
-    _selectedPreviewUrl = makePreviewUrl(candidate) || "";
+    const candidateRaw = firstPdf || firstGpc || "";
+    _selectedOpenUrl = candidateRaw || "";
+    _selectedPreviewUrl = makePreviewUrl(candidateRaw) || "";
   }
 
   const completed = isTopicCompleted(topic.id);
 
-  const buildUnifiedGroup = (titleText, items) => {
-    if (!items.length) return "";
+  // ✅ Panel ÚNICO: Resumen (links), PDFs/GPC/Otros (botones de preview)
+  const buildUnifiedPanel = () => {
+    const sectionHtml = (label, inner) => {
+      if (!inner) return "";
+      return `
+        <div class="resource-unified-group">
+          <div class="resource-unified-group__label">${escapeHtml(label)}</div>
+          <div class="resource-unified-group__buttons">${inner}</div>
+        </div>
+      `;
+    };
+
+    // Resúmenes: SIEMPRE abrir link real (no preview)
+    const resumenLinks = (groups.resumen || []).map((l) => `
+      <a class="btn btn-outline btn-sm" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">
+        Abrir
+      </a>
+    `).join("");
+
+    // PDFs/GPC/Otros: intentan preview, pero guardan rawUrl para abrir bien
+    const previewButtons = (items) => (items || []).map((l) => `
+      <button
+        class="btn btn-outline btn-sm"
+        data-preview-url="${escapeHtml(l.url)}"
+        type="button"
+      >${escapeHtml(l.label)}</button>
+    `).join("");
+
+    const pdfBtns = previewButtons(groups.pdf);
+    const gpcBtns = previewButtons(groups.gpc);
+    const otherBtns = previewButtons(groups.otro);
+
     return `
-      <div class="resource-unified-group">
-        <div class="resource-unified-group__label">${escapeHtml(titleText)}</div>
-        <div class="resource-unified-group__buttons">
-          ${items.map((l) => `
-            <button
-              class="btn btn-outline btn-sm"
-              data-preview-url="${escapeHtml(l.url)}"
-              type="button"
-            >${escapeHtml(l.label)}</button>
-          `).join("")}
+      <div class="card resource-unified-card" style="margin-top:12px;">
+        <div class="resource-unified-card__header">
+          <div class="resource-unified-card__title">Recursos</div>
+          <div class="panel-subtitle" style="margin-top:4px;">
+            Todo en un solo panel: Resúmenes, PDFs, GPC y Otros.
+          </div>
+        </div>
+        <div class="resource-unified-card__body">
+          ${sectionHtml("Resúmenes", resumenLinks)}
+          ${sectionHtml("PDFs", pdfBtns)}
+          ${sectionHtml("GPC", gpcBtns)}
+          ${sectionHtml("Otros", otherBtns)}
         </div>
       </div>
     `;
   };
 
   const previewBlock = (() => {
+    // Si no hay preview posible (o Google bloquea iframe), igual dejamos botón al link REAL
     if (!_selectedPreviewUrl) {
       return `
         <div class="card" style="margin-top:12px;">
           <div style="font-weight:700;font-size:14px;">Vista previa</div>
           <div class="panel-subtitle" style="margin-top:6px;">
-            Selecciona un archivo en “Recursos”. Si no carga aquí, usa “Abrir en pestaña nueva”.
+            Este recurso no se puede previsualizar aquí (bloqueo de Google/Drive). Ábrelo en una pestaña nueva.
           </div>
+          ${_selectedOpenUrl ? `
+            <div style="margin-top:10px;">
+              <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
+                Abrir en pestaña nueva
+              </a>
+            </div>
+          ` : ``}
         </div>
       `;
     }
@@ -629,9 +648,11 @@ function renderTopicDetail(topic, filteredList) {
               Si no carga, abre en una pestaña nueva.
             </div>
           </div>
-          <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedPreviewUrl)}" target="_blank" rel="noopener noreferrer">
-            Abrir en pestaña nueva
-          </a>
+          ${_selectedOpenUrl ? `
+            <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
+              Abrir en pestaña nueva
+            </a>
+          ` : ``}
         </div>
         <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
           <iframe
@@ -646,21 +667,16 @@ function renderTopicDetail(topic, filteredList) {
   })();
 
   listEl.classList.remove("resources-grid");
-
   listEl.innerHTML = `
     <div class="card" style="padding:14px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div style="min-width:240px;">
           <div class="panel-subtitle">${escapeHtml(spLabel)}</div>
-
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap; margin-top:4px;">
-            <div style="font-weight:800;font-size:18px;">${escapeHtml(topic.title)}</div>
-            ${completed ? `<span class="resource-detail-chip">Completado</span>` : ``}
-          </div>
-
+          <div style="font-weight:800;font-size:18px; margin-top:4px;">${escapeHtml(topic.title)}</div>
           <div class="panel-subtitle" style="margin-top:6px;">
-            Selecciona un archivo en “Recursos” para previsualizarlo abajo.
+            Marca como completado cuando termines de estudiar este tema.
           </div>
+          ${completed ? `<div style="margin-top:10px;"><span class="resource-detail-chip">✓ Completado</span></div>` : ``}
         </div>
 
         <div style="display:flex;gap:8px;align-items:center;">
@@ -672,46 +688,34 @@ function renderTopicDetail(topic, filteredList) {
       </div>
     </div>
 
-    <div class="card resource-unified-card" style="margin-top:12px;">
-      <div class="resource-unified-card__header">
-        <div>
-          <div class="resource-unified-card__title">Recursos</div>
-          <div class="panel-subtitle" style="margin-top:4px;">
-            Todo en un solo panel: Resúmenes, PDFs, GPC y Otros.
-          </div>
-        </div>
-      </div>
-
-      <div class="resource-unified-card__body">
-        ${buildUnifiedGroup(groups.resumen.length > 1 ? "Resúmenes" : "Resumen", groups.resumen)}
-        ${buildUnifiedGroup(groups.pdf.length > 1 ? "PDFs" : "PDF", groups.pdf)}
-        ${buildUnifiedGroup("GPC", groups.gpc)}
-        ${buildUnifiedGroup("Otros", groups.otro)}
-      </div>
-    </div>
-
+    ${buildUnifiedPanel()}
     ${previewBlock}
   `;
 
-  // Volver
+  // volver
   listEl.querySelector("#student-resources-back")?.addEventListener("click", () => {
     _selectedTopicId = null;
     _selectedPreviewUrl = "";
+    _selectedOpenUrl = "";
     render();
   });
 
-  // Completado
+  // completado
   listEl.querySelector("#student-resources-complete")?.addEventListener("click", () => {
     toggleTopicCompleted(topic.id);
     render();
   });
 
-  // Preview buttons
+  // preview buttons
   listEl.querySelectorAll("button[data-preview-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.getAttribute("data-preview-url") || "";
-      const preview = makePreviewUrl(raw);
 
+      // ✅ Siempre guardamos el link real para "Abrir en pestaña nueva"
+      _selectedOpenUrl = raw;
+
+      // Intentar preview (PDF/Drive). Si no se puede, preview vacío.
+      const preview = makePreviewUrl(raw);
       if (preview) {
         _selectedPreviewUrl = preview;
       } else if (looksLikePdf(raw)) {
