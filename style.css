@@ -1700,4 +1700,46 @@ body.modal-open { overflow: hidden; }
 .resource-unified-group__buttons .btn {
   white-space: nowrap;
 }
+/* ================================
+   FIX LAYOUT — SOLO ESTUDIANTE
+   - Quita max-width que deja hueco a la derecha
+   - Arregla grid de Resúmenes/GPC en modo cards
+   ================================ */
+
+/* 1) Eliminar límite de ancho SOLO en la vista estudiante */
+#student-view #content{
+  max-width: none !important; /* antes 1200px */
+}
+
+/* 2) Resúmenes y GPC: tu HTML usa .student-resources-split (no .resources-columns) */
+#student-resources-view[data-ui="cards"] .student-resources-split{
+  display: block !important; /* mata el grid 2 columnas */
+}
+
+#student-resources-view[data-ui="cards"] .student-resources-col--detail{
+  display: none !important; /* por si no se ocultó por JS */
+}
+
+#student-resources-view[data-ui="cards"] .student-resources-col--list{
+  position: static !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding-right: 0 !important;
+}
+
+/* 3) (Recomendado) Exámenes: usar el ancho en pantallas grandes */
+@media (min-width: 1024px){
+  #student-exams-list.cards-list{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+/* 4) (Opcional) En pantallas MUY grandes, 3 columnas */
+@media (min-width: 1400px){
+  #student-exams-list.cards-list{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
