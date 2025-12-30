@@ -1,6 +1,7 @@
 // student-resources.js
 // Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
 // Objetivo: UI moderna + filtros robustos (sin romper simulacros).
+// Nota técnica: Drive/Docs privados pueden BLOQUEAR iframe por CSP/cookies. En ese caso: abrir en pestaña nueva.
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -46,14 +47,14 @@ let _allTopics = [];
 let selectedSpecialtyKey = "";
 let searchQuery = "";
 
-// navegación (sin modal)
+// navegación
 let _selectedTopicId = null;
 
-// guardamos link real y link de preview por separado
+// link real vs preview
 let _selectedPreviewUrl = "";
 let _selectedOpenUrl = "";
 
-// progreso (localStorage por usuario)
+// progreso
 let _currentUserKey = "anon";
 
 let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
@@ -61,7 +62,7 @@ let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl
 let modalRoot = null; // se conserva (no se elimina)
 
 /****************************************************
- * Normalización y mapeo (FIX del filtro)
+ * Normalización y mapeo
  ****************************************************/
 function normalizeText(s) {
   return String(s || "")
@@ -75,13 +76,11 @@ function normalizeText(s) {
 
 function canonicalizeSpecialty(raw) {
   const n = normalizeText(raw);
-
   if (n.includes("acceso gratuito")) return "acceso_gratuito";
   if (n.includes("cirugia")) return "cirugia_general";
   if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) return "medicina_interna";
   if (n.includes("pediatr")) return "pediatria";
   if (n.includes("gine") || n.includes("obst")) return "gine_obstetricia";
-
   return "otros";
 }
 
@@ -111,12 +110,6 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-function isDocxUrl(url) {
-  const u = String(url || "").toLowerCase().trim();
-  // soporta ...archivo.docx?alt=media...
-  return u.includes(".docx") || u.includes(".doc?");
-}
-
 function guessLinkType(label, url) {
   const l = normalizeText(label);
   const u = normalizeText(url);
@@ -125,13 +118,10 @@ function guessLinkType(label, url) {
   if (l.includes("resumen") || l.includes("word") || u.includes("docs.google.com/document") || u.includes(".doc")) {
     return "resumen";
   }
-  if (l.includes("gpc") || l.includes("guia") || l.includes("practica clinica")) {
-    return "gpc";
-  }
-  if (l.includes("pdf") || u.includes(".pdf") || u.includes("application/pdf")) {
-    return "pdf";
-  }
+  if (l.includes("gpc") || l.includes("guia") || l.includes("practica clinica")) return "gpc";
+  if (l.includes("pdf") || u.includes(".pdf") || u.includes("application/pdf")) return "pdf";
   if (u.includes("drive.google.com/file")) return "pdf";
+
   return "otro";
 }
 
@@ -143,7 +133,6 @@ function buildLinkGroups(topic) {
     const label = x?.label || x?.name || x?.title || "Documento";
     const url = x?.url || x?.href || "";
     if (!url) return;
-
     const type = guessLinkType(label, url);
     groups[type].push({ label, url });
   });
@@ -194,9 +183,7 @@ function toggleTopicCompleted(topicId) {
 }
 
 /****************************************************
- * Preview helpers
- * - PDF: evita drive /preview (bloquea CSP). Intenta URL directa (Firebase/hosting) o uc download.
- * - DOCX: Office Viewer con URL pública.
+ * Preview helpers (NO descargar forzado)
  ****************************************************/
 function extractDriveFileId(url) {
   const u = String(url || "");
@@ -215,83 +202,55 @@ function extractGoogleDocId(url) {
   return (m && m[1]) ? m[1] : "";
 }
 
-function makeDocsExportUrl(url, format) {
-  // format: "pdf" | "docx"
-  const docId = extractGoogleDocId(url);
-  if (!docId) return "";
-  return `https://docs.google.com/document/d/${docId}/export?format=${encodeURIComponent(format)}`;
+function isDriveFileUrl(url) {
+  const u = normalizeText(url);
+  return u.includes("drive.google.com/file/d/");
 }
 
-function makeDriveUcDownloadUrl(url) {
-  const fileId = extractDriveFileId(url);
-  if (!fileId) return "";
-  return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`;
+function isGoogleDocUrl(url) {
+  const u = normalizeText(url);
+  return u.includes("docs.google.com/document/d/");
 }
 
-function makeOfficeEmbedUrl(src) {
-  const s = String(src || "").trim();
-  if (!s) return "";
-  return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(s)}`;
+function isPdfUrl(url) {
+  const u = normalizeText(url);
+  return u.includes(".pdf") || u.includes("application/pdf");
 }
 
 /**
- * kind: "resumen" | "pdf" | "gpc" | "otro"
+ * Vista previa best-effort:
+ * - Drive FILE (PDF/DOCX/etc): /preview
+ * - Google DOC: /preview
+ * - PDF directo: URL
+ * Si el proveedor bloquea iframe (CSP/cookies), no hay bypass: solo abrir en pestaña nueva.
  */
-function makePreviewUrl(url, kind = "otro") {
-  const u = String(url || "").trim();
+function makePreviewUrl(rawUrl) {
+  const u = String(rawUrl || "").trim();
   const n = normalizeText(u);
+  if (!u) return "";
 
-  const isDocsDoc = n.includes("docs.google.com/document/d/");
-  const isDrive = n.includes("drive.google.com");
-
-  // RESUMEN (Word)
-  if (kind === "resumen") {
-    // Google Docs -> export DOCX -> Office Viewer (solo si el doc es accesible)
-    if (isDocsDoc) {
-      const docxExport = makeDocsExportUrl(u, "docx");
-      return docxExport ? makeOfficeEmbedUrl(docxExport) : "";
-    }
-
-    // Drive file -> UC download -> Office Viewer (solo si el archivo es accesible)
-    if (isDrive) {
-      const direct = makeDriveUcDownloadUrl(u);
-      return direct ? makeOfficeEmbedUrl(direct) : "";
-    }
-
-    // URL directa docx (ideal: Firebase Storage downloadURL)
-    if (isDocxUrl(u)) return makeOfficeEmbedUrl(u);
-
-    return "";
+  // Google Docs document -> preview
+  if (isGoogleDocUrl(u)) {
+    const docId = extractGoogleDocId(u);
+    if (!docId) return "";
+    return `https://docs.google.com/document/d/${docId}/preview`;
   }
 
-  // PDF / GPC
-  if (kind === "pdf" || kind === "gpc") {
-    // Google Docs -> export PDF (solo si es accesible)
-    if (isDocsDoc) {
-      return makeDocsExportUrl(u, "pdf") || "";
-    }
-
-    // Drive -> UC download (evita /preview que bloquea CSP)
-    if (isDrive) {
-      return makeDriveUcDownloadUrl(u) || "";
-    }
-
-    // URL directa PDF
-    if (n.endsWith(".pdf") || n.includes(".pdf?")) return u;
-
-    return "";
+  // Drive file -> preview (sirve para PDF y también docx dentro del visor de Drive)
+  if (n.includes("drive.google.com")) {
+    const fileId = extractDriveFileId(u);
+    if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`;
   }
 
-  // Otros (best-effort)
-  if (isDocxUrl(u)) return makeOfficeEmbedUrl(u);
-  if (n.endsWith(".pdf") || n.includes(".pdf?")) return u;
-  if (isDrive) return makeDriveUcDownloadUrl(u) || "";
+  // PDF directo
+  if (isPdfUrl(u)) return u;
 
-  return "";
+  // Si no sabemos, intentamos el URL tal cual (puede o no funcionar)
+  return u;
 }
 
 /****************************************************
- * Modal (SE CONSERVA)
+ * Modal (se conserva)
  ****************************************************/
 function ensureModal() {
   if (modalRoot) return;
@@ -330,56 +289,6 @@ function ensureModal() {
   });
 }
 
-function openModalForTopic(topic) {
-  ensureModal();
-
-  const badge = modalRoot.querySelector("#student-resources-modal-specialty");
-  const title = modalRoot.querySelector("#student-resources-modal-title");
-  const body = modalRoot.querySelector("#student-resources-modal-body");
-
-  if (badge) badge.textContent = specialtyLabelFromKey(topic.specialtyKey);
-  if (title) title.textContent = topic.title;
-
-  const groups = buildLinkGroups(topic);
-
-  const section = (titleText, items) => {
-    if (!items.length) return "";
-    return `
-      <div class="resources-modal__section">
-        <div class="resources-modal__section-title">${escapeHtml(titleText)}</div>
-        <div class="resources-modal__buttons">
-          ${items
-            .map(
-              (l) => `
-                <a class="resource-btn" href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">
-                  ${escapeHtml(l.label)}
-                </a>
-              `
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  };
-
-  const resumenTitle = groups.resumen.length > 1 ? "Resúmenes" : "Resumen";
-  const pdfTitle = groups.pdf.length > 1 ? "PDFs" : "PDF";
-  const gpcTitle = "GPC";
-
-  if (body) {
-    body.innerHTML = [
-      section(resumenTitle, groups.resumen),
-      section(pdfTitle, groups.pdf),
-      section(gpcTitle, groups.gpc),
-      section("Otros", groups.otro),
-    ].join("");
-  }
-
-  modalRoot.classList.remove("hidden");
-  modalRoot.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
-}
-
 function closeModal() {
   if (!modalRoot) return;
   modalRoot.classList.add("hidden");
@@ -406,7 +315,7 @@ export function initStudentResourcesUI() {
   if (viewEl) viewEl.setAttribute("data-ui", "cards");
   if (detailEl) detailEl.innerHTML = "";
 
-  // Ocultar columna derecha (si existe) y usar todo el ancho para lista
+  // usar ancho completo
   if (detailEl) {
     const rightCol = detailEl.closest("div");
     if (rightCol) rightCol.classList.add("hidden");
@@ -567,7 +476,6 @@ function render() {
     const otherCount = groups.otro.length;
 
     const spLabel = specialtyLabelFromKey(t.specialtyKey);
-
     const completed = isTopicCompleted(t.id);
 
     const badges = [];
@@ -617,21 +525,15 @@ function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // Preferencia inicial: primer PDF/GPC si existe, si no, primer Resumen
+  // Preferencia inicial: primer PDF/GPC si existe; si no, primer resumen; si no, otro.
   if (!_selectedOpenUrl) {
     const firstPdf = (groups.pdf[0]?.url) || "";
     const firstGpc = (groups.gpc[0]?.url) || "";
     const firstRes = (groups.resumen[0]?.url) || "";
-    const candidateRaw = firstPdf || firstGpc || firstRes || "";
+    const firstOther = (groups.otro[0]?.url) || "";
+    const candidateRaw = firstPdf || firstGpc || firstRes || firstOther || "";
     _selectedOpenUrl = candidateRaw || "";
-
-    // Decide kind según cuál tomamos
-    let kind = "otro";
-    if (candidateRaw === firstRes) kind = "resumen";
-    else if (candidateRaw === firstPdf) kind = "pdf";
-    else if (candidateRaw === firstGpc) kind = "gpc";
-
-    _selectedPreviewUrl = makePreviewUrl(candidateRaw, kind) || "";
+    _selectedPreviewUrl = makePreviewUrl(candidateRaw) || "";
   }
 
   const completed = isTopicCompleted(topic.id);
@@ -647,79 +549,77 @@ function renderTopicDetail(topic) {
       `;
     };
 
-    const previewButtons = (items, kind) => (items || []).map((l) => `
+    const previewButtons = (items) => (items || []).map((l) => `
       <button
         class="btn btn-outline btn-sm"
         data-preview-url="${escapeHtml(l.url)}"
-        data-kind="${escapeHtml(kind)}"
         type="button"
       >${escapeHtml(l.label)}</button>
     `).join("");
-
-    const resumenBtns = previewButtons(groups.resumen, "resumen");
-    const pdfBtns = previewButtons(groups.pdf, "pdf");
-    const gpcBtns = previewButtons(groups.gpc, "gpc");
-    const otherBtns = previewButtons(groups.otro, "otro");
 
     return `
       <div class="card resource-unified-card" style="margin-top:12px;">
         <div class="resource-unified-card__header">
           <div class="resource-unified-card__title">Recursos</div>
           <div class="panel-subtitle" style="margin-top:4px;">
-            Todo en un solo panel: Resúmenes (Word), PDFs, GPC y Otros.
+            Resúmenes (DOCX/Docs), PDFs, GPC y Otros.
           </div>
         </div>
         <div class="resource-unified-card__body">
-          ${sectionHtml("Resúmenes", resumenBtns)}
-          ${sectionHtml("PDFs", pdfBtns)}
-          ${sectionHtml("GPC", gpcBtns)}
-          ${sectionHtml("Otros", otherBtns)}
+          ${sectionHtml("Resúmenes", previewButtons(groups.resumen))}
+          ${sectionHtml("PDFs", previewButtons(groups.pdf))}
+          ${sectionHtml("GPC", previewButtons(groups.gpc))}
+          ${sectionHtml("Otros", previewButtons(groups.otro))}
         </div>
       </div>
     `;
   };
 
   const previewBlock = (() => {
-    // Si no hay preview posible (o Drive privado/CSP), dejamos botón al link REAL
+    // Siempre dejamos "Abrir en pestaña nueva" porque es la forma estable con Drive privado.
+    const openBtn = _selectedOpenUrl ? `
+      <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
+        Abrir en pestaña nueva
+      </a>
+    ` : ``;
+
+    // Si no hay preview url, mensaje.
     if (!_selectedPreviewUrl) {
       return `
         <div class="card" style="margin-top:12px;">
-          <div style="font-weight:700;font-size:14px;">Vista previa</div>
-          <div class="panel-subtitle" style="margin-top:6px;">
-            Este recurso no se puede previsualizar aquí (Drive/Docs privado o bloqueo de terceros). Ábrelo en una pestaña nueva.
-          </div>
-          ${_selectedOpenUrl ? `
-            <div style="margin-top:10px;">
-              <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
-                Abrir en pestaña nueva
-              </a>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700;font-size:14px;">Vista previa</div>
+              <div class="panel-subtitle" style="margin-top:6px;">
+                No hay vista previa disponible para este enlace. Abre en pestaña nueva.
+              </div>
             </div>
-          ` : ``}
+            ${openBtn}
+          </div>
         </div>
       `;
     }
 
+    // Iframe best-effort
     return `
       <div class="card" style="margin-top:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:700;font-size:14px;">Vista previa</div>
             <div class="panel-subtitle" style="margin-top:4px;">
-              Si no carga, abre en una pestaña nueva.
+              Si ves error/bloqueo, es por políticas de Google (CSP/cookies). Abre en pestaña nueva.
             </div>
           </div>
-          ${_selectedOpenUrl ? `
-            <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
-              Abrir en pestaña nueva
-            </a>
-          ` : ``}
+          ${openBtn}
         </div>
+
         <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
           <iframe
             title="Vista previa"
             src="${escapeHtml(_selectedPreviewUrl)}"
             style="width:100%;height:100%;border:0;"
             loading="lazy"
+            allow="fullscreen"
           ></iframe>
         </div>
       </div>
@@ -766,15 +666,12 @@ function renderTopicDetail(topic) {
     render();
   });
 
-  // preview buttons (Resúmenes/PDFs/GPC/Otros)
+  // botones de preview
   listEl.querySelectorAll("button[data-preview-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const raw = btn.getAttribute("data-preview-url") || "";
-      const kind = btn.getAttribute("data-kind") || "otro";
-
       _selectedOpenUrl = raw;
-      _selectedPreviewUrl = makePreviewUrl(raw, kind) || "";
-
+      _selectedPreviewUrl = makePreviewUrl(raw) || "";
       render();
     });
   });
