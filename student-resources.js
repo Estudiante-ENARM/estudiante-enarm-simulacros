@@ -1,6 +1,12 @@
 // student-resources.js
 // Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
-// Objetivo: UI moderna + filtros robustos (sin romper simulacros).
+// OBJETIVO (optimización TOP móvil):
+// - Evitar que Safari/iPhone se “buguee” por iframes consecutivos.
+// - Reusar 1 solo iframe (nunca crear múltiples).
+// - “Hard reset” del iframe al cambiar archivo (about:blank + delay + cache-bust).
+// - Throttle anti-spam taps (no dispara 10 cargas seguidas).
+// - Watchdog: si no carga en X segundos, muestra fallback claro + botón abrir.
+// - Mantener Docs (resúmenes) igual: intenta preview; si falla, abrir en pestaña nueva.
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -20,7 +26,7 @@ const RESOURCES_FIREBASE_CONFIG = {
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.appspot.com",
   messagingSenderId: "1031211281182",
-  appId: "1:1031211281182:web:c1e26006b68b189acc4efd"
+  appId: "1:1031211281182:web:c1e26006b68b189acc4efd",
 };
 
 let resourcesDb = null;
@@ -49,9 +55,9 @@ let searchQuery = "";
 // navegación
 let _selectedTopicId = null;
 
-// preview/abrir
-let _selectedOpenUrl = "";     // URL ORIGINAL (siempre válida para abrir)
-let _selectedPreviewUrl = "";  // URL PARA IFRAME (si se puede)
+// open/preview seleccionado
+let _selectedOpenUrl = "";
+let _selectedPreviewUrl = "";
 
 // progreso (localStorage por usuario)
 let _currentUserKey = "anon";
@@ -59,6 +65,16 @@ let _currentUserKey = "anon";
 let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
 
 let modalRoot = null; // se conserva
+
+// ===== Optimización móvil (clave) =====
+let _iframeEl = null;
+let _iframeContainerEl = null;
+let _iframeStatusEl = null;
+let _iframeFallbackEl = null;
+
+let _activeLoadToken = 0;
+let _loadTimer = null;
+let _tapLockUntil = 0;
 
 /****************************************************
  * Normalización y mapeo
@@ -75,10 +91,10 @@ function normalizeText(s) {
 
 function canonicalizeSpecialty(raw) {
   const n = normalizeText(raw);
-
   if (n.includes("acceso gratuito")) return "acceso_gratuito";
   if (n.includes("cirugia")) return "cirugia_general";
-  if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) return "medicina_interna";
+  if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna")))
+    return "medicina_interna";
   if (n.includes("pediatr")) return "pediatria";
   if (n.includes("gine") || n.includes("obst")) return "gine_obstetricia";
   return "otros";
@@ -86,20 +102,30 @@ function canonicalizeSpecialty(raw) {
 
 function specialtyLabelFromKey(key) {
   switch (key) {
-    case "medicina_interna": return "Medicina interna";
-    case "cirugia_general": return "Cirugía general";
-    case "pediatria": return "Pediatría";
-    case "gine_obstetricia": return "Ginecología y Obstetricia";
-    case "acceso_gratuito": return "Acceso gratuito limitado";
-    default: return "Otros";
+    case "medicina_interna":
+      return "Medicina interna";
+    case "cirugia_general":
+      return "Cirugía general";
+    case "pediatria":
+      return "Pediatría";
+    case "gine_obstetricia":
+      return "Ginecología y Obstetricia";
+    case "acceso_gratuito":
+      return "Acceso gratuito limitado";
+    default:
+      return "Otros";
   }
 }
 
 /****************************************************
  * Helpers UI
  ****************************************************/
-function show(el) { if (el) el.classList.remove("hidden"); }
-function hide(el) { if (el) el.classList.add("hidden"); }
+function show(el) {
+  if (el) el.classList.remove("hidden");
+}
+function hide(el) {
+  if (el) el.classList.add("hidden");
+}
 
 function escapeHtml(str) {
   return String(str || "")
@@ -111,20 +137,24 @@ function escapeHtml(str) {
 }
 
 function isGoogleDoc(url) {
-  const u = normalizeText(url);
-  return u.includes("docs.google.com/document/d/");
+  return normalizeText(url).includes("docs.google.com/document/d/");
 }
-
 function isDriveFile(url) {
   const u = normalizeText(url);
-  return u.includes("drive.google.com/file/d/") || u.includes("drive.google.com/open?id=") || u.includes("drive.google.com/uc?");
+  return (
+    u.includes("drive.google.com/file/d/") ||
+    u.includes("drive.google.com/open?id=") ||
+    u.includes("drive.google.com/uc?")
+  );
 }
-
 function looksLikePdf(url) {
   const u = normalizeText(url);
   return u.includes(".pdf") || u.includes("application/pdf") || u.includes("drive.google.com/file/d/");
 }
 
+/****************************************************
+ * Clasificación de links
+ ****************************************************/
 function guessLinkType(label, url) {
   const l = normalizeText(label);
   const u = normalizeText(url);
@@ -136,7 +166,9 @@ function guessLinkType(label, url) {
     u.includes("docs.google.com/document") ||
     u.includes(".doc") ||
     u.includes(".docx")
-  ) return "resumen";
+  ) {
+    return "resumen";
+  }
 
   // GPC
   if (l.includes("gpc") || l.includes("guia") || l.includes("practica clinica")) return "gpc";
@@ -207,20 +239,17 @@ function toggleTopicCompleted(topicId) {
 }
 
 /****************************************************
- * Preview helpers (clave para PDFs privados + Docs)
+ * Preview helpers (Docs/Drive robusto)
  ****************************************************/
 function extractDriveFileId(url) {
   const u = String(url || "");
 
-  // /file/d/<id>/
   const m1 = u.match(/\/file\/d\/([^/]+)/i);
   if (m1 && m1[1]) return m1[1];
 
-  // open?id=<id>
   const m2 = u.match(/[?&]id=([^&]+)/i);
   if (m2 && m2[1]) return m2[1];
 
-  // uc?id=<id>
   const m3 = u.match(/\/uc\?(?:.*&)?id=([^&]+)/i);
   if (m3 && m3[1]) return m3[1];
 
@@ -228,7 +257,6 @@ function extractDriveFileId(url) {
 }
 
 function toDocsPreview(url) {
-  // docs.google.com/document/d/<id>/edit -> /preview
   const u = String(url || "");
   return u
     .replace(/\/edit(\?.*)?$/i, "/preview")
@@ -237,29 +265,35 @@ function toDocsPreview(url) {
 }
 
 function toDrivePreview(url) {
-  // drive.google.com/file/d/<id>/view -> /preview
   const u = String(url || "");
   const fileId = extractDriveFileId(u);
   if (!fileId) return "";
   return `https://drive.google.com/file/d/${fileId}/preview`;
 }
 
+// cache-bust suave (evita que Safari “reuse” mal el iframe)
+function withCacheBust(url) {
+  if (!url) return "";
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}cb=${Date.now()}`;
+}
+
 function makePreviewUrl(url) {
   const u = String(url || "").trim();
   const n = normalizeText(u);
 
-  // 1) Google Docs: intentamos /preview (si Google lo permite en tu caso)
+  // Google Docs
   if (n.includes("docs.google.com/document/d/")) {
     return toDocsPreview(u);
   }
 
-  // 2) Drive file: /preview (MEJOR para PDFs)
+  // Drive file
   if (n.includes("drive.google.com")) {
     const p = toDrivePreview(u);
     if (p) return p;
   }
 
-  // 3) PDF directo (algunos sí embeben)
+  // PDF directo
   if (n.endsWith(".pdf") || n.includes(".pdf?")) return u;
 
   return "";
@@ -294,7 +328,6 @@ function ensureModal() {
 
   const closeBtn = modalRoot.querySelector("#student-resources-modal-close");
   const overlay = modalRoot.querySelector("[data-close='1']");
-
   closeBtn?.addEventListener("click", closeModal);
   overlay?.addEventListener("click", closeModal);
 
@@ -328,7 +361,7 @@ export function initStudentResourcesUI() {
   emptyEl = document.getElementById("student-resources-empty");
   loadingEl = document.getElementById("student-resources-loading");
 
-  // Activar layout solo dentro de biblioteca
+  // Activar UI de biblioteca (aislada)
   if (viewEl) viewEl.setAttribute("data-ui", "cards");
 
   // Ocultar panel derecho (no romper HTML)
@@ -425,21 +458,20 @@ export async function activateStudentResources() {
 }
 
 /****************************************************
- * API opcional: setear usuario
+ * API opcional: identidad usuario
  ****************************************************/
 export function setStudentResourcesUserIdentity(emailOrUid) {
   _currentUserKey = normalizeText(emailOrUid || "anon") || "anon";
 }
 
 /****************************************************
- * Render
+ * Render helpers
  ****************************************************/
 function applyFilters(topics) {
   const q = normalizeText(searchQuery);
   const selected = selectedSpecialtyKey || "";
 
   return topics.filter((t) => {
-    // Por defecto: “Todas” excluye “acceso_gratuito”
     if (!selected) {
       if (t.specialtyKey === "acceso_gratuito") return false;
     } else {
@@ -456,9 +488,106 @@ function applyFilters(topics) {
 
 function getSelectedTopic() {
   if (!_selectedTopicId) return null;
-  return _allTopics.find(t => String(t.id) === String(_selectedTopicId)) || null;
+  return _allTopics.find((t) => String(t.id) === String(_selectedTopicId)) || null;
 }
 
+/****************************************************
+ * OPT: iframe manager (evita freeze en móvil)
+ ****************************************************/
+function clearLoadTimer() {
+  if (_loadTimer) {
+    clearTimeout(_loadTimer);
+    _loadTimer = null;
+  }
+}
+
+function ensurePreviewElements() {
+  if (!_iframeContainerEl) _iframeContainerEl = listEl?.querySelector("[data-preview-container]") || null;
+  if (!_iframeStatusEl) _iframeStatusEl = listEl?.querySelector("[data-preview-status]") || null;
+  if (!_iframeFallbackEl) _iframeFallbackEl = listEl?.querySelector("[data-preview-fallback]") || null;
+
+  if (_iframeContainerEl && !_iframeEl) {
+    _iframeEl = _iframeContainerEl.querySelector("iframe");
+    if (_iframeEl) {
+      // 1 solo listener, pero seguro (se re-renderiza, entonces se re-crea; lo re-asignamos aquí)
+      _iframeEl.addEventListener("load", () => {
+        const token = Number(_iframeEl?.getAttribute("data-load-token") || "0");
+        if (token !== _activeLoadToken) return; // load viejo
+        clearLoadTimer();
+        if (_iframeStatusEl) {
+          _iframeStatusEl.textContent = "Cargado.";
+        }
+        if (_iframeFallbackEl) _iframeFallbackEl.classList.add("hidden");
+      });
+    }
+  }
+}
+
+function resetIframeHard() {
+  if (!_iframeEl) return;
+  try {
+    _iframeEl.src = "about:blank";
+  } catch {}
+}
+
+function startIframeLoad(previewUrl, openUrl) {
+  ensurePreviewElements();
+  if (!_iframeEl) return;
+
+  _activeLoadToken += 1;
+  const myToken = _activeLoadToken;
+
+  // status
+  if (_iframeStatusEl) {
+    _iframeStatusEl.textContent = "Cargando…";
+  }
+  if (_iframeFallbackEl) {
+    _iframeFallbackEl.classList.add("hidden");
+    // actualizar enlace de fallback si existe
+    const a = _iframeFallbackEl.querySelector("a[data-fallback-open]");
+    if (a && openUrl) a.setAttribute("href", openUrl);
+  }
+
+  // HARD RESET (clave para Safari): blank -> delay -> new src con cache-bust
+  clearLoadTimer();
+  resetIframeHard();
+
+  // watchdog: si no “load” en 8s, mostramos fallback (sin romper navegación)
+  _loadTimer = setTimeout(() => {
+    if (myToken !== _activeLoadToken) return;
+    if (_iframeStatusEl) {
+      _iframeStatusEl.textContent =
+        "No se pudo cargar la vista previa (Drive/Safari a veces bloquea).";
+    }
+    if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+  }, 8000);
+
+  // delay cortito para que Safari “suelte” el proceso anterior
+  setTimeout(() => {
+    if (myToken !== _activeLoadToken) return;
+    try {
+      _iframeEl.setAttribute("data-load-token", String(myToken));
+      _iframeEl.src = withCacheBust(previewUrl);
+    } catch {
+      // si falla por algo raro, dejamos fallback
+      clearLoadTimer();
+      if (_iframeStatusEl) _iframeStatusEl.textContent = "No se pudo cargar.";
+      if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+    }
+  }, 180);
+}
+
+function shouldThrottleTap() {
+  const now = Date.now();
+  if (now < _tapLockUntil) return true;
+  // lock 350ms para evitar taps repetidos que congelan Safari con iframes
+  _tapLockUntil = now + 350;
+  return false;
+}
+
+/****************************************************
+ * Render
+ ****************************************************/
 function render() {
   if (!listEl) return;
 
@@ -543,7 +672,7 @@ function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // Preview inicial: prioriza Resumen (Docs) si existe, si no PDF/GPC
+  // selección inicial: resumen si existe, si no pdf/gpc
   if (!_selectedOpenUrl) {
     const firstResumen = groups.resumen[0]?.url || "";
     const firstPdf = groups.pdf[0]?.url || "";
@@ -560,62 +689,45 @@ function renderTopicDetail(topic) {
       <div style="margin-top:12px;">
         <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${escapeHtml(title)}</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${items.map((l) => `
+          ${items
+            .map(
+              (l) => `
             <button
               class="btn btn-outline btn-sm"
               type="button"
               data-open-url="${escapeHtml(l.url)}"
             >${escapeHtml(l.label)}</button>
-          `).join("")}
+          `
+            )
+            .join("")}
         </div>
       </div>
     `;
   };
 
-  const previewInfo = (() => {
+  const previewHint = (() => {
     if (!_selectedOpenUrl) return "";
-
-    const doc = isGoogleDoc(_selectedOpenUrl);
-    const drive = isDriveFile(_selectedOpenUrl);
-    const pdf = looksLikePdf(_selectedOpenUrl);
-
-    // Mensaje exacto: Docs puede funcionar con /preview (si Google lo permite), PDF privado puede fallar por Drive/Safari.
-    if (doc) {
-      return `Documento (Word/Docs): si por permisos/Drive no carga en vista previa, usa “Abrir en pestaña nueva”.`;
-    }
-    if (pdf || drive) {
-      return `PDF/Drive: intentamos vista previa. Si no carga (Drive privado/Safari), abre en pestaña nueva.`;
-    }
-    return `Si no carga, abre en pestaña nueva.`;
+    if (isGoogleDoc(_selectedOpenUrl)) return "Documento (Resúmenes): vista previa si Drive lo permite; si no, abre en pestaña nueva.";
+    if (looksLikePdf(_selectedOpenUrl) || isDriveFile(_selectedOpenUrl)) return "PDF/Drive: vista previa; si falla (Drive/Safari), abre en pestaña nueva.";
+    return "Si falla la vista previa, abre en pestaña nueva.";
   })();
 
   const previewBlock = (() => {
-    // Si no tenemos previewUrl, no montamos iframe (evita bugs y freezes)
-    if (!_selectedPreviewUrl) {
-      return `
-        <div class="card" style="margin-top:12px;">
-          <div style="font-weight:700;font-size:14px;">Vista previa</div>
-          <div class="panel-subtitle" style="margin-top:6px;">
-            No se pudo generar vista previa para este enlace. Usa “Abrir en pestaña nueva”.
-          </div>
-          ${_selectedOpenUrl ? `
-            <div style="margin-top:10px;">
-              <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
-                Abrir en pestaña nueva
-              </a>
-            </div>
-          ` : ""}
-        </div>
-      `;
-    }
+    const hasPreview = !!_selectedPreviewUrl;
 
     return `
       <div class="card" style="margin-top:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div>
             <div style="font-weight:700;font-size:14px;">Vista previa</div>
-            <div class="panel-subtitle" style="margin-top:4px;">${escapeHtml(previewInfo)}</div>
+            <div class="panel-subtitle" style="margin-top:4px;">
+              ${escapeHtml(previewHint || "Selecciona un archivo para previsualizar.")}
+            </div>
+            <div class="panel-subtitle" style="margin-top:6px;" data-preview-status>
+              ${hasPreview ? "Cargando…" : "No hay vista previa para este enlace. Usa el botón de abrir."}
+            </div>
           </div>
+
           ${_selectedOpenUrl ? `
             <a class="btn btn-primary btn-sm" href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
               Abrir en pestaña nueva
@@ -623,13 +735,32 @@ function renderTopicDetail(topic) {
           ` : ""}
         </div>
 
-        <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
+        <div class="card" style="margin-top:10px; padding:12px; background: rgba(148,163,184,0.08); border: 1px dashed rgba(148,163,184,0.6);">
+          <div class="panel-subtitle">
+            Si en iPhone se llega a “buguear”, esta vista previa se reinicia automáticamente en cada cambio para evitar congelamiento.
+          </div>
+        </div>
+
+        <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;" data-preview-container>
           <iframe
             title="Vista previa"
-            src="${escapeHtml(_selectedPreviewUrl)}"
+            src="${hasPreview ? "about:blank" : "about:blank"}"
             style="width:100%;height:100%;border:0;"
             loading="lazy"
+            referrerpolicy="no-referrer"
           ></iframe>
+        </div>
+
+        <div class="card hidden" style="margin-top:10px; padding:12px; border-left:4px solid #f59e0b;" data-preview-fallback>
+          <div style="font-weight:700; font-size:13px; margin-bottom:6px;">Vista previa bloqueada</div>
+          <div class="panel-subtitle">
+            Drive/Safari puede bloquear el embebido en algunos archivos privados. Abre el archivo en pestaña nueva.
+          </div>
+          <div style="margin-top:10px;">
+            <a class="btn btn-primary btn-sm" data-fallback-open href="${escapeHtml(_selectedOpenUrl)}" target="_blank" rel="noopener noreferrer">
+              Abrir en pestaña nueva
+            </a>
+          </div>
         </div>
       </div>
     `;
@@ -659,7 +790,7 @@ function renderTopicDetail(topic) {
     <div class="card" style="margin-top:12px;">
       <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Recursos (todo en un solo recuadro)</div>
       <div class="panel-subtitle" style="margin-bottom:10px;">
-        Elige un archivo para cargar la vista previa abajo. El botón “Abrir en pestaña nueva” siempre queda disponible.
+        Elige un archivo para cargar la vista previa abajo. “Abrir en pestaña nueva” siempre está disponible.
       </div>
 
       ${buildSection(groups.resumen, "Resúmenes")}
@@ -671,11 +802,21 @@ function renderTopicDetail(topic) {
     ${previewBlock}
   `;
 
+  // refs preview elements (después del innerHTML)
+  _iframeEl = null;
+  _iframeContainerEl = null;
+  _iframeStatusEl = null;
+  _iframeFallbackEl = null;
+  ensurePreviewElements();
+
   // volver
   listEl.querySelector("#student-resources-back")?.addEventListener("click", () => {
     _selectedTopicId = null;
     _selectedOpenUrl = "";
     _selectedPreviewUrl = "";
+    // corta cualquier carga activa del iframe
+    _activeLoadToken += 1;
+    clearLoadTimer();
     render();
   });
 
@@ -685,13 +826,47 @@ function renderTopicDetail(topic) {
     render();
   });
 
-  // botones de recursos: SOLO cargan preview (NO abren pestaña automáticamente)
+  // botones de recursos: SOLO actualizan preview (NO abren pestaña automáticamente)
   listEl.querySelectorAll("button[data-open-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (shouldThrottleTap()) return; // evita spam que congela Safari
+
       const raw = btn.getAttribute("data-open-url") || "";
       _selectedOpenUrl = raw;
-      _selectedPreviewUrl = makePreviewUrl(raw) || ""; // Docs /preview o Drive /preview
+
+      const preview = makePreviewUrl(raw) || "";
+      _selectedPreviewUrl = preview;
+
+      // re-render (mantiene UI consistente) y luego carga robusta
       render();
+
+      // Nota: render() recrea DOM, así que el load real se dispara en el render nuevo abajo
+      // Para dispararlo sin doble lógica, usamos setTimeout a 0 y validamos que aún haya selección.
+      setTimeout(() => {
+        // si cambió durante el microtick, se ignora
+        if (_selectedOpenUrl !== raw) return;
+
+        ensurePreviewElements();
+
+        if (!_selectedPreviewUrl) {
+          // sin preview: solo fallback visible (ya queda botón abrir)
+          if (_iframeStatusEl) _iframeStatusEl.textContent = "No hay vista previa para este enlace. Usa “Abrir en pestaña nueva”.";
+          if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+          return;
+        }
+
+        startIframeLoad(_selectedPreviewUrl, _selectedOpenUrl);
+      }, 0);
     });
   });
+
+  // Carga inicial del iframe (cuando entras a un tema)
+  if (_selectedOpenUrl && _selectedPreviewUrl) {
+    startIframeLoad(_selectedPreviewUrl, _selectedOpenUrl);
+  } else {
+    // sin preview inicial: muestra fallback
+    ensurePreviewElements();
+    if (_iframeStatusEl) _iframeStatusEl.textContent = "Selecciona un archivo para previsualizar.";
+    if (_iframeFallbackEl) _iframeFallbackEl.classList.add("hidden");
+  }
 }
