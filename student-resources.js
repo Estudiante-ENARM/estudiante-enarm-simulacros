@@ -5,6 +5,8 @@
 // FIX solicitado:
 // - NO bloquear vista previa de PDFs/GPC.
 // - DOCX/Docs (resúmenes) NO preview: abrir en pestaña nueva para evitar fallas en móvil.
+// - Evitar que la página se “trabe”: en móvil NO se carga el iframe automáticamente.
+//   Se muestra botón "Cargar vista previa" y opción "Cerrar vista previa" para liberar memoria.
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -56,6 +58,9 @@ let _selectedTopicId = null;
 // guardamos link real y link de preview por separado
 let _selectedPreviewUrl = "";
 let _selectedOpenUrl = "";
+
+// ✅ NUEVO: para evitar que se trabe la página (especialmente en móvil)
+let _previewEnabled = false;
 
 // progreso (localStorage por usuario)
 let _currentUserKey = "anon";
@@ -118,6 +123,20 @@ function escapeHtml(str) {
 function isDocxUrl(url) {
   const u = String(url || "").toLowerCase().trim();
   return u.includes(".docx") || u.includes(".doc?");
+}
+
+/****************************************************
+ * ✅ NUEVO: evitar trabas al embeber visores pesados en móvil
+ ****************************************************/
+function isProbablyMobile() {
+  const byWidth = window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+  const ua = navigator.userAgent || "";
+  const byUA = /iPhone|iPad|iPod|Android/i.test(ua);
+  return !!(byWidth || byUA);
+}
+function shouldAutoLoadPreview() {
+  // Desktop: sí auto-cargar. Móvil: no auto-cargar (evita freeze).
+  return !isProbablyMobile();
 }
 
 function guessLinkType(label, url) {
@@ -259,7 +278,7 @@ function makePreviewUrl(url, kind = "otro") {
   // 1) PDF directo (no Drive/Docs)
   if (looksLikeDirectPdf(u)) return u;
 
-  // 2) Drive file => /preview
+  // 2) Drive file => /preview (puede bloquear CSP según el link, pero NO lo bloqueamos aquí)
   if (isDriveUrl(u)) {
     return drivePreviewUrl(u) || "";
   }
@@ -419,6 +438,7 @@ export function initStudentResourcesUI() {
       _selectedTopicId = null;
       _selectedPreviewUrl = "";
       _selectedOpenUrl = "";
+      _previewEnabled = false;
       render();
     });
   }
@@ -430,6 +450,7 @@ export function initStudentResourcesUI() {
       _selectedTopicId = null;
       _selectedPreviewUrl = "";
       _selectedOpenUrl = "";
+      _previewEnabled = false;
       render();
     });
   }
@@ -581,6 +602,7 @@ function render() {
       _selectedTopicId = t.id;
       _selectedPreviewUrl = "";
       _selectedOpenUrl = "";
+      _previewEnabled = false;
       render();
     });
 
@@ -588,6 +610,7 @@ function render() {
       _selectedTopicId = t.id;
       _selectedPreviewUrl = "";
       _selectedOpenUrl = "";
+      _previewEnabled = false;
       render();
     });
 
@@ -616,6 +639,7 @@ function renderTopicDetail(topic) {
     else if (candidateRaw === firstGpc) kind = "gpc";
 
     _selectedPreviewUrl = makePreviewUrl(candidateRaw, kind) || "";
+    _previewEnabled = shouldAutoLoadPreview() && !!_selectedPreviewUrl;
   }
 
   const completed = isTopicCompleted(topic.id);
@@ -673,6 +697,7 @@ function renderTopicDetail(topic) {
   };
 
   const previewBlock = (() => {
+    // Sin URL de preview: solo abrir
     if (!_selectedPreviewUrl) {
       return `
         <div class="card" style="margin-top:12px;">
@@ -693,6 +718,35 @@ function renderTopicDetail(topic) {
       `;
     }
 
+    // Hay preview, pero en móvil NO lo cargamos automáticamente (evita trabas)
+    if (!_previewEnabled) {
+      return `
+        <div class="card" style="margin-top:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700;font-size:14px;">Vista previa</div>
+              <div class="panel-subtitle" style="margin-top:4px;">
+                Para evitar que se trabe en celular/tablet, la vista previa se carga bajo demanda.
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button id="student-resources-load-preview" class="btn btn-primary btn-sm" type="button">
+                Cargar vista previa
+              </button>
+              ${_selectedOpenUrl ? `
+                <a class="btn btn-outline btn-sm"
+                   href="${escapeHtml(_selectedOpenUrl)}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                >Abrir en pestaña nueva</a>
+              ` : ``}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Preview habilitada: iframe + botón para cerrar (libera memoria)
     return `
       <div class="card" style="margin-top:12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
@@ -702,13 +756,18 @@ function renderTopicDetail(topic) {
               Si no carga, abre en una pestaña nueva.
             </div>
           </div>
-          ${_selectedOpenUrl ? `
-            <a class="btn btn-primary btn-sm"
-               href="${escapeHtml(_selectedOpenUrl)}"
-               target="_blank"
-               rel="noopener noreferrer"
-            >Abrir en pestaña nueva</a>
-          ` : ``}
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button id="student-resources-unload-preview" class="btn btn-outline btn-sm" type="button">
+              Cerrar vista previa
+            </button>
+            ${_selectedOpenUrl ? `
+              <a class="btn btn-primary btn-sm"
+                 href="${escapeHtml(_selectedOpenUrl)}"
+                 target="_blank"
+                 rel="noopener noreferrer"
+              >Abrir en pestaña nueva</a>
+            ` : ``}
+          </div>
         </div>
         <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
           <iframe
@@ -754,12 +813,25 @@ function renderTopicDetail(topic) {
     _selectedTopicId = null;
     _selectedPreviewUrl = "";
     _selectedOpenUrl = "";
+    _previewEnabled = false;
     render();
   });
 
   // completado
   listEl.querySelector("#student-resources-complete")?.addEventListener("click", () => {
     toggleTopicCompleted(topic.id);
+    render();
+  });
+
+  // ✅ cargar preview (en móvil evita freeze; el usuario decide)
+  listEl.querySelector("#student-resources-load-preview")?.addEventListener("click", () => {
+    _previewEnabled = true;
+    render();
+  });
+
+  // ✅ cerrar preview (libera memoria; evita que se quede trabado)
+  listEl.querySelector("#student-resources-unload-preview")?.addEventListener("click", () => {
+    _previewEnabled = false;
     render();
   });
 
@@ -771,6 +843,9 @@ function renderTopicDetail(topic) {
 
       _selectedOpenUrl = raw;
       _selectedPreviewUrl = makePreviewUrl(raw, kind) || "";
+
+      // En móvil/tablet NO cargamos automático; en desktop sí.
+      _previewEnabled = shouldAutoLoadPreview() && !!_selectedPreviewUrl;
 
       render();
     });
