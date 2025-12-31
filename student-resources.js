@@ -7,6 +7,8 @@
 // - Throttle anti-spam taps (no dispara 10 cargas seguidas).
 // - Watchdog: si no carga en X segundos, muestra fallback claro + botón abrir.
 // - Mantener Docs (resúmenes) igual: intenta preview; si falla, abrir en pestaña nueva.
+//
+// ✅ Opción A implementada (cola): 1 carga a la vez, “último click gana”.
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
@@ -75,6 +77,11 @@ let _iframeFallbackEl = null;
 let _activeLoadToken = 0;
 let _loadTimer = null;
 let _tapLockUntil = 0;
+
+// ✅ Opción A: cola de carga (último click gana)
+let _isIframeLoading = false;
+let _pendingOpenUrl = "";
+let _pendingPreviewUrl = "";
 
 /****************************************************
  * Normalización y mapeo
@@ -394,6 +401,9 @@ export function initStudentResourcesUI() {
       _selectedTopicId = null;
       _selectedOpenUrl = "";
       _selectedPreviewUrl = "";
+      _isIframeLoading = false;
+      _pendingOpenUrl = "";
+      _pendingPreviewUrl = "";
       render();
     });
   }
@@ -405,6 +415,9 @@ export function initStudentResourcesUI() {
       _selectedTopicId = null;
       _selectedOpenUrl = "";
       _selectedPreviewUrl = "";
+      _isIframeLoading = false;
+      _pendingOpenUrl = "";
+      _pendingPreviewUrl = "";
       render();
     });
   }
@@ -509,15 +522,27 @@ function ensurePreviewElements() {
   if (_iframeContainerEl && !_iframeEl) {
     _iframeEl = _iframeContainerEl.querySelector("iframe");
     if (_iframeEl) {
-      // 1 solo listener, pero seguro (se re-renderiza, entonces se re-crea; lo re-asignamos aquí)
       _iframeEl.addEventListener("load", () => {
         const token = Number(_iframeEl?.getAttribute("data-load-token") || "0");
         if (token !== _activeLoadToken) return; // load viejo
+
         clearLoadTimer();
+
         if (_iframeStatusEl) {
           _iframeStatusEl.textContent = "Cargado.";
         }
         if (_iframeFallbackEl) _iframeFallbackEl.classList.add("hidden");
+
+        // ✅ Opción A: liberar + cargar pendiente si existe
+        _isIframeLoading = false;
+
+        if (_pendingPreviewUrl && _pendingOpenUrl) {
+          const nextPreview = _pendingPreviewUrl;
+          const nextOpen = _pendingOpenUrl;
+          _pendingPreviewUrl = "";
+          _pendingOpenUrl = "";
+          setTimeout(() => startIframeLoad(nextPreview, nextOpen), 120);
+        }
       });
     }
   }
@@ -534,45 +559,65 @@ function startIframeLoad(previewUrl, openUrl) {
   ensurePreviewElements();
   if (!_iframeEl) return;
 
+  // ✅ Opción A: marcamos “cargando” y limpiamos pendiente (se vuelve a setear si el usuario toca durante carga)
+  _isIframeLoading = true;
+  _pendingOpenUrl = "";
+  _pendingPreviewUrl = "";
+
   _activeLoadToken += 1;
   const myToken = _activeLoadToken;
 
-  // status
   if (_iframeStatusEl) {
     _iframeStatusEl.textContent = "Cargando…";
   }
   if (_iframeFallbackEl) {
     _iframeFallbackEl.classList.add("hidden");
-    // actualizar enlace de fallback si existe
     const a = _iframeFallbackEl.querySelector("a[data-fallback-open]");
     if (a && openUrl) a.setAttribute("href", openUrl);
   }
 
-  // HARD RESET (clave para Safari): blank -> delay -> new src con cache-bust
   clearLoadTimer();
   resetIframeHard();
 
-  // watchdog: si no “load” en 8s, mostramos fallback (sin romper navegación)
   _loadTimer = setTimeout(() => {
     if (myToken !== _activeLoadToken) return;
+
     if (_iframeStatusEl) {
       _iframeStatusEl.textContent =
         "No se pudo cargar la vista previa (Drive/Safari a veces bloquea).";
     }
     if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+
+    // ✅ Opción A: liberar + cargar pendiente si existe (aunque haya fallado)
+    _isIframeLoading = false;
+    if (_pendingPreviewUrl && _pendingOpenUrl) {
+      const nextPreview = _pendingPreviewUrl;
+      const nextOpen = _pendingOpenUrl;
+      _pendingPreviewUrl = "";
+      _pendingOpenUrl = "";
+      setTimeout(() => startIframeLoad(nextPreview, nextOpen), 120);
+    }
   }, 8000);
 
-  // delay cortito para que Safari “suelte” el proceso anterior
   setTimeout(() => {
     if (myToken !== _activeLoadToken) return;
     try {
       _iframeEl.setAttribute("data-load-token", String(myToken));
       _iframeEl.src = withCacheBust(previewUrl);
     } catch {
-      // si falla por algo raro, dejamos fallback
       clearLoadTimer();
       if (_iframeStatusEl) _iframeStatusEl.textContent = "No se pudo cargar.";
       if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+
+      // ✅ Opción A: liberar + cargar pendiente si existe
+      _isIframeLoading = false;
+      if (_pendingPreviewUrl && _pendingOpenUrl) {
+        const nextPreview = _pendingPreviewUrl;
+        const nextOpen = _pendingOpenUrl;
+        _pendingPreviewUrl = "";
+        _pendingOpenUrl = "";
+        setTimeout(() => startIframeLoad(nextPreview, nextOpen), 120);
+      }
     }
   }, 180);
 }
@@ -580,7 +625,6 @@ function startIframeLoad(previewUrl, openUrl) {
 function shouldThrottleTap() {
   const now = Date.now();
   if (now < _tapLockUntil) return true;
-  // lock 350ms para evitar taps repetidos que congelan Safari con iframes
   _tapLockUntil = now + 350;
   return false;
 }
@@ -651,6 +695,9 @@ function render() {
       _selectedTopicId = t.id;
       _selectedOpenUrl = "";
       _selectedPreviewUrl = "";
+      _isIframeLoading = false;
+      _pendingOpenUrl = "";
+      _pendingPreviewUrl = "";
       render();
     });
 
@@ -658,6 +705,9 @@ function render() {
       _selectedTopicId = t.id;
       _selectedOpenUrl = "";
       _selectedPreviewUrl = "";
+      _isIframeLoading = false;
+      _pendingOpenUrl = "";
+      _pendingPreviewUrl = "";
       render();
     });
 
@@ -672,7 +722,6 @@ function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // selección inicial: resumen si existe, si no pdf/gpc
   if (!_selectedOpenUrl) {
     const firstResumen = groups.resumen[0]?.url || "";
     const firstPdf = groups.pdf[0]?.url || "";
@@ -707,8 +756,10 @@ function renderTopicDetail(topic) {
 
   const previewHint = (() => {
     if (!_selectedOpenUrl) return "";
-    if (isGoogleDoc(_selectedOpenUrl)) return "Documento (Resúmenes): vista previa si Drive lo permite; si no, abre en pestaña nueva.";
-    if (looksLikePdf(_selectedOpenUrl) || isDriveFile(_selectedOpenUrl)) return "PDF/Drive: vista previa; si falla (Drive/Safari), abre en pestaña nueva.";
+    if (isGoogleDoc(_selectedOpenUrl))
+      return "Documento (Resúmenes): vista previa si Drive lo permite; si no, abre en pestaña nueva.";
+    if (looksLikePdf(_selectedOpenUrl) || isDriveFile(_selectedOpenUrl))
+      return "PDF/Drive: vista previa; si falla (Drive/Safari), abre en pestaña nueva.";
     return "Si falla la vista previa, abre en pestaña nueva.";
   })();
 
@@ -744,7 +795,7 @@ function renderTopicDetail(topic) {
         <div style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;" data-preview-container>
           <iframe
             title="Vista previa"
-            src="${hasPreview ? "about:blank" : "about:blank"}"
+            src="about:blank"
             style="width:100%;height:100%;border:0;"
             loading="lazy"
             referrerpolicy="no-referrer"
@@ -802,7 +853,6 @@ function renderTopicDetail(topic) {
     ${previewBlock}
   `;
 
-  // refs preview elements (después del innerHTML)
   _iframeEl = null;
   _iframeContainerEl = null;
   _iframeStatusEl = null;
@@ -814,9 +864,13 @@ function renderTopicDetail(topic) {
     _selectedTopicId = null;
     _selectedOpenUrl = "";
     _selectedPreviewUrl = "";
-    // corta cualquier carga activa del iframe
     _activeLoadToken += 1;
     clearLoadTimer();
+
+    _isIframeLoading = false;
+    _pendingOpenUrl = "";
+    _pendingPreviewUrl = "";
+
     render();
   });
 
@@ -826,32 +880,44 @@ function renderTopicDetail(topic) {
     render();
   });
 
-  // botones de recursos: SOLO actualizan preview (NO abren pestaña automáticamente)
+  // botones de recursos
   listEl.querySelectorAll("button[data-open-url]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (shouldThrottleTap()) return; // evita spam que congela Safari
+      if (shouldThrottleTap()) return;
 
       const raw = btn.getAttribute("data-open-url") || "";
-      _selectedOpenUrl = raw;
+      const nextOpen = raw;
+      const nextPreview = makePreviewUrl(raw) || "";
 
-      const preview = makePreviewUrl(raw) || "";
-      _selectedPreviewUrl = preview;
+      // Actualiza selección visual/estado
+      _selectedOpenUrl = nextOpen;
+      _selectedPreviewUrl = nextPreview;
 
-      // re-render (mantiene UI consistente) y luego carga robusta
+      // re-render para mantener UI consistente
       render();
 
-      // Nota: render() recrea DOM, así que el load real se dispara en el render nuevo abajo
-      // Para dispararlo sin doble lógica, usamos setTimeout a 0 y validamos que aún haya selección.
+      // Si no hay preview, solo fallback
       setTimeout(() => {
-        // si cambió durante el microtick, se ignora
-        if (_selectedOpenUrl !== raw) return;
+        if (_selectedOpenUrl !== nextOpen) return;
 
         ensurePreviewElements();
 
         if (!_selectedPreviewUrl) {
-          // sin preview: solo fallback visible (ya queda botón abrir)
-          if (_iframeStatusEl) _iframeStatusEl.textContent = "No hay vista previa para este enlace. Usa “Abrir en pestaña nueva”.";
+          if (_iframeStatusEl)
+            _iframeStatusEl.textContent =
+              "No hay vista previa para este enlace. Usa “Abrir en pestaña nueva”.";
           if (_iframeFallbackEl) _iframeFallbackEl.classList.remove("hidden");
+          return;
+        }
+
+        // ✅ Opción A: si está cargando, encola (último click gana)
+        if (_isIframeLoading) {
+          _pendingOpenUrl = _selectedOpenUrl;
+          _pendingPreviewUrl = _selectedPreviewUrl;
+
+          if (_iframeStatusEl)
+            _iframeStatusEl.textContent =
+              "Cargando… (tu última selección se aplicará al terminar)";
           return;
         }
 
@@ -860,11 +926,10 @@ function renderTopicDetail(topic) {
     });
   });
 
-  // Carga inicial del iframe (cuando entras a un tema)
+  // Carga inicial del iframe
   if (_selectedOpenUrl && _selectedPreviewUrl) {
     startIframeLoad(_selectedPreviewUrl, _selectedOpenUrl);
   } else {
-    // sin preview inicial: muestra fallback
     ensurePreviewElements();
     if (_iframeStatusEl) _iframeStatusEl.textContent = "Selecciona un archivo para previsualizar.";
     if (_iframeFallbackEl) _iframeFallbackEl.classList.add("hidden");
