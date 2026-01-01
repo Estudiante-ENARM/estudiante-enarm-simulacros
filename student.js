@@ -2100,7 +2100,7 @@ function renderPremiumResults({
 /****************************************************
  * VOLVER DESDE EXAMEN
  ****************************************************/
-function handleBackFromExam() {
+async function handleBackFromExam() {
   const cameFromMini = currentExamMode === "mini";
 
   if (currentExamTimerId) {
@@ -2140,7 +2140,6 @@ function handleBackFromExam() {
   if (cameFromMini) {
     switchToMiniView();
   } else {
-    // ✅ Restaurar última vista (para evitar volver siempre a la 1ª sección)
     const restored = await restoreStudentStateAfterInit();
     if (!restored) {
       switchToSectionView();
