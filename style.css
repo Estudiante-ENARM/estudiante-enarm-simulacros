@@ -1566,6 +1566,128 @@ body.modal-open { overflow: hidden; }
 #student-exams-list .card-item *{
   max-width: 100%;
 }
+/* ================================
+   BIBLIOTECA — Recursos unificados (botones + externo)
+   ================================ */
+
+#student-resources-view .resource-unified-card {
+  padding: 0;                  /* header/body separados */
+  overflow: hidden;
+}
+
+#student-resources-view .resource-unified-card__header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#student-resources-view .resource-unified-card__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+#student-resources-view .resource-unified-card__body {
+  padding: 14px 16px;
+}
+
+#student-resources-view .resource-unified-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#student-resources-view .resource-unified-buttons .btn {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.2;
+  text-decoration: none; /* evita subrayados en <a> */
+}
+
+#student-resources-view .resource-unified-buttons .btn:link,
+#student-resources-view .resource-unified-buttons .btn:visited {
+  text-decoration: none;
+}
+
+/* ---- Botón PDF (preview) ---- */
+#student-resources-view .btn-preview {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+#student-resources-view .btn-preview:hover {
+  background: rgba(37, 99, 235, 0.10);
+}
+
+/* Estado seleccionado del PDF */
+#student-resources-view .btn-preview[aria-pressed="true"] {
+  border-color: rgba(37, 99, 235, 0.90);
+  background: rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
+/* ---- Botón externo (resumen/GPC/otros) ---- */
+#student-resources-view .btn-external {
+  border-color: rgba(5, 150, 105, 0.55);
+  background: rgba(5, 150, 105, 0.08);
+  color: #065f46;
+  text-decoration: none;
+}
+
+#student-resources-view .btn-external:hover {
+  border-color: rgba(5, 150, 105, 0.80);
+  background: rgba(5, 150, 105, 0.12);
+}
+
+#student-resources-view .btn-external__icon {
+  font-weight: 800;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+#student-resources-view .btn-external:hover .btn-external__icon {
+  opacity: 1;
+}
+
+/* Mobile: que los botones se apilen bonitos */
+@media (max-width: 620px) {
+  #student-resources-view .resource-unified-buttons .btn {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Dark mode: asegurar contraste en externos + selección */
+@media (prefers-color-scheme: dark) {
+  #student-resources-view .btn-preview {
+    border-color: rgba(59, 130, 246, 0.55);
+    background: rgba(59, 130, 246, 0.10);
+  }
+
+  #student-resources-view .btn-preview:hover {
+    background: rgba(59, 130, 246, 0.16);
+  }
+
+  #student-resources-view .btn-preview[aria-pressed="true"] {
+    border-color: rgba(59, 130, 246, 0.95);
+    background: rgba(59, 130, 246, 0.22);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+  }
+
+  #student-resources-view .btn-external {
+    border-color: rgba(16, 185, 129, 0.60);
+    background: rgba(16, 185, 129, 0.14);
+    color: #d1fae5;
+  }
+
+  #student-resources-view .btn-external:hover {
+    border-color: rgba(16, 185, 129, 0.85);
+    background: rgba(16, 185, 129, 0.18);
+  }
+}
 
 /* ===================================================
    FIN
