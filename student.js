@@ -1,3 +1,6 @@
+/****************************************************
+ * student.js (CORREGIDO)
+ ****************************************************/
 import { auth, db } from "./firebase-config.js";
 
 import {
@@ -26,8 +29,12 @@ import {
   DEFAULT_EXAM_RULES,
 } from "./shared-constants.js";
 
-// ✅ NUEVO: Biblioteca de Resúmenes/GPC (2° proyecto Firebase)
-import { initStudentResourcesUI, activateStudentResources, setStudentResourcesUserIdentity } from "./student-resources.js";
+// ✅ Biblioteca de Resúmenes/GPC (2° proyecto Firebase)
+import {
+  initStudentResourcesUI,
+  activateStudentResources,
+  setStudentResourcesUserIdentity,
+} from "./student-resources.js";
 
 /****************************************************
  * LABELS
@@ -47,7 +54,7 @@ const btnMiniExamsSidebar = document.getElementById("student-mini-exams-btn");
 const sidebarSections = document.getElementById("student-sidebar-sections");
 const btnProgressView = document.getElementById("student-progress-btn");
 
-// ✅ NUEVO: botón Biblioteca
+// ✅ botón Biblioteca
 const btnResourcesView = document.getElementById("student-resources-btn");
 
 const socialButtons = document.querySelectorAll(".social-icon");
@@ -63,7 +70,7 @@ const examsView = document.getElementById("student-exams-view");
 const examDetailView = document.getElementById("student-exam-detail-view");
 const progressView = document.getElementById("student-progress-view");
 
-// ✅ NUEVO: vista Biblioteca
+// ✅ vista Biblioteca
 const resourcesView = document.getElementById("student-resources-view");
 
 // Mini examen (constructor)
@@ -199,7 +206,6 @@ function svgIcon(type) {
   return "";
 }
 
-
 /****************************************************
  * PERSISTENCIA (REFRESH + ATRÁS)
  ****************************************************/
@@ -267,7 +273,6 @@ function pushHistoryState(nav, { replace = false } = {}) {
     if (replace) history.replaceState(payload, "");
     else history.pushState(payload, "");
   } catch (err) {
-    // Algunos navegadores pueden fallar si el historial está bloqueado
     console.warn("No se pudo escribir history state:", err);
   }
 }
@@ -296,6 +301,7 @@ function buildCurrentExamState() {
   };
 }
 
+/** ✅ CORREGIDO: se cerraba mal y “encerraba” helpers */
 function persistCurrentExamState({ replaceHistory = false } = {}) {
   const exam = buildCurrentExamState();
   patchStudentState({
@@ -304,9 +310,15 @@ function persistCurrentExamState({ replaceHistory = false } = {}) {
     sectionName: exam.sectionName,
     exam,
   });
-  pushHistoryState({ view: "exam", sectionId: exam.sectionId || null, exam }, { replace: replaceHistory });
+  pushHistoryState(
+    { view: "exam", sectionId: exam.sectionId || null, exam },
+    { replace: replaceHistory }
+  );
+}
 
-
+/****************************************************
+ * STORAGE RESPUESTAS (CORREGIDO: fuera de persistCurrentExamState)
+ ****************************************************/
 function getExamAnswersStorageKey() {
   return getStudentStorageKey("exam_answers");
 }
@@ -325,7 +337,6 @@ function writeExamAnswersToStorage(answers) {
 function clearExamAnswersStorage() {
   if (!currentUser) return;
   localStorage.removeItem(getExamAnswersStorageKey());
-}
 }
 
 function restoreAnswersToDOM() {
@@ -446,7 +457,7 @@ async function restoreExamFromState(examState, { replaceHistory = false } = {}) 
   currentExamTotalSeconds = Number(examState.totalSeconds) || 0;
   currentExamEndAtMs = Number(examState.endAtMs) || null;
   currentExamQuestions = examState.questions || [];
-  // Respuestas: siempre priorizamos el storage separado (por si hubo cambios después de guardar el estado)
+  // Respuestas: siempre priorizamos el storage separado
   currentExamAnswers = readExamAnswersFromStorage();
   currentExamPreviousAttempts = 0;
 
@@ -490,7 +501,7 @@ async function restoreExamFromState(examState, { replaceHistory = false } = {}) 
   // Cronómetro por endAtMs
   startExamTimer(totalSeconds, currentExamEndAtMs);
 
-  // si ya venció, auto-envía como lo haría el timer
+  // si ya venció, auto-envía
   if (currentExamEndAtMs && Date.now() >= currentExamEndAtMs) {
     try {
       if (currentExamTimerId) {
@@ -499,7 +510,6 @@ async function restoreExamFromState(examState, { replaceHistory = false } = {}) 
       }
       if (examTimerEl) examTimerEl.textContent = "00:00";
       alert("El tiempo se agotó mientras estabas fuera, tu examen se enviará automáticamente.");
-      // Guardamos en history/state antes de enviar
       persistCurrentExamState({ replaceHistory: true });
       await submitExamForStudent(true);
     } catch (err) {
@@ -507,7 +517,7 @@ async function restoreExamFromState(examState, { replaceHistory = false } = {}) 
     }
   }
 
-  // persiste (para no perder en refresh consecutivo)
+  // persiste (para refresh consecutivo)
   persistCurrentExamState({ replaceHistory });
 
   return true;
@@ -634,7 +644,7 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     currentUserProfile = data;
 
-    // Biblioteca: identidad por usuario para progreso local (resúmenes/GPC)
+    // Biblioteca: identidad por usuario para progreso local
     try {
       setStudentResourcesUserIdentity(user.email);
     } catch (e) {
@@ -649,10 +659,10 @@ onAuthStateChanged(auth, async (user) => {
     await loadSocialLinksForStudent();
     await loadSectionsForStudent();
 
-    // ✅ NUEVO: prepara UI de Biblioteca (sin cargar datos aún)
+    // ✅ prepara UI de Biblioteca (sin cargar datos aún)
     initStudentResourcesUI();
 
-    // ✅ Restaurar última vista (para evitar volver siempre a la 1ª sección)
+    // ✅ Restaurar última vista
     const restored = await restoreStudentStateAfterInit();
     if (!restored) {
       switchToSectionView();
@@ -670,7 +680,7 @@ onAuthStateChanged(auth, async (user) => {
  ****************************************************/
 if (btnToggleSidebar) {
   btnToggleSidebar.addEventListener("click", () => {
-    sidebar.classList.toggle("sidebar--open");
+    if (sidebar) sidebar.classList.toggle("sidebar--open");
   });
 }
 
@@ -692,7 +702,7 @@ if (btnMiniExamsSidebar) {
   });
 }
 
-// ✅ NUEVO: Biblioteca (Resúmenes y GPC)
+// Biblioteca
 if (btnResourcesView) {
   btnResourcesView.addEventListener("click", () => {
     switchToResourcesView();
@@ -721,7 +731,7 @@ if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 }
 
-// ✅ NUEVO: Persistir respuestas seleccionadas (para no perder al refrescar)
+// ✅ Persistir respuestas seleccionadas
 if (questionsList && !questionsList.dataset.answersBound) {
   questionsList.dataset.answersBound = "1";
   questionsList.addEventListener("change", (e) => {
@@ -737,13 +747,14 @@ if (questionsList && !questionsList.dataset.answersBound) {
     currentExamAnswers = currentExamAnswers || {};
     currentExamAnswers[idx] = target.value;
 
-    // Evita guardar si no estamos en examen
+    // ✅ CORREGIDO: guardar también en storage
+    writeExamAnswersToStorage(currentExamAnswers);
+
     if (currentExamMode && currentExamQuestions && currentExamQuestions.length) {
       persistCurrentExamState({ replaceHistory: true });
     }
   });
 }
-
 
 /* chips especialidades mini examen (robusto) */
 const miniSpecialtiesGrid = document.querySelector(
@@ -759,28 +770,21 @@ function syncMiniSpecialtyChip(chipEl, cbEl) {
 function initMiniSpecialtyChips() {
   if (!miniSpecialtiesGrid) return;
 
-  // Inicializa estado visual
   miniSpecialtiesGrid.querySelectorAll(".mini-specialty-chip").forEach((chip) => {
     const cb = chip.querySelector("input.student-mini-specialty");
     if (!cb) return;
-
-    // Asegura que el click sobre el chip siempre funcione
     if (!chip.hasAttribute("tabindex")) chip.setAttribute("tabindex", "0");
     chip.setAttribute("role", "button");
-
     syncMiniSpecialtyChip(chip, cb);
   });
 
-  // Evita doble-binding si cambias de vista
   if (miniSpecialtiesGrid.dataset.bound === "1") return;
   miniSpecialtiesGrid.dataset.bound = "1";
 
-  // Click delegación
   miniSpecialtiesGrid.addEventListener("click", (e) => {
     const chip = e.target.closest(".mini-specialty-chip");
     if (!chip || !miniSpecialtiesGrid.contains(chip)) return;
 
-    // Si el usuario hizo click directo en el input, deja que el navegador lo maneje
     if (e.target && e.target.matches && e.target.matches("input.student-mini-specialty")) {
       const cb = e.target;
       syncMiniSpecialtyChip(chip, cb);
@@ -795,7 +799,6 @@ function initMiniSpecialtyChips() {
     syncMiniSpecialtyChip(chip, cb);
   });
 
-  // Enter/Espacio
   miniSpecialtiesGrid.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
 
@@ -810,7 +813,6 @@ function initMiniSpecialtyChips() {
     syncMiniSpecialtyChip(chip, cb);
   });
 
-  // Si el checkbox cambia (por cualquier razón), sincroniza clase
   miniSpecialtiesGrid.querySelectorAll("input.student-mini-specialty").forEach((cb) => {
     cb.addEventListener("change", () => {
       const chip = cb.closest(".mini-specialty-chip");
@@ -821,7 +823,7 @@ function initMiniSpecialtyChips() {
 
 initMiniSpecialtyChips();
 
-/* toggle aleatorio mini examen (CSS lo controla; aquí solo accesibilidad) */
+/* toggle aleatorio mini examen */
 if (miniRandomCheckbox) {
   const syncRandom = () => {
     if (miniRandomToggleBtn) {
@@ -835,9 +837,7 @@ if (miniRandomCheckbox) {
   miniRandomCheckbox.addEventListener("change", syncRandom);
 }
 
-
 async function ensureStudentResourcesActivated() {
-  // Inicializa UI (idempotente) y activa carga remota una sola vez
   initStudentResourcesUI();
   if (resourcesActivatedOnce) return;
   await activateStudentResources();
@@ -855,41 +855,37 @@ function switchToMiniView(opts = {}) {
   hide(resourcesView);
   if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   show(miniBuilderView);
-  // Re-sincroniza chips/toggle al entrar a mini-exámenes
   initMiniSpecialtyChips();
-  sidebar.classList.remove("sidebar--open");
+  if (sidebar) sidebar.classList.remove("sidebar--open");
   if (!opts.restore) persistViewState("mini");
 }
 
 function switchToSectionView(opts = {}) {
   currentView = "section";
   hide(miniBuilderView);
-  hide(miniExamPlaceholderView);
+  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   hide(examDetailView);
   hide(progressView);
   hide(resourcesView);
   show(examsView);
-  sidebar.classList.remove("sidebar--open");
+  if (sidebar) sidebar.classList.remove("sidebar--open");
   if (!opts.restore) persistViewState("section");
 }
 
-// ✅ NUEVO: Vista Biblioteca (Resúmenes y GPC)
+// Vista Biblioteca
 async function switchToResourcesView(opts = {}) {
   currentView = "resources";
   hide(miniBuilderView);
-  hide(miniExamPlaceholderView);
+  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   hide(examsView);
   hide(examDetailView);
   hide(progressView);
   show(resourcesView);
-  sidebar.classList.remove("sidebar--open");
+  if (sidebar) sidebar.classList.remove("sidebar--open");
 
-  if (!opts.restore) {
-    persistViewState("resources");
-  }
+  if (!opts.restore) persistViewState("resources");
 
   try {
-    // Inicializa UI (una sola vez) y luego carga datos del otro proyecto Firebase
     await ensureStudentResourcesActivated();
   } catch (err) {
     console.error("Error activando la biblioteca:", err);
@@ -899,16 +895,14 @@ async function switchToResourcesView(opts = {}) {
 async function switchToProgressView(opts = {}) {
   currentView = "progress";
   hide(miniBuilderView);
-  hide(miniExamPlaceholderView);
+  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
   hide(examsView);
   hide(examDetailView);
   hide(resourcesView);
   show(progressView);
-  sidebar.classList.remove("sidebar--open");
+  if (sidebar) sidebar.classList.remove("sidebar--open");
 
-  if (!opts.restore) {
-    persistViewState("progress");
-  }
+  if (!opts.restore) persistViewState("progress");
   await loadStudentProgress();
 }
 
@@ -921,12 +915,8 @@ async function loadExamRules() {
     if (!snap.exists()) return;
 
     const data = snap.data();
-    if (typeof data.maxAttempts === "number") {
-      examRules.maxAttempts = data.maxAttempts;
-    }
-    if (typeof data.timePerQuestionSeconds === "number") {
-      examRules.timePerQuestionSeconds = data.timePerQuestionSeconds;
-    }
+    if (typeof data.maxAttempts === "number") examRules.maxAttempts = data.maxAttempts;
+    if (typeof data.timePerQuestionSeconds === "number") examRules.timePerQuestionSeconds = data.timePerQuestionSeconds;
   } catch (err) {
     console.error("Error leyendo examRules/default:", err);
   }
@@ -962,7 +952,6 @@ async function loadSocialLinksForStudent() {
   });
 }
 
-
 function selectSectionForStudent({ id, name, li, shouldSwitchView = true }) {
   if (!id) return;
 
@@ -978,13 +967,9 @@ function selectSectionForStudent({ id, name, li, shouldSwitchView = true }) {
   if (sectionTitle) sectionTitle.textContent = currentSectionName;
   if (sectionSubtitle) sectionSubtitle.textContent = "Simulacros de esta sección.";
 
-  // Persistimos selección aunque no cambiemos vista (para refresh)
   patchStudentState({ sectionId: currentSectionId, sectionName: currentSectionName });
 
-  if (shouldSwitchView) {
-    switchToSectionView();
-  }
-
+  if (shouldSwitchView) switchToSectionView();
   loadExamsForSectionForStudent(id);
 }
 
@@ -992,13 +977,12 @@ function selectSectionForStudent({ id, name, li, shouldSwitchView = true }) {
  * SECCIONES (ESTUDIANTE)
  ****************************************************/
 async function loadSectionsForStudent() {
-  // Usar el mismo orden que en admin: campo "order" ascendente
   const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
   const snap = await getDocs(qSec);
 
+  if (!sidebarSections) return;
   sidebarSections.innerHTML = "";
 
-  // Preferir la última sección seleccionada por el usuario (para refresh)
   const savedState = readStudentState();
   const preferredSectionId = savedState?.sectionId || null;
 
@@ -1036,14 +1020,18 @@ async function loadSectionsForStudent() {
     sidebarSections.appendChild(li);
   });
 
-  // Seleccionar sección (preferida o la primera) sin forzar cambiar de vista aquí
-  const targetSectionId = preferredSectionId && sidebarSections.querySelector(`[data-section-id="${preferredSectionId}"]`)
-    ? preferredSectionId
-    : firstSectionId;
+  const targetSectionId =
+    preferredSectionId && sidebarSections.querySelector(`[data-section-id="${preferredSectionId}"]`)
+      ? preferredSectionId
+      : firstSectionId;
 
   if (targetSectionId) {
-    const liTarget = sidebarSections.querySelector(`[data-section-id="${targetSectionId}"]`) || sidebarSections.querySelector(".sidebar__section-item");
-    const nameTarget = liTarget ? liTarget.querySelector(".sidebar__section-name")?.textContent || firstSectionName : firstSectionName;
+    const liTarget =
+      sidebarSections.querySelector(`[data-section-id="${targetSectionId}"]`) ||
+      sidebarSections.querySelector(".sidebar__section-item");
+    const nameTarget = liTarget
+      ? liTarget.querySelector(".sidebar__section-name")?.textContent || firstSectionName
+      : firstSectionName;
 
     selectSectionForStudent({
       id: targetSectionId,
@@ -1074,15 +1062,10 @@ async function loadExamsForSectionForStudent(sectionId) {
   }
 
   try {
-    const qEx = query(
-      collection(db, "exams"),
-      where("sectionId", "==", sectionId)
-    );
+    const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
     const snap = await getDocs(qEx);
 
-    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) {
-      return;
-    }
+    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) return;
 
     if (snap.empty) {
       renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
@@ -1101,24 +1084,12 @@ async function loadExamsForSectionForStudent(sectionId) {
         let lastAttemptText = "Sin intentos previos.";
         let totalQuestions = 0;
 
-        const qQuestions = query(
-          collection(db, "questions"),
-          where("examId", "==", examId)
-        );
+        const qQuestions = query(collection(db, "questions"), where("examId", "==", examId));
 
         if (currentUser) {
-          const attemptRef = doc(
-            db,
-            "users",
-            currentUser.email,
-            "examAttempts",
-            examId
-          );
+          const attemptRef = doc(db, "users", currentUser.email, "examAttempts", examId);
 
-          const [attemptSnap, qSnap] = await Promise.all([
-            getDoc(attemptRef),
-            getDocs(qQuestions),
-          ]);
+          const [attemptSnap, qSnap] = await Promise.all([getDoc(attemptRef), getDocs(qQuestions)]);
 
           if (attemptSnap.exists()) {
             const at = attemptSnap.data();
@@ -1142,19 +1113,11 @@ async function loadExamsForSectionForStudent(sectionId) {
           });
         }
 
-        return {
-          examId,
-          examName,
-          attemptsUsed,
-          lastAttemptText,
-          totalQuestions,
-        };
+        return { examId, examName, attemptsUsed, lastAttemptText, totalQuestions };
       })
     );
 
-    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) {
-      return;
-    }
+    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) return;
 
     if (!examsData.length) {
       renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
@@ -1164,118 +1127,113 @@ async function loadExamsForSectionForStudent(sectionId) {
     const maxAttempts = examRules.maxAttempts;
     const timePerQuestion = examRules.timePerQuestionSeconds;
 
-    examsData.forEach(
-      ({ examId, examName, attemptsUsed, lastAttemptText, totalQuestions }) => {
-        if (totalQuestions === 0) {
-          const card = document.createElement("div");
-          card.className = "card-item";
-          card.innerHTML = `
-            <div class="card-item__title-row">
-              <div class="card-item__title">${examName}</div>
-              <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
-            </div>
-            <div class="panel-subtitle" style="margin-top:8px;">
-              Aún no hay preguntas cargadas para este examen.
-            </div>
-          `;
-          fragment.appendChild(card);
-          return;
-        }
-
-        const totalSeconds = totalQuestions * timePerQuestion;
-        const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
-        const disabled = attemptsUsed >= maxAttempts;
-        const statusText = disabled ? "Sin intentos disponibles" : "Disponible";
-
+    examsData.forEach(({ examId, examName, attemptsUsed, lastAttemptText, totalQuestions }) => {
+      if (totalQuestions === 0) {
         const card = document.createElement("div");
         card.className = "card-item";
-        if (disabled) card.style.opacity = 0.7;
-
         card.innerHTML = `
-          <div class="card-item__title-row" style="align-items:flex-start;">
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
-                <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
-                  <rect x="3" y="4" width="18" height="15" rx="2"></rect>
-                  <line x1="7" y1="9" x2="17" y2="9"></line>
-                  <line x1="7" y1="13" x2="12" y2="13"></line>
-                </svg>
-              </div>
-              <div>
-                <div class="card-item__title">${examName}</div>
-                <div class="panel-subtitle" style="margin-top:3px;">
-                  Simulacro ENARM · ${currentSectionName || "Sección"}
-                </div>
-              </div>
-            </div>
-
-            <span class="badge">
-              <span class="badge-dot"></span>${statusText}
-            </span>
+          <div class="card-item__title-row">
+            <div class="card-item__title">${examName}</div>
+            <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
           </div>
-
-          <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${svgIcon("questions")}
-              <div>
-                <strong>${totalQuestions} preguntas</strong>
-                <div class="panel-subtitle">Casos clínicos</div>
-              </div>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${svgIcon("time")}
-              <div>
-                <strong>${totalTimeFormatted}</strong>
-                <div class="panel-subtitle">Tiempo estimado</div>
-              </div>
-            </div>
-
-            <div style="display:flex;align-items:center;gap:8px;">
-              ${svgIcon("attempts")}
-              <div>
-                <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
-                <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
-              </div>
-            </div>
-          </div>
-
-          <div style="margin-top:14px;text-align:right;">
-            ${
-              disabled
-                ? `<button class="btn btn-outline" disabled>Sin intentos disponibles</button>`
-                : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
-            }
+          <div class="panel-subtitle" style="margin-top:8px;">
+            Aún no hay preguntas cargadas para este examen.
           </div>
         `;
-
-        if (!disabled) {
-          const btnStart = card.querySelector(".student-start-exam-btn");
-          btnStart.addEventListener("click", () => {
-            startSectionExamForStudent({
-              examId,
-              examName,
-              totalQuestions,
-              totalSeconds,
-              attemptsUsed,
-              maxAttempts,
-            });
-          });
-        }
-
         fragment.appendChild(card);
+        return;
       }
-    );
+
+      const totalSeconds = totalQuestions * timePerQuestion;
+      const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
+      const disabled = attemptsUsed >= maxAttempts;
+      const statusText = disabled ? "Sin intentos disponibles" : "Disponible";
+
+      const card = document.createElement("div");
+      card.className = "card-item";
+      if (disabled) card.style.opacity = 0.7;
+
+      card.innerHTML = `
+        <div class="card-item__title-row" style="align-items:flex-start;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
+              <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
+                <rect x="3" y="4" width="18" height="15" rx="2"></rect>
+                <line x1="7" y1="9" x2="17" y2="9"></line>
+                <line x1="7" y1="13" x2="12" y2="13"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="card-item__title">${examName}</div>
+              <div class="panel-subtitle" style="margin-top:3px;">
+                Simulacro ENARM · ${currentSectionName || "Sección"}
+              </div>
+            </div>
+          </div>
+
+          <span class="badge">
+            <span class="badge-dot"></span>${statusText}
+          </span>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${svgIcon("questions")}
+            <div>
+              <strong>${totalQuestions} preguntas</strong>
+              <div class="panel-subtitle">Casos clínicos</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${svgIcon("time")}
+            <div>
+              <strong>${totalTimeFormatted}</strong>
+              <div class="panel-subtitle">Tiempo estimado</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${svgIcon("attempts")}
+            <div>
+              <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
+              <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;text-align:right;">
+          ${
+            disabled
+              ? `<button class="btn btn-outline" disabled>Sin intentos disponibles</button>`
+              : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
+          }
+        </div>
+      `;
+
+      if (!disabled) {
+        const btnStart = card.querySelector(".student-start-exam-btn");
+        btnStart.addEventListener("click", () => {
+          startSectionExamForStudent({
+            examId,
+            examName,
+            totalQuestions,
+            totalSeconds,
+            attemptsUsed,
+            maxAttempts,
+          });
+        });
+      }
+
+      fragment.appendChild(card);
+    });
 
     examsList.innerHTML = "";
     examsList.appendChild(fragment);
   } catch (err) {
     console.error("Error cargando exámenes de la sección:", err);
     if (thisToken !== examsLoadToken) return;
-    renderEmptyMessage(
-      examsList,
-      "Hubo un error al cargar los exámenes. Intenta nuevamente."
-    );
+    renderEmptyMessage(examsList, "Hubo un error al cargar los exámenes. Intenta nuevamente.");
   }
 }
 
@@ -1354,9 +1312,7 @@ async function startMiniExamFromBuilder() {
 
   let poolCases = miniCasesCache.slice();
   if (selectedSpecialties.length > 0) {
-    poolCases = poolCases.filter((c) =>
-      selectedSpecialties.includes(c.specialty)
-    );
+    poolCases = poolCases.filter((c) => selectedSpecialties.includes(c.specialty));
   }
 
   if (!poolCases.length) {
@@ -1403,13 +1359,15 @@ async function startMiniExamFromBuilder() {
   currentExamId = null;
   currentExamPreviousAttempts = 0;
   currentExamQuestions = [];
-  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+
+  // ✅ CORREGIDO: totalSeconds NO existe aquí
+  const timePerQuestion = examRules.timePerQuestionSeconds;
+  currentExamTotalSeconds = selectedQuestions.length * timePerQuestion;
+
+  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
   currentExamAnswers = {};
   clearExamAnswersStorage();
   writeExamAnswersToStorage(currentExamAnswers);
-
-  const timePerQuestion = examRules.timePerQuestionSeconds;
-  currentExamTotalSeconds = selectedQuestions.length * timePerQuestion;
 
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
@@ -1434,9 +1392,7 @@ async function startMiniExamFromBuilder() {
 
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
-    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(
-      currentExamTotalSeconds
-    )}</strong><br>
+    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(currentExamTotalSeconds)}</strong><br>
     🔁 Intentos: <strong>Sin límite</strong>
   `;
 
@@ -1484,13 +1440,10 @@ async function startMiniExamFromBuilder() {
         subtype: q.subtype || "salud_publica",
       });
 
-      const difficultyLabel =
-        DIFFICULTY_LABELS[q.difficulty] || "No definida";
+      const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
       const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
       const specialtyLabel =
-        SPECIALTY_LABELS[caseData.specialty] ||
-        caseData.specialty ||
-        "No definida";
+        SPECIALTY_LABELS[caseData.specialty] || caseData.specialty || "No definida";
 
       const qBlock = document.createElement("div");
       qBlock.className = "question-block";
@@ -1528,14 +1481,7 @@ async function startMiniExamFromBuilder() {
   });
 
   // Persistencia para refresh
-  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
   persistCurrentExamState();
-
   startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
 }
 
@@ -1560,7 +1506,8 @@ async function startSectionExamForStudent({
   currentExamTotalSeconds = totalSeconds;
   currentExamPreviousAttempts = attemptsUsed;
   currentExamQuestions = [];
-  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+
+  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
   currentExamAnswers = {};
   clearExamAnswersStorage();
   writeExamAnswersToStorage(currentExamAnswers);
@@ -1581,25 +1528,17 @@ async function startSectionExamForStudent({
   if (resultValues) resultValues.innerHTML = "";
 
   examTitle.textContent = examName;
-  examSubtitle.textContent =
-    "Resuelve cuidadosamente y envía antes de que termine el tiempo.";
+  examSubtitle.textContent = "Resuelve cuidadosamente y envía antes de que termine el tiempo.";
 
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
-    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(
-      totalSeconds
-    )}</strong><br>
+    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(totalSeconds)}</strong><br>
     🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
   `;
 
   await loadQuestionsForSectionExam(examId);
+
   // Persistencia para refresh
-  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
   persistCurrentExamState();
 
   startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
@@ -1609,12 +1548,10 @@ async function startSectionExamForStudent({
  * CARGAR PREGUNTAS EXAMEN POR SECCIÓN
  ****************************************************/
 async function loadQuestionsForSectionExam(examId) {
+  if (!questionsList) return;
   questionsList.innerHTML = "";
 
-  const qQuestions = query(
-    collection(db, "questions"),
-    where("examId", "==", examId)
-  );
+  const qQuestions = query(collection(db, "questions"), where("examId", "==", examId));
   const snap = await getDocs(qQuestions);
 
   if (snap.empty) {
@@ -1643,11 +1580,9 @@ async function loadQuestionsForSectionExam(examId) {
     return;
   }
 
+  // ✅ CORREGIDO: aquí SOLO renderizamos y llenamos currentExamQuestions.
   currentExamQuestions = [];
-  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
+
   let globalIndex = 0;
 
   cases.forEach((caseData, caseIndex) => {
@@ -1678,13 +1613,10 @@ async function loadQuestionsForSectionExam(examId) {
         subtype: q.subtype || "salud_publica",
       });
 
-      const difficultyLabel =
-        DIFFICULTY_LABELS[q.difficulty] || "No definida";
+      const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
       const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
       const specialtyLabel =
-        SPECIALTY_LABELS[caseData.specialty] ||
-        caseData.specialty ||
-        "No definida";
+        SPECIALTY_LABELS[caseData.specialty] || caseData.specialty || "No definida";
 
       const qBlock = document.createElement("div");
       qBlock.className = "question-block";
@@ -1728,11 +1660,8 @@ async function loadQuestionsForSectionExam(examId) {
 function startExamTimer(totalSeconds, endAtMs = null) {
   if (!examTimerEl) return;
 
-  if (currentExamTimerId) {
-    clearInterval(currentExamTimerId);
-  }
+  if (currentExamTimerId) clearInterval(currentExamTimerId);
 
-  // Si no viene endAtMs, lo calculamos (modo tradicional)
   if (!endAtMs) {
     endAtMs = Date.now() + (Number(totalSeconds) || 0) * 1000;
   }
@@ -1762,8 +1691,6 @@ function startExamTimer(totalSeconds, endAtMs = null) {
     examTimerEl.textContent = formatTimer(remaining);
   }, 1000);
 }
-
-
 
 /****************************************************
  * ENVÍO DE EXAMEN
@@ -1808,9 +1735,7 @@ async function submitExamForStudent(auto = false) {
   };
 
   currentExamQuestions.forEach((q, idx) => {
-    const selectedInput = document.querySelector(
-      `input[name="q_${idx}"]:checked`
-    );
+    const selectedInput = document.querySelector(`input[name="q_${idx}"]:checked`);
     const selected = selectedInput ? selectedInput.value : null;
 
     const correct = q.correctOption;
@@ -1820,7 +1745,7 @@ async function submitExamForStudent(auto = false) {
     const difficulty = q.difficulty || "baja";
     const subtype = q.subtype || "salud_publica";
 
-    const weight = DIFFICULTY_WEIGHTS[difficulty] || 1;
+    const weight = (DIFFICULTY_WEIGHTS && DIFFICULTY_WEIGHTS[difficulty]) || 1;
     globalWeightedTotal += weight;
 
     if (result === "correct") {
@@ -1834,9 +1759,7 @@ async function submitExamForStudent(auto = false) {
 
       if (specStats[specialty].subtypes[subtype]) {
         specStats[specialty].subtypes[subtype].total++;
-        if (result === "correct") {
-          specStats[specialty].subtypes[subtype].correct++;
-        }
+        if (result === "correct") specStats[specialty].subtypes[subtype].correct++;
       }
     }
 
@@ -1855,9 +1778,7 @@ async function submitExamForStudent(auto = false) {
       weight,
     };
 
-    const card = questionsList.querySelector(
-      `[data-q-index="${idx}"]`
-    );
+    const card = questionsList?.querySelector?.(`[data-q-index="${idx}"]`);
     if (card) {
       const just = card.querySelector(".justification-box");
       const meta = card.querySelector(".question-meta");
@@ -1886,25 +1807,14 @@ async function submitExamForStudent(auto = false) {
     }
   });
 
-  const scoreRaw =
-    totalQuestions > 0
-      ? Math.round((globalCorrect / totalQuestions) * 100)
-      : 0;
+  const scoreRaw = totalQuestions > 0 ? Math.round((globalCorrect / totalQuestions) * 100) : 0;
 
   const scoreWeighted =
-    globalWeightedTotal > 0
-      ? (globalWeightedCorrect / globalWeightedTotal) * 100
-      : 0;
+    globalWeightedTotal > 0 ? (globalWeightedCorrect / globalWeightedTotal) * 100 : 0;
 
   if (currentExamMode === "section" && currentExamId && currentUser) {
     try {
-      const attemptRef = doc(
-        db,
-        "users",
-        currentUser.email,
-        "examAttempts",
-        currentExamId
-      );
+      const attemptRef = doc(db, "users", currentUser.email, "examAttempts", currentExamId);
 
       const prevSnap = await getDoc(attemptRef);
       const prevData = prevSnap.exists() ? prevSnap.data() : {};
@@ -1945,13 +1855,11 @@ async function submitExamForStudent(auto = false) {
       );
     } catch (err) {
       console.error("Error guardando intento de examen:", err);
-      alert(
-        "Hubo un error guardando tu intento, pero se calcularon tus resultados."
-      );
+      alert("Hubo un error guardando tu intento, pero se calcularon tus resultados.");
     }
   }
 
-  // El examen ya se procesó; limpiar persistencia de examen en curso
+  // limpiar persistencia de examen en curso
   clearStudentExamState();
 
   renderPremiumResults({
@@ -1986,9 +1894,7 @@ function renderPremiumResults({
 }) {
   if (!resultBanner || !resultValues) {
     alert(
-      `Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(
-        scoreWeighted
-      )}%`
+      `Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`
     );
     return;
   }
@@ -1997,10 +1903,7 @@ function renderPremiumResults({
     ? "El examen fue enviado automáticamente al agotarse el tiempo."
     : "Tu examen se envió correctamente. Revisa tus resultados detallados.";
 
-  const weightedLine = `${toFixedNice(weightedPoints, 2)} / ${toFixedNice(
-    weightedTotal,
-    2
-  )} puntos`;
+  const weightedLine = `${toFixedNice(weightedPoints, 2)} / ${toFixedNice(weightedTotal, 2)} puntos`;
 
   const tableGeneral = `
     <table class="result-table">
@@ -2042,8 +1945,7 @@ function renderPremiumResults({
           .map((key) => {
             const st = specStats[key] || {};
             const sp = st.subtypes?.salud_publica || { correct: 0, total: 0 };
-            const mf =
-              st.subtypes?.medicina_familiar || { correct: 0, total: 0 };
+            const mf = st.subtypes?.medicina_familiar || { correct: 0, total: 0 };
             const ur = st.subtypes?.urgencias || { correct: 0, total: 0 };
             return `
               <tr>
@@ -2117,10 +2019,6 @@ async function handleBackFromExam() {
   writeExamAnswersToStorage(currentExamAnswers);
 
   clearStudentExamState();
-  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
 
   if (questionsList) questionsList.innerHTML = "";
   if (examTimerEl) examTimerEl.textContent = "--:--";
@@ -2141,9 +2039,7 @@ async function handleBackFromExam() {
     switchToMiniView();
   } else {
     const restored = await restoreStudentStateAfterInit();
-    if (!restored) {
-      switchToSectionView();
-    }
+    if (!restored) switchToSectionView();
   }
 }
 
@@ -2220,9 +2116,7 @@ async function loadStudentProgress() {
       const examName = examDef.name || at.examName || "Examen";
       const sectionId = at.sectionId || examDef.sectionId || null;
       const sectionName =
-        at.sectionName ||
-        (sectionId && sectionsMap[sectionId]?.name) ||
-        "Sección";
+        at.sectionName || (sectionId && sectionsMap[sectionId]?.name) || "Sección";
 
       const score = typeof at.score === "number" ? at.score : 0;
       const correct = at.correctCount || 0;
@@ -2249,21 +2143,12 @@ async function loadStudentProgress() {
 
       const historyArr = Array.isArray(at.history) ? at.history : [];
       if (historyArr.length === 0) {
-        examHistoryResults.push({
-          examId,
-          examName,
-          sectionId,
-          sectionName,
-          score,
-          lastAttempt,
-        });
+        examHistoryResults.push({ examId, examName, sectionId, sectionName, score, lastAttempt });
       } else {
         historyArr.forEach((h) => {
           const hScore = typeof h.score === "number" ? h.score : score;
           let hDate = h.createdAt || h.date || at.lastAttempt;
-          if (hDate && typeof hDate.toDate === "function") {
-            hDate = hDate.toDate();
-          }
+          if (hDate && typeof hDate.toDate === "function") hDate = hDate.toDate();
           examHistoryResults.push({
             examId,
             examName,
@@ -2280,12 +2165,7 @@ async function loadStudentProgress() {
       progressSectionsContainer.innerHTML = "";
 
       Object.values(sectionsMap).forEach((s) => {
-        const st = sectionStats[s.id] || {
-          examsCount: 0,
-          totalScore: 0,
-          correct: 0,
-          totalQuestions: 0,
-        };
+        const st = sectionStats[s.id] || { examsCount: 0, totalScore: 0, correct: 0, totalQuestions: 0 };
         const examsCnt = st.examsCount || 0;
 
         const card = document.createElement("div");
@@ -2311,18 +2191,11 @@ async function loadStudentProgress() {
     }
 
     const totalExams = examLatestResults.length;
-    const totalCorrect = examLatestResults.reduce(
-      (sum, r) => sum + (r.correctCount || 0),
-      0
-    );
-    const totalQuestions = examLatestResults.reduce(
-      (sum, r) => sum + (r.totalQuestions || 0),
-      0
-    );
+    const totalCorrect = examLatestResults.reduce((sum, r) => sum + (r.correctCount || 0), 0);
+    const totalQuestions = examLatestResults.reduce((sum, r) => sum + (r.totalQuestions || 0), 0);
     const globalAvg =
       totalExams > 0
-        ? examLatestResults.reduce((sum, r) => sum + (r.score || 0), 0) /
-          totalExams
+        ? examLatestResults.reduce((sum, r) => sum + (r.score || 0), 0) / totalExams
         : 0;
 
     if (progressGlobalEl) {
@@ -2333,10 +2206,8 @@ async function loadStudentProgress() {
       `;
     }
 
-
-    // ✅ NUEVO: Progreso de Biblioteca (Resúmenes/GPC)
+    // Progreso Biblioteca (Resúmenes/GPC)
     try {
-      // Carga silenciosa de biblioteca para conocer el total de temas
       await ensureStudentResourcesActivated();
 
       const countEl = document.getElementById("student-resources-count");
@@ -2349,8 +2220,7 @@ async function loadStudentProgress() {
       const completedArr = safeJsonParse(completedRaw, []);
       const completedTopics = Array.isArray(completedArr) ? completedArr.length : 0;
 
-      const pct =
-        totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+      const pct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
       if (progressGlobalEl) {
         progressGlobalEl.innerHTML += `
@@ -2400,7 +2270,6 @@ function renderProgressChart(examResults) {
     return;
   }
 
-  // Etiquetas cortas
   const labels = sorted.map((_, i) => `Intento ${i + 1}`);
   const data = sorted.map((r) => (typeof r.score === "number" ? r.score : 0));
 
@@ -2408,9 +2277,7 @@ function renderProgressChart(examResults) {
   grad.addColorStop(0, "rgba(37,99,235,0.25)");
   grad.addColorStop(1, "rgba(37,99,235,0)");
 
-  if (progressChartInstance) {
-    progressChartInstance.destroy();
-  }
+  if (progressChartInstance) progressChartInstance.destroy();
 
   // eslint-disable-next-line no-undef
   progressChartInstance = new Chart(ctx, {
@@ -2449,15 +2316,9 @@ function renderProgressChart(examResults) {
             label: (item) => {
               const i = item.dataIndex;
               const r = sorted[i];
-              const score =
-                typeof r.score === "number" ? toFixedNice(r.score, 1) : "0.0";
-              const when =
-                r.lastAttempt instanceof Date
-                  ? r.lastAttempt.toLocaleString("es-MX")
-                  : "";
-              return when
-                ? `Calificación: ${score}% — ${when}`
-                : `Calificación: ${score}%`;
+              const score = typeof r.score === "number" ? toFixedNice(r.score, 1) : "0.0";
+              const when = r.lastAttempt instanceof Date ? r.lastAttempt.toLocaleString("es-MX") : "";
+              return when ? `Calificación: ${score}% — ${when}` : `Calificación: ${score}%`;
             },
           },
         },
