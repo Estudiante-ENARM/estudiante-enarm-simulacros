@@ -27,7 +27,7 @@ import {
 } from "./shared-constants.js";
 
 // ✅ NUEVO: Biblioteca de Resúmenes/GPC (2° proyecto Firebase)
-import { initStudentResourcesUI, activateStudentResources } from "./student-resources.js";
+import { initStudentResourcesUI, activateStudentResources, setStudentResourcesUserIdentity } from "./student-resources.js";
 
 /****************************************************
  * LABELS
@@ -100,6 +100,9 @@ const progressGlobalEl = document.getElementById("student-progress-global");
 const progressChartCanvas = document.getElementById("student-progress-chart");
 
 let progressChartInstance = null;
+
+// Biblioteca (2° proyecto Firebase)
+let resourcesActivatedOnce = false;
 
 /****************************************************
  * ESTADO
@@ -196,6 +199,394 @@ function svgIcon(type) {
   return "";
 }
 
+
+/****************************************************
+ * PERSISTENCIA (REFRESH + ATRÁS)
+ ****************************************************/
+let isRestoringState = false;
+
+// Examen en curso (para refresh)
+let currentExamEndAtMs = null; // timestamp ms
+let currentExamAnswers = {}; // { [qIndex:number]: "A"|"B"|"C"|"D" }
+
+function normalizeText(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getStudentStorageKey(suffix) {
+  const email = currentUser?.email || "anon";
+  return `enarm_student_${suffix}_${encodeURIComponent(email)}`;
+}
+
+function safeJsonParse(str, fallback = null) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
+  }
+}
+
+function readStudentState() {
+  if (!currentUser) return null;
+  const raw = localStorage.getItem(getStudentStorageKey("state"));
+  return safeJsonParse(raw, null);
+}
+
+function writeStudentState(next) {
+  if (!currentUser) return;
+  localStorage.setItem(getStudentStorageKey("state"), JSON.stringify(next));
+}
+
+function patchStudentState(patch) {
+  const prev = readStudentState() || {};
+  const next = { ...prev, ...patch };
+  writeStudentState(next);
+  return next;
+}
+
+function clearStudentExamState() {
+  if (!currentUser) return;
+  const prev = readStudentState() || {};
+  const next = { ...prev };
+  delete next.exam;
+  // Nota: NO borramos view/section para que el usuario vuelva donde estaba.
+  writeStudentState(next);
+  clearExamAnswersStorage();
+}
+
+function pushHistoryState(nav, { replace = false } = {}) {
+  if (isRestoringState) return;
+  const payload = { studentNav: nav };
+  try {
+    if (replace) history.replaceState(payload, "");
+    else history.pushState(payload, "");
+  } catch (err) {
+    // Algunos navegadores pueden fallar si el historial está bloqueado
+    console.warn("No se pudo escribir history state:", err);
+  }
+}
+
+function persistViewState(view) {
+  patchStudentState({
+    view,
+    sectionId: currentSectionId || null,
+    sectionName: currentSectionName || null,
+  });
+  pushHistoryState({ view, sectionId: currentSectionId || null, exam: null });
+}
+
+function buildCurrentExamState() {
+  return {
+    mode: currentExamMode || null,
+    examId: currentExamId || null,
+    examName: examTitle?.textContent || "",
+    totalSeconds: currentExamTotalSeconds || 0,
+    endAtMs: currentExamEndAtMs || null,
+    sectionId: currentSectionId || null,
+    sectionName: currentSectionName || null,
+    questions: Array.isArray(currentExamQuestions) ? currentExamQuestions : [],
+    answers: currentExamAnswers || {},
+    savedAtMs: Date.now(),
+  };
+}
+
+function persistCurrentExamState({ replaceHistory = false } = {}) {
+  const exam = buildCurrentExamState();
+  patchStudentState({
+    view: "exam",
+    sectionId: exam.sectionId,
+    sectionName: exam.sectionName,
+    exam,
+  });
+  pushHistoryState({ view: "exam", sectionId: exam.sectionId || null, exam }, { replace: replaceHistory });
+
+
+function getExamAnswersStorageKey() {
+  return getStudentStorageKey("exam_answers");
+}
+
+function readExamAnswersFromStorage() {
+  if (!currentUser) return {};
+  const raw = localStorage.getItem(getExamAnswersStorageKey());
+  return safeJsonParse(raw, {}) || {};
+}
+
+function writeExamAnswersToStorage(answers) {
+  if (!currentUser) return;
+  localStorage.setItem(getExamAnswersStorageKey(), JSON.stringify(answers || {}));
+}
+
+function clearExamAnswersStorage() {
+  if (!currentUser) return;
+  localStorage.removeItem(getExamAnswersStorageKey());
+}
+}
+
+function restoreAnswersToDOM() {
+  if (!questionsList) return;
+  const answers = currentExamAnswers || {};
+  Object.keys(answers).forEach((k) => {
+    const idx = Number(k);
+    const val = answers[k];
+    if (!Number.isFinite(idx) || !val) return;
+    const input = document.querySelector(`input[name="q_${idx}"][value="${val}"]`);
+    if (input) input.checked = true;
+  });
+}
+
+function renderExamQuestionsFromCurrentState() {
+  if (!questionsList) return;
+
+  questionsList.innerHTML = "";
+
+  if (!Array.isArray(currentExamQuestions) || currentExamQuestions.length === 0) {
+    renderEmptyMessage(questionsList, "No se han cargado preguntas.");
+    return;
+  }
+
+  let globalIndex = 0;
+  let caseIndex = 0;
+
+  let activeCaseText = null;
+  let activeCaseSpecialty = null;
+  let caseBlock = null;
+  let questionsWrapper = null;
+  let localIndex = 0;
+
+  currentExamQuestions.forEach((q) => {
+    const caseText = q.caseText || "";
+    const specialtyKey = q.specialty || null;
+
+    if (caseText !== activeCaseText) {
+      // cierra caso anterior
+      if (caseBlock && questionsWrapper) {
+        caseBlock.appendChild(questionsWrapper);
+        questionsList.appendChild(caseBlock);
+      }
+
+      // abre nuevo caso
+      caseIndex += 1;
+      activeCaseText = caseText;
+      activeCaseSpecialty = specialtyKey;
+      localIndex = 0;
+
+      caseBlock = document.createElement("div");
+      caseBlock.className = "case-block";
+
+      caseBlock.innerHTML = `
+        <h4>Caso clínico ${caseIndex}</h4>
+        <div class="case-text">${caseText}</div>
+      `;
+
+      questionsWrapper = document.createElement("div");
+    }
+
+    const idx = globalIndex;
+
+    const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
+    const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
+    const specialtyLabel =
+      SPECIALTY_LABELS[activeCaseSpecialty] ||
+      activeCaseSpecialty ||
+      "No definida";
+
+    const qBlock = document.createElement("div");
+    qBlock.className = "question-block";
+    qBlock.dataset.qIndex = idx;
+
+    qBlock.innerHTML = `
+      <h5>Pregunta ${localIndex + 1}</h5>
+      <p>${q.questionText || ""}</p>
+
+      <div class="panel-subtitle question-meta" style="font-size:12px;margin-bottom:8px;display:none;">
+        Especialidad: <strong>${specialtyLabel}</strong> ·
+        Tipo: <strong>${subtypeLabel}</strong> ·
+        Dificultad: <strong>${difficultyLabel}</strong>
+      </div>
+
+      <div class="question-options">
+        <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA || ""}</label>
+        <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB || ""}</label>
+        <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC || ""}</label>
+        <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD || ""}</label>
+      </div>
+
+      <div class="justification-box">
+        <strong>Justificación:</strong><br>
+        ${q.justification || ""}
+      </div>
+    `;
+
+    questionsWrapper.appendChild(qBlock);
+    globalIndex += 1;
+    localIndex += 1;
+  });
+
+  // último caso
+  if (caseBlock && questionsWrapper) {
+    caseBlock.appendChild(questionsWrapper);
+    questionsList.appendChild(caseBlock);
+  }
+}
+
+async function restoreExamFromState(examState, { replaceHistory = false } = {}) {
+  if (!examState || !Array.isArray(examState.questions) || examState.questions.length === 0) {
+    return false;
+  }
+
+  // restaura estado base
+  currentExamMode = examState.mode || null;
+  currentExamId = examState.examId || null;
+  currentExamTotalSeconds = Number(examState.totalSeconds) || 0;
+  currentExamEndAtMs = Number(examState.endAtMs) || null;
+  currentExamQuestions = examState.questions || [];
+  // Respuestas: siempre priorizamos el storage separado (por si hubo cambios después de guardar el estado)
+  currentExamAnswers = readExamAnswersFromStorage();
+  currentExamPreviousAttempts = 0;
+
+  if (examState.sectionId) currentSectionId = examState.sectionId;
+  if (examState.sectionName) currentSectionName = examState.sectionName;
+
+  // UI
+  hide(examsView);
+  hide(progressView);
+  hide(resourcesView);
+  hide(miniBuilderView);
+  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
+  show(examDetailView);
+
+  if (resultBanner) resultBanner.style.display = "none";
+  if (resultValues) resultValues.innerHTML = "";
+
+  examTitle.textContent = examState.examName || (currentExamMode === "mini" ? "Mini examen personalizado" : "Examen");
+  examSubtitle.textContent =
+    currentExamMode === "mini"
+      ? "Mini examen restaurado. Puedes continuar donde lo dejaste."
+      : "Examen restaurado. Puedes continuar donde lo dejaste.";
+
+  const totalQuestions = currentExamQuestions.length || 0;
+  const totalSeconds = currentExamTotalSeconds || 0;
+
+  examMetaText.innerHTML = `
+    📘 Preguntas: <strong>${totalQuestions}</strong><br>
+    🕒 Tiempo total: <strong>${formatMinutesFromSeconds(totalSeconds)}</strong><br>
+    🔁 Intentos: <strong>${currentExamMode === "mini" ? "Sin límite" : "En curso"}</strong>
+  `;
+
+  if (btnSubmitExam) {
+    btnSubmitExam.disabled = false;
+    btnSubmitExam.style.display = "inline-flex";
+  }
+
+  renderExamQuestionsFromCurrentState();
+  restoreAnswersToDOM();
+
+  // Cronómetro por endAtMs
+  startExamTimer(totalSeconds, currentExamEndAtMs);
+
+  // si ya venció, auto-envía como lo haría el timer
+  if (currentExamEndAtMs && Date.now() >= currentExamEndAtMs) {
+    try {
+      if (currentExamTimerId) {
+        clearInterval(currentExamTimerId);
+        currentExamTimerId = null;
+      }
+      if (examTimerEl) examTimerEl.textContent = "00:00";
+      alert("El tiempo se agotó mientras estabas fuera, tu examen se enviará automáticamente.");
+      // Guardamos en history/state antes de enviar
+      persistCurrentExamState({ replaceHistory: true });
+      await submitExamForStudent(true);
+    } catch (err) {
+      console.error("Error auto-enviando examen restaurado:", err);
+    }
+  }
+
+  // persiste (para no perder en refresh consecutivo)
+  persistCurrentExamState({ replaceHistory });
+
+  return true;
+}
+
+async function restoreStudentStateAfterInit() {
+  if (!currentUser) return false;
+
+  const state = readStudentState();
+  if (!state) return false;
+
+  isRestoringState = true;
+  try {
+    if (state.exam) {
+      const ok = await restoreExamFromState(state.exam, { replaceHistory: true });
+      if (ok) return true;
+    }
+
+    const view = state.view || "section";
+    if (view === "resources") {
+      await switchToResourcesView({ restore: true });
+      pushHistoryState({ view: "resources", sectionId: state.sectionId || null, exam: null }, { replace: true });
+      return true;
+    }
+    if (view === "progress") {
+      await switchToProgressView({ restore: true });
+      pushHistoryState({ view: "progress", sectionId: state.sectionId || null, exam: null }, { replace: true });
+      return true;
+    }
+    if (view === "mini") {
+      switchToMiniView({ restore: true });
+      pushHistoryState({ view: "mini", sectionId: state.sectionId || null, exam: null }, { replace: true });
+      return true;
+    }
+
+    switchToSectionView({ restore: true });
+    pushHistoryState({ view: "section", sectionId: state.sectionId || null, exam: null }, { replace: true });
+    return true;
+  } catch (err) {
+    console.error("Error restaurando estado del estudiante:", err);
+    return false;
+  } finally {
+    isRestoringState = false;
+  }
+}
+
+// Soporte al gesto/botón "Atrás" en móviles
+window.addEventListener("popstate", async (e) => {
+  if (!currentUser) return;
+  const nav = e.state?.studentNav;
+  if (!nav) return;
+
+  isRestoringState = true;
+  try {
+    if (nav.exam) {
+      await restoreExamFromState(nav.exam, { replaceHistory: true });
+      return;
+    }
+
+    if (nav.view === "resources") {
+      await switchToResourcesView({ restore: true });
+      return;
+    }
+    if (nav.view === "progress") {
+      await switchToProgressView({ restore: true });
+      return;
+    }
+    if (nav.view === "mini") {
+      switchToMiniView({ restore: true });
+      return;
+    }
+    switchToSectionView({ restore: true });
+  } catch (err) {
+    console.error("Error aplicando popstate estudiante:", err);
+  } finally {
+    isRestoringState = false;
+  }
+});
+
 /****************************************************
  * AUTH ESTUDIANTE
  ****************************************************/
@@ -243,6 +634,13 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     currentUserProfile = data;
 
+    // Biblioteca: identidad por usuario para progreso local (resúmenes/GPC)
+    try {
+      setStudentResourcesUserIdentity(user.email);
+    } catch (e) {
+      console.warn("No se pudo setear identidad de biblioteca:", e);
+    }
+
     if (studentUserEmailSpan) {
       studentUserEmailSpan.textContent = user.email;
     }
@@ -254,7 +652,11 @@ onAuthStateChanged(auth, async (user) => {
     // ✅ NUEVO: prepara UI de Biblioteca (sin cargar datos aún)
     initStudentResourcesUI();
 
-    switchToSectionView();
+    // ✅ Restaurar última vista (para evitar volver siempre a la 1ª sección)
+    const restored = await restoreStudentStateAfterInit();
+    if (!restored) {
+      switchToSectionView();
+    }
   } catch (err) {
     console.error("Error validando usuario estudiante", err);
     alert("Error validando tu acceso. Intenta más tarde.");
@@ -318,6 +720,30 @@ if (btnBackToExams) {
 if (btnSubmitExam) {
   btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
 }
+
+// ✅ NUEVO: Persistir respuestas seleccionadas (para no perder al refrescar)
+if (questionsList && !questionsList.dataset.answersBound) {
+  questionsList.dataset.answersBound = "1";
+  questionsList.addEventListener("change", (e) => {
+    const target = e.target;
+    if (!target || !target.matches || !target.matches('input[type="radio"]')) return;
+
+    const name = target.getAttribute("name") || "";
+    if (!name.startsWith("q_")) return;
+
+    const idx = Number(name.slice(2));
+    if (!Number.isFinite(idx)) return;
+
+    currentExamAnswers = currentExamAnswers || {};
+    currentExamAnswers[idx] = target.value;
+
+    // Evita guardar si no estamos en examen
+    if (currentExamMode && currentExamQuestions && currentExamQuestions.length) {
+      persistCurrentExamState({ replaceHistory: true });
+    }
+  });
+}
+
 
 /* chips especialidades mini examen (robusto) */
 const miniSpecialtiesGrid = document.querySelector(
@@ -409,10 +835,19 @@ if (miniRandomCheckbox) {
   miniRandomCheckbox.addEventListener("change", syncRandom);
 }
 
+
+async function ensureStudentResourcesActivated() {
+  // Inicializa UI (idempotente) y activa carga remota una sola vez
+  initStudentResourcesUI();
+  if (resourcesActivatedOnce) return;
+  await activateStudentResources();
+  resourcesActivatedOnce = true;
+}
+
 /****************************************************
  * CAMBIO DE VISTAS
  ****************************************************/
-function switchToMiniView() {
+function switchToMiniView(opts = {}) {
   currentView = "mini";
   hide(examsView);
   hide(examDetailView);
@@ -423,9 +858,10 @@ function switchToMiniView() {
   // Re-sincroniza chips/toggle al entrar a mini-exámenes
   initMiniSpecialtyChips();
   sidebar.classList.remove("sidebar--open");
+  if (!opts.restore) persistViewState("mini");
 }
 
-function switchToSectionView() {
+function switchToSectionView(opts = {}) {
   currentView = "section";
   hide(miniBuilderView);
   hide(miniExamPlaceholderView);
@@ -434,10 +870,11 @@ function switchToSectionView() {
   hide(resourcesView);
   show(examsView);
   sidebar.classList.remove("sidebar--open");
+  if (!opts.restore) persistViewState("section");
 }
 
 // ✅ NUEVO: Vista Biblioteca (Resúmenes y GPC)
-async function switchToResourcesView() {
+async function switchToResourcesView(opts = {}) {
   currentView = "resources";
   hide(miniBuilderView);
   hide(miniExamPlaceholderView);
@@ -447,16 +884,19 @@ async function switchToResourcesView() {
   show(resourcesView);
   sidebar.classList.remove("sidebar--open");
 
+  if (!opts.restore) {
+    persistViewState("resources");
+  }
+
   try {
     // Inicializa UI (una sola vez) y luego carga datos del otro proyecto Firebase
-    initStudentResourcesUI();
-    await activateStudentResources();
+    await ensureStudentResourcesActivated();
   } catch (err) {
     console.error("Error activando la biblioteca:", err);
   }
 }
 
-async function switchToProgressView() {
+async function switchToProgressView(opts = {}) {
   currentView = "progress";
   hide(miniBuilderView);
   hide(miniExamPlaceholderView);
@@ -465,6 +905,10 @@ async function switchToProgressView() {
   hide(resourcesView);
   show(progressView);
   sidebar.classList.remove("sidebar--open");
+
+  if (!opts.restore) {
+    persistViewState("progress");
+  }
   await loadStudentProgress();
 }
 
@@ -518,6 +962,32 @@ async function loadSocialLinksForStudent() {
   });
 }
 
+
+function selectSectionForStudent({ id, name, li, shouldSwitchView = true }) {
+  if (!id) return;
+
+  document
+    .querySelectorAll(".sidebar__section-item")
+    .forEach((el) => el.classList.remove("sidebar__section-item--active"));
+
+  if (li) li.classList.add("sidebar__section-item--active");
+
+  currentSectionId = id;
+  currentSectionName = name || "Sección";
+
+  if (sectionTitle) sectionTitle.textContent = currentSectionName;
+  if (sectionSubtitle) sectionSubtitle.textContent = "Simulacros de esta sección.";
+
+  // Persistimos selección aunque no cambiemos vista (para refresh)
+  patchStudentState({ sectionId: currentSectionId, sectionName: currentSectionName });
+
+  if (shouldSwitchView) {
+    switchToSectionView();
+  }
+
+  loadExamsForSectionForStudent(id);
+}
+
 /****************************************************
  * SECCIONES (ESTUDIANTE)
  ****************************************************/
@@ -527,6 +997,10 @@ async function loadSectionsForStudent() {
   const snap = await getDocs(qSec);
 
   sidebarSections.innerHTML = "";
+
+  // Preferir la última sección seleccionada por el usuario (para refresh)
+  const savedState = readStudentState();
+  const preferredSectionId = savedState?.sectionId || null;
 
   if (snap.empty) {
     sidebarSections.innerHTML = `
@@ -552,39 +1026,31 @@ async function loadSectionsForStudent() {
 
     const li = document.createElement("li");
     li.className = "sidebar__section-item";
+    li.dataset.sectionId = id;
     li.innerHTML = `<div class="sidebar__section-name">${name}</div>`;
 
     li.addEventListener("click", () => {
-      document
-        .querySelectorAll(".sidebar__section-item")
-        .forEach((el) => el.classList.remove("sidebar__section-item--active"));
-
-      li.classList.add("sidebar__section-item--active");
-
-      currentSectionId = id;
-      currentSectionName = name;
-
-      sectionTitle.textContent = name;
-      sectionSubtitle.textContent = "Simulacros de esta sección.";
-
-      switchToSectionView();
-      loadExamsForSectionForStudent(id);
+      selectSectionForStudent({ id, name, li, shouldSwitchView: true });
     });
 
     sidebarSections.appendChild(li);
   });
 
-  // Seleccionar y cargar la primera sección en el orden definido
-  if (firstSectionId) {
-    currentSectionId = firstSectionId;
-    currentSectionName = firstSectionName;
+  // Seleccionar sección (preferida o la primera) sin forzar cambiar de vista aquí
+  const targetSectionId = preferredSectionId && sidebarSections.querySelector(`[data-section-id="${preferredSectionId}"]`)
+    ? preferredSectionId
+    : firstSectionId;
 
-    const firstLi = sidebarSections.querySelector(".sidebar__section-item");
-    if (firstLi) firstLi.classList.add("sidebar__section-item--active");
+  if (targetSectionId) {
+    const liTarget = sidebarSections.querySelector(`[data-section-id="${targetSectionId}"]`) || sidebarSections.querySelector(".sidebar__section-item");
+    const nameTarget = liTarget ? liTarget.querySelector(".sidebar__section-name")?.textContent || firstSectionName : firstSectionName;
 
-    sectionTitle.textContent = currentSectionName;
-    sectionSubtitle.textContent = "Simulacros de esta sección.";
-    await loadExamsForSectionForStudent(firstSectionId);
+    selectSectionForStudent({
+      id: targetSectionId,
+      name: nameTarget,
+      li: liTarget,
+      shouldSwitchView: false,
+    });
   }
 }
 
@@ -937,6 +1403,10 @@ async function startMiniExamFromBuilder() {
   currentExamId = null;
   currentExamPreviousAttempts = 0;
   currentExamQuestions = [];
+  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
 
   const timePerQuestion = examRules.timePerQuestionSeconds;
   currentExamTotalSeconds = selectedQuestions.length * timePerQuestion;
@@ -1057,7 +1527,16 @@ async function startMiniExamFromBuilder() {
     questionsList.appendChild(caseBlock);
   });
 
-  startExamTimer(currentExamTotalSeconds);
+  // Persistencia para refresh
+  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
+  persistCurrentExamState();
+
+  startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
 }
 
 /****************************************************
@@ -1081,6 +1560,10 @@ async function startSectionExamForStudent({
   currentExamTotalSeconds = totalSeconds;
   currentExamPreviousAttempts = attemptsUsed;
   currentExamQuestions = [];
+  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
 
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
@@ -1110,7 +1593,16 @@ async function startSectionExamForStudent({
   `;
 
   await loadQuestionsForSectionExam(examId);
-  startExamTimer(currentExamTotalSeconds);
+  // Persistencia para refresh
+  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
+  persistCurrentExamState();
+
+  startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
 }
 
 /****************************************************
@@ -1152,6 +1644,10 @@ async function loadQuestionsForSectionExam(examId) {
   }
 
   currentExamQuestions = [];
+  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
   let globalIndex = 0;
 
   cases.forEach((caseData, caseIndex) => {
@@ -1229,18 +1725,30 @@ async function loadQuestionsForSectionExam(examId) {
 /****************************************************
  * CRONÓMETRO
  ****************************************************/
-function startExamTimer(totalSeconds) {
+function startExamTimer(totalSeconds, endAtMs = null) {
   if (!examTimerEl) return;
 
   if (currentExamTimerId) {
     clearInterval(currentExamTimerId);
   }
 
-  let remaining = totalSeconds;
+  // Si no viene endAtMs, lo calculamos (modo tradicional)
+  if (!endAtMs) {
+    endAtMs = Date.now() + (Number(totalSeconds) || 0) * 1000;
+  }
+
+  currentExamEndAtMs = endAtMs;
+
+  const computeRemaining = () => {
+    const diffMs = (currentExamEndAtMs || 0) - Date.now();
+    return Math.max(0, Math.ceil(diffMs / 1000));
+  };
+
+  let remaining = computeRemaining();
   examTimerEl.textContent = formatTimer(remaining);
 
   currentExamTimerId = setInterval(() => {
-    remaining -= 1;
+    remaining = computeRemaining();
 
     if (remaining <= 0) {
       clearInterval(currentExamTimerId);
@@ -1254,6 +1762,8 @@ function startExamTimer(totalSeconds) {
     examTimerEl.textContent = formatTimer(remaining);
   }, 1000);
 }
+
+
 
 /****************************************************
  * ENVÍO DE EXAMEN
@@ -1441,6 +1951,9 @@ async function submitExamForStudent(auto = false) {
     }
   }
 
+  // El examen ya se procesó; limpiar persistencia de examen en curso
+  clearStudentExamState();
+
   renderPremiumResults({
     auto,
     globalCorrect,
@@ -1598,6 +2111,16 @@ function handleBackFromExam() {
   currentExamMode = null;
   currentExamId = null;
   currentExamQuestions = [];
+  currentExamEndAtMs = null;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
+
+  clearStudentExamState();
+  currentExamEndAtMs = Date.now() + totalSeconds * 1000;
+  currentExamAnswers = {};
+  clearExamAnswersStorage();
+  writeExamAnswersToStorage(currentExamAnswers);
 
   if (questionsList) questionsList.innerHTML = "";
   if (examTimerEl) examTimerEl.textContent = "--:--";
@@ -1617,7 +2140,11 @@ function handleBackFromExam() {
   if (cameFromMini) {
     switchToMiniView();
   } else {
-    switchToSectionView();
+    // ✅ Restaurar última vista (para evitar volver siempre a la 1ª sección)
+    const restored = await restoreStudentStateAfterInit();
+    if (!restored) {
+      switchToSectionView();
+    }
   }
 }
 
@@ -1805,6 +2332,34 @@ async function loadStudentProgress() {
         <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
         <div><strong>Promedio general:</strong> ${toFixedNice(globalAvg, 1)}%</div>
       `;
+    }
+
+
+    // ✅ NUEVO: Progreso de Biblioteca (Resúmenes/GPC)
+    try {
+      // Carga silenciosa de biblioteca para conocer el total de temas
+      await ensureStudentResourcesActivated();
+
+      const countEl = document.getElementById("student-resources-count");
+      const totalText = countEl ? (countEl.textContent || "") : "";
+      const mTotal = totalText.match(/(\d+)/);
+      const totalTopics = mTotal ? Number(mTotal[1]) : 0;
+
+      const userKey = normalizeText(currentUser.email);
+      const completedRaw = localStorage.getItem(`resources_completed_${userKey}`) || "[]";
+      const completedArr = safeJsonParse(completedRaw, []);
+      const completedTopics = Array.isArray(completedArr) ? completedArr.length : 0;
+
+      const pct =
+        totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+
+      if (progressGlobalEl) {
+        progressGlobalEl.innerHTML += `
+          <div><strong>Biblioteca (Resúmenes/GPC):</strong> ${completedTopics} / ${totalTopics} (${pct}%)</div>
+        `;
+      }
+    } catch (e) {
+      console.warn("No se pudo calcular progreso de biblioteca:", e);
     }
 
     renderProgressChart(examHistoryResults);
