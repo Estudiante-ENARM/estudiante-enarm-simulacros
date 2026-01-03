@@ -65,6 +65,10 @@
         <button id="admin-btn-nav-landing" class="sidebar-btn">
           Pantalla principal
         </button>
+        
+        <button id="admin-btn-nav-resources" class="sidebar-btn">
+          Resúmenes y GPC
+        </button>
         <button id="admin-btn-nav-import-export" class="sidebar-btn">
           Importar / Exportar
         </button>
@@ -364,7 +368,101 @@ Apendicitis, colecistitis
         <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
       </section>
 
-      <!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
+      
+      <!-- ================= PANEL: RESÚMENES Y GPC ================= -->
+      <section id="admin-panel-resources" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Resúmenes y GPC</h2>
+            <p class="panel-subtitle">
+              Administra temas, links y PDFs visibles para el estudiante (sin salir del panel).
+            </p>
+          </div>
+          <div class="flex-row" style="justify-content:flex-end;gap:8px;">
+            <button id="admin-resources-btn-refresh" class="btn btn-outline btn-sm" type="button">
+              Refrescar
+            </button>
+            <button id="admin-resources-btn-new-topic" class="btn btn-primary btn-sm" type="button">
+              + Nuevo tema
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="display:flex;gap:12px;flex-wrap:wrap;">
+          <!-- Lista -->
+          <div style="flex:1 1 360px;min-width:280px;">
+            <div class="create-user-grid" style="margin-bottom:10px;">
+              <div class="field">
+                <span>Buscar</span>
+                <input id="admin-resources-search" type="text" placeholder="Buscar por título o especialidad..." />
+              </div>
+
+              <div class="field">
+                <span>Especialidad</span>
+                <select id="admin-resources-specialty">
+                  <option value="">Todas</option>
+                  <option value="medicina_interna">Medicina interna</option>
+                  <option value="cirugia_general">Cirugía general</option>
+                  <option value="pediatria">Pediatría</option>
+                  <option value="gine_obstetricia">Ginecología y Obstetricia</option>
+                  <option value="salud_publica">Salud pública</option>
+                  <option value="acceso_gratuito">Acceso gratuito</option>
+                  <option value="otros">Otros</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="admin-resources-topic-count" class="panel-subtitle" style="margin-bottom:8px;">—</div>
+            <div id="admin-resources-topic-list" class="cards-list"></div>
+          </div>
+
+          <!-- Editor -->
+          <div style="flex:1 1 420px;min-width:300px;">
+            <div id="admin-resources-editor" class="card" style="padding:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+                <button id="admin-resources-btn-back" class="btn btn-outline btn-sm" type="button">← Lista</button>
+                <h3 style="font-size:15px;margin:0;">Editor de tema</h3>
+              </div>
+
+              <div id="admin-resources-editor-status" class="panel-subtitle" style="margin-bottom:10px;">
+                Selecciona un tema o crea uno nuevo.
+              </div>
+
+              <label class="field">
+                <span>Título</span>
+                <input id="admin-resources-title" type="text" placeholder="Ej. Apendicitis aguda" />
+              </label>
+
+              <label class="field">
+                <span>Especialidad (texto, como lo verá el estudiante)</span>
+                <input id="admin-resources-specialty-raw" type="text" placeholder="Ej. Cirugía general" />
+              </label>
+
+              <div style="margin-top:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                  <h4 style="font-size:13px;margin:0;">Links / PDFs</h4>
+                  <button id="admin-resources-btn-add-link" class="btn btn-outline btn-sm" type="button">
+                    + Agregar link
+                  </button>
+                </div>
+
+                <div id="admin-resources-links" style="margin-top:8px;"></div>
+              </div>
+
+              <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:12px;">
+                <button id="admin-resources-btn-delete" class="btn btn-secondary btn-sm" type="button">
+                  Eliminar
+                </button>
+                <button id="admin-resources-btn-save" class="btn btn-primary btn-sm" type="button">
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+<!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
       <section id="admin-panel-landing" class="panel hidden">
         <div class="panel-header">
           <div>
