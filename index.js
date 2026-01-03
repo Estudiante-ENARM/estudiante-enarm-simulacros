@@ -1,26 +1,35 @@
 /***********************************************
- * ÍNDICE.JS
- * - Iniciar sesión admin/estudiante
- * - Lectura de pantalla principal (Configuración)
- * - Botones de precios -> WhatsApp
- * - Iconos de redes sociales
+ * INDEX.JS (FIXED)
+ * - Compatible si index.js se carga SIN type="module"
+ * - Mantiene: login, lectura settings, botones WhatsApp, redes sociales
+ * - Mantiene: evitar auto-redirect cuando el usuario llega con "Atrás" (back/gesture)
  ***********************************************/
-importar { auth, db } desde "./firebase-config.js";
 
-importar {
-  Iniciar sesión con correo electrónico y contraseña,
-  enAuthStateChanged,
-} de "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+// Dependencias (se cargan por dynamic import para evitar SyntaxError por "import { }" en scripts no-módulo)
+let auth, db;
+let signInWithEmailAndPassword, onAuthStateChanged;
+let doc, getDoc;
 
-importar {
-  doc,
-  obtenerDoc,
-} de "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+async function loadDeps() {
+  if (auth && db && signInWithEmailAndPassword && onAuthStateChanged && doc && getDoc) return;
+
+  const cfg = await import("./firebase-config.js");
+  auth = cfg.auth;
+  db = cfg.db;
+
+  const authMod = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js");
+  signInWithEmailAndPassword = authMod.signInWithEmailAndPassword;
+  onAuthStateChanged = authMod.onAuthStateChanged;
+
+  const fsMod = await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js");
+  doc = fsMod.doc;
+  getDoc = fsMod.getDoc;
+}
 
 /***********************************************
- * CONST / VALORES PREDETERMINADOS
+ * CONST / DEFAULTS
  ***********************************************/
-constante DEFAULT_WHATSAPP_PHONE = "+525515656316";
+const DEFAULT_WHATSAPP_PHONE = "+525515656316";
 const DEFAULT_MONTHLY_LABEL = "Plan mensual";
 const DEFAULT_ENARM_LABEL = "Plan ENARM 2026";
 
@@ -30,244 +39,238 @@ const DEFAULT_ENARM_MESSAGE = "Me interesa adquirir el plan ENARM 2026";
 /***********************************************
  * REFERENCIAS DOM
  ***********************************************/
-const emailInput = document.getElementById("correo electrónico de inicio de sesión");
-const passwordInput = document.getElementById("contraseña de inicio de sesión");
+const emailInput = document.getElementById("login-email");
+const passwordInput = document.getElementById("login-password");
 const loginBtn = document.getElementById("login-btn");
-const cancelBtn = document.getElementById("cancelar-inicio-de-sesión-btn");
-const errorBox = document.getElementById("error de inicio de sesión");
+const cancelBtn = document.getElementById("login-btn-cancel");
+const errorBox = document.getElementById("login-error");
 
-const landingTextEl = document.getElementById("texto-de-aterrizaje");
-const btnPriceMonth = document.getElementById("btn-precio-mes");
+const landingTextEl = document.getElementById("landing-text");
+const btnPriceMonth = document.getElementById("btn-price-month");
 const btnPriceFull = document.getElementById("btn-price-full");
 
-const socialIcons = document.querySelectorAll(".icono-social");
+const socialIcons = document.querySelectorAll(".social-icon");
 
 /***********************************************
  * ESTADO
  ***********************************************/
-deje que currentWhatsAppPhone = DEFAULT_WHATSAPP_PHONE;
+let currentWhatsAppPhone = DEFAULT_WHATSAPP_PHONE;
 
 /***********************************************
  * UTILIDADES
  ***********************************************/
-función showError(msg) {
-  si (!errorBox) retorna;
-  errorBox.textContent = mensaje;
-  errorBox.style.display = "bloque";
+function showError(msg) {
+  if (!errorBox) return;
+  errorBox.textContent = msg;
+  errorBox.style.display = "block";
 }
 
-función clearError() {
-  si (!errorBox) retorna;
+function clearError() {
+  if (!errorBox) return;
   errorBox.textContent = "";
-  errorBox.style.display = "ninguno";
+  errorBox.style.display = "none";
 }
 
-función normalizePhone(teléfono) {
-  si (!teléfono) devuelve "";
-  devolver teléfono.replace(/[^\d]/g, "");
+function normalizePhone(phone) {
+  if (!phone) return "";
+  return phone.replace(/[^\d]/g, "");
 }
 
-función buildWhatsAppUrl(teléfono, mensaje) {
-  const clean = normalizePhone(teléfono || DEFAULT_WHATSAPP_PHONE);
-  constante base = `https://wa.me/${clean}`;
-  const text = encodeURIComponent(mensaje || "");
-  devuelve `${base}?texto=${texto}`;
+function buildWhatsAppUrl(phone, message) {
+  const clean = normalizePhone(phone || DEFAULT_WHATSAPP_PHONE);
+  const base = `https://wa.me/${clean}`;
+  const text = encodeURIComponent(message || "");
+  return `${base}?text=${text}`;
 }
 
 /***********************************************
- * CARGAR LANDING (configuración/landingPage)
+ * NAVIGATION: Evitar loops al usar "Atrás"
+ * - Si el usuario llega a index.html por back/gesture, NO redirigir automáticamente.
  ***********************************************/
-función asíncrona loadLandingSettings() {
-  si (!landingTextEl || !btnPrecioMes || !btnPrecioCompleto) devolver;
+function isBackForwardNavigation() {
+  try {
+    const navEntries = performance.getEntriesByType("navigation");
+    if (navEntries && navEntries.length) {
+      return navEntries[0].type === "back_forward";
+    }
+    // Fallback legacy
+    return performance?.navigation?.type === 2;
+  } catch {
+    return false;
+  }
+}
+
+/***********************************************
+ * CARGAR LANDING (settings/landingPage)
+ ***********************************************/
+async function loadLandingSettings() {
+  if (!landingTextEl || !btnPriceMonth || !btnPriceFull) return;
 
   let landingText = "Plataforma Estudiante ENARM: simulacros tipo ENARM, análisis de tu desempeño y más.";
-  deje que monthlyLabel = ETIQUETA_MENSUAL_PREDETERMINADA;
-  deje que enarmLabel = DEFAULT_ENARM_LABEL;
-  deje que precioMensual = "";
-  deje que enarmPrice = "";
+  let monthlyLabel = DEFAULT_MONTHLY_LABEL;
+  let enarmLabel = DEFAULT_ENARM_LABEL;
+  let monthlyPrice = "";
+  let enarmPrice = "";
 
-  intentar {
-    const snap = await getDoc(doc(db, "configuraciones", "landingPage"));
-    si (snap.exists()) {
-      constante datos = snap.data();
+  try {
+    const snap = await getDoc(doc(db, "settings", "landingPage"));
+    if (snap.exists()) {
+      const data = snap.data();
 
-      si (datos.landingText) landingText = datos.landingText;
-      si (datos.etiquetaMensual) etiquetaMensual = datos.etiquetaMensual;
-      si (datos.enarmLabel) enarmLabel = datos.enarmLabel;
+      if (data.landingText) landingText = data.landingText;
+      if (data.monthlyLabel) monthlyLabel = data.monthlyLabel;
+      if (data.enarmLabel) enarmLabel = data.enarmLabel;
 
-      si (tipo de datos.preciomensual === "número") {
-        precioMensual = datos.precioMensual;
-      } de lo contrario si (tipo de datos.preciomensual === "cadena") {
-        precioMensual = datos.precioMensual;
+      if (typeof data.monthlyPrice === "number") {
+        monthlyPrice = data.monthlyPrice;
+      } else if (typeof data.monthlyPrice === "string") {
+        monthlyPrice = data.monthlyPrice;
       }
 
-      si (tipo de datos.enarmPrice === "número") {
-        enarmPrice = datos.enarmPrice;
-      } de lo contrario si (tipo de datos.enarmPrice === "cadena") {
-        enarmPrice = datos.enarmPrice;
+      if (typeof data.enarmPrice === "number") {
+        enarmPrice = data.enarmPrice;
+      } else if (typeof data.enarmPrice === "string") {
+        enarmPrice = data.enarmPrice;
       }
 
-      si (datos.whatsappPhone) {
-        currentWhatsAppPhone = datos.whatsappPhone;
+      if (data.whatsappPhone) {
+        currentWhatsAppPhone = data.whatsappPhone;
       }
     }
-  } atrapar (err) {
-    console.error("Error al leer settings/landingPage:", err);
+  } catch (err) {
+    console.error("Error leyendo settings/landingPage:", err);
   }
 
-  landingTextEl.textContent = aterrizajeTexto;
+  landingTextEl.textContent = landingText;
 
-  btnPriceMonth.textContent = Precio mensual
-    ? `${etiquetamensual} · $${preciomensual} MXN`
-    :etiqueta mensual;
+  btnPriceMonth.textContent = monthlyPrice
+    ? `${monthlyLabel} · $${monthlyPrice} MXN`
+    : monthlyLabel;
 
   btnPriceFull.textContent = enarmPrice
     ? `${enarmLabel} · $${enarmPrice} MXN`
-    :etiquetaEnarm;
+    : enarmLabel;
 }
 
 /***********************************************
- * CARGAR LINKS DE REDES (configuraciones/socialLinks)
+ * CARGAR LINKS DE REDES (settings/socialLinks)
  ***********************************************/
-función asíncrona loadSocialLinks() {
-  intentar {
-    const snap = await getDoc(doc(db, "configuraciones", "socialLinks"));
-    si (!snap.existe()) {
-      // No pasa nada, solo quedarán sin enlace
-      devolver;
-    }
+async function loadSocialLinks() {
+  try {
+    const snap = await getDoc(doc(db, "settings", "socialLinks"));
+    if (!snap.exists()) return;
 
-    constante datos = snap.data();
+    const data = snap.data();
 
-    socialIcons.forEach((icono) => {
-      const net = icono.conjunto de datos.red;
-      si (net && datos[net]) {
-        icon.dataset.url = datos[net];
-      } demás {
-        eliminar icon.dataset.url;
+    socialIcons.forEach((icon) => {
+      const net = icon.dataset.network;
+      if (net && data[net]) {
+        icon.dataset.url = data[net];
+      } else {
+        delete icon.dataset.url;
       }
     });
-  } atrapar (err) {
-    console.error("Error al leer settings/socialLinks:", err);
+  } catch (err) {
+    console.error("Error leyendo settings/socialLinks:", err);
   }
 
-  socialIcons.forEach((icono) => {
-    icon.addEventListener("clic", () => {
-      const url = icono.conjunto de datos.url;
-      si (!url) {
+  socialIcons.forEach((icon) => {
+    icon.addEventListener("click", () => {
+      const url = icon.dataset.url;
+      if (!url) {
         alert("El enlace de esta red social aún no se ha configurado.");
-        devolver;
+        return;
       }
-      ventana.open(url, "_blank", "noopener,noreferrer");
+      window.open(url, "_blank", "noopener,noreferrer");
     });
   });
 }
 
 /***********************************************
- * ACCESO
+ * LOGIN
  ***********************************************/
-función asíncrona handleLogin() {
-  borrarError();
+async function handleLogin() {
+  clearError();
 
-  constante correo electrónico = (emailInput?.valor || "").trim();
-  const contraseña = contraseñaInput?.valor || "";
+  const email = (emailInput?.value || "").trim();
+  const password = passwordInput?.value || "";
 
-  si (!correo electrónico || !contraseña) {
+  if (!email || !password) {
     showError("Ingresa tu correo y contraseña.");
-    devolver;
+    return;
   }
 
-  intentar {
-    const cred = await signInWithEmailAndPassword(auth, correo electrónico, contraseña);
-    const usuario = cred.usuario;
+  // Si el usuario está usando "Atrás" en este momento, evita que el login lo redirija instantáneamente
+  const skipAutoRedirect = isBackForwardNavigation();
 
-    const userDocRef = doc(db, "usuarios", usuario.email);
-    constante userSnap = await getDoc(userDocRef);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const user = cred.user;
 
-    si (!userSnap.exists()) {
+    const userDocRef = doc(db, "users", user.email);
+    const userSnap = await getDoc(userDocRef);
+
+    if (!userSnap.exists()) {
       showError("Tu usuario no está configurado en la plataforma. Contacta al administrador.");
-      devolver;
+      return;
     }
 
-    constante perfil = userSnap.data();
-    const hoy = nueva Fecha().toISOString().slice(0, 10);
+    const profile = userSnap.data();
+    const today = new Date().toISOString().slice(0, 10);
 
-    si (perfil.fechadevencimiento && perfil.fechadevencimiento < hoy) {
+    if (profile.expiryDate && profile.expiryDate < today) {
       showError("Tu acceso ha vencido. Contacta al administrador.");
-      devolver;
+      return;
     }
 
-    si (perfil.estado && perfil.estado !== "activo") {
+    if (profile.status && profile.status !== "activo") {
       showError("Tu usuario está inactivo. Contacta al administrador.");
-      devolver;
+      return;
     }
 
-    const rol = perfil.role;
+    const role = profile.role;
 
-    si (rol === "admin") {
-      si (!skipAutoRedirect) ventana.ubicación.href = "admin.html";
-    } demás {
-      // Cualquier otro rol válido entra como estudiante
-      si (!skipAutoRedirect) ventana.ubicación.href = "estudiante.html";
+    if (role === "admin") {
+      if (!skipAutoRedirect) window.location.href = "admin.html";
+    } else {
+      if (!skipAutoRedirect) window.location.href = "student.html";
     }
-  } atrapar (err) {
-    console.error("Error al iniciar sesión:", err);
+  } catch (err) {
+    console.error("Error en login:", err);
     let msg = "No se pudo iniciar sesión. Verifica tus datos.";
-    if (err.code === "auth/user-not-found") msg ​​= "Usuario no encontrado.";
-    if (err.code === "auth/wrong-password") msg ​​= "Contraseña incorrecta.";
-    mostrarError(msg);
+    if (err.code === "auth/user-not-found") msg = "Usuario no encontrado.";
+    if (err.code === "auth/wrong-password") msg = "Contraseña incorrecta.";
+    if (err.code === "auth/operation-not-allowed") msg = "Proveedor Email/Password no habilitado en este proyecto.";
+    showError(msg);
   }
 }
 
 /***********************************************
  * AUTO-REDIRECCIÓN SI YA ESTÁ LOGUEADO
  ***********************************************/
-
-
-/***********************************************
- * NAVEGACIÓN: Evitar bucles al usar "Atrás"
- * - Si el usuario llega a index.html por back/gesture, NO redirigir automáticamente.
- ***********************************************/
-función esBackForwardNavigation() {
-  intentar {
-    const navEntries = performance.getEntriesByType("navegación");
-    si (navEntries && navEntries.length) {
-      devolver navEntries[0].type === "atrás_adelante";
-    }
-    // Legado de reserva
-    rendimiento de retorno?.navegación?.tipo === 2;
-  } atrapar {
-    devuelve falso;
-  }
-}
-
-función setupAutoRedirect() {
-
-  onAuthStateChanged(auth, async (usuario) => {
-    // Si el usuario llegó aquí por "Atrás" (back/gesture), evita la redirección automática,
-    // pero deja que la UI se actualice normalmente.
+function setupAutoRedirect() {
+  onAuthStateChanged(auth, async (user) => {
     const skipAutoRedirect = isBackForwardNavigation();
+    if (!user) return;
 
-    si (!usuario) retorna;
+    try {
+      const snap = await getDoc(doc(db, "users", user.email));
+      if (!snap.exists()) return;
 
-    intentar {
-      const snap = await getDoc(doc(db, "usuarios", usuario.email));
-      si (!snap.exists()) retorna;
+      const profile = snap.data();
+      const today = new Date().toISOString().slice(0, 10);
 
-      constante perfil = snap.data();
-      const hoy = nueva Fecha().toISOString().slice(0, 10);
+      if (profile.expiryDate && profile.expiryDate < today) return;
+      if (profile.status && profile.status !== "activo") return;
 
-      si (perfil.fechadevencimiento && perfil.fechadevencimiento < hoy) devolver;
-      si (perfil.estado && perfil.estado !== "activo") return;
-
-      const rol = perfil.role;
-      si (rol === "admin") {
-        si (!skipAutoRedirect) ventana.ubicación.href = "admin.html";
-      } demás {
-        si (!skipAutoRedirect) ventana.ubicación.href = "estudiante.html";
+      const role = profile.role;
+      if (role === "admin") {
+        if (!skipAutoRedirect) window.location.href = "admin.html";
+      } else {
+        if (!skipAutoRedirect) window.location.href = "student.html";
       }
-    } atrapar (err) {
-      console.error("Error en la redirección automática:", err);
+    } catch (err) {
+      console.error("Error en auto-redirect:", err);
     }
   });
 }
@@ -275,44 +278,49 @@ función setupAutoRedirect() {
 /***********************************************
  * EVENTOS DE BOTONES
  ***********************************************/
-función setupEvents() {
-  si (loginBtn) {
-    loginBtn.addEventListener("clic", (e) => {
+function setupEvents() {
+  if (loginBtn) {
+    loginBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      manejarInicioDeSesión();
+      handleLogin();
     });
   }
 
-  si (cancelarBtn) {
-    cancelBtn.addEventListener("clic", (e) => {
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      si (emailInput) emailInput.value = "";
-      si (entradaDeContraseña) entradaDeContraseña.valor = "";
-      borrarError();
+      if (emailInput) emailInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+      clearError();
     });
   }
 
-  si (btnPrecioMes) {
-    btnPriceMonth.addEventListener("clic", () => {
-      const url = buildWhatsAppUrl(currentWhatsAppPhone, MENSAJE_MENSUAL_PREDETERMINADO);
-      ventana.open(url, "_blank", "noopener,noreferrer");
+  if (btnPriceMonth) {
+    btnPriceMonth.addEventListener("click", () => {
+      const url = buildWhatsAppUrl(currentWhatsAppPhone, DEFAULT_MONTHLY_MESSAGE);
+      window.open(url, "_blank", "noopener,noreferrer");
     });
   }
 
-  si (btnPrecioCompleto) {
-    btnPriceFull.addEventListener("clic", () => {
-      constante url = buildWhatsAppUrl(currentWhatsAppPhone, MENSAJE_ENMARCADO_PREDETERMINADO);
-      ventana.open(url, "_blank", "noopener,noreferrer");
+  if (btnPriceFull) {
+    btnPriceFull.addEventListener("click", () => {
+      const url = buildWhatsAppUrl(currentWhatsAppPhone, DEFAULT_ENARM_MESSAGE);
+      window.open(url, "_blank", "noopener,noreferrer");
     });
   }
 }
 
 /***********************************************
- * INICIO
+ * INIT
  ***********************************************/
-(función asíncrona init() {
-  eventos de configuración();
-  configuraciónAutoRedirect();
-  esperar loadLandingSettings();
-  esperar loadSocialLinks();
+(async function init() {
+  try {
+    await loadDeps();
+    setupEvents();
+    setupAutoRedirect();
+    await loadLandingSettings();
+    await loadSocialLinks();
+  } catch (err) {
+    console.error("Error inicializando index.js:", err);
+  }
 })();
