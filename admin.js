@@ -3689,15 +3689,7 @@ function bankCaseMatchesFilters(docData, filters) {
   return true;
 }
 
-// helpers
-function escapeHtml(str) {
-  return (str || "")
-    .toString()
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+// helpers (usa escapeHtml global definida arriba)
 
 function renderBankItem(docId, data) {
   const specLabel = getSpecialtyLabel(data.specialty || "");
