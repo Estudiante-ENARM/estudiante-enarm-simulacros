@@ -428,6 +428,32 @@ Apendicitis, colecistitis
                 Selecciona un tema o crea uno nuevo.
               </div>
 
+
+              <div id="admin-resources-auth-box" class="card" style="padding:10px;margin-bottom:12px;">
+                <div id="admin-resources-auth-status" class="panel-subtitle" style="margin-bottom:8px;">Biblioteca: —</div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+                  <label class="field" style="flex:1;min-width:180px;margin:0;">
+                    <span>Email</span>
+                    <input id="admin-resources-auth-email" type="email" placeholder="admin@correo.com">
+                  </label>
+
+                  <label class="field" style="flex:1;min-width:180px;margin:0;">
+                    <span>Contraseña</span>
+                    <input id="admin-resources-auth-password" type="password" placeholder="••••••••">
+                  </label>
+
+                  <button id="admin-resources-auth-login" class="btn btn-outline btn-sm" type="button">Iniciar sesión</button>
+                  <button id="admin-resources-auth-logout" class="btn btn-outline btn-sm hidden" type="button">Cerrar sesión</button>
+                </div>
+
+                <div class="panel-subtitle" style="margin-top:6px;">
+                  Nota: esta sesión es solo para editar la biblioteca (colección <b>temas</b>). La lectura es pública.
+                </div>
+              </div>
+
+
+
               <label class="field">
                 <span>Título</span>
                 <input id="admin-resources-title" type="text" placeholder="Ej. Apendicitis aguda" />
