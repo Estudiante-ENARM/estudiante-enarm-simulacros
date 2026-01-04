@@ -475,6 +475,25 @@ Apendicitis, colecistitis
                 <div id="admin-resources-links" style="margin-top:8px;"></div>
               </div>
 
+
+                <!-- ✅ NUEVO: Mini-examen del tema (caso clínico + preguntas) -->
+                <div id="admin-resources-topic-exam-wrap" class="card" style="margin-top:12px;padding:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <div>
+                      <div style="font-weight:700;font-size:13px;">Mini-examen del tema</div>
+                      <div class="panel-subtitle" style="margin-top:4px;">Se guarda en <b>topic_exams/{topicId}</b> (solo caso clínico + preguntas).</div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <button id="admin-resources-topic-exam-btn-add-case" class="btn btn-outline btn-sm" type="button">+ Agregar caso</button>
+                      <button id="admin-resources-topic-exam-btn-delete" class="btn btn-secondary btn-sm" type="button">Eliminar mini-examen</button>
+                      <button id="admin-resources-topic-exam-btn-save" class="btn btn-primary btn-sm" type="button">Guardar mini-examen</button>
+                    </div>
+                  </div>
+
+                  <div id="admin-resources-topic-exam-cases" style="margin-top:10px;"></div>
+                  <div id="admin-resources-topic-exam-empty" class="panel-subtitle" style="margin-top:10px;">Aún no hay mini-examen para este tema.</div>
+                </div>
+
               <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:12px;">
                 <button id="admin-resources-btn-delete" class="btn btn-secondary btn-sm" type="button">
                   Eliminar
