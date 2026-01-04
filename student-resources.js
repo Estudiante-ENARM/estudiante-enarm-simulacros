@@ -11,12 +11,14 @@ import { getFirestore, collection, getDocs, query, orderBy } from "https://www.g
  * Firebase (proyecto de BIBLIOTECA)
  ****************************************************/
 const RESOURCES_FIREBASE_CONFIG = {
+const firebaseConfig = {
   apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
   authDomain: "pagina-buena.firebaseapp.com",
+  databaseURL: "https://pagina-buena-default-rtdb.firebaseio.com",
   projectId: "pagina-buena",
-  storageBucket: "pagina-buena.appspot.com",
-  messagingSenderId: "1031211281182",
-  appId: "1:1031211281182:web:c1e26006b68b189acc4efd",
+  storageBucket: "pagina-buena.firebasestorage.app",
+  messagingSenderId: "810208199031",
+  appId: "1:810208199031:web:707a76b931ee7d2f002172"
 };
 
 let resourcesDb = null;
