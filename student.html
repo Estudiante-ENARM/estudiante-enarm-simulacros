@@ -102,8 +102,13 @@
     Mini exámenes
   </button>
 
-  <!-- SECCIONES DINÁMICAS -->
-  <ul id="student-sidebar-sections" class="sidebar-sections"></ul>
+  <!-- ✅ NUEVO: BOTÓN EXÁMENES (agrupa secciones) -->
+  <button id="student-exams-btn" class="sidebar-btn">
+    Exámenes
+  </button>
+
+<!-- SECCIONES DINÁMICAS -->
+  <ul id="student-sidebar-sections" class="sidebar-sections hidden"></ul>
 
   <!-- BOTÓN PROGRESO -->
   <button id="student-progress-btn" class="sidebar-btn">
@@ -271,7 +276,24 @@
           <div style="margin-left:auto;text-align:right;">
             <span class="panel-subtitle">Resultados</span>
             <div id="student-resources-count" style="font-weight:600;font-size:14px;">—</div>
+          
+        <!-- ✅ NUEVO: PROGRESO DE TEMAS (Biblioteca) -->
+        <div id="student-resources-progress-card" class="card" style="margin-top:14px;">
+          <div class="flex-row" style="gap:12px;align-items:center;flex-wrap:wrap;">
+            <div style="min-width:220px;">
+              <div style="font-weight:600;font-size:14px;">Progreso</div>
+              <div id="student-resources-progress-text" class="panel-subtitle">—</div>
+            </div>
+
+            <div style="flex:1;min-width:240px;">
+              <div style="width:100%;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;">
+                <div id="student-resources-progress-bar" style="height:10px;width:0%;background:#111827;border-radius:999px;"></div>
+              </div>
+            </div>
           </div>
+        </div>
+
+</div>
         </div>
 
         <!-- Estados: loading / empty (los usa student-resources.js) -->
