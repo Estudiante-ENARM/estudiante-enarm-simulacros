@@ -1,415 +1,435 @@
 /****************************************************
- * student.js (CORREGIDO)
+ * estudiante.js (CORREGIDO)
  ****************************************************/
-import { auth, db } from "./firebase-config.js";
+importar { auth, db } desde "./firebase-config.js";
 
-import {
-  onAuthStateChanged,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+importar {
+  enAuthStateChanged,
+  desconectar,
+} de "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-import {
-  collection,
+importar {
+  recopilación,
   doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  setDoc,
-  serverTimestamp,
-  arrayUnion,
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  obtenerDoc,
+  obtenerDocs,
+  consulta,
+  dónde,
+  Ordenar por,
+  establecerDoc,
+  marca de tiempo del servidor,
+  matrizUnion,
+} de "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-import {
-  SPECIALTIES,
-  SUBTYPES,
-  DIFFICULTIES,
-  DIFFICULTY_WEIGHTS,
-  DEFAULT_EXAM_RULES,
-} from "./shared-constants.js";
+importar {
+  ESPECIALIDADES,
+  SUBTIPOS,
+  DIFICULTADES,
+  DIFICULTAD_PESOS,
+  REGLAS_DE_EXAMEN_PREDETERMINADAS,
+} de "./shared-constants.js";
 
 // ✅ Biblioteca de Resúmenes/GPC (2° proyecto Firebase)
-import {
+importar {
   initStudentResourcesUI,
-  activateStudentResources,
-  setStudentResourcesUserIdentity,
-} from "./student-resources.js";
+  activarRecursosEstudiantiles,
+  establecerIdentidadDeUsuarioDeRecursosDeEstudiante,
+} de "./student-resources.js";
 
 /****************************************************
- * LABELS
+ * ETIQUETAS
  ****************************************************/
-const SPECIALTY_LABELS = SPECIALTIES || {};
-const SUBTYPE_LABELS = SUBTYPES || {};
-const DIFFICULTY_LABELS = DIFFICULTIES || {};
+const ETIQUETAS_DE_ESPECIALIDAD = ESPECIALIDADES || {};
+constante SUBTIPO_ETIQUETAS = SUBTIPOS || {};
+const ETIQUETAS_DE_DIFICULTAD = DIFICULTADES || {};
 
 /****************************************************
- * DOM
+ *DOM
  ****************************************************/
-// Layout / navegación
-const sidebar = document.getElementById("sidebar");
-const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
+// Diseño / navegación
+constante barra lateral = document.getElementById("barra lateral");
+constante btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
-const btnMiniExamsSidebar = document.getElementById("student-mini-exams-btn");
-const sidebarSections = document.getElementById("student-sidebar-sections");
-const btnProgressView = document.getElementById("student-progress-btn");
+const btnMiniExamsSidebar = document.getElementById("estudiante-mini-examenes-btn");
+const sidebarSections = document.getElementById("secciones-de-la-barra-lateral-del-estudiante");
+const btnProgressView = document.getElementById("progreso-del-estudiante-btn");
 
 // ✅ botón Biblioteca
-const btnResourcesView = document.getElementById("student-resources-btn");
+const btnResourcesView = document.getElementById("recursos-para-estudiantes-btn");
 
-const socialButtons = document.querySelectorAll(".social-icon");
+const socialButtons = document.querySelectorAll(".icono-social");
 
-// Header
-const studentUserEmailSpan = document.getElementById("student-user-email");
-const btnLogout = document.getElementById("student-btn-logout");
+// Encabezado
+const studentUserEmailSpan = document.getElementById("correo electrónico del usuario del estudiante");
+const btnLogout = document.getElementById("estudiante-btn-logout");
 
 // Vistas principales
-const miniBuilderView = document.getElementById("student-mini-exams-view");
-const miniExamPlaceholderView = document.getElementById("student-mini-exam-view");
-const examsView = document.getElementById("student-exams-view");
-const examDetailView = document.getElementById("student-exam-detail-view");
-const progressView = document.getElementById("student-progress-view");
+const miniBuilderView = document.getElementById("vista-de-mini-examenes-de-estudiante");
+const miniExamPlaceholderView = document.getElementById("estudiante-mini-examen-vista");
+const examsView = document.getElementById("vista-examenes-estudiante");
+const examDetailView = document.getElementById("vista-detalle-del-examen-del-estudiante");
+const progressView = document.getElementById("vista-del-progreso-del-estudiante");
 
 // ✅ vista Biblioteca
-const resourcesView = document.getElementById("student-resources-view");
+const recursosView = document.getElementById("vista-de-recursos-del-estudiante");
 
 // Mini examen (constructor)
-const miniNumQuestionsSelect = document.getElementById("student-mini-num-questions");
-const miniSpecialtyCheckboxes = document.querySelectorAll(".student-mini-specialty");
-const miniRandomCheckbox = document.getElementById("student-mini-random");
-const miniRandomToggleBtn = document.querySelector(
+const miniNumQuestionsSelect = document.getElementById("estudiante-mini-num-preguntas");
+const miniSpecialtyCheckboxes = document.querySelectorAll(".mini-especialidad-del-estudiante");
+const miniRandomCheckbox = document.getElementById("estudiante-mini-random");
+constante miniRandomToggleBtn = documento.querySelector(
   '#student-mini-exams-view label.mini-random-toggle[for="student-mini-random"]'
 );
-const miniStartBtn = document.getElementById("student-mini-start-btn");
+const miniStartBtn = document.getElementById("estudiante-mini-start-btn");
 
 // Exámenes por sección
-const sectionTitle = document.getElementById("student-current-section-title");
-const sectionSubtitle = document.getElementById("student-current-section-subtitle");
-const examsList = document.getElementById("student-exams-list");
+const sectionTitle = document.getElementById("estudiante-título-sección-actual");
+const sectionSubtitle = document.getElementById("estudiante-sección-actual-subtítulo");
+const examsList = document.getElementById("lista-de-examenes-de-estudiantes");
 
 // Detalle de examen
-const btnBackToExams = document.getElementById("student-btn-back-to-exams");
-const examTitle = document.getElementById("student-exam-title");
-const examSubtitle = document.getElementById("student-exam-subtitle");
-const examTimerEl = document.getElementById("student-exam-timer");
-const examMetaText = document.getElementById("student-exam-meta-text");
-const questionsList = document.getElementById("student-questions-list");
-const btnSubmitExam = document.getElementById("student-btn-submit-exam");
+const btnBackToExams = document.getElementById("estudiante-btn-volver-a-los-examenes");
+const examTitle = document.getElementById("titulo-del-examen-del-estudiante");
+const examSubtitle = document.getElementById("subtitulo-examen-estudiante");
+const examTimerEl = document.getElementById("temporizador-de-examen-del-estudiante");
+const examMetaText = document.getElementById("meta-texto-del-examen-del-estudiante");
+const questionsList = document.getElementById("lista-de-preguntas-del-estudiante");
+const btnSubmitExam = document.getElementById("estudiante-btn-enviar-examen");
 
 // Resultados
-const resultBanner = document.getElementById("student-result-banner");
-const resultValues = document.getElementById("student-result-values");
+const resultBanner = document.getElementById("banner-de-resultados-del-estudiante");
+const resultValues ​​= document.getElementById("valores-de-resultados-del-estudiante");
 
 // Progreso
-const progressUsername = document.getElementById("student-progress-username");
-const progressSectionsContainer = document.getElementById("student-progress-sections");
-const progressGlobalEl = document.getElementById("student-progress-global");
-const progressChartCanvas = document.getElementById("student-progress-chart");
+const progressUsername = document.getElementById("nombre-de-usuario-de-progreso-del-estudiante");
+const progressSectionsContainer = document.getElementById("secciones-de-progreso-del-estudiante");
+const progressGlobalEl = document.getElementById("progreso-del-estudiante-global");
+const progressChartCanvas = document.getElementById("gráfico-de-progreso-del-estudiante");
 
-let progressChartInstance = null;
+deje que progressChartInstance = null;
 
 // Biblioteca (2° proyecto Firebase)
-let resourcesActivatedOnce = false;
+deje que recursosActivadosOnce = falso;
+
+// ✅ Mini-examen por tema (Biblioteca)
+ventana.addEventListener("estudiante:openTopicExam", (e) => {
+  intentar {
+    const detalle = e?.detalle || {};
+    si (!detalle.casos || !Array.isArray(detalle.casos)) devolver;
+    startTopicExamFromResources(detalle);
+  } atrapar (err) {
+    consola.error(err);
+  }
+});
 
 /****************************************************
  * ESTADO
  ****************************************************/
-let currentUser = null;
-let currentUserProfile = null;
+deje que currentUser = null;
+deje que currentUserProfile = null;
 
-let examRules = {
-  maxAttempts: DEFAULT_EXAM_RULES?.maxAttempts || 3,
-  timePerQuestionSeconds: DEFAULT_EXAM_RULES?.timePerQuestionSeconds || 90,
+deje que examRules = {
+  IntentosMáximos: ¿REGLAS_DE_EXAMEN_PREDETERMINADAS?.IntentosMáximos || 3,
+  tiempoPorPreguntaSegundos: ¿REGLAS_DE_EXAMEN_PREDETERMINADAS?.tiempoPorPreguntaSegundos || 90,
 };
 
-let currentView = "section";
-let currentSectionId = null;
-let currentSectionName = null;
+deje que currentView = "sección";
+deje que currentSectionId = nulo;
+deje que currentSectionName = null;
 
-let currentExamMode = null; // "section" | "mini"
-let currentExamId = null;
-let currentExamQuestions = [];
-let currentExamTotalSeconds = 0;
-let currentExamTimerId = null;
-let currentExamPreviousAttempts = 0;
+deje que currentExamMode = null; // "sección" | "mini"
+deje que currentExamId = nulo;
+deje que currentExamQuestions = [];
+deje que currentExamTotalSeconds = 0;
+deje que currentExamTimerId = nulo;
+deje que currentExamPreviousAttempts = 0;
 
 // Mini exámenes
-let miniCasesCache = [];
+deje miniCasesCache = [];
 
 // Tokens anti-superposición
-let examsLoadToken = 0;
-let progressLoadToken = 0;
+deje que examsLoadToken = 0;
+deje que progressLoadToken = 0;
 
 /****************************************************
  * UTILIDADES
  ****************************************************/
-function show(el) {
-  if (el) el.classList.remove("hidden");
+función show(el) {
+  si (el) el.classList.remove("oculto");
 }
-function hide(el) {
-  if (el) el.classList.add("hidden");
-}
-
-function formatMinutesFromSeconds(totalSeconds) {
-  const minutes = Math.ceil(totalSeconds / 60);
-  return `${minutes} min`;
+función ocultar(el) {
+  si (el) el.classList.add("oculto");
 }
 
-function formatTimer(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+
+función setSidebarSectionsVisible(visible) {
+  si (!sidebarSections) retorna;
+  si (visible) sidebarSections.classList.remove("oculto");
+  de lo contrario sidebarSections.classList.add("oculto");
+}
+sea ​​_examsMenuOpen = falso;
+
+
+función formatMinutesFromSeconds(totalSeconds) {
+  const minutos = Math.ceil(totalSeconds / 60);
+  devolver `${minutos} min`;
 }
 
-function toFixedNice(num, decimals = 2) {
-  if (!isFinite(num)) return "0";
-  return Number(num.toFixed(decimals)).toString();
+función formatTimer(segundos) {
+  const m = Math.floor(segundos / 60);
+  const s = segundos % 60;
+  devuelve `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-function renderEmptyMessage(container, text) {
-  if (!container) return;
-  container.innerHTML = `
+función toFixedNice(num, decimales = 2) {
+  si (!isFinite(num)) devuelve "0";
+  devuelve Número(num.toFixed(decimales)).toString();
+}
+
+función renderEmptyMessage(contenedor, texto) {
+  si (!contenedor) retorna;
+  contenedor.innerHTML = `
     <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
-      ${text}
+      ${texto}
     </div>
   `;
 }
 
-function svgIcon(type) {
-  if (type === "questions") {
-    return `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="4" y="4" width="16" height="16" rx="2"></rect>
-        <line x1="8" y1="9" x2="16" y2="9"></line>
-        <line x1="8" y1="13" x2="13" y2="13"></line>
+función svgIcon(tipo) {
+  si (tipo === "preguntas") {
+    regresar `
+      <svg ancho="28" alto="28" viewBox="0 0 24 24" relleno="ninguno" trazo="#3b82f6" ancho-trazo="1.7" límite-línea-trazo="redondo" unión-línea-trazo="redondo">
+        <rect x="4" y="4" ancho="16" alto="16" rx="2"></rect>
+        <línea x1="8" y1="9" x2="16" y2="9"></línea>
+        <línea x1="8" y1="13" x2="13" y2="13"></línea>
         <circle cx="9" cy="17" r="0.8"></circle>
       </svg>`;
   }
-  if (type === "time") {
-    return `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  si (tipo === "tiempo") {
+    regresar `
+      <svg ancho="28" alto="28" viewBox="0 0 24 24" relleno="ninguno" trazo="#0ea5e9" ancho-trazo="1.7" límite-línea-trazo="redondo" unión-línea-trazo="redondo">
         <circle cx="12" cy="13" r="7"></circle>
         <polyline points="12 10 12 13 15 15"></polyline>
-        <line x1="9" y1="4" x2="15" y2="4"></line>
+        <línea x1="9" y1="4" x2="15" y2="4"></línea>
       </svg>`;
   }
-  if (type === "attempts") {
-    return `
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v3"></path>
-        <path d="M5.2 5.2l2.1 2.1"></path>
-        <path d="M18.8 5.2l-2.1 2.1"></path>
+  si (tipo === "intentos") {
+    regresar `
+      <svg ancho="28" alto="28" viewBox="0 0 24 24" relleno="ninguno" trazo="#22c55e" ancho-trazo="1.7" límite-línea-trazo="redondo" unión-línea-trazo="redondo">
+        <ruta d="M12 2v3"></ruta>
+        <ruta d="M5.2 5.2l2.1 2.1"></ruta>
+        <ruta d="M18.8 5.2l-2.1 2.1"></ruta>
         <circle cx="12" cy="14" r="6"></circle>
-        <path d="M10 14l2 2 3-3"></path>
+        <ruta d="M10 14l2 2 3-3"></ruta>
       </svg>`;
   }
-  return "";
+  devolver "";
 }
 
 /****************************************************
- * PERSISTENCIA (REFRESH + ATRÁS)
+ *PERSISTENCIA (REFRESH + ATRÁS)
  ****************************************************/
-let isRestoringState = false;
+sea ​​isRestoringState = falso;
 
-// Examen en curso (para refresh)
-let currentExamEndAtMs = null; // timestamp ms
-let currentExamAnswers = {}; // { [qIndex:number]: "A"|"B"|"C"|"D" }
+// Examinar en curso (para actualizar)
+deje que currentExamEndAtMs = null; // marca de tiempo ms
+deje que currentExamAnswers = {}; // { [qIndex:número]: "A"|"B"|"C"|"D" }
 
-function normalizeText(s) {
-  return String(s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+función normalizarTexto(s) {
+  devuelve cadena(s || "")
+    .normalizar("NFD")
+    .reemplazar(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .reemplazar(/[_-]+/g, " ")
+    .reemplazar(/\s+/g, " ")
+    .recortar();
 }
 
-function getStudentStorageKey(suffix) {
-  const email = currentUser?.email || "anon";
-  return `enarm_student_${suffix}_${encodeURIComponent(email)}`;
+función getStudentStorageKey(sufijo) {
+  const email = usuarioActual?.email || "anónimo";
+  devuelve `enarm_student_${suffix}_${encodeURIComponent(email)}`;
 }
 
-function safeJsonParse(str, fallback = null) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return fallback;
+función safeJsonParse(str, fallback = null) {
+  intentar {
+    devuelve JSON.parse(str);
+  } atrapar {
+    retorno de reserva;
   }
 }
 
-function readStudentState() {
-  if (!currentUser) return null;
-  const raw = localStorage.getItem(getStudentStorageKey("state"));
-  return safeJsonParse(raw, null);
+función leerEstadoEstudiante() {
+  si (!currentUser) devuelve nulo;
+  const raw = localStorage.getItem(getStudentStorageKey("estado"));
+  devuelve safeJsonParse(raw, null);
 }
 
-function writeStudentState(next) {
-  if (!currentUser) return;
-  localStorage.setItem(getStudentStorageKey("state"), JSON.stringify(next));
+función escribirEstadoEstudiante(siguiente) {
+  si (!currentUser) retorna;
+  localStorage.setItem(getStudentStorageKey("estado"), JSON.stringify(siguiente));
 }
 
-function patchStudentState(patch) {
-  const prev = readStudentState() || {};
-  const next = { ...prev, ...patch };
-  writeStudentState(next);
-  return next;
+función patchStudentState(parche) {
+  const prev = leerEstadoEstudiante() || {};
+  constante siguiente = { ...prev, ...patch };
+  escribirEstadoEstudiante(siguiente);
+  volver a continuación;
 }
 
-function clearStudentExamState() {
-  if (!currentUser) return;
-  const prev = readStudentState() || {};
-  const next = { ...prev };
-  delete next.exam;
+función clearStudentExamState() {
+  si (!currentUser) retorna;
+  const prev = leerEstadoEstudiante() || {};
+  constante siguiente = { ...prev };
+  eliminar next.exam;
   // Nota: NO borramos view/section para que el usuario vuelva donde estaba.
-  writeStudentState(next);
-  clearExamAnswersStorage();
+  escribirEstadoEstudiante(siguiente);
+  borrarAlmacenamientoDeRespuestasDeExamen();
 }
 
-function pushHistoryState(nav, { replace = false } = {}) {
-  if (isRestoringState) return;
-  const payload = { studentNav: nav };
-  try {
-    if (replace) history.replaceState(payload, "");
-    else history.pushState(payload, "");
-  } catch (err) {
-    console.warn("No se pudo escribir history state:", err);
+función pushHistoryState(nav, { reemplazar = falso } = {}) {
+  si (isRestoringState) retorna;
+  constante carga útil = { studentNav: nav };
+  intentar {
+    si (reemplazar) history.replaceState(payload, "");
+    de lo contrario history.pushState(carga útil, "");
+  } atrapar (err) {
+    console.warn("No se pudo escribir story state:", err);
   }
 }
 
-function persistViewState(view) {
-  patchStudentState({
-    view,
-    sectionId: currentSectionId || null,
-    sectionName: currentSectionName || null,
+función persistViewState(vista) {
+  parcheEstadoEstudiante({
+    vista,
+    sectionId: currentSectionId || nulo,
+    nombreDeSección: nombreDeSecciónActual || null,
   });
-  pushHistoryState({ view, sectionId: currentSectionId || null, exam: null });
+  pushHistoryState({ vista, sectionId: currentSectionId || null, examen: null });
 }
 
-function buildCurrentExamState() {
-  return {
-    mode: currentExamMode || null,
-    examId: currentExamId || null,
-    examName: examTitle?.textContent || "",
-    totalSeconds: currentExamTotalSeconds || 0,
-    endAtMs: currentExamEndAtMs || null,
-    sectionId: currentSectionId || null,
-    sectionName: currentSectionName || null,
-    questions: Array.isArray(currentExamQuestions) ? currentExamQuestions : [],
-    answers: currentExamAnswers || {},
-    savedAtMs: Date.now(),
+función construirCurrentExamState() {
+  devolver {
+    modo: currentExamMode || nulo,
+    examId: currentExamId || nulo,
+    Nombre del examen: Título del examen?.Contenido del texto || "",
+    totalSeconds: totalSecondsdelexamenactual || 0,
+    endAtMs: currentExamEndAtMs || nulo,
+    sectionId: currentSectionId || nulo,
+    nombreDeSección: nombreDeSecciónActual || null,
+    Preguntas: Array.isArray(currentExamQuestions) ? currentExamQuestions : [],
+    respuestas: currentExamAnswers || {},
+    guardadoEnMs: Fecha.ahora(),
   };
 }
 
 /** ✅ CORREGIDO: se cerraba mal y “encerraba” helpers */
-function persistCurrentExamState({ replaceHistory = false } = {}) {
-  const exam = buildCurrentExamState();
-  patchStudentState({
-    view: "exam",
-    sectionId: exam.sectionId,
-    sectionName: exam.sectionName,
-    exam,
+función persistCurrentExamState({ replaceHistory = false } = {}) {
+  examen constante = buildCurrentExamState();
+  parcheEstadoEstudiante({
+    vista: "examen",
+    sectionId: examen.sectionId,
+    sectionName: examen.sectionName,
+    examen,
   });
   pushHistoryState(
-    { view: "exam", sectionId: exam.sectionId || null, exam },
-    { replace: replaceHistory }
+    { vista: "examen", sectionId: exam.sectionId || null, examen },
+    { reemplazar: reemplazarHistorial }
   );
 }
 
 /****************************************************
  * STORAGE RESPUESTAS (CORREGIDO: fuera de persistCurrentExamState)
  ****************************************************/
-function getExamAnswersStorageKey() {
-  return getStudentStorageKey("exam_answers");
+función obtenerClaveDeAlmacenamientoDeRespuestasDeExamen() {
+  devolver getStudentStorageKey("respuestas_del_examen");
 }
 
-function readExamAnswersFromStorage() {
-  if (!currentUser) return {};
-  const raw = localStorage.getItem(getExamAnswersStorageKey());
-  return safeJsonParse(raw, {}) || {};
+función leerRespuestasDeExamenDesdeAlmacenamiento() {
+  si (!currentUser) devuelve {};
+  constante raw = localStorage.getItem(getExamAnswersStorageKey());
+  devolver safeJsonParse(raw, {}) || {};
 }
 
-function writeExamAnswersToStorage(answers) {
-  if (!currentUser) return;
-  localStorage.setItem(getExamAnswersStorageKey(), JSON.stringify(answers || {}));
+función escribirRespuestasDeExamenAlAlmacenamiento(respuestas) {
+  si (!currentUser) retorna;
+  localStorage.setItem(getExamAnswersStorageKey(), JSON.stringify(respuestas || {}));
 }
 
-function clearExamAnswersStorage() {
-  if (!currentUser) return;
-  localStorage.removeItem(getExamAnswersStorageKey());
+función clearExamAnswersStorage() {
+  si (!currentUser) retorna;
+  localStorage.removeItem(obtenerClaveDeAlmacenamientoDeRespuestasDeExamen());
 }
 
-function restoreAnswersToDOM() {
-  if (!questionsList) return;
-  const answers = currentExamAnswers || {};
-  Object.keys(answers).forEach((k) => {
-    const idx = Number(k);
-    const val = answers[k];
-    if (!Number.isFinite(idx) || !val) return;
-    const input = document.querySelector(`input[name="q_${idx}"][value="${val}"]`);
-    if (input) input.checked = true;
+función restaurarRespuestasAlDOM() {
+  si (!preguntasList) retorna;
+  const respuestas = currentExamAnswers || {};
+  Objeto.keys(respuestas).forEach((k) => {
+    const idx = Número(k);
+    const val = respuestas[k];
+    si (!Number.isFinite(idx) || !val) retorna;
+    const input = document.querySelector(`input[nombre="q_${idx}"][valor="${val}"]`);
+    si (entrada) entrada.checked = verdadero;
   });
 }
 
-function renderExamQuestionsFromCurrentState() {
-  if (!questionsList) return;
+función renderExamQuestionsFromCurrentState() {
+  si (!preguntasList) retorna;
 
-  questionsList.innerHTML = "";
+  preguntasList.innerHTML = "";
 
-  if (!Array.isArray(currentExamQuestions) || currentExamQuestions.length === 0) {
+  si (!Array.isArray(preguntasdelexamenactual) ||preguntasdelexamenactual.length === 0) {
     renderEmptyMessage(questionsList, "No se han cargado preguntas.");
-    return;
+    devolver;
   }
 
-  let globalIndex = 0;
-  let caseIndex = 0;
+  sea ​​globalIndex = 0;
+  deje que caseIndex = 0;
 
-  let activeCaseText = null;
-  let activeCaseSpecialty = null;
-  let caseBlock = null;
-  let questionsWrapper = null;
-  let localIndex = 0;
+  deje que activeCaseText = null;
+  deje que activeCaseSpecialty = null;
+  deje que caseBlock = null;
+  deje que questionsWrapper = null;
+  deje que localIndex = 0;
 
-  currentExamQuestions.forEach((q) => {
+  PreguntasDeExamenActuales.paraCada((q) => {
     const caseText = q.caseText || "";
-    const specialtyKey = q.specialty || null;
+    const specialityKey = q.specialty || nulo;
 
-    if (caseText !== activeCaseText) {
+    si (caseText! == activeCaseText) {
       // cierra caso anterior
-      if (caseBlock && questionsWrapper) {
-        caseBlock.appendChild(questionsWrapper);
-        questionsList.appendChild(caseBlock);
+      si (caseBlock && questionsWrapper) {
+        caseBlock.appendChild(preguntasWrapper);
+        preguntasList.appendChild(caseBlock);
       }
 
       // abre nuevo caso
-      caseIndex += 1;
-      activeCaseText = caseText;
-      activeCaseSpecialty = specialtyKey;
-      localIndex = 0;
+      índice de caso += 1;
+      activeCaseText = textoCaso;
+      activeCaseSpecialty = claveEspecialidad;
+      índice local = 0;
 
-      caseBlock = document.createElement("div");
-      caseBlock.className = "case-block";
+      caseBlock = documento.createElement("div");
+      caseBlock.className = "bloque-de-caso";
 
       caseBlock.innerHTML = `
         <h4>Caso clínico ${caseIndex}</h4>
         <div class="case-text">${caseText}</div>
       `;
 
-      questionsWrapper = document.createElement("div");
+      preguntasWrapper = document.createElement("div");
     }
 
-    const idx = globalIndex;
+    constante idx = índice global;
 
-    const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
+    const difficultLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
     const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
-    const specialtyLabel =
-      SPECIALTY_LABELS[activeCaseSpecialty] ||
-      activeCaseSpecialty ||
+    constante specialityLabel =
+      ETIQUETAS_ESPECIALES[especialidad_de_caso_activo] ||
+      Especialidad de caso activo ||
       "No definida";
 
-    const qBlock = document.createElement("div");
-    qBlock.className = "question-block";
-    qBlock.dataset.qIndex = idx;
+    constante qBlock = documento.createElement("div");
+    qBlock.className = "bloque-de-preguntas";
+    qBlock.conjunto de datos.qIndex = idx;
 
     qBlock.innerHTML = `
       <h5>Pregunta ${localIndex + 1}</h5>
@@ -421,68 +441,68 @@ function renderExamQuestionsFromCurrentState() {
         Dificultad: <strong>${difficultyLabel}</strong>
       </div>
 
-      <div class="question-options">
-        <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA || ""}</label>
-        <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB || ""}</label>
-        <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC || ""}</label>
-        <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD || ""}</label>
+      <div class="opciones-de-pregunta">
+        <label><tipo de entrada="radio" nombre="q_${idx}" valor="A"> A) ${q.optionA || ""}</label>
+        <label><tipo de entrada="radio" nombre="q_${idx}" valor="B"> B) ${q.optionB || ""}</label>
+        <label><tipo de entrada="radio" nombre="q_${idx}" valor="C"> C) ${q.optionC || ""}</label>
+        <label><tipo de entrada="radio" nombre="q_${idx}" valor="D"> D) ${q.optionD || ""}</label>
       </div>
 
-      <div class="justification-box">
+      <div class="cuadro de justificación">
         <strong>Justificación:</strong><br>
-        ${q.justification || ""}
+        ${q.justificación || ""}
       </div>
     `;
 
-    questionsWrapper.appendChild(qBlock);
-    globalIndex += 1;
-    localIndex += 1;
+    preguntasWrapper.appendChild(qBlock);
+    índice global += 1;
+    índice local += 1;
   });
 
   // último caso
-  if (caseBlock && questionsWrapper) {
-    caseBlock.appendChild(questionsWrapper);
-    questionsList.appendChild(caseBlock);
+  si (caseBlock && questionsWrapper) {
+    caseBlock.appendChild(preguntasWrapper);
+    preguntasList.appendChild(caseBlock);
   }
 }
 
-async function restoreExamFromState(examState, { replaceHistory = false } = {}) {
-  if (!examState || !Array.isArray(examState.questions) || examState.questions.length === 0) {
-    return false;
+función asíncrona restoreExamFromState(examState, { replaceHistory = false } = {}) {
+  si (!estadoExamen || !Array.isArray(estadoExamen.preguntas) || estadoExamen.preguntas.longitud === 0) {
+    devuelve falso;
   }
 
-  // restaura estado base
-  currentExamMode = examState.mode || null;
-  currentExamId = examState.examId || null;
-  currentExamTotalSeconds = Number(examState.totalSeconds) || 0;
-  currentExamEndAtMs = Number(examState.endAtMs) || null;
-  currentExamQuestions = examState.questions || [];
-  // Respuestas: siempre priorizamos el storage separado
-  currentExamAnswers = readExamAnswersFromStorage();
-  currentExamPreviousAttempts = 0;
+  // restaurante estado base
+  modoExamenActual = EstadoExamen.modo || nulo;
+  currentExamId = examState.examId || nulo;
+  SegundosTotalesdelExamenActual = Número(EstadoDelExamen.SegundosTotales) || 0;
+  currentExamEndAtMs = Número(examState.endAtMs) || nulo;
+  PreguntasDeExamenActuales = EstadoDeExamen.preguntas || [];
+  // Respuestas: siempre priorizamos el almacenamiento separado
+  respuestasDeExamenActuales = leerRespuestasDeExamenDesdeAlmacenamiento();
+  IntentosAnterioresdelExamenActual = 0;
 
-  if (examState.sectionId) currentSectionId = examState.sectionId;
-  if (examState.sectionName) currentSectionName = examState.sectionName;
+  si (examState.sectionId) currentSectionId = examState.sectionId;
+  si (estadoExamen.nombreSección) nombreSecciónActual = estadoExamen.nombreSección;
 
-  // UI
-  hide(examsView);
-  hide(progressView);
-  hide(resourcesView);
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  show(examDetailView);
+  // Interfaz de usuario
+  ocultar(examenesView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  mostrar(examDetailView);
 
-  if (resultBanner) resultBanner.style.display = "none";
-  if (resultValues) resultValues.innerHTML = "";
+  si (resultBanner) resultBanner.style.display = "ninguno";
+  si (valoresResultados) valoresResultados.innerHTML = "";
 
-  examTitle.textContent = examState.examName || (currentExamMode === "mini" ? "Mini examen personalizado" : "Examen");
-  examSubtitle.textContent =
-    currentExamMode === "mini"
+  títuloexamen.textContent = estadoexamen.nombreexamen || (currentExamMode === "mini" ? "Mini examen personalizado" : "Examen");
+  examenSubtítulo.textoContenido =
+    modoExamenActual === "mini"
       ? "Mini examen restaurado. Puedes continuar donde lo dejaste."
       : "Examen restaurado. Puedes continuar donde lo dejaste.";
 
-  const totalQuestions = currentExamQuestions.length || 0;
-  const totalSeconds = currentExamTotalSeconds || 0;
+  constante totalPreguntas = PreguntasDeExamenActuales.length || 0;
+  constante totalSegundos = totalSegundosExamenActual || 0;
 
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
@@ -490,554 +510,575 @@ async function restoreExamFromState(examState, { replaceHistory = false } = {}) 
     🔁 Intentos: <strong>${currentExamMode === "mini" ? "Sin límite" : "En curso"}</strong>
   `;
 
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = false;
-    btnSubmitExam.style.display = "inline-flex";
+  si (btnSubmitExam) {
+    btnSubmitExam.disabled = falso;
+    btnSubmitExam.style.display = "flexible en línea";
   }
 
-  renderExamQuestionsFromCurrentState();
-  restoreAnswersToDOM();
+  renderizarPreguntasDeExamenDesdeElEstadoActual();
+  restaurarRespuestasADOM();
 
   // Cronómetro por endAtMs
   startExamTimer(totalSeconds, currentExamEndAtMs);
 
   // si ya venció, auto-envía
-  if (currentExamEndAtMs && Date.now() >= currentExamEndAtMs) {
-    try {
-      if (currentExamTimerId) {
+  si (finaldelexamenactualenMs && Fecha.ahora() >= finaldelexamenactualenMs) {
+    intentar {
+      si (currentExamTimerId) {
         clearInterval(currentExamTimerId);
-        currentExamTimerId = null;
+        currentExamTimerId = nulo;
       }
       if (examTimerEl) examTimerEl.textContent = "00:00";
       alert("El tiempo se agotó mientras estabas fuera, tu examen se enviará automáticamente.");
-      persistCurrentExamState({ replaceHistory: true });
-      await submitExamForStudent(true);
-    } catch (err) {
+      persistCurrentExamState({reemplazarHistorial: verdadero});
+      esperar enviarExamenParaEstudiante(verdadero);
+    } atrapar (err) {
       console.error("Error auto-enviando examen restaurado:", err);
     }
   }
 
-  // persiste (para refresh consecutivo)
-  persistCurrentExamState({ replaceHistory });
+  // persiste (para actualizar consecutivamente)
+  persistCurrentExamState({ reemplazarHistorial });
 
-  return true;
+  devuelve verdadero;
 }
 
-async function restoreStudentStateAfterInit() {
-  if (!currentUser) return false;
+función asíncrona restoreStudentStateAfterInit() {
+  si (!currentUser) devuelve falso;
 
-  const state = readStudentState();
-  if (!state) return false;
+  constante estado = leerEstadoEstudiante();
+  si (!estado) devuelve falso;
 
-  isRestoringState = true;
-  try {
-    if (state.exam) {
-      const ok = await restoreExamFromState(state.exam, { replaceHistory: true });
-      if (ok) return true;
+  isRestoringState = verdadero;
+  intentar {
+    si (estado.examen) {
+      const ok = await restoreExamFromState(estado.examen, { replaceHistory: true });
+      si (ok) devuelve verdadero;
     }
 
-    const view = state.view || "section";
-    if (view === "resources") {
-      await switchToResourcesView({ restore: true });
-      pushHistoryState({ view: "resources", sectionId: state.sectionId || null, exam: null }, { replace: true });
-      return true;
+    const vista = estado.vista || "sección";
+    si (vista === "recursos") {
+      esperar switchToResourcesView({ restaurar: verdadero });
+      pushHistoryState({ vista: "recursos", sectionId: estado.sectionId || null, examen: null }, { reemplazar: true });
+      devuelve verdadero;
     }
-    if (view === "progress") {
-      await switchToProgressView({ restore: true });
-      pushHistoryState({ view: "progress", sectionId: state.sectionId || null, exam: null }, { replace: true });
-      return true;
+    si (vista === "progreso") {
+      esperar switchToProgressView({ restaurar: verdadero });
+      pushHistoryState({ vista: "progreso", sectionId: estado.sectionId || null, examen: null }, { reemplazar: true });
+      devuelve verdadero;
     }
-    if (view === "mini") {
-      switchToMiniView({ restore: true });
-      pushHistoryState({ view: "mini", sectionId: state.sectionId || null, exam: null }, { replace: true });
-      return true;
+    si (vista === "mini") {
+      switchToMiniView({ restaurar: verdadero });
+      pushHistoryState({ vista: "mini", sectionId: estado.sectionId || null, examen: null }, { reemplazar: true });
+      devuelve verdadero;
     }
 
-    switchToSectionView({ restore: true });
-    pushHistoryState({ view: "section", sectionId: state.sectionId || null, exam: null }, { replace: true });
-    return true;
-  } catch (err) {
-    console.error("Error restaurando estado del estudiante:", err);
-    return false;
-  } finally {
-    isRestoringState = false;
+    switchToSectionView({ restaurar: verdadero });
+    pushHistoryState({ vista: "sección", sectionId: estado.sectionId || null, examen: null }, { reemplazar: true });
+    devuelve verdadero;
+  } atrapar (err) {
+    console.error("Error restaurante estado del estudiante:", err);
+    devuelve falso;
+  } finalmente {
+    isRestoringState = falso;
   }
 }
 
 // Soporte al gesto/botón "Atrás" en móviles
-window.addEventListener("popstate", async (e) => {
-  if (!currentUser) return;
+ventana.addEventListener("popstate", async (e) => {
+  si (!currentUser) retorna;
   const nav = e.state?.studentNav;
-  if (!nav) return;
+  si (!nav) retorna;
 
-  isRestoringState = true;
-  try {
-    if (nav.exam) {
-      await restoreExamFromState(nav.exam, { replaceHistory: true });
-      return;
+  isRestoringState = verdadero;
+  intentar {
+    si (nav.examen) {
+      esperar restaurarExamFromState(nav.exam, { reemplazarHistorial: verdadero });
+      devolver;
     }
 
-    if (nav.view === "resources") {
-      await switchToResourcesView({ restore: true });
-      return;
+    si (nav.view === "recursos") {
+      esperar switchToResourcesView({ restaurar: verdadero });
+      devolver;
     }
-    if (nav.view === "progress") {
-      await switchToProgressView({ restore: true });
-      return;
+    si (nav.view === "progreso") {
+      esperar switchToProgressView({ restaurar: verdadero });
+      devolver;
     }
-    if (nav.view === "mini") {
-      switchToMiniView({ restore: true });
-      return;
+    si (nav.view === "mini") {
+      switchToMiniView({ restaurar: verdadero });
+      devolver;
     }
-    switchToSectionView({ restore: true });
-  } catch (err) {
-    console.error("Error aplicando popstate estudiante:", err);
-  } finally {
-    isRestoringState = false;
+    switchToSectionView({ restaurar: verdadero });
+  } atrapar (err) {
+    console.error("Error al aplicar popstate estudiante:", err);
+  } finalmente {
+    isRestoringState = falso;
   }
 });
 
 /****************************************************
- * AUTH ESTUDIANTE
+ * ESTUDIANTE AUTORIZADO
  ****************************************************/
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = "index.html";
-    return;
+onAuthStateChanged(auth, async (usuario) => {
+  si (!usuario) {
+    ventana.ubicación.href = "index.html";
+    devolver;
   }
 
-  try {
-    const userRef = doc(db, "users", user.email);
-    const snap = await getDoc(userRef);
+  intentar {
+    const userRef = doc(db, "usuarios", usuario.email);
+    constante snap = await getDoc(userRef);
 
-    if (!snap.exists()) {
+    si (!snap.existe()) {
       alert("Tu usuario no está configurado en Firestore. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
+      esperar signOut(auth);
+      ventana.ubicación.href = "index.html";
+      devolver;
     }
 
-    const data = snap.data();
+    constante datos = snap.data();
 
-    if (data.role !== "usuario") {
+    if (datos.rol !== "usuario") {
       alert("Este panel es solo para estudiantes.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
+      esperar signOut(auth);
+      ventana.ubicación.href = "index.html";
+      devolver;
     }
 
-    if (data.status && data.status !== "activo") {
+    si (datos.estado && datos.estado !== "activo") {
       alert("Tu usuario está inactivo. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
+      esperar signOut(auth);
+      ventana.ubicación.href = "index.html";
+      devolver;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    if (data.expiryDate && data.expiryDate < today) {
+    const hoy = nueva Fecha().toISOString().slice(0, 10);
+    si (datos.fechadevencimiento && datos.fechadevencimiento < hoy) {
       alert("Tu acceso ha vencido. Contacta al administrador.");
-      await signOut(auth);
-      window.location.href = "index.html";
-      return;
+      esperar signOut(auth);
+      ventana.ubicación.href = "index.html";
+      devolver;
     }
 
-    currentUser = user;
-    currentUserProfile = data;
+    usuarioActual = usuario;
+    currentUserProfile = datos;
 
     // Biblioteca: identidad por usuario para progreso local
-    try {
-      setStudentResourcesUserIdentity(user.email);
-    } catch (e) {
-      console.warn("No se pudo setear identidad de biblioteca:", e);
+    intentar {
+      setStudentResourcesUserIdentity(usuario.correo electrónico);
+    } captura (e) {
+      console.warn("No se pudo establecer identidad de biblioteca:", e);
     }
 
-    if (studentUserEmailSpan) {
-      studentUserEmailSpan.textContent = user.email;
+    si (estudianteUsuarioEmailSpan) {
+      StudentUserEmailSpan.textContent = usuario.correo electrónico;
     }
 
-    await loadExamRules();
-    await loadSocialLinksForStudent();
-    await loadSectionsForStudent();
+    esperar loadExamRules();
+    esperar cargaSocialLinksForStudent();
+    espere cargarSeccionesParaEstudiante();
 
     // ✅ prepara UI de Biblioteca (sin cargar datos aún)
     initStudentResourcesUI();
 
     // ✅ Restaurar última vista
-    const restored = await restoreStudentStateAfterInit();
-    if (!restored) {
-      switchToSectionView();
+    constante restaurada = esperar restaurarStudentStateAfterInit();
+    si (!restaurado) {
+      cambiarAVistaDeSección();
     }
-  } catch (err) {
+  } atrapar (err) {
     console.error("Error validando usuario estudiante", err);
     alert("Error validando tu acceso. Intenta más tarde.");
-    await signOut(auth);
-    window.location.href = "index.html";
+    esperar signOut(auth);
+    ventana.ubicación.href = "index.html";
   }
 });
 
 /****************************************************
- * LISTENERS GENERALES
+ * OYENTES GENERALES
  ****************************************************/
-if (btnToggleSidebar) {
-  btnToggleSidebar.addEventListener("click", () => {
-    if (sidebar) sidebar.classList.toggle("sidebar--open");
+si (btnToggleSidebar) {
+  btnToggleSidebar.addEventListener("clic", () => {
+    si (barra lateral) barra lateral.classList.toggle("barra lateral--abrir");
   });
 }
 
-if (btnLogout) {
-  btnLogout.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.href = "index.html";
-    } catch (err) {
-      console.error(err);
-      alert("No se pudo cerrar sesión. Intenta de nuevo.");
+si (btnCerrar sesión) {
+  btnLogout.addEventListener("clic", async () => {
+    intentar {
+      esperar signOut(auth);
+      ventana.ubicación.href = "index.html";
+    } atrapar (err) {
+      consola.error(err);
+      alert("No se pudo cerrar sesión. Intento de nuevo.");
     }
   });
 }
 
-if (btnMiniExamsSidebar) {
-  btnMiniExamsSidebar.addEventListener("click", () => {
-    switchToMiniView();
+si (btnMiniExamsSidebar) {
+  btnMiniExamsSidebar.addEventListener("clic", () => {
+    cambiarAMiniView();
   });
 }
+
+si (btnExamsSidebar) {
+  btnExamsSidebar.addEventListener("clic", () => {
+    _examsMenuOpen = !_examsMenuOpen;
+    setSidebarSectionsVisible(_examsMenuOpen);
+    cambiarAVistaDeSección();
+  });
+}
+
 
 // Biblioteca
-if (btnResourcesView) {
-  btnResourcesView.addEventListener("click", () => {
-    switchToResourcesView();
+si (btnResourcesView) {
+  btnResourcesView.addEventListener("clic", () => {
+    cambiarAVistaDeRecursos();
   });
 }
 
-if (btnProgressView) {
-  btnProgressView.addEventListener("click", () => {
-    switchToProgressView();
+si (btnProgressView) {
+  btnProgressView.addEventListener("clic", () => {
+    cambiarAProgressView();
   });
 }
 
-if (miniStartBtn) {
-  miniStartBtn.addEventListener("click", () => {
-    startMiniExamFromBuilder();
+si (miniStartBtn) {
+  miniStartBtn.addEventListener("clic", () => {
+    iniciarMiniExamFromBuilder();
   });
 }
 
-if (btnBackToExams) {
-  btnBackToExams.addEventListener("click", () => {
-    handleBackFromExam();
+si (btnVolverAExámenes) {
+  btnBackToExams.addEventListener("clic", () => {
+    manejarRegresarDesdeExamen();
   });
 }
 
-if (btnSubmitExam) {
-  btnSubmitExam.addEventListener("click", () => submitExamForStudent(false));
+si (btnSubmitExam) {
+  btnSubmitExam.addEventListener("clic", () => submitExamForStudent(falso));
 }
 
 // ✅ Persistir respuestas seleccionadas
-if (questionsList && !questionsList.dataset.answersBound) {
-  questionsList.dataset.answersBound = "1";
-  questionsList.addEventListener("change", (e) => {
-    const target = e.target;
-    if (!target || !target.matches || !target.matches('input[type="radio"]')) return;
+si (preguntasList && !preguntasList.conjuntodedatos.respuestasBound) {
+  preguntasList.dataset.answersBound = "1";
+  preguntasList.addEventListener("cambio", (e) => {
+    constante objetivo = e.objetivo;
+    si (!objetivo || !objetivo.coincidencias || !objetivo.coincidencias('input[type="radio"]')) devolver;
 
-    const name = target.getAttribute("name") || "";
-    if (!name.startsWith("q_")) return;
+    const nombre = objetivo.getAttribute("nombre") || "";
+    si (!nombre.startsWith("q_")) retorna;
 
-    const idx = Number(name.slice(2));
-    if (!Number.isFinite(idx)) return;
+    const idx = Número(nombre.slice(2));
+    si (!Number.isFinite(idx)) retorna;
 
-    currentExamAnswers = currentExamAnswers || {};
-    currentExamAnswers[idx] = target.value;
+    respuestasdelexamenactuales = respuestasdelexamenactuales || {};
+    currentExamAnswers[idx] = objetivo.valor;
 
-    // ✅ CORREGIDO: guardar también en storage
-    writeExamAnswersToStorage(currentExamAnswers);
+    // ✅ CORREGIDO: guardar también en almacenamiento
+    escribirRespuestasDeExamenAlAlmacenamiento(RespuestasDeExamenActuales);
 
-    if (currentExamMode && currentExamQuestions && currentExamQuestions.length) {
-      persistCurrentExamState({ replaceHistory: true });
+    si (modoDeExamenActual && PreguntasDeExamenActuales && PreguntasDeExamenActuales.longitud) {
+      persistCurrentExamState({reemplazarHistorial: verdadero});
     }
   });
 }
 
 /* chips especialidades mini examen (robusto) */
-const miniSpecialtiesGrid = document.querySelector(
-  "#student-mini-exams-view .mini-specialties-grid"
+constante miniSpecialtiesGrid = documento.querySelector(
+  "#vista-de-mini-exámenes-para-estudiantes .cuadrícula-de-mini-especialidades"
 );
 
-function syncMiniSpecialtyChip(chipEl, cbEl) {
-  if (!chipEl || !cbEl) return;
-  chipEl.classList.toggle("mini-specialty-chip--active", !!cbEl.checked);
+función syncMiniSpecialtyChip(chipEl, cbEl) {
+  si (!chipEl || !cbEl) retorna;
+  chipEl.classList.toggle("mini-chip-especial--activo", !!cbEl.checked);
   chipEl.setAttribute("aria-pressed", cbEl.checked ? "true" : "false");
 }
 
-function initMiniSpecialtyChips() {
-  if (!miniSpecialtiesGrid) return;
+función initMiniSpecialtyChips() {
+  si (!miniSpecialtiesGrid) retorna;
 
   miniSpecialtiesGrid.querySelectorAll(".mini-specialty-chip").forEach((chip) => {
-    const cb = chip.querySelector("input.student-mini-specialty");
-    if (!cb) return;
-    if (!chip.hasAttribute("tabindex")) chip.setAttribute("tabindex", "0");
-    chip.setAttribute("role", "button");
+    const cb = chip.querySelector("input.estudiante-mini-especialidad");
+    si (!cb) retorna;
+    si (!chip.hasAttribute("tabindex")) chip.setAttribute("tabindex", "0");
+    chip.setAttribute("rol", "botón");
     syncMiniSpecialtyChip(chip, cb);
   });
 
-  if (miniSpecialtiesGrid.dataset.bound === "1") return;
+  si (miniSpecialtiesGrid.dataset.bound === "1") devolver;
   miniSpecialtiesGrid.dataset.bound = "1";
 
-  miniSpecialtiesGrid.addEventListener("click", (e) => {
-    const chip = e.target.closest(".mini-specialty-chip");
-    if (!chip || !miniSpecialtiesGrid.contains(chip)) return;
+  miniSpecialtiesGrid.addEventListener("clic", (e) => {
+    const chip = e.target.closest(".mini-chip-especializado");
+    si (!chip || !miniSpecialtiesGrid.contains(chip)) devolver;
 
-    if (e.target && e.target.matches && e.target.matches("input.student-mini-specialty")) {
-      const cb = e.target;
+    si (e.objetivo && e.objetivo.coincidencias && e.objetivo.coincidencias("input.mini-especialidad-del-estudiante")) {
+      constante cb = e.objetivo;
       syncMiniSpecialtyChip(chip, cb);
-      return;
+      devolver;
     }
 
     e.preventDefault();
-    const cb = chip.querySelector("input.student-mini-specialty");
-    if (!cb) return;
+    const cb = chip.querySelector("input.estudiante-mini-especialidad");
+    si (!cb) retorna;
 
     cb.checked = !cb.checked;
     syncMiniSpecialtyChip(chip, cb);
   });
 
   miniSpecialtiesGrid.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
+    si (e.key !== "Enter" && e.key !== " ") devolver;
 
-    const chip = e.target.closest(".mini-specialty-chip");
-    if (!chip || !miniSpecialtiesGrid.contains(chip)) return;
+    const chip = e.target.closest(".mini-chip-especializado");
+    si (!chip || !miniSpecialtiesGrid.contains(chip)) devolver;
 
     e.preventDefault();
-    const cb = chip.querySelector("input.student-mini-specialty");
-    if (!cb) return;
+    const cb = chip.querySelector("input.estudiante-mini-especialidad");
+    si (!cb) retorna;
 
     cb.checked = !cb.checked;
     syncMiniSpecialtyChip(chip, cb);
   });
 
-  miniSpecialtiesGrid.querySelectorAll("input.student-mini-specialty").forEach((cb) => {
-    cb.addEventListener("change", () => {
-      const chip = cb.closest(".mini-specialty-chip");
-      if (chip) syncMiniSpecialtyChip(chip, cb);
+  miniSpecialtiesGrid.querySelectorAll("input.mini-especialidad-del-estudiante").forEach((cb) => {
+    cb.addEventListener("cambio", () => {
+      const chip = cb.closest(".mini-chip-especial");
+      si (chip) syncMiniSpecialtyChip(chip, cb);
     });
   });
 }
 
 initMiniSpecialtyChips();
 
-/* toggle aleatorio mini examen */
-if (miniRandomCheckbox) {
-  const syncRandom = () => {
-    if (miniRandomToggleBtn) {
+/* alternar mini examen aleatorio */
+si (miniRandomCheckbox) {
+  constante syncRandom = () => {
+    si (miniRandomToggleBtn) {
       miniRandomToggleBtn.setAttribute(
-        "aria-pressed",
-        miniRandomCheckbox.checked ? "true" : "false"
+        "aria-prensada",
+        miniRandomCheckbox.checked ? "verdadero" : "falso"
       );
     }
   };
-  syncRandom();
-  miniRandomCheckbox.addEventListener("change", syncRandom);
+  sincronización aleatoria();
+  miniRandomCheckbox.addEventListener("cambio", syncRandom);
 }
 
-async function ensureStudentResourcesActivated() {
+función asíncrona asegurarStudentResourcesActivated() {
   initStudentResourcesUI();
-  if (resourcesActivatedOnce) return;
-  await activateStudentResources();
-  resourcesActivatedOnce = true;
+  si (recursosActivadosUna vez) retorna;
+  esperar activarRecursosEstudiantiles();
+  recursosActivadosUna vez = verdadero;
 }
 
 /****************************************************
  * CAMBIO DE VISTAS
  ****************************************************/
-function switchToMiniView(opts = {}) {
-  currentView = "mini";
-  hide(examsView);
-  hide(examDetailView);
-  hide(progressView);
-  hide(resourcesView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  show(miniBuilderView);
+función switchToMiniView(opts = {}) {
+  _examsMenuOpen = falso;
+  setSidebarSectionsVisible(falso);
+
+  vistaActual = "mini";
+  ocultar(examenesView);
+  ocultar(examDetailView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  mostrar(miniBuilderView);
   initMiniSpecialtyChips();
-  if (sidebar) sidebar.classList.remove("sidebar--open");
-  if (!opts.restore) persistViewState("mini");
+  si (barra lateral) barra lateral.classList.remove("barra lateral--abrir");
+  si (!opts.restore) persistViewState("mini");
 }
 
-function switchToSectionView(opts = {}) {
-  currentView = "section";
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  hide(examDetailView);
-  hide(progressView);
-  hide(resourcesView);
-  show(examsView);
-  if (sidebar) sidebar.classList.remove("sidebar--open");
-  if (!opts.restore) persistViewState("section");
+función switchToSectionView(opts = {}) {
+  _examsMenuOpen = falso;
+  setSidebarSectionsVisible(falso);
+
+  currentView = "sección";
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  ocultar(examDetailView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  mostrar(examenesView);
+  si (barra lateral) barra lateral.classList.remove("barra lateral--abrir");
+  si (!opts.restore) persistViewState("sección");
 }
 
 // Vista Biblioteca
-async function switchToResourcesView(opts = {}) {
-  currentView = "resources";
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  hide(examsView);
-  hide(examDetailView);
-  hide(progressView);
-  show(resourcesView);
-  if (sidebar) sidebar.classList.remove("sidebar--open");
+función asíncrona switchToResourcesView(opts = {}) {
+  _examsMenuOpen = falso;
+  setSidebarSectionsVisible(falso);
 
-  if (!opts.restore) persistViewState("resources");
+  currentView = "recursos";
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  ocultar(examenesView);
+  ocultar(examDetailView);
+  ocultar(progressView);
+  mostrar(recursosView);
+  si (barra lateral) barra lateral.classList.remove("barra lateral--abrir");
 
-  try {
-    await ensureStudentResourcesActivated();
-  } catch (err) {
-    console.error("Error activando la biblioteca:", err);
+  si (!opts.restore) persistViewState("recursos");
+
+  intentar {
+    esperar asegurarStudentResourcesActivated();
+  } atrapar (err) {
+    console.error("Error al activar la biblioteca:", err);
   }
 }
 
-async function switchToProgressView(opts = {}) {
-  currentView = "progress";
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  hide(examsView);
-  hide(examDetailView);
-  hide(resourcesView);
-  show(progressView);
-  if (sidebar) sidebar.classList.remove("sidebar--open");
+función asíncrona switchToProgressView(opts = {}) {
+  _examsMenuOpen = falso;
+  setSidebarSectionsVisible(falso);
 
-  if (!opts.restore) persistViewState("progress");
-  await loadStudentProgress();
+  currentView = "progreso";
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  ocultar(examenesView);
+  ocultar(examDetailView);
+  ocultar(recursosView);
+  mostrar(progressView);
+  si (barra lateral) barra lateral.classList.remove("barra lateral--abrir");
+
+  si (!opts.restore) persistViewState("progreso");
+  esperar loadStudentProgress();
 }
 
 /****************************************************
  * CONFIGURACIÓN GLOBAL
  ****************************************************/
-async function loadExamRules() {
-  try {
-    const snap = await getDoc(doc(db, "examRules", "default"));
-    if (!snap.exists()) return;
+función asíncrona loadExamRules() {
+  intentar {
+    const snap = await getDoc(doc(db, "reglasdelexamen", "predeterminado"));
+    si (!snap.exists()) retorna;
 
-    const data = snap.data();
-    if (typeof data.maxAttempts === "number") examRules.maxAttempts = data.maxAttempts;
-    if (typeof data.timePerQuestionSeconds === "number") examRules.timePerQuestionSeconds = data.timePerQuestionSeconds;
-  } catch (err) {
-    console.error("Error leyendo examRules/default:", err);
+    constante datos = snap.data();
+    si (tipo de datos.maxAttempts === "número") examRules.maxAttempts = datos.maxAttempts;
+    si (tipo de datos.timePerQuestionSeconds === "número") examRules.timePerQuestionSeconds = datos.timePerQuestionSeconds;
+  } atrapar (err) {
+    console.error("Error al leer examRules/default:", err);
   }
 }
 
 /****************************************************
  * REDES SOCIALES
  ****************************************************/
-async function loadSocialLinksForStudent() {
-  try {
-    const snap = await getDoc(doc(db, "settings", "socialLinks"));
-    if (snap.exists()) {
-      const data = snap.data();
-      socialButtons.forEach((btn) => {
-        const network = btn.dataset.network;
-        if (data[network]) btn.dataset.url = data[network];
-        else delete btn.dataset.url;
+función asíncrona loadSocialLinksForStudent() {
+  intentar {
+    const snap = await getDoc(doc(db, "configuraciones", "socialLinks"));
+    si (snap.exists()) {
+      constante datos = snap.data();
+      botonessociales.paraCada((btn) => {
+        constante red = btn.dataset.network;
+        si (datos[red]) btn.dataset.url = datos[red];
+        de lo contrario elimine btn.dataset.url;
       });
     }
-  } catch (err) {
-    console.error("Error leyendo settings/socialLinks:", err);
+  } atrapar (err) {
+    console.error("Error al leer settings/socialLinks:", err);
   }
 
-  socialButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const url = btn.dataset.url;
-      if (!url) {
+  botonessociales.paraCada((btn) => {
+    btn.addEventListener("clic", () => {
+      constante url = btn.dataset.url;
+      si (!url) {
         alert("Aún no se ha configurado el enlace de esta red social.");
-        return;
+        devolver;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      ventana.open(url, "_blank", "noopener,noreferrer");
     });
   });
 }
 
-function selectSectionForStudent({ id, name, li, shouldSwitchView = true }) {
-  if (!id) return;
+función selectSectionForStudent({ id, nombre, li, shouldSwitchView = true }) {
+  si (!id) retorna;
 
-  document
+  documento
     .querySelectorAll(".sidebar__section-item")
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
 
-  if (li) li.classList.add("sidebar__section-item--active");
+  si (li) li.classList.add("sidebar__section-item--activo");
 
   currentSectionId = id;
-  currentSectionName = name || "Sección";
+  NombreDeSecciónActual = nombre || "Sección";
 
-  if (sectionTitle) sectionTitle.textContent = currentSectionName;
+  si (títuloDeSección) TítuloDeSección.textoContenido = NombreDeSecciónActual;
   if (sectionSubtitle) sectionSubtitle.textContent = "Simulacros de esta sección.";
 
   patchStudentState({ sectionId: currentSectionId, sectionName: currentSectionName });
 
-  if (shouldSwitchView) switchToSectionView();
-  loadExamsForSectionForStudent(id);
+  si (deberíaCambiarVista) cambiarASecciónVista();
+  cargarExamenesParaSecciónParaEstudiante(id);
 }
 
 /****************************************************
  * SECCIONES (ESTUDIANTE)
  ****************************************************/
-async function loadSectionsForStudent() {
-  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
-  const snap = await getDocs(qSec);
+función asíncrona loadSectionsForStudent() {
+  const qSec = consulta(colección(db, "secciones"), orderBy("orden", "asc"));
+  constante snap = esperar getDocs(qSec);
 
-  if (!sidebarSections) return;
+  si (!sidebarSections) retorna;
   sidebarSections.innerHTML = "";
 
-  const savedState = readStudentState();
-  const preferredSectionId = savedState?.sectionId || null;
+  const EstadoSalvado = leerEstadoEstudiante();
+  constante preferredSectionId = savedState?.sectionId || nulo;
 
-  if (snap.empty) {
-    sidebarSections.innerHTML = `
+  si (snap.vacío) {
+    Secciones de la barra lateral.innerHTML = `
       <li style="font-size:12px;color:#cbd5f5;padding:4px 6px;">
         Aún no hay secciones configuradas.
       </li>`;
     renderEmptyMessage(examsList, "No hay exámenes disponibles.");
-    return;
+    devolver;
   }
 
-  let firstSectionId = null;
-  let firstSectionName = null;
+  deje que firstSectionId = null;
+  deje que firstSectionName = null;
 
-  snap.forEach((docSnap) => {
-    const data = docSnap.data();
-    const id = docSnap.id;
-    const name = data.name || "Sección sin título";
+  snap.paraCada((docSnap) => {
+    constante datos = docSnap.data();
+    constante id = docSnap.id;
+    nombre constante = nombre.datos || "Sección sin título";
 
-    if (firstSectionId == null) {
-      firstSectionId = id;
-      firstSectionName = name;
+    si (firstSectionId == null) {
+      primeraSecciónId = id;
+      firstSectionName = nombre;
     }
 
-    const li = document.createElement("li");
-    li.className = "sidebar__section-item";
+    constante li = document.createElement("li");
+    li.className = "elemento de sección__barra lateral";
     li.dataset.sectionId = id;
-    li.innerHTML = `<div class="sidebar__section-name">${name}</div>`;
+    li.innerHTML = `<div class="sidebar__section-name">${nombre}</div>`;
 
-    li.addEventListener("click", () => {
-      selectSectionForStudent({ id, name, li, shouldSwitchView: true });
+    li.addEventListener("clic", () => {
+      selectSectionForStudent({ id, nombre, li, shouldSwitchView: true });
     });
 
-    sidebarSections.appendChild(li);
+    barra lateralSections.appendChild(li);
   });
 
-  const targetSectionId =
-    preferredSectionId && sidebarSections.querySelector(`[data-section-id="${preferredSectionId}"]`)
-      ? preferredSectionId
-      : firstSectionId;
+  constante targetSectionId =
+    IdDeSecciónPreferida y SeccionesDeBarraSide.querySelector(`[idDeSecciónDeDatos="${IdDeSecciónPreferida}"]`)
+      ? IdDeSecciónPreferida
+      :primerIdDeSección;
 
-  if (targetSectionId) {
-    const liTarget =
+  si (targetSectionId) {
+    constante liObjetivo =
       sidebarSections.querySelector(`[data-section-id="${targetSectionId}"]`) ||
       sidebarSections.querySelector(".sidebar__section-item");
-    const nameTarget = liTarget
+    constante nombreObjetivo = liObjetivo
       ? liTarget.querySelector(".sidebar__section-name")?.textContent || firstSectionName
-      : firstSectionName;
+      :nombreDePrimeraSección;
 
-    selectSectionForStudent({
+    seleccionarSecciónParaEstudiante({
       id: targetSectionId,
-      name: nameTarget,
-      li: liTarget,
-      shouldSwitchView: false,
+      nombre: nombreObjetivo,
+      li: liObjetivo,
+      shouldSwitchView: falso,
     });
   }
 }
@@ -1045,140 +1086,140 @@ async function loadSectionsForStudent() {
 /****************************************************
  * EXÁMENES POR SECCIÓN (LISTA OPTIMIZADA)
  ****************************************************/
-async function loadExamsForSectionForStudent(sectionId) {
-  const thisToken = ++examsLoadToken;
+función asíncrona loadExamsForSectionForStudent(sectionId) {
+  const thisToken = ++exámenesLoadToken;
 
-  if (!examsList) return;
-  examsList.innerHTML = `
-    <div class="card">
-      <p class="panel-subtitle">Cargando exámenes…</p>
+  si (!examsList) retorna;
+  ListaExámenes.innerHTML = `
+    <div class="tarjeta">
+      <p class="panel-subtitle">Cargando solicitudes…</p>
     </div>
   `;
 
-  if (!sectionId) {
-    if (thisToken !== examsLoadToken) return;
+  si (!sectionId) {
+    si (thisToken !== examsLoadToken) devolver;
     renderEmptyMessage(examsList, "No se ha seleccionado ninguna sección.");
-    return;
+    devolver;
   }
 
-  try {
-    const qEx = query(collection(db, "exams"), where("sectionId", "==", sectionId));
-    const snap = await getDocs(qEx);
+  intentar {
+    const qEx = consulta(colección(db, "exámenes"), donde("sectionId", "==", sectionId));
+    constante snap = esperar getDocs(qEx);
 
-    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) return;
+    si (esteToken !== examsLoadToken || sectionId !== currentSectionId) devolver;
 
-    if (snap.empty) {
+    si (snap.vacío) {
       renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
-      return;
+      devolver;
     }
 
-    const fragment = document.createDocumentFragment();
+    constante fragmento = documento.createDocumentFragment();
 
     const examsData = await Promise.all(
       snap.docs.map(async (docSnap) => {
-        const exData = docSnap.data();
-        const examId = docSnap.id;
+        constante exData = docSnap.data();
+        constante examId = docSnap.id;
         const examName = exData.name || "Examen sin título";
 
-        let attemptsUsed = 0;
-        let lastAttemptText = "Sin intentos previos.";
-        let totalQuestions = 0;
+        deje que los intentos utilizados sean 0;
+        let lastAttemptText = "Sin intentos anteriores.";
+        deje totalPreguntas = 0;
 
-        const qQuestions = query(collection(db, "questions"), where("examId", "==", examId));
+        const qQuestions = consulta(colección(db, "preguntas"), donde("examId", "==", examId));
 
-        if (currentUser) {
-          const attemptRef = doc(db, "users", currentUser.email, "examAttempts", examId);
+        si (usuarioactual) {
+          const attemptRef = doc(db, "usuarios", currentUser.email, "intentosdeexamen", examId);
 
-          const [attemptSnap, qSnap] = await Promise.all([getDoc(attemptRef), getDocs(qQuestions)]);
+          const [intentoSnap, qSnap] = await Promise.all([getDoc(intentoRef), getDocs(qQuestions)]);
 
-          if (attemptSnap.exists()) {
-            const at = attemptSnap.data();
-            attemptsUsed = at.attempts || 0;
-            if (at.lastAttempt && typeof at.lastAttempt.toDate === "function") {
-              lastAttemptText = at.lastAttempt.toDate().toLocaleDateString();
+          si (intentoSnap.existe()) {
+            constante en = attemptSnap.data();
+            intentosUsados ​​= en.intentos || 0;
+            si (en.últimoIntento && tipo de en.últimoIntento.hastaFecha === "función") {
+              últimoIntentoTexto = en.últimoIntento.hastaFecha().toLocaleDateString();
             }
           }
 
-          qSnap.forEach((qDoc) => {
-            const qData = qDoc.data();
-            const arr = Array.isArray(qData.questions) ? qData.questions : [];
-            totalQuestions += arr.length;
+          qSnap.paraCada((qDoc) => {
+            constante qData = qDoc.data();
+            const arr = Array.isArray(qData.preguntas) ? qData.preguntas : [];
+            totalPreguntas+= arr.length;
           });
-        } else {
-          const qSnap = await getDocs(qQuestions);
-          qSnap.forEach((qDoc) => {
-            const qData = qDoc.data();
-            const arr = Array.isArray(qData.questions) ? qData.questions : [];
-            totalQuestions += arr.length;
+        } demás {
+          constante qSnap = await getDocs(qPreguntas);
+          qSnap.paraCada((qDoc) => {
+            constante qData = qDoc.data();
+            const arr = Array.isArray(qData.preguntas) ? qData.preguntas : [];
+            totalPreguntas+= arr.length;
           });
         }
 
-        return { examId, examName, attemptsUsed, lastAttemptText, totalQuestions };
+        devolver { examId, examName, intentosUsados, lastAttemptText, totalQuestions };
       })
     );
 
-    if (thisToken !== examsLoadToken || sectionId !== currentSectionId) return;
+    si (esteToken !== examsLoadToken || sectionId !== currentSectionId) devolver;
 
-    if (!examsData.length) {
+    si (!examsData.length) {
       renderEmptyMessage(examsList, "No hay exámenes disponibles en esta sección.");
-      return;
+      devolver;
     }
 
-    const maxAttempts = examRules.maxAttempts;
-    const timePerQuestion = examRules.timePerQuestionSeconds;
+    constante maxIntentos = reglasdelexamen.maxIntentos;
+    constante timePerQuestion = reglasDeExamen.timePerQuestionSeconds;
 
-    examsData.forEach(({ examId, examName, attemptsUsed, lastAttemptText, totalQuestions }) => {
-      if (totalQuestions === 0) {
-        const card = document.createElement("div");
-        card.className = "card-item";
-        card.innerHTML = `
-          <div class="card-item__title-row">
-            <div class="card-item__title">${examName}</div>
+    examsData.forEach(({ IdExamen, NombreExamen, IntentosUsados, TextoÚltimoIntento, PreguntasTotales }) => {
+      si (totalPreguntas === 0) {
+        constante tarjeta = documento.createElement("div");
+        card.className = "elemento-de-tarjeta";
+        tarjeta.innerHTML = `
+          <div class="tarjeta-elemento__título-fila">
+            <div class="card-item__title">${nombreExamen}</div>
             <span class="badge" style="background:#fbbf24;color:#78350f;">En preparación</span>
           </div>
           <div class="panel-subtitle" style="margin-top:8px;">
             Aún no hay preguntas cargadas para este examen.
           </div>
         `;
-        fragment.appendChild(card);
-        return;
+        fragmento.appendChild(tarjeta);
+        devolver;
       }
 
-      const totalSeconds = totalQuestions * timePerQuestion;
-      const totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
-      const disabled = attemptsUsed >= maxAttempts;
-      const statusText = disabled ? "Sin intentos disponibles" : "Disponible";
+      constante totalSegundos = totalPreguntas * tiempoPorPregunta;
+      constante totalTimeFormatted = formatMinutesFromSeconds(totalSeconds);
+      const deshabilitado = intentos utilizados >= máximo intentos;
+      texto de estado constante = deshabilitado? "Sin intentos disponibles" : "Disponible";
 
-      const card = document.createElement("div");
-      card.className = "card-item";
-      if (disabled) card.style.opacity = 0.7;
+      constante tarjeta = documento.createElement("div");
+      card.className = "elemento-de-tarjeta";
+      si (deshabilitado) card.style.opacity = 0.7;
 
-      card.innerHTML = `
-        <div class="card-item__title-row" style="align-items:flex-start;">
+      tarjeta.innerHTML = `
+        <div clase="artículo-de-tarjeta__título-fila" estilo="alinear-artículos:flex-start;">
           <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:rgba(37,99,235,0.08);">
-              <svg width="26" height="26" viewBox="0 0 24 24" stroke="#1d4ed8" stroke-width="1.8" fill="none">
-                <rect x="3" y="4" width="18" height="15" rx="2"></rect>
-                <line x1="7" y1="9" x2="17" y2="9"></line>
-                <line x1="7" y1="13" x2="12" y2="13"></line>
+            <div style="ancho:40px;alto:40px;radio del borde:999px;pantalla:flexible;alinear elementos:centrar;justificar contenido:centrar;fondo:rgba(37,99,235,0.08);">
+              <svg ancho="26" alto="26" viewBox="0 0 24 24" trazo="#1d4ed8" ancho-trazo="1.8" relleno="ninguno">
+                <rect x="3" y="4" ancho="18" alto="15" rx="2"></rect>
+                <línea x1="7" y1="9" x2="17" y2="9"></línea>
+                <línea x1="7" y1="13" x2="12" y2="13"></línea>
               </svg>
             </div>
             <div>
-              <div class="card-item__title">${examName}</div>
+              <div class="card-item__title">${nombreExamen}</div>
               <div class="panel-subtitle" style="margin-top:3px;">
                 Simulacro ENARM · ${currentSectionName || "Sección"}
               </div>
             </div>
           </div>
 
-          <span class="badge">
-            <span class="badge-dot"></span>${statusText}
+          <span class="insignia">
+            <span class="badge-dot"></span>${Texto de estado}
           </span>
         </div>
 
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:13px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            ${svgIcon("questions")}
+            ${svgIcon("preguntas")}
             <div>
               <strong>${totalQuestions} preguntas</strong>
               <div class="panel-subtitle">Casos clínicos</div>
@@ -1186,7 +1227,7 @@ async function loadExamsForSectionForStudent(sectionId) {
           </div>
 
           <div style="display:flex;align-items:center;gap:8px;">
-            ${svgIcon("time")}
+            ${svgIcon("tiempo")}
             <div>
               <strong>${totalTimeFormatted}</strong>
               <div class="panel-subtitle">Tiempo estimado</div>
@@ -1194,9 +1235,9 @@ async function loadExamsForSectionForStudent(sectionId) {
           </div>
 
           <div style="display:flex;align-items:center;gap:8px;">
-            ${svgIcon("attempts")}
+            ${svgIcon("intentos")}
             <div>
-              <strong>Intentos: ${attemptsUsed} / ${maxAttempts}</strong>
+              Intentos: ${intentosUsados} / ${intentosMáximos}
               <div class="panel-subtitle">Último intento: ${lastAttemptText}</div>
             </div>
           </div>
@@ -1204,191 +1245,191 @@ async function loadExamsForSectionForStudent(sectionId) {
 
         <div style="margin-top:14px;text-align:right;">
           ${
-            disabled
+            desactivado
               ? `<button class="btn btn-outline" disabled>Sin intentos disponibles</button>`
               : `<button class="btn btn-primary student-start-exam-btn">Iniciar examen</button>`
           }
         </div>
       `;
 
-      if (!disabled) {
-        const btnStart = card.querySelector(".student-start-exam-btn");
-        btnStart.addEventListener("click", () => {
-          startSectionExamForStudent({
-            examId,
-            examName,
-            totalQuestions,
-            totalSeconds,
-            attemptsUsed,
-            maxAttempts,
+      si (!deshabilitado) {
+        const btnStart = card.querySelector(".estudiante-inicio-examen-btn");
+        btnStart.addEventListener("clic", () => {
+          iniciarSecciónExamenParaEstudiante({
+            ID de examen,
+            nombreExamen,
+            totalPreguntas,
+            totalSegundos,
+            intentosUsados,
+            máximosIntentos,
           });
         });
       }
 
-      fragment.appendChild(card);
+      fragmento.appendChild(tarjeta);
     });
 
-    examsList.innerHTML = "";
-    examsList.appendChild(fragment);
-  } catch (err) {
-    console.error("Error cargando exámenes de la sección:", err);
-    if (thisToken !== examsLoadToken) return;
-    renderEmptyMessage(examsList, "Hubo un error al cargar los exámenes. Intenta nuevamente.");
+    exámenesList.innerHTML = "";
+    exámenesList.appendChild(fragmento);
+  } atrapar (err) {
+    console.error("Error al cargar solicitudes de la sección:", err);
+    si (thisToken !== examsLoadToken) devolver;
+    renderEmptyMessage(examsList, "Hubo un error al cargar los exámenes. Intento nuevamente.");
   }
 }
 
 /****************************************************
- * SHUFFLE
+ * ALEATORIO
  ****************************************************/
-function shuffleArray(arr) {
-  const copy = arr.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
+función shuffleArray(arr) {
+  constante copia = arr.slice();
+  para (sea i = copia.length - 1; i > 0; i--) {
+    constante j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
   }
-  return copy;
+  devolver copia;
 }
 
 /****************************************************
  * MINI EXÁMENES – CARGA BANCO
  ****************************************************/
-async function loadMiniCasesOnce() {
-  if (miniCasesCache.length > 0) return;
+función asíncrona loadMiniCasesOnce() {
+  si (miniCasesCache.length > 0) retorna;
 
-  try {
-    const snap = await getDocs(collection(db, "miniQuestions"));
-    if (snap.empty) {
-      miniCasesCache = [];
-      return;
+  intentar {
+    const snap = await getDocs(colección(db, "miniPreguntas"));
+    si (snap.vacío) {
+      miniCasosCache = [];
+      devolver;
     }
 
-    const arr = [];
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      const caseText = data.caseText || "";
-      const specialty = data.specialty || null;
-      const questions = Array.isArray(data.questions) ? data.questions : [];
+    constante arr = [];
+    snap.paraCada((docSnap) => {
+      constante datos = docSnap.data();
+      const caseText = datos.caseText || "";
+      const especialidad = datos.especialidad || nulo;
+      const preguntas = Array.isArray(datos.preguntas) ? datos.preguntas : [];
 
-      if (!caseText || questions.length === 0) return;
+      si (!caseText || preguntas.length === 0) return;
 
       arr.push({
-        id: docSnap.id,
-        caseText,
-        specialty,
-        questions,
+        identificación: docSnap.id,
+        casoTexto,
+        especialidad,
+        preguntas,
       });
     });
 
-    miniCasesCache = arr;
-  } catch (err) {
-    console.error("Error cargando miniQuestions:", err);
-    miniCasesCache = [];
+    miniCasosCache = arr;
+  } atrapar (err) {
+    console.error("Error al cargar miniPreguntas:", err);
+    miniCasosCache = [];
   }
 }
 
 /****************************************************
- * MINI EXÁMENES – CONSTRUIR EXAMEN
+ * MINI EXÁMENES – EXAMEN DE CONSTRUCCIÓN
  ****************************************************/
-async function startMiniExamFromBuilder() {
-  if (!miniNumQuestionsSelect) {
-    alert("El módulo de mini exámenes no está configurado en esta vista.");
-    return;
+función asíncrona startMiniExamFromBuilder() {
+  si (!miniNumPreguntasSeleccionar) {
+    alert("El módulo de mini solicitudes no está configurado en esta vista.");
+    devolver;
   }
 
   const numQuestions = parseInt(miniNumQuestionsSelect.value, 10) || 10;
 
   const selectedSpecialties = Array.from(miniSpecialtyCheckboxes)
     .filter((cb) => cb.checked)
-    .map((cb) => cb.value);
+    .map((cb) => cb.valor);
 
-  const randomOnly = miniRandomCheckbox ? miniRandomCheckbox.checked : true;
+  constante randomOnly = miniRandomCheckbox ? miniRandomCheckbox.checked : verdadero;
 
-  await loadMiniCasesOnce();
+  esperar loadMiniCasesOnce();
 
-  if (!miniCasesCache.length) {
+  si (!miniCasesCache.length) {
     alert("Aún no hay casos clínicos configurados para mini exámenes.");
-    return;
+    devolver;
   }
 
-  let poolCases = miniCasesCache.slice();
-  if (selectedSpecialties.length > 0) {
+  deje que poolCases = miniCasesCache.slice();
+  si (especialidadesseleccionadas.length > 0) {
     poolCases = poolCases.filter((c) => selectedSpecialties.includes(c.specialty));
   }
 
-  if (!poolCases.length) {
+  si (!poolCases.length) {
     alert("No hay casos clínicos que coincidan con los filtros elegidos.");
-    return;
+    devolver;
   }
 
-  const questionPool = [];
+  constante preguntaPool = [];
   poolCases.forEach((caseData) => {
-    const specialty = caseData.specialty || null;
+    const especialidad = caseData.specialty || null;
     const caseText = caseData.caseText || "";
-    (caseData.questions || []).forEach((q) => {
-      questionPool.push({
+    (caseData.preguntas || []).forEach((q) => {
+      preguntaPool.push({
         caseId: caseData.id,
-        caseText,
-        specialty,
-        questionText: q.questionText,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctOption: q.correctOption,
-        justification: q.justification,
-        difficulty: q.difficulty || "baja",
-        subtype: q.subtype || "salud_publica",
+        casoTexto,
+        especialidad,
+        preguntaTexto: q.preguntaTexto,
+        opciónA: q.opcionA,
+        opciónB: q.opcionB,
+        opciónC: q.opcionC,
+        opciónD: q.opcionD,
+        opcióncorrecta: q.opcióncorrecta,
+        justificación: q.justificación,
+        dificultad: q.dificultad || "baja",
+        subtipo: q.subtipo || "salud_publica",
       });
     });
   });
 
-  if (!questionPool.length) {
+  si (!questionPool.length) {
     alert("No se encontraron preguntas en los casos seleccionados.");
-    return;
+    devolver;
   }
 
   const basePool = randomOnly ? shuffleArray(questionPool) : questionPool;
   const selectedQuestions = basePool.slice(0, numQuestions);
 
-  if (!selectedQuestions.length) {
+  si (!PreguntasSeleccionadas.length) {
     alert("No se pudieron seleccionar preguntas para el mini examen.");
-    return;
+    devolver;
   }
 
-  currentExamMode = "mini";
-  currentExamId = null;
-  currentExamPreviousAttempts = 0;
-  currentExamQuestions = [];
+  modoExamenActual = "mini";
+  currentExamId = nulo;
+  IntentosAnterioresdelExamenActual = 0;
+  PreguntasDeExamenActuales = [];
 
   // ✅ CORREGIDO: totalSeconds NO existe aquí
-  const timePerQuestion = examRules.timePerQuestionSeconds;
-  currentExamTotalSeconds = selectedQuestions.length * timePerQuestion;
+  constante timePerQuestion = reglasDeExamen.timePerQuestionSeconds;
+  currentExamTotalSeconds = PreguntasSeleccionadas.length * tiempoPorPregunta;
 
-  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
+  currentExamEndAtMs = Fecha.ahora() + currentExamTotalSeconds * 1000;
+  respuestasdelexamenactual = {};
+  borrarAlmacenamientoDeRespuestasDeExamen();
+  escribirRespuestasDeExamenAlAlmacenamiento(RespuestasDeExamenActuales);
 
-  if (currentExamTimerId) {
+  si (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
+    currentExamTimerId = nulo;
   }
 
-  if (resultBanner) resultBanner.style.display = "none";
-  if (resultValues) resultValues.innerHTML = "";
+  si (resultBanner) resultBanner.style.display = "ninguno";
+  si (valoresResultados) valoresResultados.innerHTML = "";
 
-  hide(examsView);
-  hide(progressView);
-  hide(resourcesView);
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  show(examDetailView);
+  ocultar(examenesView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  mostrar(examDetailView);
 
   examTitle.textContent = "Mini examen personalizado";
-  examSubtitle.textContent =
+  examenSubtítulo.textoContenido =
     "Resuelve el mini examen con preguntas aleatorias de los casos clínicos disponibles.";
 
-  const totalQuestions = selectedQuestions.length;
+  constante totalPreguntas = PreguntasSeleccionadas.length;
 
   examMetaText.innerHTML = `
     📘 Preguntas: <strong>${totalQuestions}</strong><br>
@@ -1396,58 +1437,58 @@ async function startMiniExamFromBuilder() {
     🔁 Intentos: <strong>Sin límite</strong>
   `;
 
-  questionsList.innerHTML = "";
+  preguntasList.innerHTML = "";
 
-  const caseMap = new Map();
-  selectedQuestions.forEach((q) => {
-    if (!caseMap.has(q.caseId)) {
+  constante caseMap = nuevo Mapa();
+  PreguntasSeleccionadas.paraCada((q) => {
+    si (!caseMap.tiene(q.caseId)) {
       caseMap.set(q.caseId, {
-        caseText: q.caseText,
-        specialty: q.specialty,
-        questions: [],
+        casoTexto: q.casoTexto,
+        especialidad: q.specialty,
+        preguntas: [],
       });
     }
-    caseMap.get(q.caseId).questions.push(q);
+    caseMap.get(q.caseId).preguntas.push(q);
   });
 
-  let globalIndex = 0;
+  sea ​​globalIndex = 0;
 
-  Array.from(caseMap.values()).forEach((caseData, caseIndex) => {
-    const caseBlock = document.createElement("div");
-    caseBlock.className = "case-block";
+  Matriz.from(caseMap.values()).forEach((caseData, caseIndex) => {
+    constante caseBlock = document.createElement("div");
+    caseBlock.className = "bloque-de-caso";
 
     caseBlock.innerHTML = `
       <h4>Caso clínico ${caseIndex + 1}</h4>
       <div class="case-text">${caseData.caseText}</div>
     `;
 
-    const questionsWrapper = document.createElement("div");
+    constante questionsWrapper = document.createElement("div");
 
-    caseData.questions.forEach((q, localIndex) => {
-      const idx = globalIndex;
+    caseData.preguntas.paraCada((q, índice local) => {
+      constante idx = índice global;
 
-      currentExamQuestions.push({
+      PreguntasDeExamenActuales.push({
         caseText: caseData.caseText,
-        questionText: q.questionText,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctOption: q.correctOption,
-        justification: q.justification,
-        specialty: caseData.specialty,
-        difficulty: q.difficulty || "baja",
-        subtype: q.subtype || "salud_publica",
+        preguntaTexto: q.preguntaTexto,
+        opciónA: q.opcionA,
+        opciónB: q.opcionB,
+        opciónC: q.opcionC,
+        opciónD: q.opcionD,
+        opcióncorrecta: q.opcióncorrecta,
+        justificación: q.justificación,
+        especialidad: caseData.specialty,
+        dificultad: q.dificultad || "baja",
+        subtipo: q.subtipo || "salud_publica",
       });
 
-      const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
+      const difficultLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
       const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
-      const specialtyLabel =
+      constante specialityLabel =
         SPECIALTY_LABELS[caseData.specialty] || caseData.specialty || "No definida";
 
-      const qBlock = document.createElement("div");
-      qBlock.className = "question-block";
-      qBlock.dataset.qIndex = idx;
+      constante qBlock = documento.createElement("div");
+      qBlock.className = "bloque-de-preguntas";
+      qBlock.conjunto de datos.qIndex = idx;
 
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
@@ -1459,75 +1500,142 @@ async function startMiniExamFromBuilder() {
           Dificultad: <strong>${difficultyLabel}</strong>
         </div>
 
-        <div class="question-options">
-          <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA}</label>
-          <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB}</label>
-          <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC}</label>
-          <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD}</label>
+        <div class="opciones-de-pregunta">
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="A"> A) ${q.optionA}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="B"> B) ${q.optionB}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="C"> C) ${q.optionC}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="D"> D) ${q.optionD}</label>
         </div>
 
-        <div class="justification-box">
+        <div class="cuadro de justificación">
           <strong>Justificación:</strong><br>
-          ${q.justification || ""}
+          ${q.justificación || ""}
         </div>
       `;
 
-      questionsWrapper.appendChild(qBlock);
-      globalIndex++;
+      preguntasWrapper.appendChild(qBlock);
+      índice global++;
     });
 
-    caseBlock.appendChild(questionsWrapper);
-    questionsList.appendChild(caseBlock);
+    caseBlock.appendChild(preguntasWrapper);
+    preguntasList.appendChild(caseBlock);
   });
 
-  // Persistencia para refresh
-  persistCurrentExamState();
-  startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
+  // Persistencia para refrescar
+  persistirCurrentExamState();
+  startExamTimer(segundostotalesdelexamenactual, findelexamenactualenms);
 }
+
+
+/****************************************************
+ * BIBLIOTECA – INICIAR MINI-EXAMEN POR TEMA
+ * (No consuma intentos, no se guarda intento en Firestore)
+ ****************************************************/
+función startTopicExamFromResources({ topicId, topicTitle, cases }) {
+  constante plana = [];
+  (casos || []).forEach((c) => {
+    const caseText = c?.caseText || "";
+    const qs = Array.isArray(c?.preguntas) ? c.preguntas : [];
+    qs.paraCada((q) => {
+      plano.push({
+        casoTexto,
+        preguntaTexto: q?.preguntaTexto || "",
+        opciónA: q?.opcionA || "",
+        opciónB: q?.opcionB || "",
+        opciónC: q?.opcionC || "",
+        opciónD: q?.opcionD || "",
+        opcióncorrecta: q?.opcióncorrecta || "A",
+        justificación: q?.justificación || "",
+        especialidad: "",
+        dificultad: "",
+        subtipo: "",
+      });
+    });
+  });
+
+  si (!plano.longitud) {
+    alert("Este tema aún no tiene mini-examen configurado.");
+    devolver;
+  }
+
+  currentExamMode = "tema";
+  currentExamId = `tema:${topicId || "desconocido"}`;
+  IntentosAnterioresdelExamenActual = 0;
+  currentExamQuestions = plano;
+  respuestasdelexamenactual = {};
+
+  constante timePerQuestion = reglasDeExamen.timePerQuestionSeconds;
+  currentExamTotalSeconds = flat.length * tiempoPorPregunta;
+
+  si (resultBanner) resultBanner.style.display = "ninguno";
+  si (valoresResultados) valoresResultados.innerHTML = "";
+
+  if (título del examen) título del examen.textContent = título del tema || "Mini-examen del tema";
+  if (examSubtitle) examSubtitle.textContent = "Resuelve y finaliza cuando termines.";
+
+  si (examMetaText) {
+    examMetaText.innerHTML = `
+      📘 Preguntas: <strong>${flat.length}</strong><br>
+      🕒 Tiempo total: <strong>${formatMinutesFromSeconds(currentExamTotalSeconds)}</strong><br>
+      🔁 Intentos: <strong>No aplica</strong>
+    `;
+  }
+
+  ocultar(examenesView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  mostrar(examDetailView);
+
+  renderizarPreguntasDeExamenDesdeElEstadoActual();
+  startExamTimer(segundostotalesdelexamenactual);
+}
+
 
 /****************************************************
  * EXÁMENES POR SECCIÓN – INICIAR
  ****************************************************/
-async function startSectionExamForStudent({
-  examId,
-  examName,
-  totalQuestions,
-  totalSeconds,
-  attemptsUsed,
-  maxAttempts,
+función asíncrona startSectionExamForStudent({
+  ID de examen,
+  nombreExamen,
+  totalPreguntas,
+  totalSegundos,
+  intentosUsados,
+  máximosIntentos,
 }) {
-  if (attemptsUsed >= maxAttempts) {
+  si (intentosUsados ​​>= máxIntentos) {
     alert("Has agotado tus intentos para este examen.");
-    return;
+    devolver;
   }
 
-  currentExamMode = "section";
-  currentExamId = examId;
-  currentExamTotalSeconds = totalSeconds;
-  currentExamPreviousAttempts = attemptsUsed;
-  currentExamQuestions = [];
+  currentExamMode = "sección";
+  currentExamId = IdExamen;
+  TotalSegundosExamenActual = totalSegundos;
+  currentExamPreviousAttempts = intentosUsados;
+  PreguntasDeExamenActuales = [];
 
-  currentExamEndAtMs = Date.now() + currentExamTotalSeconds * 1000;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
+  currentExamEndAtMs = Fecha.ahora() + currentExamTotalSeconds * 1000;
+  respuestasdelexamenactual = {};
+  borrarAlmacenamientoDeRespuestasDeExamen();
+  escribirRespuestasDeExamenAlAlmacenamiento(RespuestasDeExamenActuales);
 
-  if (currentExamTimerId) {
+  si (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
+    currentExamTimerId = nulo;
   }
 
-  hide(examsView);
-  hide(progressView);
-  hide(resourcesView);
-  hide(miniBuilderView);
-  if (miniExamPlaceholderView) hide(miniExamPlaceholderView);
-  show(examDetailView);
+  ocultar(examenesView);
+  ocultar(progressView);
+  ocultar(recursosView);
+  ocultar(miniBuilderView);
+  si (miniExamPlaceholderView) ocultar (miniExamPlaceholderView);
+  mostrar(examDetailView);
 
-  if (resultBanner) resultBanner.style.display = "none";
-  if (resultValues) resultValues.innerHTML = "";
+  si (resultBanner) resultBanner.style.display = "ninguno";
+  si (valoresResultados) valoresResultados.innerHTML = "";
 
-  examTitle.textContent = examName;
+  títulodelexamen.textContent = nombredelexamen;
   examSubtitle.textContent = "Resuelve cuidadosamente y envía antes de que termine el tiempo.";
 
   examMetaText.innerHTML = `
@@ -1536,91 +1644,91 @@ async function startSectionExamForStudent({
     🔁 Intentos: <strong>${attemptsUsed} de ${maxAttempts}</strong>
   `;
 
-  await loadQuestionsForSectionExam(examId);
+  esperar cargarPreguntasParaSecciónExamen(examId);
 
-  // Persistencia para refresh
-  persistCurrentExamState();
+  // Persistencia para refrescar
+  persistirCurrentExamState();
 
-  startExamTimer(currentExamTotalSeconds, currentExamEndAtMs);
+  startExamTimer(segundostotalesdelexamenactual, findelexamenactualenms);
 }
 
 /****************************************************
  * CARGAR PREGUNTAS EXAMEN POR SECCIÓN
  ****************************************************/
-async function loadQuestionsForSectionExam(examId) {
-  if (!questionsList) return;
-  questionsList.innerHTML = "";
+función asíncrona loadQuestionsForSectionExam(examId) {
+  si (!preguntasList) retorna;
+  preguntasList.innerHTML = "";
 
-  const qQuestions = query(collection(db, "questions"), where("examId", "==", examId));
-  const snap = await getDocs(qQuestions);
+  const qQuestions = consulta(colección(db, "preguntas"), donde("examId", "==", examId));
+  const snap = await obtenerDocs(qPreguntas);
 
-  if (snap.empty) {
+  si (snap.vacío) {
     renderEmptyMessage(questionsList, "No se han cargado preguntas.");
-    return;
+    devolver;
   }
 
-  const cases = [];
-  snap.forEach((docSnap) => {
-    const data = docSnap.data();
-    const caseText = data.caseText || "";
-    const arr = Array.isArray(data.questions) ? data.questions : [];
-    const specialtyKey = data.specialty || null;
+  const casos = [];
+  snap.paraCada((docSnap) => {
+    constante datos = docSnap.data();
+    const caseText = datos.caseText || "";
+    const arr = Array.isArray(datos.preguntas) ? datos.preguntas : [];
+    const specialityKey = datos.specialty || nulo;
 
-    if (arr.length > 0) {
-      cases.push({
-        caseText,
-        specialty: specialtyKey,
-        questions: arr,
+    si (arr.length > 0) {
+      casos.push({
+        casoTexto,
+        especialidad: especialidadKey,
+        preguntas: arr,
       });
     }
   });
 
-  if (!cases.length) {
+  si (!casos.longitud) {
     renderEmptyMessage(questionsList, "No existen preguntas configuradas.");
-    return;
+    devolver;
   }
 
   // ✅ CORREGIDO: aquí SOLO renderizamos y llenamos currentExamQuestions.
-  currentExamQuestions = [];
+  PreguntasDeExamenActuales = [];
 
-  let globalIndex = 0;
+  sea ​​globalIndex = 0;
 
-  cases.forEach((caseData, caseIndex) => {
-    const caseBlock = document.createElement("div");
-    caseBlock.className = "case-block";
+  casos.paraCada((datosDeCaso, índiceDeCaso) => {
+    constante caseBlock = document.createElement("div");
+    caseBlock.className = "bloque-de-caso";
 
     caseBlock.innerHTML = `
       <h4>Caso clínico ${caseIndex + 1}</h4>
       <div class="case-text">${caseData.caseText}</div>
     `;
 
-    const questionsWrapper = document.createElement("div");
+    constante questionsWrapper = document.createElement("div");
 
-    caseData.questions.forEach((q, localIndex) => {
-      const idx = globalIndex;
+    caseData.preguntas.paraCada((q, índice local) => {
+      constante idx = índice global;
 
-      currentExamQuestions.push({
+      PreguntasDeExamenActuales.push({
         caseText: caseData.caseText,
-        questionText: q.questionText,
-        optionA: q.optionA,
-        optionB: q.optionB,
-        optionC: q.optionC,
-        optionD: q.optionD,
-        correctOption: q.correctOption,
-        justification: q.justification,
-        specialty: caseData.specialty,
-        difficulty: q.difficulty || "baja",
-        subtype: q.subtype || "salud_publica",
+        preguntaTexto: q.preguntaTexto,
+        opciónA: q.opcionA,
+        opciónB: q.opcionB,
+        opciónC: q.opcionC,
+        opciónD: q.opcionD,
+        opcióncorrecta: q.opcióncorrecta,
+        justificación: q.justificación,
+        especialidad: caseData.specialty,
+        dificultad: q.dificultad || "baja",
+        subtipo: q.subtipo || "salud_publica",
       });
 
-      const difficultyLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
+      const difficultLabel = DIFFICULTY_LABELS[q.difficulty] || "No definida";
       const subtypeLabel = SUBTYPE_LABELS[q.subtype] || "General";
-      const specialtyLabel =
+      constante specialityLabel =
         SPECIALTY_LABELS[caseData.specialty] || caseData.specialty || "No definida";
 
-      const qBlock = document.createElement("div");
-      qBlock.className = "question-block";
-      qBlock.dataset.qIndex = idx;
+      constante qBlock = documento.createElement("div");
+      qBlock.className = "bloque-de-preguntas";
+      qBlock.conjunto de datos.qIndex = idx;
 
       qBlock.innerHTML = `
         <h5>Pregunta ${localIndex + 1}</h5>
@@ -1632,574 +1740,576 @@ async function loadQuestionsForSectionExam(examId) {
           Dificultad: <strong>${difficultyLabel}</strong>
         </div>
 
-        <div class="question-options">
-          <label><input type="radio" name="q_${idx}" value="A"> A) ${q.optionA}</label>
-          <label><input type="radio" name="q_${idx}" value="B"> B) ${q.optionB}</label>
-          <label><input type="radio" name="q_${idx}" value="C"> C) ${q.optionC}</label>
-          <label><input type="radio" name="q_${idx}" value="D"> D) ${q.optionD}</label>
+        <div class="opciones-de-pregunta">
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="A"> A) ${q.optionA}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="B"> B) ${q.optionB}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="C"> C) ${q.optionC}</label>
+          <label><tipo de entrada="radio" nombre="q_${idx}" valor="D"> D) ${q.optionD}</label>
         </div>
 
-        <div class="justification-box">
+        <div class="cuadro de justificación">
           <strong>Justificación:</strong><br>
-          ${q.justification || ""}
+          ${q.justificación || ""}
         </div>
       `;
 
-      questionsWrapper.appendChild(qBlock);
-      globalIndex++;
+      preguntasWrapper.appendChild(qBlock);
+      índice global++;
     });
 
-    caseBlock.appendChild(questionsWrapper);
-    questionsList.appendChild(caseBlock);
+    caseBlock.appendChild(preguntasWrapper);
+    preguntasList.appendChild(caseBlock);
   });
 }
 
 /****************************************************
  * CRONÓMETRO
  ****************************************************/
-function startExamTimer(totalSeconds, endAtMs = null) {
-  if (!examTimerEl) return;
+función startExamTimer(totalSeconds, endAtMs = null) {
+  si (!examTimerEl) retorna;
 
-  if (currentExamTimerId) clearInterval(currentExamTimerId);
+  si (currentExamTimerId) clearInterval(currentExamTimerId);
 
-  if (!endAtMs) {
-    endAtMs = Date.now() + (Number(totalSeconds) || 0) * 1000;
+  si (!endAtMs) {
+    endAtMs = Fecha.ahora() + (Número(totalSegundos) || 0) * 1000;
   }
 
-  currentExamEndAtMs = endAtMs;
+  actualExamenFinAlMs = finAlMs;
 
-  const computeRemaining = () => {
-    const diffMs = (currentExamEndAtMs || 0) - Date.now();
-    return Math.max(0, Math.ceil(diffMs / 1000));
+  constante computarRestante = () => {
+    const diffMs = (currentExamEndAtMs || 0) - Fecha.now();
+    devuelve Math.max(0, Math.ceil(diffMs / 1000));
   };
 
-  let remaining = computeRemaining();
-  examTimerEl.textContent = formatTimer(remaining);
+  deje que restante = computeRemaining();
+  examTimerEl.textContent = formatTimer(restante);
 
   currentExamTimerId = setInterval(() => {
-    remaining = computeRemaining();
+    restante = computeRemaining();
 
-    if (remaining <= 0) {
+    si (restante <= 0) {
       clearInterval(currentExamTimerId);
-      currentExamTimerId = null;
+      currentExamTimerId = nulo;
       examTimerEl.textContent = "00:00";
       alert("El tiempo se agotó, tu examen se enviará automáticamente.");
-      submitExamForStudent(true);
-      return;
+      enviarExamenParaEstudiante(verdadero);
+      devolver;
     }
 
-    examTimerEl.textContent = formatTimer(remaining);
+    examTimerEl.textContent = formatTimer(restante);
   }, 1000);
 }
 
 /****************************************************
  * ENVÍO DE EXAMEN
  ****************************************************/
-async function submitExamForStudent(auto = false) {
-  if (!currentExamQuestions.length) {
+función asíncrona submitExamForStudent(auto = false) {
+  si (!preguntasdeexamenactuales.longitud) {
     alert("No hay examen cargado.");
-    return;
+    devolver;
   }
 
-  if (btnSubmitExam) btnSubmitExam.disabled = true;
-  if (currentExamTimerId) {
+  si (btnSubmitExam) btnSubmitExam.disabled = verdadero;
+  si (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
+    currentExamTimerId = nulo;
   }
 
-  const totalQuestions = currentExamQuestions.length;
-  let globalCorrect = 0;
-  let globalWeightedCorrect = 0;
-  let globalWeightedTotal = 0;
+  constante totalQuestions = currentExamQuestions.length;
+  deje que globalCorrect = 0;
+  deje que globalWeightedCorrect = 0;
+  deje que globalWeightedTotal = 0;
 
-  const detail = {};
+  const detalle = {};
 
-  const specStats = {};
-  Object.keys(SPECIALTY_LABELS).forEach((k) => {
-    specStats[k] = {
-      name: SPECIALTY_LABELS[k],
-      correct: 0,
+  constante specStats = {};
+  Objeto.keys(ETIQUETAS_ESPECIALES).forEach((k) => {
+    estadísticas de especificación[k] = {
+      nombre: ETIQUETAS_ESPECIALES[k],
+      correcto: 0,
       total: 0,
-      subtypes: {
-        salud_publica: { correct: 0, total: 0 },
-        medicina_familiar: { correct: 0, total: 0 },
-        urgencias: { correct: 0, total: 0 },
+      subtipos: {
+        salud_publica: { correcto: 0, total: 0 },
+        medicina_familiar: { correcto: 0, total: 0 },
+        urgencias: { correcto: 0, total: 0 },
       },
     };
   });
 
-  const difficultyStats = {
-    alta: { correct: 0, total: 0 },
-    media: { correct: 0, total: 0 },
-    baja: { correct: 0, total: 0 },
+  constante estadísticas de dificultad = {
+    alta: { correctos: 0, totales: 0 },
+    medios: { correctos: 0, total: 0 },
+    baja: { correctos: 0, totales: 0 },
   };
 
-  currentExamQuestions.forEach((q, idx) => {
-    const selectedInput = document.querySelector(`input[name="q_${idx}"]:checked`);
-    const selected = selectedInput ? selectedInput.value : null;
+  PreguntasDeExamenActuales.paraCada((q, idx) => {
+    constante selectedInput = document.querySelector(`input[nombre="q_${idx}"]:checked`);
+    const seleccionado = selectedInput ? selectedInput.value : null;
 
-    const correct = q.correctOption;
-    const result = selected === correct ? "correct" : "incorrect";
+    constante correcto = q.correctOption;
+    const resultado = seleccionado === ¿correcto? "correcto" : "incorrecto";
 
-    const specialty = q.specialty;
-    const difficulty = q.difficulty || "baja";
-    const subtype = q.subtype || "salud_publica";
+    const especialidad = q.especialidad;
+    const dificultad = q.dificultad || "baja";
+    const subtipo = q.subtipo || "salud_publica";
 
-    const weight = (DIFFICULTY_WEIGHTS && DIFFICULTY_WEIGHTS[difficulty]) || 1;
-    globalWeightedTotal += weight;
+    constante peso = (PESOS_DIFICULTAD && PESOS_DIFICULTAD[dificultad]) || 1;
+    globalWeightedTotal += peso;
 
-    if (result === "correct") {
+    si (resultado === "correcto") {
       globalCorrect++;
-      globalWeightedCorrect += weight;
+      globalWeightedCorrect += peso;
     }
 
-    if (specialty && specStats[specialty]) {
-      specStats[specialty].total++;
-      if (result === "correct") specStats[specialty].correct++;
+    si (especialidad && specStats[especialidad]) {
+      specStats[especialidad].total++;
+      si (resultado === "correcto") specStats[especialidad].correct++;
 
-      if (specStats[specialty].subtypes[subtype]) {
-        specStats[specialty].subtypes[subtype].total++;
-        if (result === "correct") specStats[specialty].subtypes[subtype].correct++;
+      si (specStats[especialidad].subtipos[subtipo]) {
+        specStats[especialidad].subtipos[subtipo].total++;
+        si (resultado === "correcto") specStats[especialidad].subtipos[subtipo].correcto++;
       }
     }
 
-    if (difficultyStats[difficulty]) {
-      difficultyStats[difficulty].total++;
-      if (result === "correct") difficultyStats[difficulty].correct++;
+    si (dificultadStats[dificultad]) {
+      dificultadStats[dificultad].total++;
+      si (resultado === "correcto") dificultadStats[dificultad].correcto++;
     }
 
-    detail[`q${idx}`] = {
-      selected,
-      correctOption: correct,
-      result,
-      specialty,
-      difficulty,
-      subtype,
-      weight,
+    detalle[`q${idx}`] = {
+      seleccionado,
+      opciónCorrecta: correcto,
+      resultado,
+      especialidad,
+      dificultad,
+      subtipo,
+      peso,
     };
 
-    const card = questionsList?.querySelector?.(`[data-q-index="${idx}"]`);
-    if (card) {
-      const just = card.querySelector(".justification-box");
-      const meta = card.querySelector(".question-meta");
+    const card = preguntasList?.querySelector?.(`[data-q-index="${idx}"]`);
+    si (tarjeta) {
+      const just = card.querySelector(".cuadro-de-justificación");
+      const meta = card.querySelector(".pregunta-meta");
 
-      if (just) just.style.display = "block";
-      if (meta) meta.style.display = "block";
+      si (solo) solo.estilo.display = "bloque";
+      si (meta) meta.style.display = "bloque";
 
-      const labels = card.querySelectorAll("label");
-      labels.forEach((lab) => {
-        const input = lab.querySelector("input");
-        if (!input) return;
+      const etiquetas = card.querySelectorAll("etiqueta");
+      etiquetas.paraCada((lab) => {
+        constante entrada = lab.querySelector("entrada");
+        si (!input) retorna;
 
-        lab.style.border = "1px solid transparent";
-        lab.style.borderRadius = "6px";
-        lab.style.padding = "4px 6px";
+        lab.style.border = "1px sólido transparente";
+        laboratorio.estilo.borderRadius = "6px";
+        laboratorio.estilo.padding = "4px 6px";
 
-        if (input.value === correct) {
-          lab.style.borderColor = "#16a34a";
-          lab.style.background = "#dcfce7";
+        si (entrada.valor === correcto) {
+          laboratorio.estilo.colorborder = "#16a34a";
+          laboratorio.estilo.fondo = "#dcfce7";
         }
-        if (selected === input.value && selected !== correct) {
-          lab.style.borderColor = "#b91c1c";
-          lab.style.background = "#fee2e2";
+        si (seleccionado === valor_entrada && seleccionado !== correcto) {
+          laboratorio.estilo.borderColor = "#b91c1c";
+          laboratorio.estilo.fondo = "#fee2e2";
         }
       });
     }
   });
 
-  const scoreRaw = totalQuestions > 0 ? Math.round((globalCorrect / totalQuestions) * 100) : 0;
+  const puntuaciónRaw = totalPreguntas > 0 ? Math.round((globalCorrect / totalPreguntas) * 100) : 0;
 
-  const scoreWeighted =
+  constante puntuación ponderada =
     globalWeightedTotal > 0 ? (globalWeightedCorrect / globalWeightedTotal) * 100 : 0;
 
-  if (currentExamMode === "section" && currentExamId && currentUser) {
-    try {
-      const attemptRef = doc(db, "users", currentUser.email, "examAttempts", currentExamId);
+  si (modoExamenActual === "sección" && IdExamenActual && UsuarioActual) {
+    intentar {
+      const attemptRef = doc(db, "usuarios", currentUser.email, "intentosDeExamen", currentExamId);
 
-      const prevSnap = await getDoc(attemptRef);
-      const prevData = prevSnap.exists() ? prevSnap.data() : {};
-      const oldAttempts =
-        typeof prevData.attempts === "number"
-          ? prevData.attempts
-          : currentExamPreviousAttempts || 0;
+      const prevSnap = await getDoc(intentoRef);
+      constante prevData = prevSnap.exists() ? prevSnap.data() : {};
+      constante viejosIntentos =
+        tipo de prevData.intentos === "número"
+          ? prevData.intentos
+          : intentos previos del examen actual || 0;
 
-      const historyEntry = {
-        score: scoreWeighted,
-        scoreRaw,
+      constante historyEntry = {
+        Puntuación: puntuación ponderada,
+        puntuaciónRaw,
         correctCount: globalCorrect,
-        totalQuestions,
+        totalPreguntas,
         sectionId: currentSectionId,
-        sectionName: currentSectionName || "",
-        createdAt: new Date(),
+        nombreDeSección: nombreDeSecciónActual || "",
+        createdAt: nueva fecha(),
       };
 
-      await setDoc(
-        attemptRef,
+      esperar setDoc(
+        intentoRef,
         {
-          attempts: oldAttempts + 1,
-          lastAttempt: serverTimestamp(),
-          score: scoreWeighted,
-          scoreRaw,
+          intentos: intentosantiguos + 1,
+          últimoIntento: serverTimestamp(),
+          Puntuación: puntuación ponderada,
+          puntuaciónRaw,
           correctCount: globalCorrect,
-          totalQuestions,
-          weightedPoints: globalWeightedCorrect,
-          weightedTotal: globalWeightedTotal,
-          detail,
-          breakdown: {
-            specialties: specStats,
-            difficulties: difficultyStats,
+          totalPreguntas,
+          puntosponderados: globalWeightedCorrect,
+          totalponderado: totalponderadoglobal,
+          detalle,
+          descomponer: {
+            especialidades: specStats,
+            dificultades: estadísticas de dificultad,
           },
-          history: arrayUnion(historyEntry),
+          historial: arrayUnion(historialEntrada),
         },
-        { merge: true }
+        { fusionar: verdadero }
       );
-    } catch (err) {
-      console.error("Error guardando intento de examen:", err);
+    } atrapar (err) {
+      console.error("Error al guardar intento de examen:", err);
       alert("Hubo un error guardando tu intento, pero se calcularon tus resultados.");
     }
   }
 
   // limpiar persistencia de examen en curso
-  clearStudentExamState();
+  borrarEstadoDeExamenDeEstudiante();
 
   renderPremiumResults({
     auto,
-    globalCorrect,
-    totalQuestions,
-    scoreWeighted,
-    weightedPoints: globalWeightedCorrect,
-    weightedTotal: globalWeightedTotal,
-    specStats,
-    difficultyStats,
+    globalCorrecto,
+    totalPreguntas,
+    puntuación ponderada,
+    puntosponderados: globalWeightedCorrect,
+    totalponderado: totalponderadoglobal,
+    estadísticas de especificaciones,
+    estadísticas de dificultad,
+    showBreakdown: currentExamMode !== "tema",
   });
 
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = true;
-    btnSubmitExam.style.display = "none";
+  si (btnSubmitExam) {
+    btnSubmitExam.disabled = verdadero;
+    btnSubmitExam.style.display = "ninguno";
   }
 }
 
 /****************************************************
  * RESULTADOS – TABLAS
  ****************************************************/
-function renderPremiumResults({
+función renderPremiumResults({
   auto,
-  globalCorrect,
-  totalQuestions,
-  scoreWeighted,
-  weightedPoints,
-  weightedTotal,
-  specStats,
-  difficultyStats,
+  globalCorrecto,
+  totalPreguntas,
+  puntuación ponderada,
+  puntos ponderados,
+  total ponderado,
+  estadísticas de especificaciones,
+  estadísticas de dificultad,
+  showBreakdown = verdadero,
 }) {
-  if (!resultBanner || !resultValues) {
-    alert(
+  si (!resultBanner || !resultValues) {
+    alerta(
       `Examen enviado.\nAciertos: ${globalCorrect}/${totalQuestions}\nCalificación: ${toFixedNice(scoreWeighted)}%`
     );
-    return;
+    devolver;
   }
 
-  const message = auto
-    ? "El examen fue enviado automáticamente al agotarse el tiempo."
+  constante mensaje = auto
+    ? "El examen fue enviado automáticamente al agotar el tiempo."
     : "Tu examen se envió correctamente. Revisa tus resultados detallados.";
 
   const weightedLine = `${toFixedNice(weightedPoints, 2)} / ${toFixedNice(weightedTotal, 2)} puntos`;
 
-  const tableGeneral = `
-    <table class="result-table">
-      <thead>
+  constante tablaGeneral = `
+    <table class="tabla-de-resultados">
+      <cabeza>
         <tr>
-          <th>Indicador</th>
-          <th>Valor</th>
+          Indicador
+          Valor
         </tr>
-      </thead>
-      <tbody>
+      </cabeza>
+      <cuerpo>
         <tr>
           <td>Aciertos</td>
           <td>${globalCorrect} de ${totalQuestions}</td>
         </tr>
         <tr>
-          <td>Total ponderado</td>
+          <td>Totalmente ponderado</td>
           <td>${weightedLine}</td>
         </tr>
         <tr>
           <td>Calificación ponderada</td>
-          <td>${toFixedNice(scoreWeighted)}%</td>
+          <td>${toFixedNice(puntuación ponderada)}%</td>
         </tr>
       </tbody>
-    </table>
+    </tabla>
   `;
 
-  const tableBySpecialtySubtype = `
-    <table class="result-table result-table--compact">
-      <thead>
+  constante tablaPorSubtipoEspecialidad = `
+    <table class="tabla-de-resultados tabla-de-resultados--compacta">
+      <cabeza>
         <tr>
-          <th>Especialidad</th>
-          <th>Salud pública</th>
-          <th>Medicina familiar</th>
-          <th>Urgencias</th>
+          Especialidad
+          Salud pública
+          Medicina familiar
+          Urgencias
         </tr>
-      </thead>
-      <tbody>
-        ${Object.keys(SPECIALTY_LABELS)
-          .map((key) => {
-            const st = specStats[key] || {};
-            const sp = st.subtypes?.salud_publica || { correct: 0, total: 0 };
-            const mf = st.subtypes?.medicina_familiar || { correct: 0, total: 0 };
-            const ur = st.subtypes?.urgencias || { correct: 0, total: 0 };
-            return `
+      </cabeza>
+      <cuerpo>
+        ${Objeto.keys(ETIQUETAS_ESPECIALES)
+          .map((clave) => {
+            const st = specStats[clave] || {};
+            const sp = st.subtypes?.salud_publica || { correctos: 0, totales: 0 };
+            const mf = st.subtypes?.medicina_familiar || { correctos: 0, totales: 0 };
+            const ur = st.subtipos?.urgencias || { correcto: 0, total: 0 };
+            regresar `
               <tr>
-                <td>${SPECIALTY_LABELS[key]}</td>
-                <td>${sp.correct} / ${sp.total}</td>
-                <td>${mf.correct} / ${mf.total}</td>
-                <td>${ur.correct} / ${ur.total}</td>
+                <td>${ETIQUETAS_ESPECIALES[clave]}</td>
+                <td>${sp.correcto} / ${sp.total}</td>
+                <td>${mf.correcto} / ${mf.total}</td>
+                <td>${ur.correcto} / ${ur.total}</td>
               </tr>
             `;
           })
-          .join("")}
+          .unirse("")}
       </tbody>
-    </table>
+    </tabla>
   `;
 
-  const tableByDifficulty = `
-    <table class="result-table result-table--compact">
-      <thead>
+  constante tablaPorDificultad = `
+    <table class="tabla-de-resultados tabla-de-resultados--compacta">
+      <cabeza>
         <tr>
-          <th>Dificultad</th>
-          <th>Aciertos</th>
+          Dificultad
+          Aciertos
         </tr>
-      </thead>
-      <tbody>
+      </cabeza>
+      <cuerpo>
         ${["alta", "media", "baja"]
           .map((d) => {
-            const s = difficultyStats[d] || { correct: 0, total: 0 };
-            const label = DIFFICULTY_LABELS[d] || d;
-            return `
+            const s = difficultyStats[d] || { correctos: 0, totales: 0 };
+            constante etiqueta = ETIQUETAS_DE_DIFICULTAD[d] || d;
+            regresar `
               <tr>
-                <td>${label}</td>
-                <td>${s.correct} / ${s.total}</td>
+                <td>${etiqueta}</td>
+                <td>${s.correcto} / ${s.total}</td>
               </tr>
             `;
           })
-          .join("")}
+          .unirse("")}
       </tbody>
-    </table>
+    </tabla>
   `;
 
   resultValues.innerHTML = `
-    <div class="result-message">${message}</div>
-    <div class="result-tables">
-      ${tableGeneral}
-      ${tableBySpecialtySubtype}
-      ${tableByDifficulty}
+    <div class="result-message">${mensaje}</div>
+    <div class="tablas-de-resultados">
+      ${tablaGeneral}
+      ${showBreakdown ? tableBySpecialtySubtype : ''}
+      ${showBreakdown ? tablaPorDificultad : ''}
     </div>
   `;
 
-  resultBanner.style.display = "block";
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  resultBanner.style.display = "bloque";
+  window.scrollTo({ top: 0, comportamiento: "suave" });
 }
 
 /****************************************************
  * VOLVER DESDE EXAMEN
  ****************************************************/
-async function handleBackFromExam() {
-  const cameFromMini = currentExamMode === "mini";
+función asíncrona handleBackFromExam() {
+  const cameFromMini = modoExamenActual === "mini";
 
-  if (currentExamTimerId) {
+  si (currentExamTimerId) {
     clearInterval(currentExamTimerId);
-    currentExamTimerId = null;
+    currentExamTimerId = nulo;
   }
 
-  currentExamMode = null;
-  currentExamId = null;
-  currentExamQuestions = [];
-  currentExamEndAtMs = null;
-  currentExamAnswers = {};
-  clearExamAnswersStorage();
-  writeExamAnswersToStorage(currentExamAnswers);
+  modoExamenActual = nulo;
+  currentExamId = nulo;
+  PreguntasDeExamenActuales = [];
+  currentExamEndAtMs = nulo;
+  respuestasdelexamenactual = {};
+  borrarAlmacenamientoDeRespuestasDeExamen();
+  escribirRespuestasDeExamenAlAlmacenamiento(RespuestasDeExamenActuales);
 
-  clearStudentExamState();
+  borrarEstadoDeExamenDeEstudiante();
 
-  if (questionsList) questionsList.innerHTML = "";
+  if (lista de preguntas) lista de preguntas.innerHTML = "";
   if (examTimerEl) examTimerEl.textContent = "--:--";
 
-  if (resultBanner) resultBanner.style.display = "none";
-  if (resultValues) resultValues.innerHTML = "";
+  si (resultBanner) resultBanner.style.display = "ninguno";
+  si (valoresResultados) valoresResultados.innerHTML = "";
 
-  if (btnSubmitExam) {
-    btnSubmitExam.disabled = false;
-    btnSubmitExam.style.display = "inline-flex";
+  si (btnSubmitExam) {
+    btnSubmitExam.disabled = falso;
+    btnSubmitExam.style.display = "flexible en línea";
   }
 
-  hide(examDetailView);
-  hide(progressView);
-  hide(resourcesView);
+  ocultar(examDetailView);
+  ocultar(progressView);
+  ocultar(recursosView);
 
-  if (cameFromMini) {
-    switchToMiniView();
-  } else {
-    const restored = await restoreStudentStateAfterInit();
-    if (!restored) switchToSectionView();
+  si (vinoDeMini) {
+    cambiarAMiniView();
+  } demás {
+    constante restaurada = esperar restaurarStudentStateAfterInit();
+    si (!restaurado) switchToSectionView();
   }
 }
 
 /****************************************************
  * PROGRESO DEL ESTUDIANTE
- ****************************************************/
-async function loadStudentProgress() {
-  if (!currentUser) return;
+ **************************************** *************/
+función asíncrona loadStudentProgress() {
+  si (!currentUser) retorna;
 
-  const thisToken = ++progressLoadToken;
+  constante esteToken = ++progressLoadToken;
 
-  if (progressUsername) {
-    progressUsername.textContent =
-      "Estudiante: " + (currentUserProfile?.name || currentUser.email);
+  si (progressNombreUsuario) {
+    progresoNombre de usuario.textContent =
+      "Estudiante: " + (PerfilUsuarioActual?.nombre || UsuarioActual.correo electrónico);
   }
 
-  if (progressSectionsContainer) {
-    progressSectionsContainer.innerHTML = `
-      <div class="card">
+  si (progressSectionsContainer) {
+    ProgressSectionsContainer.innerHTML = `
+      <div class="tarjeta">
         <p class="panel-subtitle">Cargando progreso…</p>
       </div>
     `;
   }
-  if (progressGlobalEl) {
-    progressGlobalEl.innerHTML = "";
+  si (progresoGlobalEl) {
+    progresoGlobalEl.innerHTML = "";
   }
 
-  try {
-    const [sectionsSnap, examsSnap, attemptsSnap] = await Promise.all([
-      getDocs(collection(db, "sections")),
-      getDocs(collection(db, "exams")),
-      getDocs(collection(db, "users", currentUser.email, "examAttempts")),
+  intentar {
+    const [seccionesSnap, exámenesSnap, intentosSnap] = await Promise.all([
+      getDocs(colección(db, "secciones")),
+      getDocs(colección(db, "exámenes")),
+      getDocs(colección(db, "usuarios", currentUser.email, "intentosdeexamen")),
     ]);
 
-    if (thisToken !== progressLoadToken) return;
+    si (thisToken !== progressLoadToken) retorna;
 
-    const sectionsMap = {};
-    sectionsSnap.forEach((docSnap) => {
-      sectionsMap[docSnap.id] = {
-        id: docSnap.id,
-        name: docSnap.data().name || "Sección",
+    const seccionesMap = {};
+    seccionesSnap.forEach((docSnap) => {
+      seccionesMap[docSnap.id] = {
+        identificación: docSnap.id,
+        nombre: docSnap.data().nombre || "Sección",
       };
     });
 
-    const sectionStats = {};
-    Object.values(sectionsMap).forEach((s) => {
-      sectionStats[s.id] = {
-        name: s.name,
-        totalScore: 0,
-        examsCount: 0,
-        correct: 0,
-        totalQuestions: 0,
+    constante secciónStats = {};
+    Objeto.valores(seccionesMapa).paraCada((s) => {
+      secciónStats[s.id] = {
+        nombre: s.name,
+        Puntuación total: 0,
+        exámenesCount: 0,
+        correcto: 0,
+        total de preguntas: 0,
       };
     });
 
     const examsMap = {};
-    examsSnap.forEach((docSnap) => {
-      const d = docSnap.data();
+    exámenesSnap.forEach((docSnap) => {
+      constante d = docSnap.data();
       examsMap[docSnap.id] = {
-        examId: docSnap.id,
-        name: d.name || "Examen",
-        sectionId: d.sectionId || null,
+        ID de examen: docSnap.id,
+        nombre: d.name || "Examen",
+        sectionId: d.sectionId || nulo,
       };
     });
 
-    const examLatestResults = [];
-    const examHistoryResults = [];
+    constante examLatestResults = [];
+    constante examHistoryResults = [];
 
-    attemptsSnap.forEach((docSnap) => {
-      const at = docSnap.data();
-      const examId = docSnap.id;
+    intentosSnap.forEach((docSnap) => {
+      constante en = docSnap.data();
+      constante examId = docSnap.id;
       const examDef = examsMap[examId] || {};
 
-      const examName = examDef.name || at.examName || "Examen";
-      const sectionId = at.sectionId || examDef.sectionId || null;
-      const sectionName =
-        at.sectionName || (sectionId && sectionsMap[sectionId]?.name) || "Sección";
+      const nombreDeExamen = nombreDefExamen || en.nombreexamen || "Examen";
+      constante sectionId = at.sectionId || examDef.sectionId || null;
+      constante nombreSección =
+        en.sectionName || (sectionId && sectionsMap[sectionId]?.name) || "Sección";
 
-      const score = typeof at.score === "number" ? at.score : 0;
-      const correct = at.correctCount || 0;
-      const totalQ = at.totalQuestions || 0;
-      const lastAttempt = at.lastAttempt ? at.lastAttempt.toDate() : null;
+      const puntuación = typeof en.puntuación === "número" ? en.puntuación : 0;
+      constante correcta = en.correctCount || 0;
+      constante totalQ = en.totalPreguntas || 0;
+      const último intento = at.último intento? at.lastAttempt.toDate() : nulo;
 
       examLatestResults.push({
-        examId,
-        examName,
-        sectionId,
-        sectionName,
-        score,
-        correctCount: correct,
-        totalQuestions: totalQ,
-        lastAttempt,
+        ID de examen,
+        nombreExamen,
+        secciónId,
+        nombreDeSección,
+        puntaje,
+        correctCount: correcto,
+        totalPreguntas: totalQ,
+        último intento,
       });
 
-      if (sectionId && sectionStats[sectionId]) {
-        sectionStats[sectionId].totalScore += score;
-        sectionStats[sectionId].examsCount++;
-        sectionStats[sectionId].correct += correct;
-        sectionStats[sectionId].totalQuestions += totalQ;
+      si (secciónId && secciónStats[secciónId]) {
+        sectionStats[sectionId].totalScore += puntuación;
+        secciónStats[secciónId].examsCount++;
+        sectionStats[sectionId].correct += correcto;
+        secciónEstadísticas[secciónId].totalPreguntas += totalQ;
       }
 
       const historyArr = Array.isArray(at.history) ? at.history : [];
-      if (historyArr.length === 0) {
-        examHistoryResults.push({ examId, examName, sectionId, sectionName, score, lastAttempt });
-      } else {
+      si (historyArr.length === 0) {
+        examHistoryResults.push({ examId, examName, sectionId, sectionName, puntuación, últimoIntento });
+      } demás {
         historyArr.forEach((h) => {
-          const hScore = typeof h.score === "number" ? h.score : score;
-          let hDate = h.createdAt || h.date || at.lastAttempt;
-          if (hDate && typeof hDate.toDate === "function") hDate = hDate.toDate();
-          examHistoryResults.push({
-            examId,
-            examName,
-            sectionId,
-            sectionName,
-            score: hScore,
-            lastAttempt: hDate || lastAttempt,
+          const hScore = typeof h.score === "número" ? h.score : puntuación;
+          deje que hDate = h.createdAt || h.date || en.lastAttempt;
+          si (hDate && tipo de hDate.toDate === "función") hDate = hDate.toDate();
+          ResultadosDeHistorialDeExámenes.push({
+            ID de examen,
+            nombreExamen,
+            secciónId,
+            nombreDeSección,
+            Puntuación: hScore,
+            últimoIntento: hDate || últimoIntento,
           });
         });
       }
     });
 
-    if (progressSectionsContainer) {
-      progressSectionsContainer.innerHTML = "";
+    si (progressSectionsContainer) {
+      ProgressSectionsContainer.innerHTML = "";
 
-      Object.values(sectionsMap).forEach((s) => {
+      Objeto.valores(seccionesMapa).paraCada((s) => {
         const st = sectionStats[s.id] || { examsCount: 0, totalScore: 0, correct: 0, totalQuestions: 0 };
-        const examsCnt = st.examsCount || 0;
+        const exámenesCnt = st.examsCount || 0;
 
-        const card = document.createElement("div");
-        card.className = "progress-section-card";
+        constante tarjeta = documento.createElement("div");
+        card.className = "tarjeta-de-sección-de-progreso";
 
-        if (!examsCnt) {
-          card.innerHTML = `
-            <div class="progress-section-title">${s.name}</div>
+        si (!examsCnt) {
+          tarjeta.innerHTML = `
+            <div class="título-de-sección-de-progreso">${s.name}</div>
             <div>Sin intentos aún.</div>
           `;
-        } else {
-          const avg = st.totalScore / examsCnt;
-          card.innerHTML = `
-            <div class="progress-section-title">${s.name}</div>
+        } demás {
+          constante avg = st.totalScore / examsCnt;
+          tarjeta.innerHTML = `
+            <div class="título-de-sección-de-progreso">${s.name}</div>
             <div><strong>Promedio:</strong> ${toFixedNice(avg, 1)}%</div>
             <div><strong>Aciertos:</strong> ${st.correct} / ${st.totalQuestions}</div>
             <div><strong>Exámenes realizados:</strong> ${examsCnt}</div>
           `;
         }
 
-        progressSectionsContainer.appendChild(card);
+        progressSectionsContainer.appendChild(tarjeta);
       });
     }
 
-    const totalExams = examLatestResults.length;
-    const totalCorrect = examLatestResults.reduce((sum, r) => sum + (r.correctCount || 0), 0);
-    const totalQuestions = examLatestResults.reduce((sum, r) => sum + (r.totalQuestions || 0), 0);
-    const globalAvg =
-      totalExams > 0
-        ? examLatestResults.reduce((sum, r) => sum + (r.score || 0), 0) / totalExams
-        : 0;
+    constante totalExams = examLatestResults.length;
+    const totalCorrect = examLatestResults.reduce((suma, r) ​​=> suma + (r.correctCount || 0), 0);
+    const totalQuestions = examLatestResults.reduce((suma, r) ​​=> suma + (r.totalQuestions || 0), 0);
+    constante globalAvg =
+      totalExámenes > 0
+        ? examLatestResults.reduce((suma, r) ​​=> suma + (r.puntuación || 0), 0) / totalExams
+        :0;
 
-    if (progressGlobalEl) {
-      progressGlobalEl.innerHTML = `
+    si (progresoGlobalEl) {
+      progresoGlobalEl.innerHTML = `
         <div><strong>Exámenes realizados:</strong> ${totalExams}</div>
         <div><strong>Aciertos acumulados:</strong> ${totalCorrect} de ${totalQuestions}</div>
         <div><strong>Promedio general:</strong> ${toFixedNice(globalAvg, 1)}%</div>
@@ -2207,37 +2317,37 @@ async function loadStudentProgress() {
     }
 
     // Progreso Biblioteca (Resúmenes/GPC)
-    try {
-      await ensureStudentResourcesActivated();
+    intentar {
+      esperar asegurarStudentResourcesActivated();
 
-      const countEl = document.getElementById("student-resources-count");
+      const countEl = document.getElementById("número-de-recursos-para-estudiantes");
       const totalText = countEl ? (countEl.textContent || "") : "";
       const mTotal = totalText.match(/(\d+)/);
-      const totalTopics = mTotal ? Number(mTotal[1]) : 0;
+      const totalTopics = mTotal ? Número(mTotal[1]) : 0;
 
-      const userKey = normalizeText(currentUser.email);
-      const completedRaw = localStorage.getItem(`resources_completed_${userKey}`) || "[]";
-      const completedArr = safeJsonParse(completedRaw, []);
-      const completedTopics = Array.isArray(completedArr) ? completedArr.length : 0;
+      constante userKey = normalizeText(currentUser.email);
+      const completedRaw = localStorage.getItem(`recursos_completados_${userKey}`) || "[]";
+      constante completedArr = safeJsonParse(completedRaw, []);
+      const TemasCompletados = Array.isArray(ArrCompletado) ?ArrCompletado.length : 0;
 
-      const pct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+      const pct = totalTemas > 0 ? Math.round((Temas completados / totalTemas) * 100) : 0;
 
-      if (progressGlobalEl) {
-        progressGlobalEl.innerHTML += `
+      si (progresoGlobalEl) {
+        progresoGlobalEl.innerHTML += `
           <div><strong>Biblioteca (Resúmenes/GPC):</strong> ${completedTopics} / ${totalTopics} (${pct}%)</div>
         `;
       }
-    } catch (e) {
-      console.warn("No se pudo calcular progreso de biblioteca:", e);
+    } captura (e) {
+      console.warn("No se pudo calcular el progreso de la biblioteca:", e);
     }
 
-    renderProgressChart(examHistoryResults);
-  } catch (err) {
+    renderProgressChart(resultadosdelhistorialdelexamen);
+  } atrapar (err) {
     console.error("Error cargando progreso del estudiante:", err);
-    if (thisToken !== progressLoadToken) return;
-    if (progressSectionsContainer) {
-      progressSectionsContainer.innerHTML = `
-        <div class="card">
+    si (thisToken !== progressLoadToken) retorna;
+    si (progressSectionsContainer) {
+      ProgressSectionsContainer.innerHTML = `
+        <div class="tarjeta">
           <p class="panel-subtitle">No se pudo cargar el progreso.</p>
         </div>
       `;
@@ -2248,77 +2358,77 @@ async function loadStudentProgress() {
 /****************************************************
  * GRÁFICA DE PROGRESO – Chart.js
  ****************************************************/
-function renderProgressChart(examResults) {
-  if (!progressChartCanvas) return;
+función renderProgressChart(examResults) {
+  si (!progressChartCanvas) retorna;
 
-  const sorted = examResults
-    .slice()
+  constante ordenada = resultadosdelexamen
+    .rebanada()
     .sort((a, b) => {
-      const A = a.lastAttempt ? a.lastAttempt.getTime() : 0;
-      const B = b.lastAttempt ? b.lastAttempt.getTime() : 0;
-      return A - B;
+      constante A = a.últimoIntento ? a.últimoIntento.getTime() : 0;
+      constante B = b.últimoIntento ? b.últimoIntento.getTime() : 0;
+      devolver A - B;
     });
 
-  const ctx = progressChartCanvas.getContext("2d");
+  constante ctx = progressChartCanvas.getContext("2d");
 
-  if (!sorted.length) {
-    if (progressChartInstance) {
+  si (!ordenado.longitud) {
+    si (progressChartInstance) {
       progressChartInstance.destroy();
-      progressChartInstance = null;
+      progressChartInstance = nulo;
     }
-    ctx.clearRect(0, 0, progressChartCanvas.width, progressChartCanvas.height);
-    return;
+    ctx.clearRect(0, 0, progressChartCanvas.ancho, progressChartCanvas.alto);
+    devolver;
   }
 
-  const labels = sorted.map((_, i) => `Intento ${i + 1}`);
-  const data = sorted.map((r) => (typeof r.score === "number" ? r.score : 0));
+  const etiquetas = sorted.map((_, i) => `Intento ${i + 1}`);
+  const datos = ordenados.map((r) => (tipo de r.score === "número" ? r.score : 0));
 
-  const grad = ctx.createLinearGradient(0, 0, 0, 240);
+  constante grad = ctx.createLinearGradient(0, 0, 0, 240);
   grad.addColorStop(0, "rgba(37,99,235,0.25)");
   grad.addColorStop(1, "rgba(37,99,235,0)");
 
-  if (progressChartInstance) progressChartInstance.destroy();
+  si (progressChartInstance) progressChartInstance.destroy();
 
-  // eslint-disable-next-line no-undef
-  progressChartInstance = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
+  // eslint-deshabilitar-siguiente-línea sin indefinición
+  progressChartInstance = nuevo Gráfico(ctx, {
+    tipo: "línea",
+    datos: {
+      etiquetas,
+      conjuntos de datos: [
         {
-          label: "Calificación ponderada",
-          data,
-          borderColor: "#2563eb",
-          backgroundColor: grad,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointBackgroundColor: "#1d4ed8",
-          tension: 0.3,
-          fill: true,
+          etiqueta: "Calificación ponderada",
+          datos,
+          color del borde: "#2563eb",
+          Color de fondo: degradado,
+          Ancho del borde: 2,
+          radio del punto: 3,
+          puntoFondoColor: "#1d4ed8",
+          tensión: 0,3,
+          relleno: verdadero,
         },
       ],
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { min: 0, max: 100, ticks: { stepSize: 10 } },
+    opciones: {
+      responsivo: verdadero,
+      mantenerRelaciónDeAspecto: falso,
+      escalas: {
+        y: { min: 0, máx: 100, ticks: { stepSize: 10 } },
       },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => {
-              const i = items[0].dataIndex;
-              const r = sorted[i];
+      complementos: {
+        leyenda: { display: false },
+        información sobre herramientas: {
+          devoluciones de llamada: {
+            título: (elementos) => {
+              constante i = elementos[0].dataIndex;
+              const r = ordenado[i];
               return `Intento ${i + 1} — ${r.examName} (${r.sectionName})`;
             },
-            label: (item) => {
-              const i = item.dataIndex;
-              const r = sorted[i];
-              const score = typeof r.score === "number" ? toFixedNice(r.score, 1) : "0.0";
-              const when = r.lastAttempt instanceof Date ? r.lastAttempt.toLocaleString("es-MX") : "";
-              return when ? `Calificación: ${score}% — ${when}` : `Calificación: ${score}%`;
+            etiqueta: (artículo) => {
+              constante i = elemento.dataIndex;
+              const r = ordenado[i];
+              const puntuación = typeof r.puntuación === "número" ? toFixedNice(r.puntuación, 1) : "0.0";
+              const cuando = r.lastAttempt instancia de Fecha ? r.lastAttempt.toLocaleString("es-MX") : "";
+              volver cuando? `Calificación: ${score}% — ${when}` : `Calificación: ${score}%`;
             },
           },
         },
