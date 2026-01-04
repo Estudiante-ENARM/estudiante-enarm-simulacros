@@ -2,114 +2,114 @@
  * ADMIN.JS - Panel de Administrador
  * Plataforma Estudiante ENARM
  * - Gestión de secciones
- * - Gestión de solicitudes y casos clínicos
+ * - Gestión de exámenes y casos clínicos
  * - Gestión de usuarios
  * - Configuración de pantalla principal
- * - Conceptos básicos de análisis
+ * - Analytics básicos
  *
- * ✅ CORRECCIONES APLICADAS (SIN FUNCIONES ELIMINAR):
- * 1) Banco de preguntas (panel banco): preguntas editables tipo examen (no JSON).
+ * ✅ CORRECCIONES APLICADAS (SIN ELIMINAR FUNCIONES):
+ * 1) Banco de preguntas (panel bank): preguntas editables tipo examen (no JSON).
  * 2) Buscador "Agregar casos desde banco" en EXÁMENES y MINI:
- * - Busca en "questions" (solo casos banco: sin examId)
- * - Muestra tema + usageCount
- * - BLOQUEA duplicados dentro del mismo examen/mini (persistente con bankCaseId)
+ *    - Busca en "questions" (solo casos banco: sin examId)
+ *    - Muestra topic + usageCount
+ *    - BLOQUEA duplicados dentro del mismo examen/mini (persistente con bankCaseId)
  * 3) usageCount robusto:
- * - Ajuste por delta al guardar examen, borrar examen, guardar mini banco
+ *    - Ajuste por delta al guardar examen, borrar examen, guardar mini bank
  ****************************************************/
 
-(función asíncrona bootstrapAdmin() {
-  intentar {
-    constante [cfg, appMod, sharedMod, authMod, fsMod] = await Promesa.all([
-      importar("./firebase-config.js"),
-      importar("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"),
-      importar("./shared-constants.js"),
-      importar("https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"),
-      importar("https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"),
+(async function bootstrapAdmin() {
+  try {
+    const [cfg, appMod, sharedMod, authMod, fsMod] = await Promise.all([
+      import("./firebase-config.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"),
+      import("./shared-constants.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"),
     ]);
 
-    constante { auth, db } = cfg;
+    const { auth, db } = cfg;
 
-    const { inicializarApp, obtenerApps, obtenerApp } = appMod;
-    const { ESPECIALIDADES, SUBTIPOS, DIFICULTADES, PESO_DE_DIFICULTAD, REGLAS_DE_EXAMEN_PREDETERMINADAS } = sharedMod;
+    const { initializeApp, getApps, getApp } = appMod;
+    const { SPECIALTIES, SUBTYPES, DIFFICULTIES, DIFFICULTY_WEIGHTS, DEFAULT_EXAM_RULES } = sharedMod;
 
     const { onAuthStateChanged, signOut, getAuth, signInWithEmailAndPassword } = authMod;
 
-    constante {
-      recopilación,
+    const {
+      collection,
       doc,
-      obtenerFirestore,
-      obtenerDoc,
-      obtenerDocs,
-      consulta,
-      dónde,
-      Ordenar por,
-      establecerDoc,
-      agregarDoc,
-      actualizarDoc,
-      eliminarDoc,
-      marca de tiempo del servidor,
-      límite,
-      empezarDespués,
-      ID del documento,
-      incremento,
+      getFirestore,
+      getDoc,
+      getDocs,
+      query,
+      where,
+      orderBy,
+      setDoc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      serverTimestamp,
+      limit,
+      startAfter,
+      documentId,
+      increment,
     } = fsMod;
 
 /****************************************************
  * REFERENCIAS DOM
  ****************************************************/
 
-// Encabezado
-const adminUserEmailSpan = document.getElementById("correo electrónico del usuario administrador");
+// Header
+const adminUserEmailSpan = document.getElementById("admin-user-email");
 const btnLogout = document.getElementById("admin-btn-logout");
-constante btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
+const btnToggleSidebar = document.getElementById("admin-btn-toggle-sidebar");
 
-// Barra lateral
+// Sidebar
 const sidebar = document.getElementById("admin-sidebar");
-const sectionsList = document.getElementById("lista-de-secciones-de-admin");
+const sectionsList = document.getElementById("admin-sections-list");
 const btnAddSection = document.getElementById("admin-btn-add-section");
 const btnNavExams = document.getElementById("admin-btn-nav-exams");
 const btnNavBank = document.getElementById("admin-btn-nav-bank");
 const btnNavMini = document.getElementById("admin-btn-nav-mini");
 const btnNavUsers = document.getElementById("admin-btn-nav-users");
-constante btnNavAnalytics = document.getElementById("admin-btn-nav-analytics");
-constante btnNavLanding = document.getElementById("admin-btn-nav-landing");
+const btnNavAnalytics = document.getElementById("admin-btn-nav-analytics");
+const btnNavLanding = document.getElementById("admin-btn-nav-landing");
 const btnNavImportExport = document.getElementById("admin-btn-nav-import-export");
 const btnNavResources = document.getElementById("admin-btn-nav-resources");
 const adminSocialIcons = document.querySelectorAll(".admin-social-icon");
 
 // Paneles principales
-const panelExams = document.getElementById("examenes-del-panel-de-administracion");
-const panelBank = document.getElementById("banco-del-panel-de-administración");
+const panelExams = document.getElementById("admin-panel-exams");
+const panelBank = document.getElementById("admin-panel-bank");
 const panelMini = document.getElementById("admin-panel-mini");
-const panelUsers = document.getElementById("usuarios-del-panel-de-administración");
-const panelAnalytics = document.getElementById("panel-de-administración-analytics");
-const panelLanding = document.getElementById("panel-de-administración-landing");
-const panelResources = document.getElementById("recursos-del-panel-de-administración");
+const panelUsers = document.getElementById("admin-panel-users");
+const panelAnalytics = document.getElementById("admin-panel-analytics");
+const panelLanding = document.getElementById("admin-panel-landing");
+const panelResources = document.getElementById("admin-panel-resources");
 
 
-// ==================== RESÚMENES DEL PANEL / GPC =====================
+// ==================== PANEL RESÚMENES / GPC ====================
 const resBtnRefresh = document.getElementById("admin-resources-btn-refresh");
-const resBtnNewTopic = document.getElementById("admin-recursos-btn-nuevo-tema");
-const resAuthBox = document.getElementById("caja de autenticación de recursos de administración");
-const resAuthStatus = document.getElementById("estado de autenticación de recursos de administrador");
+const resBtnNewTopic = document.getElementById("admin-resources-btn-new-topic");
+const resAuthBox = document.getElementById("admin-resources-auth-box");
+const resAuthStatus = document.getElementById("admin-resources-auth-status");
 const resAuthEmailInput = document.getElementById("admin-resources-auth-email");
-const resAuthPasswordInput = document.getElementById("contraseña-de-autenticación-de-recursos-de-administración");
-const resAuthBtnLogin = document.getElementById("inicio de sesión de autenticación de recursos de administrador");
-const resAuthBtnLogout = document.getElementById("cierre de sesión de autenticación de recursos de administrador");
-const resSearchInput = document.getElementById("búsqueda-de-recursos-de-administración");
-const resSpecialtyFilter = document.getElementById("admin-recursos-especialidad");
-const resTopicCount = document.getElementById("número-de-temas-de-recursos-de-administración");
-const resTopicList = document.getElementById("lista-de-temas-de-recursos-de-administración");
+const resAuthPasswordInput = document.getElementById("admin-resources-auth-password");
+const resAuthBtnLogin = document.getElementById("admin-resources-auth-login");
+const resAuthBtnLogout = document.getElementById("admin-resources-auth-logout");
+const resSearchInput = document.getElementById("admin-resources-search");
+const resSpecialtyFilter = document.getElementById("admin-resources-specialty");
+const resTopicCount = document.getElementById("admin-resources-topic-count");
+const resTopicList = document.getElementById("admin-resources-topic-list");
 
-const resBtnBack = document.getElementById("admin-recursos-btn-back");
-const resEditorStatus = document.getElementById("estado del editor de recursos de administración");
-const resTitleInput = document.getElementById("título-de-recursos-de-administración");
-const resSpecialtyRawInput = document.getElementById("admin-recursos-specialty-raw");
-const resLinksWrap = document.getElementById("enlaces-de-recursos-de-administración");
+const resBtnBack = document.getElementById("admin-resources-btn-back");
+const resEditorStatus = document.getElementById("admin-resources-editor-status");
+const resTitleInput = document.getElementById("admin-resources-title");
+const resSpecialtyRawInput = document.getElementById("admin-resources-specialty-raw");
+const resLinksWrap = document.getElementById("admin-resources-links");
 // ✅ Mini-examen del tema (topic_exams/{topicId})
 const resTopicExamCasesWrap = document.getElementById("admin-resources-topic-exam-cases");
-const resTopicExamEmpty = document.getElementById("admin-recursos-tema-examen-vacío");
-const resTopicExamBtnAddCase = document.getElementById("admin-recursos-tema-examen-btn-add-case");
+const resTopicExamEmpty = document.getElementById("admin-resources-topic-exam-empty");
+const resTopicExamBtnAddCase = document.getElementById("admin-resources-topic-exam-btn-add-case");
 const resTopicExamBtnSave = document.getElementById("admin-resources-topic-exam-btn-save");
 const resTopicExamBtnDelete = document.getElementById("admin-resources-topic-exam-btn-delete");
 
@@ -117,63 +117,63 @@ const resBtnAddLink = document.getElementById("admin-resources-btn-add-link");
 const resBtnDelete = document.getElementById("admin-resources-btn-delete");
 const resBtnSave = document.getElementById("admin-resources-btn-save");
 
-// ==================== EXÁMENES DE PANEL =====================
-const currentSectionTitle = document.getElementById("admin-título-de-la-sección-actual");
-const examsListEl = document.getElementById("lista-de-examenes-de-admin");
+// ==================== PANEL EXÁMENES ====================
+const currentSectionTitle = document.getElementById("admin-current-section-title");
+const examsListEl = document.getElementById("admin-exams-list");
 const btnAddExam = document.getElementById("admin-btn-add-exam");
 const btnImportExamsJson = document.getElementById("admin-btn-import-exams-json");
 
 // Vista detalle examen
-const examDetailView = document.getElementById("detalle-del-examen-de-administrador");
-const btnBackToExams = document.getElementById("admin-btn-volver-a-los-examenes");
-const examTitleInput = document.getElementById("entrada-de-título-de-examen-de-administrador");
+const examDetailView = document.getElementById("admin-exam-detail");
+const btnBackToExams = document.getElementById("admin-btn-back-to-exams");
+const examTitleInput = document.getElementById("admin-exam-title-input");
 const examCasesContainer = document.getElementById("admin-exam-cases");
-const btnSaveExamAll = document.getElementById("admin-btn-guardar-examen");
-constante btnAddCaseTop = documento.getElementById("admin-btn-add-case");
+const btnSaveExamAll = document.getElementById("admin-btn-save-exam");
+const btnAddCaseTop = document.getElementById("admin-btn-add-case");
 const btnImportExamJson = document.getElementById("admin-btn-import-exam");
 
-// ==================== BUSCADOR "Agregar casos desde banco" EN DETALLE DE EXAMEN =====================
-const bankSearchInput = document.getElementById("entrada-de-búsqueda-del-banco-de-administración");
-const bankSearchResults = document.getElementById("resultados-de-busqueda-de-admin-bank");
+// ==================== BUSCADOR "Agregar casos desde banco" EN DETALLE DE EXAMEN ====================
+const bankSearchInput = document.getElementById("admin-bank-search-input");
+const bankSearchResults = document.getElementById("admin-bank-search-results");
 
 // ==================== BUSCADOR "Agregar casos desde banco" EN MINI EXÁMENES ====================
-const miniBankSearchInput = document.getElementById("entrada-de-búsqueda-mini-banco-admin");
-const miniBankSearchResults = document.getElementById("resultados-de-busqueda-de-mini-banco-admin");
+const miniBankSearchInput = document.getElementById("admin-mini-bank-search-input");
+const miniBankSearchResults = document.getElementById("admin-mini-bank-search-results");
 
-// ===================== GENERADOR AUTOMÁTICO (detalle de examen) ====================
+// ==================== GENERADOR AUTOMÁTICO (detalle de examen) ====================
 const autoGenTopicsInput = document.getElementById("admin-auto-gen-topics");
 const autoGenTargetsWrap = document.getElementById("admin-auto-gen-targets");
 const autoGenBtnAddTarget = document.getElementById("admin-auto-gen-add-target");
 const autoGenBtnGenerate = document.getElementById("admin-auto-gen-generate");
 const autoGenSummary = document.getElementById("admin-auto-gen-summary");
 
-// ===================== PANEL USUARIOS =====================
-const newUserNameInput = document.getElementById("admin-nuevo-nombre-de-usuario");
-const newUserEmailInput = document.getElementById("admin-nuevo-usuario-email");
-const newUserPasswordInput = document.getElementById("admin-nueva-contraseña-de-usuario");
-const newUserRoleSelect = document.getElementById("admin-nuevo-rol-de-usuario");
-const newUserStatusSelect = document.getElementById("admin-nuevo-estado-de-usuario");
-const newUserExpiryInput = document.getElementById("admin-nuevo-usuario-expiración");
+// ==================== PANEL USUARIOS ====================
+const newUserNameInput = document.getElementById("admin-new-user-name");
+const newUserEmailInput = document.getElementById("admin-new-user-email");
+const newUserPasswordInput = document.getElementById("admin-new-user-password");
+const newUserRoleSelect = document.getElementById("admin-new-user-role");
+const newUserStatusSelect = document.getElementById("admin-new-user-status");
+const newUserExpiryInput = document.getElementById("admin-new-user-expiry");
 const btnCreateUser = document.getElementById("admin-btn-create-user");
-const usersTableContainer = document.getElementById("admin-usuarios-tabla");
+const usersTableContainer = document.getElementById("admin-users-table");
 
-// ==================== PANEL DE INICIO / CONFIGURACIÓN ====================
+// ==================== PANEL LANDING / SETTINGS ====================
 const landingTextArea = document.getElementById("admin-landing-text");
-const monthlyLabelInput = document.getElementById("admin-etiqueta-mensual");
-const monthlyPriceInput = document.getElementById("admin-precio-mensual");
+const monthlyLabelInput = document.getElementById("admin-monthly-label");
+const monthlyPriceInput = document.getElementById("admin-monthly-price");
 const enarmLabelInput = document.getElementById("admin-enarm-label");
 const enarmPriceInput = document.getElementById("admin-enarm-price");
 const whatsappPhoneInput = document.getElementById("admin-whatsapp-phone");
 const btnSaveLanding = document.getElementById("admin-btn-save-landing");
 
-// Enlaces sociales en el panel de aterrizaje
+// Social links en panel landing
 const landingInstagramInput = document.getElementById("admin-instagram-link");
-const landingWhatsappLinkInput = document.getElementById("enlace-de-admin-whatsapp");
-const landingTiktokInput = document.getElementById("enlace-admin-tiktok");
-const landingTelegramInput = document.getElementById("enlace-de-telegrama-de-administrador");
+const landingWhatsappLinkInput = document.getElementById("admin-whatsapp-link");
+const landingTiktokInput = document.getElementById("admin-tiktok-link");
+const landingTelegramInput = document.getElementById("admin-telegram-link");
 
-// ==================== ANÁLISIS DE PANEL ====================
-const analyticsSummaryBox = document.getElementById("resumen-de-analíticas-de-admin");
+// ==================== PANEL ANALYTICS ====================
+const analyticsSummaryBox = document.getElementById("admin-analytics-summary");
 const analyticsUsersBox = document.getElementById("admin-analytics-users");
 
 // Modal genérico (reutilizable) -> SE CONSERVA, pero banco ya no lo usa
@@ -184,28 +184,28 @@ const modalBody = document.getElementById("admin-modal-body");
 const modalBtnCancel = document.getElementById("admin-modal-cancel");
 const modalBtnOk = document.getElementById("admin-modal-ok");
 
-deje que modalOkHandler = null;
+let modalOkHandler = null;
 
 /****************************************************
- * ALTERNAR BARRA LATERAL (HAMBURGUESA)
+ * TOGGLE BARRA LATERAL (HAMBURGUESA)
  ****************************************************/
-si (btnToggleSidebar && barra lateral) {
-  btnToggleSidebar.addEventListener("clic", () => {
-    sidebar.classList.toggle("barra lateral--abrir");
+if (btnToggleSidebar && sidebar) {
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("sidebar--open");
   });
 }
 
 /****************************************************
- * CERRAR SESIÓN DE ADMINISTRADOR
+ * LOGOUT ADMIN
  ****************************************************/
-si (btnCerrar sesión) {
-  btnLogout.addEventListener("clic", async () => {
-    intentar {
-      esperar signOut(auth);
-      ventana.ubicación.href = "index.html";
-    } captura (error) {
+if (btnLogout) {
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "index.html";
+    } catch (error) {
       console.error("Error al cerrar sesión (admin):", error);
-      alert("No se pudo cerrar sesión. Intento nuevamente.");
+      alert("No se pudo cerrar sesión. Intenta nuevamente.");
     }
   });
 }
@@ -214,211 +214,211 @@ si (btnCerrar sesión) {
  * ESTADO EN MEMORIA
  ****************************************************/
 
-deje que currentAdminUser = null; // Usuario de autenticación
-let currentSectionId = nulo; // Sección seleccionada
-let currentExamId = null; // examen abierto
+let currentAdminUser = null;       // Auth user
+let currentSectionId = null;       // Sección seleccionada
+let currentExamId = null;          // Examen abierto
 
 
 /****************************************************
  * ESTADO DE NAVEGACIÓN (persistencia + botón Atrás)
  * Objetivo:
- * 1) Actualizar mantiene la misma vista/pestaña y contexto.
- * 2) Botón físico/gesto Atrás navega dentro de la jerarquía de la aplicación.
+ * 1) Refresh mantiene la misma vista/pestaña y contexto.
+ * 2) Botón físico/gesto Atrás navega dentro de la jerarquía de la app.
  ****************************************************/
-constante ADMIN_NAV_STATE_VERSION = 1;
-sea ​​_isRestoringNav = falso;
+const ADMIN_NAV_STATE_VERSION = 1;
+let _isRestoringNav = false;
 
-deje que adminNavState = {
-  Panel: "Exámenes", // Exámenes | Banco | Mini | Usuarios | Análisis | Página de inicio | Recursos
-  vista: "lista_exámenes", // lista_exámenes | detalle_examen | lista_recursos | detalle_recursos | nuevo_recursos | panel
-  sectionId: nulo,
-  examId: nulo,
-  recursosTopicId: null,
-  RecursosBuscar: "",
-  RecursosClave de especialidad: "",
+let adminNavState = {
+  panel: "exams",            // exams | bank | mini | users | analytics | landing | resources
+  view: "exams_list",        // exams_list | exam_detail | resources_list | resources_detail | resources_new | panel
+  sectionId: null,
+  examId: null,
+  resourcesTopicId: null,
+  resourcesSearch: "",
+  resourcesSpecialtyKey: "",
 };
 
-función getAdminNavStorageKey() {
-  const id = usuarioAdministradorActual?.uid || usuarioAdministradorActual?.email || "anónimo";
-  devuelve `admin_nav_v${VERSIÓN_ESTADO_ADMIN_NAV}_${id}`;
+function getAdminNavStorageKey() {
+  const id = currentAdminUser?.uid || currentAdminUser?.email || "anon";
+  return `admin_nav_v${ADMIN_NAV_STATE_VERSION}_${id}`;
 }
 
-función readAdminNavState() {
-  intentar {
+function readAdminNavState() {
+  try {
     const raw = localStorage.getItem(getAdminNavStorageKey());
-    si (!raw) devuelve nulo;
-    constante analizada = JSON.parse(raw);
-    si (!parsed || typeof parsed !== "object") devuelve null;
-    devolver {
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
       ...adminNavState,
-      ...analizado,
+      ...parsed,
     };
-  } atrapar {
-    devuelve nulo;
+  } catch {
+    return null;
   }
 }
 
-función persistAdminNavState() {
-  intentar {
+function persistAdminNavState() {
+  try {
     localStorage.setItem(getAdminNavStorageKey(), JSON.stringify(adminNavState));
-  } atrapar {}
+  } catch {}
 }
 
-función sameNavState(a, b) {
-  intentar {
-    devuelve JSON.stringify(a || {}) === JSON.stringify(b || {});
-  } atrapar {
-    devuelve falso;
+function sameNavState(a, b) {
+  try {
+    return JSON.stringify(a || {}) === JSON.stringify(b || {});
+  } catch {
+    return false;
   }
 }
 
-función pushAdminHistoryIfChanged() {
-  si (_isRestoringNav) retorna;
-  const prev = historial.estado?.adminNav;
-  constante siguiente = { ...adminNavState };
-  si (sameNavState(prev, next)) retorna;
-  historial.pushState({ adminNav: siguiente }, "", ventana.ubicación.href);
+function pushAdminHistoryIfChanged() {
+  if (_isRestoringNav) return;
+  const prev = history.state?.adminNav;
+  const next = { ...adminNavState };
+  if (sameNavState(prev, next)) return;
+  history.pushState({ adminNav: next }, "", window.location.href);
 }
 
-función replaceAdminHistory() {
-  intentar {
-    historial.replaceState({ adminNav: { ...adminNavState } }, "", ventana.ubicación.href);
-  } atrapar {}
+function replaceAdminHistory() {
+  try {
+    history.replaceState({ adminNav: { ...adminNavState } }, "", window.location.href);
+  } catch {}
 }
 
-función setSidebarActiveByPanel(panelId) {
-  borrarBarraLateralActiva();
-  si (panelId === "exámenes" y btnNavExams) btnNavExams.classList.add("barra lateral-btn--activa");
-  si (panelId === "banco" y btnNavBank) btnNavBank.classList.add("barra lateral-btn--activa");
-  si (panelId === "mini" && btnNavMini) btnNavMini.classList.add("barra lateral-btn--activa");
-  si (panelId === "usuarios" y btnNavUsers) btnNavUsers.classList.add("barra lateral-btn--activa");
-  si (panelId === "analytics" && btnNavAnalytics) btnNavAnalytics.classList.add("barra lateral-btn--activa");
-  si (panelId === "aterrizaje" y btnNavLanding) btnNavLanding.classList.add("barra lateral-btn--activa");
-  si (panelId === "recursos" y btnNavResources) btnNavResources.classList.add("barra lateral-btn--activa");
+function setSidebarActiveByPanel(panelId) {
+  clearSidebarActive();
+  if (panelId === "exams" && btnNavExams) btnNavExams.classList.add("sidebar-btn--active");
+  if (panelId === "bank" && btnNavBank) btnNavBank.classList.add("sidebar-btn--active");
+  if (panelId === "mini" && btnNavMini) btnNavMini.classList.add("sidebar-btn--active");
+  if (panelId === "users" && btnNavUsers) btnNavUsers.classList.add("sidebar-btn--active");
+  if (panelId === "analytics" && btnNavAnalytics) btnNavAnalytics.classList.add("sidebar-btn--active");
+  if (panelId === "landing" && btnNavLanding) btnNavLanding.classList.add("sidebar-btn--active");
+  if (panelId === "resources" && btnNavResources) btnNavResources.classList.add("sidebar-btn--active");
 }
 
-función asíncrona applyAdminNavState(estado) {
-  si (!estado) retorna;
+async function applyAdminNavState(state) {
+  if (!state) return;
 
-  _isRestoringNav = verdadero;
-  intentar {
-    adminNavState = { ...adminNavState, ...estado };
-    persistirAdminNavState();
+  _isRestoringNav = true;
+  try {
+    adminNavState = { ...adminNavState, ...state };
+    persistAdminNavState();
 
     // Panel
     setSidebarActiveByPanel(adminNavState.panel);
     setActivePanel(adminNavState.panel);
 
     // EXÁMENES
-    si (adminNavState.panel === "exámenes") {
+    if (adminNavState.panel === "exams") {
       // Seleccionar sección si aplica
-      si (adminNavState.sectionId && adminNavState.sectionId !== currentSectionId) {
+      if (adminNavState.sectionId && adminNavState.sectionId !== currentSectionId) {
         const li = sectionsList?.querySelector(`.sidebar__section-item[data-section-id="${adminNavState.sectionId}"]`);
-        nombre constante = li?.dataset?.sectionName || li?.querySelector(".sidebar__nombre-sección")?.textContent || "Sección";
-        seleccionarSección(adminNavState.sectionId, nombre);
+        const name = li?.dataset?.sectionName || li?.querySelector(".sidebar__section-name")?.textContent || "Sección";
+        selectSection(adminNavState.sectionId, name);
       }
 
-      si (adminNavState.view === "detalle_del_examen" && adminNavState.Id_del_examen) {
-        intentar {
-          const exSnap = await getDoc(doc(db, "exámenes", adminNavState.examId));
-          const exName = exSnap.exists() ? (exSnap.data()?.nombre || "") : "";
-          esperar openExamDetail(adminNavState.examId, exName);
-        } atrapar (err) {
+      if (adminNavState.view === "exam_detail" && adminNavState.examId) {
+        try {
+          const exSnap = await getDoc(doc(db, "exams", adminNavState.examId));
+          const exName = exSnap.exists() ? (exSnap.data()?.name || "") : "";
+          await openExamDetail(adminNavState.examId, exName);
+        } catch (err) {
           console.error("No se pudo restaurar el examen:", err);
         }
-      } demás {
+      } else {
         // lista
-        currentExamId = nulo;
+        currentExamId = null;
         if (examCasesContainer) examCasesContainer.innerHTML = "";
-        ocultar(examDetailView);
-        si (currentSectionId) {
-          cargarExámenesParaSección(currentSectionId);
+        hide(examDetailView);
+        if (currentSectionId) {
+          loadExamsForSection(currentSectionId);
         }
       }
     }
 
-    // RECURSOS
-    si (adminNavState.panel === "recursos") {
-      esperar asegurarResourcesAdminLoaded();
-      si (adminNavState.view === "detalle_de_recursos" y adminNavState.resourcesTopicId) {
+    // RESOURCES
+    if (adminNavState.panel === "resources") {
+      await ensureResourcesAdminLoaded();
+      if (adminNavState.view === "resources_detail" && adminNavState.resourcesTopicId) {
         adminResourcesSelectTopic(adminNavState.resourcesTopicId);
-      } de lo contrario si (adminNavState.view === "recursos_nuevos") {
-        adminRecursosAbrirNuevoTema();
-      } demás {
-        adminRecursosOpenList();
+      } else if (adminNavState.view === "resources_new") {
+        adminResourcesOpenNewTopic();
+      } else {
+        adminResourcesOpenList();
       }
     }
-  } finalmente {
-    _isRestoringNav = falso;
+  } finally {
+    _isRestoringNav = false;
   }
 }
 
-let currentExamCases = []; // Casos clínicos en memoria
+let currentExamCases = [];         // Casos clínicos en memoria
 
 // Token para evitar “superposición” de exámenes entre secciones
-deje que examsLoadToken = 0;
+let examsLoadToken = 0;
 
 // MINI EXÁMENES
-deje que miniCasos = [];
-deje que miniCasesLoadedOnce = falso;
+let miniCases = [];
+let miniCasesLoadedOnce = false;
 
 // Cache banco para buscadores (carga incremental para escalar a 10,000 casos)
-deje que bankCasesCache = [];
-deje que bankCasesById = nuevo Mapa();
-let bankCasesLoadedOnce = false; // al menos 1 lote cargado
-let bankCasesAllLoaded = false; // ya se escaneó todo (o se alcanzó el tope)
-let bankCasesLastDoc = null; // cursor de paginación (preguntas)
-dejar bankCasesScanCount = 0; // cuántos documentos de preguntas se han escaneado (incluye no-banco)
-deja que bankCasesOrderMode = "createdAt"; // "createdAt" | "nombre"
-deje que bankCasesLoading = falso;
+let bankCasesCache = [];
+let bankCasesById = new Map();
+let bankCasesLoadedOnce = false;     // al menos 1 lote cargado
+let bankCasesAllLoaded = false;      // ya se escaneó todo (o se alcanzó el tope)
+let bankCasesLastDoc = null;         // cursor de paginación (questions)
+let bankCasesScanCount = 0;          // cuántos docs de questions se han escaneado (incluye no-banco)
+let bankCasesOrderMode = "createdAt"; // "createdAt" | "name"
+let bankCasesLoading = false;
 
 let bankSearchDebounceTimer = null;
-deje que miniBankSearchDebounceTimer = null;
+let miniBankSearchDebounceTimer = null;
 
-deje que bankSearchRunToken = 0;
-dejar miniBankSearchRunToken = 0;
+let bankSearchRunToken = 0;
+let miniBankSearchRunToken = 0;
 
-const BANK_SEARCH_BATCH_SIZE = 500; // lote de escaneo Firestore
-constante BANK_SEARCH_MAX_RESULTS = 50; // resultados máximos a mostrar
-constante BANK_SEARCH_MAX_BANK_CASES = 10000; // tope de casos banco a cachear
+const BANK_SEARCH_BATCH_SIZE = 500;      // lote de escaneo Firestore
+const BANK_SEARCH_MAX_RESULTS = 50;      // resultados máximos a mostrar
+const BANK_SEARCH_MAX_BANK_CASES = 10000; // tope de casos banco a cachear
 
 
 /****************************************************
  * UTILIDADES UI
  ****************************************************/
 
-función show(el) {
-  si (el) el.classList.remove("oculto");
+function show(el) {
+  if (el) el.classList.remove("hidden");
 }
 
-función ocultar(el) {
-  si (el) el.classList.add("oculto");
+function hide(el) {
+  if (el) el.classList.add("hidden");
 }
 
-función setActivePanel(panelId) {
-  const paneles = [panelExams, panelBank, panelMini, panelUsers, panelAnalytics, panelLanding, panelResources].filter(Boolean);
-  paneles.forEach((p) => ocultar(p));
+function setActivePanel(panelId) {
+  const panels = [panelExams, panelBank, panelMini, panelUsers, panelAnalytics, panelLanding, panelResources].filter(Boolean);
+  panels.forEach((p) => hide(p));
 
-  si (panelId === "exámenes") mostrar(panelExámenes);
-  si (panelId === "banco") mostrar(panelBank);
-  si (panelId === "mini") mostrar(panelMini);
-  si (panelId === "usuarios") mostrar(panelUsers);
-  si (panelId === "analytics") mostrar(panelAnalytics);
-  si (panelId === "aterrizaje") mostrar(panelAterrizaje);
-  si (panelId === "recursos") mostrar(panelRecursos);
+  if (panelId === "exams") show(panelExams);
+  if (panelId === "bank") show(panelBank);
+  if (panelId === "mini") show(panelMini);
+  if (panelId === "users") show(panelUsers);
+  if (panelId === "analytics") show(panelAnalytics);
+  if (panelId === "landing") show(panelLanding);
+  if (panelId === "resources") show(panelResources);
 
-  // Persistir + historial
-  si (!_isRestoringNav) {
+  // Persist + history
+  if (!_isRestoringNav) {
     adminNavState.panel = panelId;
-    // Ajustar la vista base
-    si (panelId === "exámenes") {
-      adminNavState.view = examDetailView && !examDetailView.classList.contains("hidden") ? "exam_detail": "exams_list";
-    } de lo contrario si (panelId === "recursos") {
-      adminNavState.view = adminNavState.resourcesTopicId ? "detalle_de_recursos": "lista_de_recursos";
-    } demás {
+    // Ajusta view base
+    if (panelId === "exams") {
+      adminNavState.view = examDetailView && !examDetailView.classList.contains("hidden") ? "exam_detail" : "exams_list";
+    } else if (panelId === "resources") {
+      adminNavState.view = adminNavState.resourcesTopicId ? "resources_detail" : "resources_list";
+    } else {
       adminNavState.view = "panel";
     }
-    persistirAdminNavState();
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
 }
@@ -427,249 +427,249 @@ función setActivePanel(panelId) {
  * RESÚMENES / GPC (ADMIN CRUD) - PROYECTO "pagina-buena"
  * Colección: "temas"
  * Campos:
- * - título: cadena
- * - especialidad: cuerda (texto libre)
- * - enlaces: [{ etiqueta, url, tipo }]
+ *  - title: string
+ *  - specialty: string (texto libre)
+ *  - links: [{ label, url, type }]
  ****************************************************/
-constante RECURSOS_FIREBASE_CONFIG = {
+const RESOURCES_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
-  dominio_de_autorización: "pagina-buena.firebaseapp.com",
-  URL de la base de datos: "https://pagina-buena-default-rtdb.firebaseio.com",
+  authDomain: "pagina-buena.firebaseapp.com",
+  databaseURL: "https://pagina-buena-default-rtdb.firebaseio.com",
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.firebasestorage.app",
-  Id. del remitente de mensajería: "810208199031",
-  ID de aplicación: "1:810208199031:web:707a76b931ee7d2f002172",
+  messagingSenderId: "810208199031",
+  appId: "1:810208199031:web:707a76b931ee7d2f002172",
 };
 
 
-deje que _resourcesApp = null;
-deje que _resourcesDb = null;
-deje que _resourcesAuth = null;
-deje que _resourcesLoadedOnce = falso;
+let _resourcesApp = null;
+let _resourcesDb = null;
+let _resourcesAuth = null;
+let _resourcesLoadedOnce = false;
 
-deje que _recursosTemas = [];
-deje que _resourcesSelectedId = nulo;
-deje que _resourcesTopicExam = { casos: [] };
-deje que _resourcesIsNew = falso;
-deje que _resourcesDeleteArmed = falso;
-deje que _resourcesDeleteArmTimer = null;
+let _resourcesTopics = [];
+let _resourcesSelectedId = null;
+let _resourcesTopicExam = { cases: [] };
+let _resourcesIsNew = false;
+let _resourcesDeleteArmed = false;
+let _resourcesDeleteArmTimer = null;
 
-función asegurarRecursosDb() {
-  si (_resourcesDb) devuelve _resourcesDb;
+function ensureResourcesDb() {
+  if (_resourcesDb) return _resourcesDb;
 
-  intentar {
-    const existente = (getApps() || []).find((a) => a.name === "resourcesApp");
-    _resourcesApp = existente || initializeApp(RESOURCES_FIREBASE_CONFIG, "resourcesApp");
-  } atrapar (err) {
+  try {
+    const existing = (getApps() || []).find((a) => a.name === "resourcesApp");
+    _resourcesApp = existing || initializeApp(RESOURCES_FIREBASE_CONFIG, "resourcesApp");
+  } catch (err) {
     // Si el nombre ya existe, intenta getApp
-    intentar {
+    try {
       _resourcesApp = getApp("resourcesApp");
-    } atrapar {
+    } catch {
       console.error("No se pudo inicializar resourcesApp:", err);
-      lanzar err;
+      throw err;
     }
   }
 
-  _resourcesDb = obtenerFirestore(_resourcesApp);
-  devolver _resourcesDb;
+  _resourcesDb = getFirestore(_resourcesApp);
+  return _resourcesDb;
 }
-función asegurarRecursosAuth() {
-  si (_resourcesAuth) devuelve _resourcesAuth;
-  asegurarRecursosDb(); // inicializa _resourcesApp
-  _resourcesAuth = obtenerAuth(_resourcesApp);
-  devolver _resourcesAuth;
+function ensureResourcesAuth() {
+  if (_resourcesAuth) return _resourcesAuth;
+  ensureResourcesDb(); // inicializa _resourcesApp
+  _resourcesAuth = getAuth(_resourcesApp);
+  return _resourcesAuth;
 }
 
-función updateResourcesAuthUi() {
-  si (!resAuthStatus) retorna;
+function updateResourcesAuthUi() {
+  if (!resAuthStatus) return;
 
-  constante u = asegurarResourcesAuth().currentUser;
+  const u = ensureResourcesAuth().currentUser;
 
-  si (u) {
-    resAuthStatus.textContent = `Biblioteca: conectada como ${u.email || u.uid}`;
-    si (resAuthBtnLogin) resAuthBtnLogin.classList.add("oculto");
-    si (resAuthBtnLogout) resAuthBtnLogout.classList.remove("oculto");
-    si (resAuthEmailInput) resAuthEmailInput.disabled = verdadero;
-    si (resAuthPasswordInput) resAuthPasswordInput.disabled = verdadero;
-  } demás {
+  if (u) {
+    resAuthStatus.textContent = `Biblioteca: conectado como ${u.email || u.uid}`;
+    if (resAuthBtnLogin) resAuthBtnLogin.classList.add("hidden");
+    if (resAuthBtnLogout) resAuthBtnLogout.classList.remove("hidden");
+    if (resAuthEmailInput) resAuthEmailInput.disabled = true;
+    if (resAuthPasswordInput) resAuthPasswordInput.disabled = true;
+  } else {
     resAuthStatus.textContent = "Biblioteca: no autenticado (solo lectura).";
-    si (resAuthBtnLogin) resAuthBtnLogin.classList.remove("oculto");
-    si (resAuthBtnLogout) resAuthBtnLogout.classList.add("oculto");
-    si (resAuthEmailInput) resAuthEmailInput.disabled = falso;
-    si (resAuthPasswordInput) resAuthPasswordInput.disabled = falso;
+    if (resAuthBtnLogin) resAuthBtnLogin.classList.remove("hidden");
+    if (resAuthBtnLogout) resAuthBtnLogout.classList.add("hidden");
+    if (resAuthEmailInput) resAuthEmailInput.disabled = false;
+    if (resAuthPasswordInput) resAuthPasswordInput.disabled = false;
   }
 }
 
 
-función canonicalizeSpecialty(texto) {
-  const t = (texto || "").toString().trim().toLowerCase();
-  si (!t) devuelve "otros";
+function canonicalizeSpecialty(text) {
+  const t = (text || "").toString().trim().toLowerCase();
+  if (!t) return "otros";
   if (t.includes("medicina interna") || t.includes("interna")) return "medicina_interna";
   if (t.includes("cirugía") || t.includes("cirugia")) return "cirugia_general";
-  si (t.includes("pediatr")) devuelve "pediatria";
+  if (t.includes("pediatr")) return "pediatria";
   if (t.includes("gine") || t.includes("obst")) return "gine_obstetricia";
   if (t.includes("salud pública") || t.includes("salud publica") || t.includes("epid")) return "salud_publica";
   if (t.includes("acceso gratuito") || t.includes("gratis")) return "acceso_gratuito";
   return "otros";
 }
 
-función detectarLinkType(url) {
-  constante u = (url || "").toString().toLowerCase().trim();
-  si (!u) devuelve "enlace";
-  si (u.includes(".pdf") || u.includes("drive.google.com") || u.includes("docs.google.com")) {
+function detectLinkType(url) {
+  const u = (url || "").toString().toLowerCase().trim();
+  if (!u) return "link";
+  if (u.includes(".pdf") || u.includes("drive.google.com") || u.includes("docs.google.com")) {
     // Puede ser PDF en Drive; dejamos 'pdf' si el texto sugiere PDF
-    si (u.includes(".pdf") || u.includes("pdf")) devuelve "pdf";
+    if (u.includes(".pdf") || u.includes("pdf")) return "pdf";
   }
-  devolver "enlace";
+  return "link";
 }
 
-función setResEditorEnabled(habilitado) {
-  si (resTitleInput) resTitleInput.disabled = !enabled;
-  si (resSpecialtyRawInput) resSpecialtyRawInput.disabled = !enabled;
-  si (resBtnAddLink) resBtnAddLink.disabled = !enabled;
-  si (resBtnSave) resBtnSave.disabled = !enabled;
-  si (resBtnDelete) resBtnDelete.disabled = !enabled;
+function setResEditorEnabled(enabled) {
+  if (resTitleInput) resTitleInput.disabled = !enabled;
+  if (resSpecialtyRawInput) resSpecialtyRawInput.disabled = !enabled;
+  if (resBtnAddLink) resBtnAddLink.disabled = !enabled;
+  if (resBtnSave) resBtnSave.disabled = !enabled;
+  if (resBtnDelete) resBtnDelete.disabled = !enabled;
 }
 
-función renderResTopicCount() {
-  si (!resTopicCount) retorna;
-  constante total = _recursosTemas.length;
-  const filtrado = adminResourcesGetFiltered().length;
-  resTopicCount.textContent = `${filtrado} de ${total} temas`;
+function renderResTopicCount() {
+  if (!resTopicCount) return;
+  const total = _resourcesTopics.length;
+  const filtered = adminResourcesGetFiltered().length;
+  resTopicCount.textContent = `${filtered} de ${total} temas`;
 }
 
-función adminResourcesGetFiltered() {
+function adminResourcesGetFiltered() {
   const q = (resSearchInput?.value || adminNavState.resourcesSearch || "").toString().trim().toLowerCase();
-  clave constante = (resSpecialtyFilter?.valor || adminNavState.resourcesSpecialtyKey || "").toString();
+  const key = (resSpecialtyFilter?.value || adminNavState.resourcesSpecialtyKey || "").toString();
 
-  devolver _resourcesTopics.filter((t) => {
-    constante título = (t.título || "").toLowerCase();
+  return _resourcesTopics.filter((t) => {
+    const title = (t.title || "").toLowerCase();
     const spec = (t.specialty || "").toLowerCase();
-    const matchesText = !q || título.includes(q) || especificación.includes(q);
-    const matchesSpec = !key || canonicalizeSpecialty(t.specialty) === clave;
-    devuelve coincidenciasTexto y coincidenciasEspec;
+    const matchesText = !q || title.includes(q) || spec.includes(q);
+    const matchesSpec = !key || canonicalizeSpecialty(t.specialty) === key;
+    return matchesText && matchesSpec;
   });
 }
 
-función renderResTopicList() {
-  si (!resTopicList) retorna;
+function renderResTopicList() {
+  if (!resTopicList) return;
 
-  constantes elementos = adminResourcesGetFiltered();
+  const items = adminResourcesGetFiltered();
   renderResTopicCount();
 
   resTopicList.innerHTML = "";
-  si (!elementos.longitud) {
+  if (!items.length) {
     resTopicList.innerHTML = `<div class="empty-msg">No hay temas para mostrar.</div>`;
-    devolver;
+    return;
   }
 
-  para (const t de elementos) {
-    constante tarjeta = documento.createElement("div");
-    tarjeta.className = "tarjeta";
-    tarjeta.estilo.relleno = "10px";
-    card.style.cursor = "puntero";
-    si (t.id === _resourcesSelectedId && !_resourcesIsNew) {
-      card.style.border = "2px sólido var(--primary, #2b6cb0)";
+  for (const t of items) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.padding = "10px";
+    card.style.cursor = "pointer";
+    if (t.id === _resourcesSelectedId && !_resourcesIsNew) {
+      card.style.border = "2px solid var(--primary, #2b6cb0)";
     }
 
     const linkCount = Array.isArray(t.links) ? t.links.length : 0;
     const specLabel = (t.specialty || "").toString();
 
-    tarjeta.innerHTML = `
+    card.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
         <div>
           <div style="font-weight:700;margin-bottom:4px;">${escapeHtml(t.title || "(Sin título)")}</div>
-          <div class="panel-subtitle">${escapeHtml(specLabel || "Sin especialidad")} · ${linkCount} enlace(s)</div>
+          <div class="panel-subtitle">${escapeHtml(specLabel || "Sin especialidad")} · ${linkCount} link(s)</div>
         </div>
       </div>
     `;
 
-    card.addEventListener("clic", () => adminResourcesSelectTopic(t.id));
-    resTopicList.appendChild(tarjeta);
+    card.addEventListener("click", () => adminResourcesSelectTopic(t.id));
+    resTopicList.appendChild(card);
   }
 }
 
-función renderResLinksEditor(enlaces) {
-  si (!resLinksWrap) retorna;
+function renderResLinksEditor(links) {
+  if (!resLinksWrap) return;
   resLinksWrap.innerHTML = "";
 
-  const arr = Array.isArray(enlaces) ? enlaces : [];
-  si (!arr.length) {
-    resLinksWrap.innerHTML = `<div class="panel-subtitle">Aún no hay enlaces. Usa “Agregar enlace”.</div>`;
-    devolver;
+  const arr = Array.isArray(links) ? links : [];
+  if (!arr.length) {
+    resLinksWrap.innerHTML = `<div class="panel-subtitle">Aún no hay links. Usa “Agregar link”.</div>`;
+    return;
   }
 
-  arr.paraCada((l, idx) => {
-    constante fila = document.createElement("div");
-    fila.dataset.resLinkRow = "1";
-    fila.estilo.pantalla = "cuadrícula";
-    fila.style.gridTemplateColumns = "1fr 2fr automático";
-    fila.estilo.espacio = "8px";
-    fila.style.alignItems = "fin";
-    fila.style.marginTop = "8px";
+  arr.forEach((l, idx) => {
+    const row = document.createElement("div");
+    row.dataset.resLinkRow = "1";
+    row.style.display = "grid";
+    row.style.gridTemplateColumns = "1fr 2fr auto";
+    row.style.gap = "8px";
+    row.style.alignItems = "end";
+    row.style.marginTop = "8px";
 
-    fila.innerHTML = `
-      <label clase="campo" estilo="margen:0;">
-        Etiqueta
+    row.innerHTML = `
+      <label class="field" style="margin:0;">
+        <span>Etiqueta</span>
         <input type="text" data-res-link-label value="${escapeAttr(l?.label || "")}" placeholder="Ej. GPC (PDF)" />
-      </etiqueta>
+      </label>
 
-      <label clase="campo" estilo="margen:0;">
-        URL
+      <label class="field" style="margin:0;">
+        <span>URL</span>
         <input type="text" data-res-link-url value="${escapeAttr(l?.url || "")}" placeholder="https://..." />
-      </etiqueta>
+      </label>
 
-      <button class="icon-btn" type="button" title="Quitar enlace" data-res-link-remove>🗑</button>
+      <button class="icon-btn" type="button" title="Quitar link" data-res-link-remove>🗑</button>
     `;
 
-    fila.querySelector("[datos-res-link-remove]")?.addEventListener("clic", () => {
-      fila.eliminar();
+    row.querySelector("[data-res-link-remove]")?.addEventListener("click", () => {
+      row.remove();
       // Si se vacía, re-render mensaje
-      si (!resLinksWrap.querySelector("[data-res-link-row]")) {
+      if (!resLinksWrap.querySelector("[data-res-link-row]")) {
         renderResLinksEditor([]);
       }
     });
 
-    resLinksWrap.appendChild(fila);
+    resLinksWrap.appendChild(row);
   });
 }
 
-función getResLinksFromEditor() {
-  const filas = Array.from(resLinksWrap?.querySelectorAll("[datos-res-enlace-fila]") || []);
-  constante fuera = [];
-  para (const r de filas) {
-    etiqueta constante = (r.querySelector("[etiqueta-del-enlace-de-respuesta-datos]")?.valor || "").toString().trim();
-    const url = (r.querySelector("[url-enlace-res-datos]")?.value || "").toString().trim();
-    si (!url) continúa;
-    out.push({ etiqueta: etiqueta || url, url, tipo: detectLinkType(url) });
+function getResLinksFromEditor() {
+  const rows = Array.from(resLinksWrap?.querySelectorAll("[data-res-link-row]") || []);
+  const out = [];
+  for (const r of rows) {
+    const label = (r.querySelector("[data-res-link-label]")?.value || "").toString().trim();
+    const url = (r.querySelector("[data-res-link-url]")?.value || "").toString().trim();
+    if (!url) continue;
+    out.push({ label: label || url, url, type: detectLinkType(url) });
   }
-  volver afuera;
+  return out;
 }
 
-función adminResourcesFillEditor(tema) {
-  _resourcesIsNew = falso;
-  _resourcesSelectedId = tema?.id || nulo;
+function adminResourcesFillEditor(topic) {
+  _resourcesIsNew = false;
+  _resourcesSelectedId = topic?.id || null;
 
-  si (resTitleInput) resTitleInput.value = tema?.title || "";
-  si (resSpecialtyRawInput) resSpecialtyRawInput.valor = tema?.especialidad || "";
+  if (resTitleInput) resTitleInput.value = topic?.title || "";
+  if (resSpecialtyRawInput) resSpecialtyRawInput.value = topic?.specialty || "";
   if (resEditorStatus) resEditorStatus.textContent = _resourcesSelectedId ? `Editando: ${topic?.title || ""}` : "Editor de tema";
 
-  renderResLinksEditor(tema?.enlaces || []);
-  setResEditorEnabled(verdadero);
+  renderResLinksEditor(topic?.links || []);
+  setResEditorEnabled(true);
 
   // ✅ Mini-examen del tema
-  adminResourcesCargarTemaExamen(_resourcesSelectedId);
+  adminResourcesLoadTopicExam(_resourcesSelectedId);
 
-  si (resBtnDelete) resBtnDelete.disabled = !_resourcesSelectedId;
+  if (resBtnDelete) resBtnDelete.disabled = !_resourcesSelectedId;
 
-  // Estado + historia
-  si (!_isRestoringNav) {
-    adminNavState.panel = "recursos";
-    adminNavState.view = "detalle_de_recursos";
+  // Estado + history
+  if (!_isRestoringNav) {
+    adminNavState.panel = "resources";
+    adminNavState.view = "resources_detail";
     adminNavState.resourcesTopicId = _resourcesSelectedId;
     adminNavState.resourcesSearch = (resSearchInput?.value || "").toString();
     adminNavState.resourcesSpecialtyKey = (resSpecialtyFilter?.value || "").toString();
-    persistirAdminNavState();
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
 }
@@ -677,68 +677,68 @@ función adminResourcesFillEditor(tema) {
 /****************************************************
  * BIBLIOTECA (pagina-buena) - Mini-examen por tema
  * Colección: topic_exams/{topicId}
- * Estructura: { topicId, casos:[{caseText, preguntas:[{questionText, optionA-D, correctOption, justification}]}], actualizadoAt }
+ * Estructura: { topicId, cases:[{caseText, questions:[{questionText, optionA-D, correctOption, justification}]}], updatedAt }
  ****************************************************/
-función asíncrona adminResourcesLoadTopicExam(topicId) {
-  si (!temaId) {
-    _resourcesTopicExam = { casos: [] };
-    renderRecursosTemaExamEditor();
-    devolver;
+async function adminResourcesLoadTopicExam(topicId) {
+  if (!topicId) {
+    _resourcesTopicExam = { cases: [] };
+    renderResourcesTopicExamEditor();
+    return;
   }
 
-  intentar {
-    constante db = asegurarRecursosDb();
-    const ref = doc(db, "tema_exámenes", String(topicId));
-    constante snap = esperar obtenerDoc(ref);
+  try {
+    const db = ensureResourcesDb();
+    const ref = doc(db, "topic_exams", String(topicId));
+    const snap = await getDoc(ref);
 
-    si (!snap.existe()) {
-      _resourcesTopicExam = { casos: [] };
-    } demás {
-      constante datos = snap.data() || {};
-      _recursosTemaExamen = {
-        casos: Array.isArray(datos.casos) ? datos.casos : [],
+    if (!snap.exists()) {
+      _resourcesTopicExam = { cases: [] };
+    } else {
+      const data = snap.data() || {};
+      _resourcesTopicExam = {
+        cases: Array.isArray(data.cases) ? data.cases : [],
       };
     }
 
-    renderRecursosTemaExamEditor();
-  } atrapar (err) {
-    console.error("Error al cargar topic_exams:", err);
-    _resourcesTopicExam = { casos: [] };
-    renderRecursosTemaExamEditor();
+    renderResourcesTopicExamEditor();
+  } catch (err) {
+    console.error("Error cargando topic_exams:", err);
+    _resourcesTopicExam = { cases: [] };
+    renderResourcesTopicExamEditor();
   }
 }
 
-función renderResourcesTopicExamEditor() {
-  if (!resTopicExamCasesWrap || !resTopicExamEmpty) regresa;
+function renderResourcesTopicExamEditor() {
+  if (!resTopicExamCasesWrap || !resTopicExamEmpty) return;
 
-  const casos = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
+  const cases = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
   resTopicExamCasesWrap.innerHTML = "";
 
-  si (!casos.longitud) {
-    resTopicExamEmpty.classList.remove("oculto");
-    devolver;
+  if (!cases.length) {
+    resTopicExamEmpty.classList.remove("hidden");
+    return;
   }
 
-  resTopicExamEmpty.classList.add("oculto");
+  resTopicExamEmpty.classList.add("hidden");
 
-  casos.paraCada((c, ci) => {
-    constante tarjeta = documento.createElement("div");
-    tarjeta.className = "tarjeta";
-    tarjeta.estilo.relleno = "10px";
-    tarjeta.style.marginTop = "10px";
+  cases.forEach((c, ci) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.padding = "10px";
+    card.style.marginTop = "10px";
 
-    const preguntas = Array.isArray(c?.preguntas) ? c.preguntas : [];
+    const questions = Array.isArray(c?.questions) ? c.questions : [];
 
-    tarjeta.innerHTML = `
+    card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="font-weight:700;font-size:13px;">Caso ${ci + 1}</div>
         <button type="button" class="btn btn-secondary btn-sm" data-te-action="delete-case" data-ci="${ci}">Eliminar caso</button>
       </div>
 
-      <label clase="campo" estilo="margen-superior:10px;">
+      <label class="field" style="margin-top:10px;">
         <span>Texto del caso clínico</span>
         <textarea class="te-case-text" data-ci="${ci}" rows="4" placeholder="Escribe el caso clínico...">${escapeHtml(c?.caseText || "")}</textarea>
-      </etiqueta>
+      </label>
 
       <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div style="font-weight:700;font-size:12px;">Preguntas</div>
@@ -748,973 +748,973 @@ función renderResourcesTopicExamEditor() {
       <div class="te-questions" data-ci="${ci}" style="margin-top:8px;"></div>
     `;
 
-    const qWrap = card.querySelector(".te-preguntas");
-    preguntas.paraCada((q, qi) => {
-      constante qCard = documento.createElement("div");
-      qCard.className = "tarjeta";
+    const qWrap = card.querySelector(".te-questions");
+    questions.forEach((q, qi) => {
+      const qCard = document.createElement("div");
+      qCard.className = "card";
       qCard.style.padding = "10px";
       qCard.style.marginTop = "8px";
 
       qCard.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <div style="font-weight:700;font-size:12px;">Pregunta ${qi + 1}</div>
-          Eliminar
+          <button type="button" class="btn btn-secondary btn-sm" data-te-action="delete-question" data-ci="${ci}" data-qi="${qi}">Eliminar</button>
         </div>
 
-        <label clase="campo" estilo="margin-top:8px;">
+        <label class="field" style="margin-top:8px;">
           <span>Pregunta</span>
           <textarea class="te-q-text" data-ci="${ci}" data-qi="${qi}" rows="2" placeholder="Texto de la pregunta...">${escapeHtml(q?.questionText || "")}</textarea>
-        </etiqueta>
+        </label>
 
-        <div clase="cuadrícula-2" estilo="margen superior:8px;espacio:8px;">
+        <div class="grid-2" style="margin-top:8px;gap:8px;">
           <label class="field"><span>Opción A</span><input class="te-opt" data-ci="${ci}" data-qi="${qi}" data-opt="A" value="${escapeHtml(q?.optionA || "")}" /></label>
           <label class="field"><span>Opción B</span><input class="te-opt" data-ci="${ci}" data-qi="${qi}" data-opt="B" value="${escapeHtml(q?.optionB || "")}" /></label>
           <label class="field"><span>Opción C</span><input class="te-opt" data-ci="${ci}" data-qi="${qi}" data-opt="C" value="${escapeHtml(q?.optionC || "")}" /></label>
           <label class="field"><span>Opción D</span><input class="te-opt" data-ci="${ci}" data-qi="${qi}" data-opt="D" value="${escapeHtml(q?.optionD || "")}" /></label>
         </div>
 
-        <div clase="cuadrícula-2" estilo="margen superior:8px;espacio:8px;">
-          <label class="campo">
+        <div class="grid-2" style="margin-top:8px;gap:8px;">
+          <label class="field">
             <span>Respuesta correcta</span>
             <select class="te-correct" data-ci="${ci}" data-qi="${qi}">
               <option value="A" ${q?.correctOption === "A" ? "selected" : ""}>A</option>
-              <opción valor="B" ${q?.correctOption === "B" ? "seleccionado" : ""}>B</opción>
-              <opción valor="C" ${q?.correctOption === "C" ? "seleccionado" : ""}>C</opción>
-              <opción valor="D" ${q?.correctOption === "D" ? "seleccionado" : ""}>D</opción>
-            </seleccionar>
-          </etiqueta>
+              <option value="B" ${q?.correctOption === "B" ? "selected" : ""}>B</option>
+              <option value="C" ${q?.correctOption === "C" ? "selected" : ""}>C</option>
+              <option value="D" ${q?.correctOption === "D" ? "selected" : ""}>D</option>
+            </select>
+          </label>
 
-          <label class="campo">
+          <label class="field">
             <span>Justificación</span>
             <textarea class="te-just" data-ci="${ci}" data-qi="${qi}" rows="2" placeholder="Justificación breve...">${escapeHtml(q?.justification || "")}</textarea>
-          </etiqueta>
+          </label>
         </div>
       `;
       qWrap.appendChild(qCard);
     });
 
-    resTopicExamCasesWrap.appendChild(tarjeta);
+    resTopicExamCasesWrap.appendChild(card);
   });
 }
 
-función adminResourcesAddTopicCase() {
-  si (!_resourcesTopicExam || !Array.isArray(_resourcesTopicExam.cases)) _resourcesTopicExam = { casos: [] };
+function adminResourcesAddTopicCase() {
+  if (!_resourcesTopicExam || !Array.isArray(_resourcesTopicExam.cases)) _resourcesTopicExam = { cases: [] };
 
-  _recursosTemaExamen.casos.push({
-    casoTexto: "",
-    preguntas: [
+  _resourcesTopicExam.cases.push({
+    caseText: "",
+    questions: [
       {
-        preguntaTexto: "",
-        opciónA: "",
-        opciónB: "",
-        opciónC: "",
-        opciónD: "",
-        Opción correcta: "A",
-        justificación: "",
+        questionText: "",
+        optionA: "",
+        optionB: "",
+        optionC: "",
+        optionD: "",
+        correctOption: "A",
+        justification: "",
       },
     ],
   });
 
-  renderRecursosTemaExamEditor();
+  renderResourcesTopicExamEditor();
 }
 
-función adminRecursosAñadirTemaPregunta(ci) {
-  constante c = _recursosTemaExamen?.casos?.[ci];
-  si (!c) retorna;
-  si (!Array.isArray(c.preguntas)) c.preguntas = [];
-  c.preguntas.push({
-    preguntaTexto: "",
-    opciónA: "",
-    opciónB: "",
-    opciónC: "",
-    opciónD: "",
-    Opción correcta: "A",
-    justificación: "",
+function adminResourcesAddTopicQuestion(ci) {
+  const c = _resourcesTopicExam?.cases?.[ci];
+  if (!c) return;
+  if (!Array.isArray(c.questions)) c.questions = [];
+  c.questions.push({
+    questionText: "",
+    optionA: "",
+    optionB: "",
+    optionC: "",
+    optionD: "",
+    correctOption: "A",
+    justification: "",
   });
-  renderRecursosTemaExamEditor();
+  renderResourcesTopicExamEditor();
 }
 
-función adminResourcesDeleteTopicCase(ci) {
-  si (!_resourcesTopicExam?.cases) retorna;
-  _recursosTemaExamen.casos.splice(ci, 1);
-  renderRecursosTemaExamEditor();
+function adminResourcesDeleteTopicCase(ci) {
+  if (!_resourcesTopicExam?.cases) return;
+  _resourcesTopicExam.cases.splice(ci, 1);
+  renderResourcesTopicExamEditor();
 }
 
-función adminResourcesEliminarTemaPregunta(ci, qi) {
-  constante c = _recursosTemaExamen?.casos?.[ci];
-  si (!c?.preguntas) retorna;
-  c.preguntas.splice(qi, 1);
-  renderRecursosTemaExamEditor();
+function adminResourcesDeleteTopicQuestion(ci, qi) {
+  const c = _resourcesTopicExam?.cases?.[ci];
+  if (!c?.questions) return;
+  c.questions.splice(qi, 1);
+  renderResourcesTopicExamEditor();
 }
 
-función adminResourcesSyncTopicExamFromDom() {
-  si (!resTopicExamCasesWrap) regresa;
+function adminResourcesSyncTopicExamFromDom() {
+  if (!resTopicExamCasesWrap) return;
 
-  const casos = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
-  // Texto del caso
+  const cases = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
+  // caseText
   resTopicExamCasesWrap.querySelectorAll(".te-case-text").forEach((el) => {
-    const ci = Número(el.dataset.ci);
-    si (!Number.isFinite(ci) || !cases[ci]) retorna;
-    casos[ci].caseText = (el.value || "").trim();
+    const ci = Number(el.dataset.ci);
+    if (!Number.isFinite(ci) || !cases[ci]) return;
+    cases[ci].caseText = (el.value || "").trim();
   });
 
-  // texto de la pregunta
+  // question text
   resTopicExamCasesWrap.querySelectorAll(".te-q-text").forEach((el) => {
-    const ci = Número(el.dataset.ci);
-    const qi = Número(el.dataset.qi);
-    si (!casos[ci] || !casos[ci].preguntas?.[qi]) devolver;
-    casos[ci].preguntas[qi].questionText = (el.value || "").trim();
+    const ci = Number(el.dataset.ci);
+    const qi = Number(el.dataset.qi);
+    if (!cases[ci] || !cases[ci].questions?.[qi]) return;
+    cases[ci].questions[qi].questionText = (el.value || "").trim();
   });
 
-  // opciones
+  // options
   resTopicExamCasesWrap.querySelectorAll(".te-opt").forEach((el) => {
-    const ci = Número(el.dataset.ci);
-    const qi = Número(el.dataset.qi);
-    constante opt = el.dataset.opt;
-    si (!casos[ci] || !casos[ci].preguntas?.[qi]) devolver;
-    constante v = (el.valor || "").trim();
-    if (opt === "A") casos[ci].preguntas[qi].opciónA = v;
-    si (opt === "B") casos[ci].preguntas[qi].opcionB = v;
-    si (opt === "C") casos[ci].preguntas[qi].opcionC = v;
-    si (opt === "D") casos[ci].preguntas[qi].opcionD = v;
+    const ci = Number(el.dataset.ci);
+    const qi = Number(el.dataset.qi);
+    const opt = el.dataset.opt;
+    if (!cases[ci] || !cases[ci].questions?.[qi]) return;
+    const v = (el.value || "").trim();
+    if (opt === "A") cases[ci].questions[qi].optionA = v;
+    if (opt === "B") cases[ci].questions[qi].optionB = v;
+    if (opt === "C") cases[ci].questions[qi].optionC = v;
+    if (opt === "D") cases[ci].questions[qi].optionD = v;
   });
 
-  // correcto
+  // correct
   resTopicExamCasesWrap.querySelectorAll(".te-correct").forEach((el) => {
-    const ci = Número(el.dataset.ci);
-    const qi = Número(el.dataset.qi);
-    si (!casos[ci] || !casos[ci].preguntas?.[qi]) devolver;
-    constante v = String(el.valor || "A");
-    casos[ci].preguntas[qi].opcioncorrecta = ["A", "B", "C", "D"].incluye(v) ? v : "A";
+    const ci = Number(el.dataset.ci);
+    const qi = Number(el.dataset.qi);
+    if (!cases[ci] || !cases[ci].questions?.[qi]) return;
+    const v = String(el.value || "A");
+    cases[ci].questions[qi].correctOption = ["A", "B", "C", "D"].includes(v) ? v : "A";
   });
 
-  // justificación
+  // justification
   resTopicExamCasesWrap.querySelectorAll(".te-just").forEach((el) => {
-    const ci = Número(el.dataset.ci);
-    const qi = Número(el.dataset.qi);
-    si (!casos[ci] || !casos[ci].preguntas?.[qi]) devolver;
-    casos[ci].preguntas[qi].justificación = (el.value || "").trim();
+    const ci = Number(el.dataset.ci);
+    const qi = Number(el.dataset.qi);
+    if (!cases[ci] || !cases[ci].questions?.[qi]) return;
+    cases[ci].questions[qi].justification = (el.value || "").trim();
   });
 
-  _resourcesTopicExam.cases = casos;
+  _resourcesTopicExam.cases = cases;
 }
 
-función asincrónica adminResourcesSaveTopicExam() {
-  si (!_resourcesSelectedId) {
+async function adminResourcesSaveTopicExam() {
+  if (!_resourcesSelectedId) {
     alert("Primero selecciona o guarda un tema.");
-    devolver;
+    return;
   }
 
-  adminRecursosSyncTopicExamFromDom();
+  adminResourcesSyncTopicExamFromDom();
 
-  const casos = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
+  const cases = Array.isArray(_resourcesTopicExam?.cases) ? _resourcesTopicExam.cases : [];
   // Validación ligera: casoText y preguntas mínimas
-  para (sea ci = 0; ci < cases.length; ci++) {
+  for (let ci = 0; ci < cases.length; ci++) {
     if (!String(cases[ci].caseText || "").trim()) {
       alert(`Falta el texto del caso en Caso ${ci + 1}.`);
-      devolver;
+      return;
     }
-    const qs = Array.isArray(casos[ci].preguntas) ? casos[ci].preguntas : [];
-    si (!qs.length) {
+    const qs = Array.isArray(cases[ci].questions) ? cases[ci].questions : [];
+    if (!qs.length) {
       alert(`El Caso ${ci + 1} debe tener al menos 1 pregunta.`);
-      devolver;
+      return;
     }
-    para (sea qi = 0; qi < qs.length; qi++) {
-      constante q = qs[qi];
-      si (!Cadena(q.textoDePregunta || "").trim()) {
+    for (let qi = 0; qi < qs.length; qi++) {
+      const q = qs[qi];
+      if (!String(q.questionText || "").trim()) {
         alert(`Falta texto de pregunta en Caso ${ci + 1}, Pregunta ${qi + 1}.`);
-        devolver;
+        return;
       }
-      si (!Cadena(q.opcionA || "").trim() || !Cadena(q.opcionB || "").trim() || !Cadena(q.opcionC || "").trim() || !Cadena(q.opcionD || "").trim()) {
+      if (!String(q.optionA || "").trim() || !String(q.optionB || "").trim() || !String(q.optionC || "").trim() || !String(q.optionD || "").trim()) {
         alert(`Faltan opciones en Caso ${ci + 1}, Pregunta ${qi + 1}.`);
-        devolver;
+        return;
       }
     }
   }
 
-  intentar {
-    constante db = asegurarRecursosDb();
-    const ref = doc(db, "tema_exámenes", String(_resourcesSelectedId));
-    esperar setDoc(ref, { topicId: String(_resourcesSelectedId), casos, updatedAt: serverTimestamp() }, { merge: true });
+  try {
+    const db = ensureResourcesDb();
+    const ref = doc(db, "topic_exams", String(_resourcesSelectedId));
+    await setDoc(ref, { topicId: String(_resourcesSelectedId), cases, updatedAt: serverTimestamp() }, { merge: true });
     alert("Mini-examen guardado.");
-  } atrapar (err) {
-    consola.error(err);
+  } catch (err) {
+    console.error(err);
     alert("No se pudo guardar el mini-examen.");
   }
 }
 
-función asincrónica adminResourcesDeleteTopicExam() {
-  si (!_resourcesSelectedId) retorna;
+async function adminResourcesDeleteTopicExam() {
+  if (!_resourcesSelectedId) return;
 
   const ok = confirm("¿Eliminar mini-examen de este tema?");
-  si (!ok) retorna;
+  if (!ok) return;
 
-  intentar {
-    constante db = asegurarRecursosDb();
-    const ref = doc(db, "tema_exámenes", String(_resourcesSelectedId));
-    esperar deleteDoc(ref);
-    _resourcesTopicExam = { casos: [] };
-    renderRecursosTemaExamEditor();
+  try {
+    const db = ensureResourcesDb();
+    const ref = doc(db, "topic_exams", String(_resourcesSelectedId));
+    await deleteDoc(ref);
+    _resourcesTopicExam = { cases: [] };
+    renderResourcesTopicExamEditor();
     alert("Mini-examen eliminado.");
-  } atrapar (err) {
-    consola.error(err);
+  } catch (err) {
+    console.error(err);
     alert("No se pudo eliminar el mini-examen.");
   }
 }
 
 
-función adminResourcesOpenList() {
-  _resourcesIsNew = falso;
-  _resourcesSelectedId = nulo;
+function adminResourcesOpenList() {
+  _resourcesIsNew = false;
+  _resourcesSelectedId = null;
 
   if (resEditorStatus) resEditorStatus.textContent = "Selecciona un tema o crea uno nuevo.";
-  si (resTitleInput) resTitleInput.valor = "";
-  si (resSpecialtyRawInput) resSpecialtyRawInput.valor = "";
+  if (resTitleInput) resTitleInput.value = "";
+  if (resSpecialtyRawInput) resSpecialtyRawInput.value = "";
   renderResLinksEditor([]);
-  setResEditorEnabled(falso);
+  setResEditorEnabled(false);
 
-  si (!_isRestoringNav) {
-    adminNavState.panel = "recursos";
-    adminNavState.view = "lista_de_recursos";
-    adminNavState.resourcesTopicId = nulo;
+  if (!_isRestoringNav) {
+    adminNavState.panel = "resources";
+    adminNavState.view = "resources_list";
+    adminNavState.resourcesTopicId = null;
     adminNavState.resourcesSearch = (resSearchInput?.value || "").toString();
     adminNavState.resourcesSpecialtyKey = (resSpecialtyFilter?.value || "").toString();
-    persistirAdminNavState();
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
 }
 
-función adminResourcesOpenNewTopic() {
-  _resourcesIsNew = verdadero;
-  _resourcesSelectedId = nulo;
+function adminResourcesOpenNewTopic() {
+  _resourcesIsNew = true;
+  _resourcesSelectedId = null;
 
   if (resEditorStatus) resEditorStatus.textContent = "Creando un nuevo tema";
-  si (resTitleInput) resTitleInput.valor = "";
-  si (resSpecialtyRawInput) resSpecialtyRawInput.valor = "";
+  if (resTitleInput) resTitleInput.value = "";
+  if (resSpecialtyRawInput) resSpecialtyRawInput.value = "";
   renderResLinksEditor([]);
-  setResEditorEnabled(verdadero);
-  si (resBtnDelete) resBtnDelete.disabled = verdadero;
+  setResEditorEnabled(true);
+  if (resBtnDelete) resBtnDelete.disabled = true;
 
-  si (!_isRestoringNav) {
-    adminNavState.panel = "recursos";
-    adminNavState.view = "recursos_nuevos";
-    adminNavState.resourcesTopicId = nulo;
+  if (!_isRestoringNav) {
+    adminNavState.panel = "resources";
+    adminNavState.view = "resources_new";
+    adminNavState.resourcesTopicId = null;
     adminNavState.resourcesSearch = (resSearchInput?.value || "").toString();
     adminNavState.resourcesSpecialtyKey = (resSpecialtyFilter?.value || "").toString();
-    persistirAdminNavState();
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
 }
 
-función adminResourcesSelectTopic(topicId) {
+function adminResourcesSelectTopic(topicId) {
   const t = _resourcesTopics.find((x) => x.id === topicId);
-  si (!t) {
-    adminRecursosOpenList();
-    devolver;
+  if (!t) {
+    adminResourcesOpenList();
+    return;
   }
   adminResourcesFillEditor(t);
   renderResTopicList();
 }
 
-función asíncrona loadResourcesTopics() {
-  constante rdb = asegurarRecursosDb();
-  const q = consulta(colección(rdb, "temas"), orderBy("título", "asc"));
-  constante snap = esperar getDocs(q);
-  _recursosTemas = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+async function loadResourcesTopics() {
+  const rdb = ensureResourcesDb();
+  const q = query(collection(rdb, "temas"), orderBy("title", "asc"));
+  const snap = await getDocs(q);
+  _resourcesTopics = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
   renderResTopicList();
   renderResTopicCount();
 }
 
-función asíncrona ensureResourcesAdminLoaded() {
-  si (_resourcesLoadedOnce) retorna;
-  _resourcesLoadedOnce = verdadero;
+async function ensureResourcesAdminLoaded() {
+  if (_resourcesLoadedOnce) return;
+  _resourcesLoadedOnce = true;
 
-  // Precarga filtros desde estado persistente
-  si (resSearchInput && adminNavState.resourcesSearch) resSearchInput.value = adminNavState.resourcesSearch;
-  si (resSpecialtyFilter && adminNavState.resourcesSpecialtyKey) resSpecialtyFilter.value = adminNavState.resourcesSpecialtyKey;
+  // Pre-carga filtros desde estado persistido
+  if (resSearchInput && adminNavState.resourcesSearch) resSearchInput.value = adminNavState.resourcesSearch;
+  if (resSpecialtyFilter && adminNavState.resourcesSpecialtyKey) resSpecialtyFilter.value = adminNavState.resourcesSpecialtyKey;
 
-    // Auth para edición (las reglas de Firestore exigen request.auth para crear/actualizar/eliminar)
-  intentar {
-    si (resAuthEmailInput && !resAuthEmailInput.valor) {
+    // Auth para edición (Firestore rules exigen request.auth para create/update/delete)
+  try {
+    if (resAuthEmailInput && !resAuthEmailInput.value) {
       resAuthEmailInput.value = auth?.currentUser?.email || "";
     }
 
-    // Actualiza la interfaz de usuario cuando cambia la sesión de la biblioteca
-    onAuthStateChanged(asegurarRecursosAuth(), () => {
-      actualizarRecursosAuthUi();
+    // Actualiza UI cuando cambia sesión de la biblioteca
+    onAuthStateChanged(ensureResourcesAuth(), () => {
+      updateResourcesAuthUi();
     });
-    actualizarRecursosAuthUi();
+    updateResourcesAuthUi();
 
-    resAuthBtnLogin?.addEventListener("clic", async () => {
-      constante correo electrónico = (resAuthEmailInput?.valor || "").toString().trim();
-      constante pass = (resAuthPasswordInput?.valor || "").toString();
-      si (!correo electrónico || !contraseña) {
+    resAuthBtnLogin?.addEventListener("click", async () => {
+      const email = (resAuthEmailInput?.value || "").toString().trim();
+      const pass = (resAuthPasswordInput?.value || "").toString();
+      if (!email || !pass) {
         alert("Ingresa email y contraseña para editar la biblioteca.");
-        devolver;
+        return;
       }
 
       setLoadingButton(resAuthBtnLogin, true, "Iniciar sesión");
-      intentar {
-        esperar signInWithEmailAndPassword(ensureResourcesAuth(), correo electrónico, contraseña);
-        si (resAuthPasswordInput) resAuthPasswordInput.valor = "";
-        actualizarRecursosAuthUi();
-      } captura (e) {
-        console.error("Error al iniciar sesión en la biblioteca:", e);
+      try {
+        await signInWithEmailAndPassword(ensureResourcesAuth(), email, pass);
+        if (resAuthPasswordInput) resAuthPasswordInput.value = "";
+        updateResourcesAuthUi();
+      } catch (e) {
+        console.error("Error login biblioteca:", e);
         alert("No se pudo iniciar sesión en la biblioteca. Revisa credenciales y reglas.");
-      } finalmente {
+      } finally {
         setLoadingButton(resAuthBtnLogin, false, "Iniciar sesión");
       }
     });
 
-    resAuthBtnLogout?.addEventListener("clic", async () => {
-      intentar {
-        esperar signOut(asegurarseResourcesAuth());
-        actualizarRecursosAuthUi();
-      } captura (e) {
-        console.error("Error al cerrar sesión biblioteca:", e);
+    resAuthBtnLogout?.addEventListener("click", async () => {
+      try {
+        await signOut(ensureResourcesAuth());
+        updateResourcesAuthUi();
+      } catch (e) {
+        console.error("Error cerrando sesión biblioteca:", e);
       }
     });
-  } captura (e) {
+  } catch (e) {
     console.error("No se pudo inicializar auth de biblioteca:", e);
   }
-// Vincular eventos (una sola vez)
-  resBtnRefresh?.addEventListener("clic", async () => {
-    esperar cargaRecursosTemas();
+// Bind eventos (una sola vez)
+  resBtnRefresh?.addEventListener("click", async () => {
+    await loadResourcesTopics();
   });
 
-  resBtnNewTopic?.addEventListener("clic", () => {
-    adminRecursosAbrirNuevoTema();
+  resBtnNewTopic?.addEventListener("click", () => {
+    adminResourcesOpenNewTopic();
     renderResTopicList();
   });
 
-  resBtnBack?.addEventListener("clic", () => {
-    const st = historial.estado?.adminNav;
-    si (st && (st.view === "detalle_de_recursos" || st.view === "nuevos_recursos")) {
-      historia.atrás();
-      devolver;
+  resBtnBack?.addEventListener("click", () => {
+    const st = history.state?.adminNav;
+    if (st && (st.view === "resources_detail" || st.view === "resources_new")) {
+      history.back();
+      return;
     }
-    adminRecursosOpenList();
+    adminResourcesOpenList();
     renderResTopicList();
   });
 
-  resSearchInput?.addEventListener("entrada", () => {
-    si (!_isRestoringNav) {
+  resSearchInput?.addEventListener("input", () => {
+    if (!_isRestoringNav) {
       adminNavState.resourcesSearch = (resSearchInput.value || "").toString();
-      persistirAdminNavState();
+      persistAdminNavState();
     }
     renderResTopicList();
   });
 
-  resSpecialtyFilter?.addEventListener("cambio", () => {
-    si (!_isRestoringNav) {
+  resSpecialtyFilter?.addEventListener("change", () => {
+    if (!_isRestoringNav) {
       adminNavState.resourcesSpecialtyKey = (resSpecialtyFilter.value || "").toString();
-      persistirAdminNavState();
+      persistAdminNavState();
     }
     renderResTopicList();
   });
 
-  resBtnAddLink?.addEventListener("clic", () => {
+  resBtnAddLink?.addEventListener("click", () => {
     // Si estaba vacío, limpia el mensaje y crea la primera fila
-    si (!resLinksWrap.querySelector("[data-res-link-row]")) {
+    if (!resLinksWrap.querySelector("[data-res-link-row]")) {
       resLinksWrap.innerHTML = "";
     }
-    renderResLinksEditor([...getResLinksFromEditor(), { etiqueta: "", url: "", tipo: "enlace" }]);
+    renderResLinksEditor([...getResLinksFromEditor(), { label: "", url: "", type: "link" }]);
   });
 
-  resBtnSave?.addEventListener("clic", async () => {
-    si (!ensureResourcesAuth().currentUser) {
+  resBtnSave?.addEventListener("click", async () => {
+    if (!ensureResourcesAuth().currentUser) {
       if (resEditorStatus) resEditorStatus.textContent = "Para guardar necesitas iniciar sesión en la biblioteca.";
-      resAuthBox?.scrollIntoView({ comportamiento: "suave", bloque: "inicio" });
-      devolver;
+      resAuthBox?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     }
 
-    constante título = (resTitleInput?.valor || "").toString().trim();
-    constante especialidad = (resSpecialtyRawInput?.valor || "").toString().trim();
-    constante enlaces = getResLinksFromEditor();
+    const title = (resTitleInput?.value || "").toString().trim();
+    const specialty = (resSpecialtyRawInput?.value || "").toString().trim();
+    const links = getResLinksFromEditor();
 
-    si (!título) {
-      if (resEditorStatus) resEditorStatus.textContent = "El título es obligatorio.";
-      devolver;
+    if (!title) {
+      if (resEditorStatus) resEditorStatus.textContent = "El título es obligatorio."; 
+      return;
     }
 
-    constante rdb = asegurarRecursosDb();
-    carga útil constante = {
-      título,
-      especialidad,
-      campo de golf,
-      actualizadoEn: serverTimestamp(),
+    const rdb = ensureResourcesDb();
+    const payload = {
+      title,
+      specialty,
+      links,
+      updatedAt: serverTimestamp(),
     };
 
     setLoadingButton(resBtnSave, true, "Guardar");
-    intentar {
-      si (_resourcesSelectedId && !_resourcesIsNew) {
-        esperar updateDoc(doc(rdb, "temas", _resourcesSelectedId), carga útil);
-      } demás {
-        carga útil.createdAt = serverTimestamp();
+    try {
+      if (_resourcesSelectedId && !_resourcesIsNew) {
+        await updateDoc(doc(rdb, "temas", _resourcesSelectedId), payload);
+      } else {
+        payload.createdAt = serverTimestamp();
         const created = await addDoc(collection(rdb, "temas"), payload);
-        _resourcesSelectedId = creado.id;
-        _resourcesIsNew = falso;
+        _resourcesSelectedId = created.id;
+        _resourcesIsNew = false;
       }
 
-      esperar cargaRecursosTemas();
+      await loadResourcesTopics();
 
-      si (_resourcesSelectedId) {
+      if (_resourcesSelectedId) {
         adminResourcesSelectTopic(_resourcesSelectedId);
-      } demás {
-        adminRecursosOpenList();
+      } else {
+        adminResourcesOpenList();
       }
-    } atrapar (err) {
-      consola.error(err);
+    } catch (err) {
+      console.error(err);
       if (resEditorStatus) resEditorStatus.textContent = "No se pudo guardar el tema.";
-    } finalmente {
+    } finally {
       setLoadingButton(resBtnSave, false, "Guardar");
     }
   });
 
-  resBtnDelete?.addEventListener("clic", async () => {
-    si (!_resourcesSelectedId || _resourcesIsNew) devolver;
+  resBtnDelete?.addEventListener("click", async () => {
+    if (!_resourcesSelectedId || _resourcesIsNew) return;
 
-    si (!ensureResourcesAuth().currentUser) {
+    if (!ensureResourcesAuth().currentUser) {
       if (resEditorStatus) resEditorStatus.textContent = "Para eliminar necesitas iniciar sesión en la biblioteca.";
-      resAuthBox?.scrollIntoView({ comportamiento: "suave", bloque: "inicio" });
-      devolver;
+      resAuthBox?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
     }
 
     // Confirmación sin ventanas emergentes: doble click en <= 6s
-    si (!_recursosEliminarArmado) {
-      _resourcesDeleteArmed = verdadero;
-      if (resEditorStatus) resEditorStatus.textContent = 'Confirmar eliminación: presione "Eliminar" otra vez (6s).';
-      si (_resourcesDeleteArmTimer) clearTimeout(_resourcesDeleteArmTimer);
+    if (!_resourcesDeleteArmed) {
+      _resourcesDeleteArmed = true;
+      if (resEditorStatus) resEditorStatus.textContent = 'Confirma eliminación: pulsa "Eliminar" otra vez (6s).';
+      if (_resourcesDeleteArmTimer) clearTimeout(_resourcesDeleteArmTimer);
       _resourcesDeleteArmTimer = setTimeout(() => {
-        _resourcesDeleteArmed = falso;
-        _resourcesDeleteArmTimer = nulo;
+        _resourcesDeleteArmed = false;
+        _resourcesDeleteArmTimer = null;
         if (resEditorStatus) resEditorStatus.textContent = "Eliminación cancelada.";
       }, 6000);
-      devolver;
+      return;
     }
 
-    _resourcesDeleteArmed = falso;
-    si (_resourcesDeleteArmTimer) clearTimeout(_resourcesDeleteArmTimer);
-    _resourcesDeleteArmTimer = nulo;
+    _resourcesDeleteArmed = false;
+    if (_resourcesDeleteArmTimer) clearTimeout(_resourcesDeleteArmTimer);
+    _resourcesDeleteArmTimer = null;
 
-    constante rdb = asegurarRecursosDb();
-    setLoadingButton(resBtnDelete, verdadero, "Eliminar");
-    intentar {
-      esperar deleteDoc(doc(rdb, "temas", _resourcesSelectedId));
-      _resourcesSelectedId = nulo;
-      _resourcesIsNew = falso;
-      esperar cargaRecursosTemas();
-      adminRecursosOpenList();
+    const rdb = ensureResourcesDb();
+    setLoadingButton(resBtnDelete, true, "Eliminar");
+    try {
+      await deleteDoc(doc(rdb, "temas", _resourcesSelectedId));
+      _resourcesSelectedId = null;
+      _resourcesIsNew = false;
+      await loadResourcesTopics();
+      adminResourcesOpenList();
       renderResTopicList();
       if (resEditorStatus) resEditorStatus.textContent = "Tema eliminado.";
-    } atrapar (err) {
-      consola.error(err);
+    } catch (err) {
+      console.error(err);
       if (resEditorStatus) resEditorStatus.textContent = "No se pudo eliminar el tema.";
-    } finalmente {
+    } finally {
       setLoadingButton(resBtnDelete, false, "Eliminar");
     }
   });
 
   // ✅ Mini-examen del tema (topic_exams)
-  resTopicExamBtnAddCase?.addEventListener("hacer clic", () => {
-    adminRecursosAñadirTemaCaso();
+  resTopicExamBtnAddCase?.addEventListener("click", () => {
+    adminResourcesAddTopicCase();
   });
 
-  resTopicExamBtnSave?.addEventListener("hacer clic", async () => {
-    esperar adminResourcesSaveTopicExam();
+  resTopicExamBtnSave?.addEventListener("click", async () => {
+    await adminResourcesSaveTopicExam();
   });
 
-  resTopicExamBtnDelete?.addEventListener("hacer clic", async () => {
-    esperar adminResourcesDeleteTopicExam();
+  resTopicExamBtnDelete?.addEventListener("click", async () => {
+    await adminResourcesDeleteTopicExam();
   });
 
-  // Delegación de eventos (agregar/eliminar dentro de casos)
-  resTopicExamCasesWrap?.addEventListener("hacer clic", (e) => {
+  // Event delegation (agregar/eliminar dentro de casos)
+  resTopicExamCasesWrap?.addEventListener("click", (e) => {
     const btn = e.target?.closest?.("[data-te-action]");
-    si (!btn) retorna;
-    acción constante = btn.dataset.teAction;
-    constante ci = Número(btn.dataset.ci);
-    constante qi = Número(btn.dataset.qi);
+    if (!btn) return;
+    const action = btn.dataset.teAction;
+    const ci = Number(btn.dataset.ci);
+    const qi = Number(btn.dataset.qi);
 
-    si (acción === "agregar-pregunta") adminResourcesAddTopicQuestion(ci);
-    si (acción === "eliminar-caso") adminResourcesDeleteTopicCase(ci);
-    si (acción === "eliminar-pregunta") adminResourcesDeleteTopicQuestion(ci, qi);
+    if (action === "add-question") adminResourcesAddTopicQuestion(ci);
+    if (action === "delete-case") adminResourcesDeleteTopicCase(ci);
+    if (action === "delete-question") adminResourcesDeleteTopicQuestion(ci, qi);
   });
 
 
 
   // Cargar datos
-  esperar cargaRecursosTemas();
-  adminRecursosOpenList();
+  await loadResourcesTopics();
+  adminResourcesOpenList();
 }
 
-función escapeHtml(str) {
-  devolver (str || "")
+function escapeHtml(str) {
+  return (str || "")
     .toString()
-    .replace(/&/g, "&")
-    .reemplazar(/</g, "<")
-    .reemplazar(/>/g, ">")
-    .reemplazar(/"/g, """)
-    .replace(/'/g, "'");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-función escapeAttr(str) {
-  devolver escapeHtml(str).replace(/`/g, "`");
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/`/g, "&#096;");
 }
 
 
 
-función setLoadingButton(btn, isLoading, textDefault = "Guardar") {
-  si (!btn) retorna;
-  si (estáCargando) {
+function setLoadingButton(btn, isLoading, textDefault = "Guardar") {
+  if (!btn) return;
+  if (isLoading) {
     btn.dataset.originalText = btn.textContent;
     btn.textContent = "Guardando...";
-    btn.disabled = verdadero;
-  } demás {
-    btn.textContent = btn.dataset.originalText || texto predeterminado;
-    btn.disabled = falso;
+    btn.disabled = true;
+  } else {
+    btn.textContent = btn.dataset.originalText || textDefault;
+    btn.disabled = false;
   }
 }
 
-función renderEmptyMessage(contenedor, texto) {
-  si (!contenedor) retorna;
-  contenedor.innerHTML = `
+function renderEmptyMessage(container, text) {
+  if (!container) return;
+  container.innerHTML = `
     <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
-      ${texto}
+      ${text}
     </div>
   `;
 }
 
 /**
- * Abre un archivo de entrada y devuelve el JSON analizado al callback.
+ * Abre un input file y devuelve el JSON parseado al callback.
  */
-función openJsonFilePicker(onLoaded) {
-  constante entrada = document.createElement("entrada");
-  entrada.type = "archivo";
-  entrada.aceptar = "aplicacion/json,.json";
+function openJsonFilePicker(onLoaded) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
 
-  entrada.addEventListener("cambio", () => {
-    const archivo = entrada.archivos && entrada.archivos[0];
-    si (!archivo) retorna;
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
 
-    const lector = nuevo FileReader();
+    const reader = new FileReader();
 
-    lector.onload = () => {
-      intentar {
-        const json = JSON.parse(lector.resultado);
-        si (tipo de onLoaded === "función") {
-          al cargar(json);
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result);
+        if (typeof onLoaded === "function") {
+          onLoaded(json);
         }
-      } atrapar (err) {
+      } catch (err) {
         console.error("JSON inválido:", err);
         alert("El archivo no contiene un JSON válido.");
       }
     };
 
-    lector.onerror = () => {
-      console.error("Error al leer el archivo JSON.");
+    reader.onerror = () => {
+      console.error("Error leyendo el archivo JSON.");
       alert("No se pudo leer el archivo JSON.");
     };
 
-    lector.readAsText(archivo);
+    reader.readAsText(file);
   });
 
-  entrada.click();
+  input.click();
 }
 
 /****************************************************
  * MODAL GENÉRICO (SE CONSERVA PARA SECCIONES/USUARIOS/ETC)
  ****************************************************/
 
-función openModal({ título, bodyHtml, onOk }) {
-  si (!modalOverlay || !modalBox) retorna;
-  modalTitle.textContent = título || "";
+function openModal({ title, bodyHtml, onOk }) {
+  if (!modalOverlay || !modalBox) return;
+  modalTitle.textContent = title || "";
   modalBody.innerHTML = bodyHtml || "";
-  modalOkHandler = onOk || nulo;
-  mostrar(modalOverlay);
+  modalOkHandler = onOk || null;
+  show(modalOverlay);
 }
 
-función closeModal() {
-  si (!modalOverlay) retorna;
+function closeModal() {
+  if (!modalOverlay) return;
   modalBody.innerHTML = "";
-  modalOkHandler = nulo;
-  ocultar(superposición modal);
+  modalOkHandler = null;
+  hide(modalOverlay);
 }
 
-si (superposición modal) {
-  modalOverlay.addEventListener("clic", (e) => {
-    si (e.target === modalOverlay) {
-      cerrarModal();
+if (modalOverlay) {
+  modalOverlay.addEventListener("click", (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
     }
   });
 }
 
-si (modalBtnCancel) {
-  modalBtnCancel.addEventListener("clic", () => {
-    cerrarModal();
+if (modalBtnCancel) {
+  modalBtnCancel.addEventListener("click", () => {
+    closeModal();
   });
 }
 
-si (modalBtnOk) {
-  modalBtnOk.addEventListener("clic", async () => {
-    si (tipo de modalOkHandler === "función") {
-      esperar modalOkHandler();
+if (modalBtnOk) {
+  modalBtnOk.addEventListener("click", async () => {
+    if (typeof modalOkHandler === "function") {
+      await modalOkHandler();
     }
   });
 }
 
 /****************************************************
- * AYUDANTES: normalización y etiquetas
+ * HELPERS: normalización y labels
  ****************************************************/
 
-función normalizarTexto(str) {
-  devolver (str || "")
+function normalizeText(str) {
+  return (str || "")
     .toString()
     .toLowerCase()
-    .normalizar("NFD")
-    .reemplazar(/[\u0300-\u036f]/g, "")
-    .reemplazar(/\s+/g, " ")
-    .recortar();
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-función getSpecialtyLabel(clave) {
-  si (!key) devuelve "";
-  devolver ESPECIALIDADES && ESPECIALIDADES[clave] ? ESPECIALIDADES[clave] : clave;
+function getSpecialtyLabel(key) {
+  if (!key) return "";
+  return SPECIALTIES && SPECIALTIES[key] ? SPECIALTIES[key] : key;
 }
 
 // ✅ util: identifica si un doc de questions es "banco" (no es caso dentro de un examen)
-función isBankCaseDoc(datos) {
-  const ex = (datos?.examId || "").toString().trim();
-  devolver !ex; // banco = sin examId
+function isBankCaseDoc(data) {
+  const ex = (data?.examId || "").toString().trim();
+  return !ex; // banco = sin examId
 }
 
 /****************************************************
- * ✅ BLOQUEO DUPLICADOS: conjuntos por bankCaseId
+ * ✅ BLOQUEO DUPLICADOS: sets por bankCaseId
  ****************************************************/
 
-función obtenerCurrentExamBankCaseIdsSet() {
-  constante conjunto = nuevo Conjunto();
-  (casosdeexamenactuales || []).forEach((c) => {
-    si (c && c.bankCaseId) establecer.add(c.bankCaseId);
+function getCurrentExamBankCaseIdsSet() {
+  const set = new Set();
+  (currentExamCases || []).forEach((c) => {
+    if (c && c.bankCaseId) set.add(c.bankCaseId);
   });
-  conjunto de retorno;
+  return set;
 }
 
-función getMiniBankCaseIdsSet() {
-  constante conjunto = nuevo Conjunto();
-  (miniCasos || []).forEach((c) => {
-    si (c && c.bankCaseId) establecer.add(c.bankCaseId);
+function getMiniBankCaseIdsSet() {
+  const set = new Set();
+  (miniCases || []).forEach((c) => {
+    if (c && c.bankCaseId) set.add(c.bankCaseId);
   });
-  conjunto de retorno;
+  return set;
 }
 
 /****************************************************
- * ✅ usageCount robusto: ayudantes delta
+ * ✅ usageCount robusto: delta helpers
  ****************************************************/
 
-función countIds(arr) {
-  constante m = nuevo Mapa();
-  (arr || []).paraCada((id) => {
-    si (!id) retorna;
+function countIds(arr) {
+  const m = new Map();
+  (arr || []).forEach((id) => {
+    if (!id) return;
     m.set(id, (m.get(id) || 0) + 1);
   });
-  devolver m;
+  return m;
 }
 
-función asíncrona applyUsageDelta(prevIds, newIds) {
-  constante prevMap = countIds(prevIds);
-  constante nuevoMapa = countIds(nuevosIds);
+async function applyUsageDelta(prevIds, newIds) {
+  const prevMap = countIds(prevIds);
+  const newMap = countIds(newIds);
 
-  constante allIds = nuevo Conjunto([...prevMap.keys(), ...newMap.keys()]);
-  const actualizaciones = [];
+  const allIds = new Set([...prevMap.keys(), ...newMap.keys()]);
+  const updates = [];
 
-  allIds.paraCada((id) => {
-    constante delta = (newMap.get(id) || 0) - (prevMap.get(id) || 0);
-    si (delta !== 0) {
-      actualizaciones.push(
-        updateDoc(doc(db, "preguntas", id), {
-          usageCount: incremento(delta),
-          actualizadoEn: serverTimestamp(),
-        }).catch((e) => console.warn("No se pudo ajustar useCount:", id, e))
+  allIds.forEach((id) => {
+    const delta = (newMap.get(id) || 0) - (prevMap.get(id) || 0);
+    if (delta !== 0) {
+      updates.push(
+        updateDoc(doc(db, "questions", id), {
+          usageCount: increment(delta),
+          updatedAt: serverTimestamp(),
+        }).catch((e) => console.warn("No se pudo ajustar usageCount:", id, e))
       );
     }
   });
 
-  si (actualizaciones.longitud) {
-    esperar Promise.all(actualizaciones);
+  if (updates.length) {
+    await Promise.all(updates);
   }
 
-  // refrescar cache de buscadores para que useCount se vea actualizado
-  restablecerCasosBancaSearchCache();
+  // refrescar cache de buscadores para que usageCount se vea actualizado
+  resetBankCasesSearchCache();
 }
 
 
-función resetBankCasesSearchCache() {
+function resetBankCasesSearchCache() {
   bankCasesCache = [];
-  bankCasesById = nuevo Mapa();
-  bankCasesLoadedOnce = falso;
-  bankCasesAllLoaded = falso;
-  bankCasesLastDoc = nulo;
-  recuentoDeCasosBancoScan = 0;
-  bankCasesOrderMode = "creadoEn";
-  bankCasesLoading = falso;
+  bankCasesById = new Map();
+  bankCasesLoadedOnce = false;
+  bankCasesAllLoaded = false;
+  bankCasesLastDoc = null;
+  bankCasesScanCount = 0;
+  bankCasesOrderMode = "createdAt";
+  bankCasesLoading = false;
 }
 
 /****************************************************
  * BUSCADOR DE BANCO PARA AGREGAR CASOS A EXAMEN Y MINI
- * ✅ usa "preguntas" (solo casos banco: sin examId)
+ * ✅ usa "questions" (solo casos banco: sin examId)
  ****************************************************/
 
 
-función asíncrona loadMoreBankCasesFromFirestore(batchSize = BANK_SEARCH_BATCH_SIZE) {
-  si (bankCasesLoading || bankCasesAllLoaded) devolver { agregado: [], escaneado: 0 };
+async function loadMoreBankCasesFromFirestore(batchSize = BANK_SEARCH_BATCH_SIZE) {
+  if (bankCasesLoading || bankCasesAllLoaded) return { added: [], scanned: 0 };
 
   // Tope duro (petición del usuario: hasta ~10,000 casos banco)
-  si (bankCasesCache.length >= BÚSQUEDA_BANCO_MÁXIMA_BANCO_CASOS) {
-    bankCasesAllLoaded = verdadero;
-    devolver { añadido: [], escaneado: 0 };
+  if (bankCasesCache.length >= BANK_SEARCH_MAX_BANK_CASES) {
+    bankCasesAllLoaded = true;
+    return { added: [], scanned: 0 };
   }
 
-  bankCasesLoading = verdadero;
+  bankCasesLoading = true;
 
-  intentar {
-    deje qBase;
+  try {
+    let qBase;
 
-    // Preferimos orden por createAt; si falla, caeremos en un documentId
-    intentar {
-      qBase = consulta(
-        colección(db, "preguntas"),
-        ordenarPor("creadoEn", "desc"),
+    // Preferimos orden por createdAt; si falla, caemos a documentId
+    try {
+      qBase = query(
+        collection(db, "questions"),
+        orderBy("createdAt", "desc"),
         ...(bankCasesLastDoc ? [startAfter(bankCasesLastDoc)] : []),
-        límite(tamaño del lote)
+        limit(batchSize)
       );
-      bankCasesOrderMode = "creadoEn";
-    } captura (e1) {
-      qBase = consulta(
-        colección(db, "preguntas"),
-        ordenarPor(documentId()),
+      bankCasesOrderMode = "createdAt";
+    } catch (e1) {
+      qBase = query(
+        collection(db, "questions"),
+        orderBy(documentId()),
         ...(bankCasesLastDoc ? [startAfter(bankCasesLastDoc)] : []),
-        límite(tamaño del lote)
+        limit(batchSize)
       );
-      bankCasesOrderMode = "nombre";
+      bankCasesOrderMode = "name";
     }
 
-    constante snap = esperar getDocs(qBase);
+    const snap = await getDocs(qBase);
 
-    si (!snap || !snap.docs || !snap.docs.length) {
-      bankCasesAllLoaded = verdadero;
-      devolver { añadido: [], escaneado: 0 };
+    if (!snap || !snap.docs || !snap.docs.length) {
+      bankCasesAllLoaded = true;
+      return { added: [], scanned: 0 };
     }
 
     bankCasesLastDoc = snap.docs[snap.docs.length - 1];
-    bankCasesScanCount += tamaño de ajuste;
+    bankCasesScanCount += snap.size;
 
     // Convertir y filtrar solo casos "banco" (= sin examId)
-    constante añadida = [];
+    const added = [];
 
-    para (const d de snap.docs) {
-      si (!d || !d.id) continuar;
-      si (bankCasesById.has(d.id)) continuar;
+    for (const d of snap.docs) {
+      if (!d || !d.id) continue;
+      if (bankCasesById.has(d.id)) continue;
 
-      constante datos = d.datos() || {};
-      constante conId = { id: d.id, ...data };
+      const data = d.data() || {};
+      const withId = { id: d.id, ...data };
 
-      si (!isBankCaseDoc(withId)) continuar;
+      if (!isBankCaseDoc(withId)) continue;
 
-      const preguntasArr = Array.isArray(conId.preguntas) ? conId.preguntas : [];
-      const temaTxt = (conId.tema || "").toString();
+      const questionsArr = Array.isArray(withId.questions) ? withId.questions : [];
+      const topicTxt = (withId.topic || "").toString();
 
-      entrada constante = {
-        ...conId,
-        preguntas: preguntasArr,
-        tema: temaTxt,
-        _normCase: normalizarTexto(conId.caseText || ""),
-        _normTopic: normalizarTexto(temaTxt),
-        _normSpec: normalizarTexto(conId.especialidad || ""),
-        _normQs: normalizarTexto(preguntasArr.map((q) => q.preguntaTexto || "").join(" ")),
+      const entry = {
+        ...withId,
+        questions: questionsArr,
+        topic: topicTxt,
+        _normCase: normalizeText(withId.caseText || ""),
+        _normTopic: normalizeText(topicTxt),
+        _normSpec: normalizeText(withId.specialty || ""),
+        _normQs: normalizeText(questionsArr.map((q) => q.questionText || "").join(" ")),
       };
 
-      bankCasesById.set(entrada.id, entrada);
-      bankCasesCache.push(entrada);
-      añadido.push(entrada);
+      bankCasesById.set(entry.id, entry);
+      bankCasesCache.push(entry);
+      added.push(entry);
 
-      si (bankCasesCache.length >= BÚSQUEDA_BANCO_MÁXIMA_BANCO_CASOS) {
-        bankCasesAllLoaded = verdadero;
-        romper;
+      if (bankCasesCache.length >= BANK_SEARCH_MAX_BANK_CASES) {
+        bankCasesAllLoaded = true;
+        break;
       }
     }
 
-    // Si el lote fue menor al solicitado, probablemente lleguemos al final
-    si (snap.size < batchSize) bankCasesAllLoaded = verdadero;
+    // Si el lote fue menor al solicitado, probablemente llegamos al final
+    if (snap.size < batchSize) bankCasesAllLoaded = true;
 
-    bankCasesLoadedOnce = verdadero;
-    devolver { añadido, escaneado: snap.size };
-  } atrapar (err) {
-    console.error("Error al cargar banco incremental:", err);
-    // degradar a "allLoaded" para que no se quede en bucle
-    bankCasesAllLoaded = verdadero;
-    devolver { añadido: [], escaneado: 0 };
-  } finalmente {
-    bankCasesLoading = falso;
+    bankCasesLoadedOnce = true;
+    return { added, scanned: snap.size };
+  } catch (err) {
+    console.error("Error cargando banco incremental:", err);
+    // degradar a "allLoaded" para que no se quede en loop
+    bankCasesAllLoaded = true;
+    return { added: [], scanned: 0 };
+  } finally {
+    bankCasesLoading = false;
   }
 }
 
-función asíncrona loadBankCasesIfNeeded() {
+async function loadBankCasesIfNeeded() {
   // Carga mínima inicial para mostrar que el banco está disponible.
-  si (bankCasesLoadedOnce) retorna;
+  if (bankCasesLoadedOnce) return;
 
-  si (!bankSearchResults && !miniBankSearchResults) retorna;
+  if (!bankSearchResults && !miniBankSearchResults) return;
 
-  constante objetivo = resultadosBúsquedaBanco || resultadosBúsquedaMiniBanco;
+  const target = bankSearchResults || miniBankSearchResults;
 
-  objetivo.innerHTML = `
+  target.innerHTML = `
     <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
       Cargando banco de casos (modo incremental)…
     </div>
   `;
 
-  esperar cargarMásCasosBancaDesdeFirestore(TAMAÑO_DE_LOTE_DE_BÚSQUEDA_BANCARIA);
+  await loadMoreBankCasesFromFirestore(BANK_SEARCH_BATCH_SIZE);
 
   // Mensaje inicial
-  constante msg = bankCasesCache.length
+  const msg = bankCasesCache.length
     ? `Banco listo. Escribe para buscar. (Cargados: ${bankCasesCache.length} · Escaneados: ${bankCasesScanCount}${bankCasesAllLoaded ? "" : " · seguirá cargando según tu búsqueda"})`
     : "No se encontraron casos en el banco.";
 
-  si (bankSearchResults) renderEmptyMessage(bankSearchResults, msg);
-  si (miniBankSearchResults) renderEmptyMessage(miniBankSearchResults, msg);
+  if (bankSearchResults) renderEmptyMessage(bankSearchResults, msg);
+  if (miniBankSearchResults) renderEmptyMessage(miniBankSearchResults, msg);
 }
 
-función tokenizeBankSearch(rawQuery) {
-  constante q = normalizarTexto(rawQuery);
-  si (!q) devuelve [];
+function tokenizeBankSearch(rawQuery) {
+  const q = normalizeText(rawQuery);
+  if (!q) return [];
   const tokens = q.split(" ").filter((t) => t.length >= 2);
-  devolver tokens.slice(0, 6); // tope para evitar consultas demasiado costosas
+  return tokens.slice(0, 6); // tope para evitar queries demasiado costosas
 }
 
-función bankCaseMatchesTokens(c, tokens) {
-  si (!tokens || !tokens.length) devuelve falso;
-  constante pajar = `${c._normTopic} ${c._normSpec} ${c._normCase} ${c._normQs}`;
-  devuelve tokens.every((t) => haystack.includes(t));
+function bankCaseMatchesTokens(c, tokens) {
+  if (!tokens || !tokens.length) return false;
+  const haystack = `${c._normTopic} ${c._normSpec} ${c._normCase} ${c._normQs}`;
+  return tokens.every((t) => haystack.includes(t));
 }
 
-función buscarCasosBancos(rawQuery, maxResults = BANCO_BÚSQUEDA_MÁXIMO_RESULTADOS) {
-  constante tokens = tokenizeBankSearch(rawQuery);
-  si (!tokens.length) devuelve [];
+function searchBankCases(rawQuery, maxResults = BANK_SEARCH_MAX_RESULTS) {
+  const tokens = tokenizeBankSearch(rawQuery);
+  if (!tokens.length) return [];
 
-  const resultados = [];
-  para (const c de bankCasesCache) {
-    si (bankCaseMatchesTokens(c, tokens)) resultados.push(c);
-    si (resultados.length >= maxResults) romper;
+  const results = [];
+  for (const c of bankCasesCache) {
+    if (bankCaseMatchesTokens(c, tokens)) results.push(c);
+    if (results.length >= maxResults) break;
   }
-  devolver resultados;
+  return results;
 }
 
-función asincrónica searchBankCasesAsync(rawQuery, opts = {}) {
-  constante maxResults = Número(opts.maxResults || MÁXIMOS_RESULTADOS_BÚSQUEDA_BANCARIA);
-  constanteLoteSize = Número(opts.loteSize || TAMAÑO_LOTE_BÚSQUEDA_BANCARIA);
-  const cancelFn = typeof opts.isCancelled === "función" ? opts.isCancelled : () => falso;
+async function searchBankCasesAsync(rawQuery, opts = {}) {
+  const maxResults = Number(opts.maxResults || BANK_SEARCH_MAX_RESULTS);
+  const batchSize = Number(opts.batchSize || BANK_SEARCH_BATCH_SIZE);
+  const cancelFn = typeof opts.isCancelled === "function" ? opts.isCancelled : () => false;
 
-  constante tokens = tokenizeBankSearch(rawQuery);
-  si (!tokens.length) {
-    devolver {
-      resultados: [],
+  const tokens = tokenizeBankSearch(rawQuery);
+  if (!tokens.length) {
+    return {
+      results: [],
       meta: {
-        fichas: 0,
-        en caché: bankCasesCache.length,
-        escaneado: bankCasesScanCount,
-        allLoaded: casos bancarios todos cargados,
+        tokens: 0,
+        cached: bankCasesCache.length,
+        scanned: bankCasesScanCount,
+        allLoaded: bankCasesAllLoaded,
       },
     };
   }
 
-  // 1) buscar en caché actual
-  deje resultados = [];
-  para (const c de bankCasesCache) {
-    si (cancelFn()) devuelve { resultados: [], meta: { cancelado: verdadero } };
-    si (bankCaseMatchesTokens(c, tokens)) resultados.push(c);
-    si (resultados.length >= maxResults) romper;
+  // 1) buscar en cache actual
+  let results = [];
+  for (const c of bankCasesCache) {
+    if (cancelFn()) return { results: [], meta: { cancelled: true } };
+    if (bankCaseMatchesTokens(c, tokens)) results.push(c);
+    if (results.length >= maxResults) break;
   }
 
   // 2) si no hay suficientes resultados, seguir cargando lotes hasta:
-  // a) llegar al tope de resultados, ob) escanear todo (para ser "correcto")
-  mientras (!bankCasesAllLoaded && resultados.length < maxResults) {
-    si (cancelFn()) devuelve { resultados: [], meta: { cancelado: verdadero } };
+  //    a) llegar al tope de resultados, o b) escanear todo (para ser "correcto")
+  while (!bankCasesAllLoaded && results.length < maxResults) {
+    if (cancelFn()) return { results: [], meta: { cancelled: true } };
 
-    const { agregado } = await loadMoreBankCasesFromFirestore(batchSize);
-    si (cancelFn()) devuelve { resultados: [], meta: { cancelado: verdadero } };
+    const { added } = await loadMoreBankCasesFromFirestore(batchSize);
+    if (cancelFn()) return { results: [], meta: { cancelled: true } };
 
-    si (!añadido || !añadido.longitud) {
+    if (!added || !added.length) {
       // Sin nuevos -> fin
-      romper;
+      break;
     }
 
-    para (const c de añadido) {
-      si (bankCaseMatchesTokens(c, tokens)) resultados.push(c);
-      si (resultados.length >= maxResults) romper;
+    for (const c of added) {
+      if (bankCaseMatchesTokens(c, tokens)) results.push(c);
+      if (results.length >= maxResults) break;
     }
   }
 
-  // Deduplicación + límite
-  const visto = nuevo Conjunto();
-  resultados = resultados.filtro((x) => (visto.tiene(x.id) ? falso : (visto.añadir(x.id), verdadero)));
-  resultados = resultados.slice(0, maxResults);
+  // Dedup + cap
+  const seen = new Set();
+  results = results.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
+  results = results.slice(0, maxResults);
 
-  devolver {
-    resultados,
+  return {
+    results,
     meta: {
       tokens: tokens.length,
-      en caché: bankCasesCache.length,
-      escaneado: bankCasesScanCount,
-      allLoaded: casos bancarios todos cargados,
-      limitado: resultados.length >= maxResults && !bankCasesAllLoaded,
+      cached: bankCasesCache.length,
+      scanned: bankCasesScanCount,
+      allLoaded: bankCasesAllLoaded,
+      capped: results.length >= maxResults && !bankCasesAllLoaded,
     },
   };
 }
-función renderBankSearchResults(resultados, queryText, meta = null) {
-  si (!bankSearchResults) retorna;
+function renderBankSearchResults(results, queryText, meta = null) {
+  if (!bankSearchResults) return;
 
-  si (!texto de consulta) {
-    constante baseMsg = bankCasesLoadedOnce
+  if (!queryText) {
+    const baseMsg = bankCasesLoadedOnce
       ? `Banco listo. Escribe un tema arriba para buscar (cargados: ${bankCasesCache.length}).`
       : "Escribe un tema para buscar.";
 
-    estadísticas constantes = meta
+    const stats = meta
       ? ` Escaneados: ${meta.scanned ?? bankCasesScanCount}${(meta.allLoaded ?? bankCasesAllLoaded) ? "" : " (cargando según búsqueda)"}`
       : "";
 
-    renderEmptyMessage(bankSearchResults, baseMsg + estadísticas);
-    devolver;
+    renderEmptyMessage(bankSearchResults, baseMsg + stats);
+    return;
   }
 
-  si (!resultados.longitud) {
-    renderMensajeVacío(
-      Resultados de búsqueda bancaria,
+  if (!results.length) {
+    renderEmptyMessage(
+      bankSearchResults,
       `Sin resultados para "${queryText}". Prueba con otro término.`
     );
-    devolver;
+    return;
   }
 
   // ✅ set de ya agregados en este examen (por bankCaseId = id del doc banco)
-  constante usedSet = getCurrentExamBankCaseIdsSet();
+  const usedSet = getCurrentExamBankCaseIdsSet();
 
-  constante statsBar = meta ? `
+  const statsBar = meta ? `
     <div class="card" style="padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9ca3af;">
       Coincidencias: ${results.length}${meta.capped ? " (mostrando primeras coincidencias; refina búsqueda)" : ""} · Cargados: ${meta.cached ?? bankCasesCache.length} · Escaneados: ${meta.scanned ?? bankCasesScanCount}${(meta.allLoaded ?? bankCasesAllLoaded) ? "" : " · buscando…"}
     </div>
   ` : "";
 
-  const html = statsBar + resultados
+  const html = statsBar + results
     .map((c) => {
       const specLabel = getSpecialtyLabel(c.specialty);
-      const qCount = Array.isArray(c.preguntas) ? c.preguntas.length : 0;
-      fragmento constante = (c.caseText || "").slice(0, 220);
-      constante temaTxt = (c.tema || "").toString();
-      const uso = tipo de c.usageCount === "número" ? c.usageCount : 0;
+      const qCount = Array.isArray(c.questions) ? c.questions.length : 0;
+      const snippet = (c.caseText || "").slice(0, 220);
+      const topicTxt = (c.topic || "").toString();
+      const usage = typeof c.usageCount === "number" ? c.usageCount : 0;
 
-      constante isUsed = usedSet.has(c.id);
+      const isUsed = usedSet.has(c.id);
 
-      regresar `
-        <div clase="elemento-de-tarjeta" estilo="visualización:flexible;dirección-flexible:columna;espacio:8px;">
+      return `
+        <div class="card-item" style="display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
             <div style="flex:1;">
               <div style="font-weight:600;font-size:13px;">
@@ -1725,8 +1725,8 @@ función renderBankSearchResults(resultados, queryText, meta = null) {
               </div>
             </div>
             <button class="btn btn-sm btn-primary admin-bank-add-case" data-id="${c.id}" ${isUsed ? "disabled" : ""}>
-              ${¿se utiliza? "Ya está en este examen": "Agregar a este examen"}
-            </botón>
+              ${isUsed ? "Ya está en este examen" : "Agregar a este examen"}
+            </button>
           </div>
           <div style="font-size:13px;line-height:1.45;color:#e5e7eb;">
             ${snippet}${(c.caseText || "").length > 220 ? "…" : ""}
@@ -1734,98 +1734,98 @@ función renderBankSearchResults(resultados, queryText, meta = null) {
         </div>
       `;
     })
-    .unirse("");
+    .join("");
 
   bankSearchResults.innerHTML = html;
 
-  Resultados de búsqueda bancaria
+  bankSearchResults
     .querySelectorAll(".admin-bank-add-case")
-    .paraCada((btn) => {
-      btn.addEventListener("clic", async () => {
-        constante id = btn.conjunto de datos.id;
-        constante encontrado = bankCasesById.get(id) || bankCasesCache.find((x) => x.id === id);
-        si (!encontrado) retorna;
+    .forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const found = bankCasesById.get(id) || bankCasesCache.find((x) => x.id === id);
+        if (!found) return;
 
-        si (!currentExamId) {
+        if (!currentExamId) {
           alert("Primero abre un examen.");
-          devolver;
+          return;
         }
 
         // ✅ bloqueo duro (por si el UI no alcanzó a refrescar)
-        sincronizarCasosDeExámenesActualesDesdeDOM();
+        syncCurrentExamCasesFromDOM();
         const usedNow = getCurrentExamBankCaseIdsSet();
-        si (usadoAhora.tiene(id)) {
+        if (usedNow.has(id)) {
           alert("Ese caso ya está agregado en este examen. No se puede repetir.");
-          devolver;
+          return;
         }
 
-        constante clonada = {
+        const cloned = {
           bankCaseId: found.id, // ✅ persistente
-          caseText: encontrado.caseText || "",
-          especialidad: found.specialty || "",
-          tema: (encontrado.tema || "").toString(),
-          preguntas: Array.isArray(encontrado.preguntas)
-            ? encontrado.preguntas.mapa((q) => ({
-                preguntaTexto: q.preguntaTexto || "",
-                opciónA: q.opcionA || "",
-                opciónB: q.opcionB || "",
-                opciónC: q.opcionC || "",
-                opciónD: q.opcionD || "",
-                opcióncorrecta: q.opcióncorrecta || "",
-                justificación: q.justificación || "",
-                subtipo: q.subtipo || "salud_publica",
-                dificultad: q.dificultad || "medios",
+          caseText: found.caseText || "",
+          specialty: found.specialty || "",
+          topic: (found.topic || "").toString(),
+          questions: Array.isArray(found.questions)
+            ? found.questions.map((q) => ({
+                questionText: q.questionText || "",
+                optionA: q.optionA || "",
+                optionB: q.optionB || "",
+                optionC: q.optionC || "",
+                optionD: q.optionD || "",
+                correctOption: q.correctOption || "",
+                justification: q.justification || "",
+                subtype: q.subtype || "salud_publica",
+                difficulty: q.difficulty || "media",
               }))
-            : [crearPreguntaVacía()],
+            : [createEmptyQuestion()],
         };
 
-        currentExamCases.push(clonado);
-        renderizarCasosDeExamen();
+        currentExamCases.push(cloned);
+        renderExamCases();
 
         btn.textContent = "Agregado";
-        btn.disabled = verdadero;
+        btn.disabled = true;
       });
     });
 }
 
-función initBankSearchUI() {
-  si (!bankSearchInput || !bankSearchResults) regresa;
-  si (bankSearchInput.dataset.bound === "1") devolver;
+function initBankSearchUI() {
+  if (!bankSearchInput || !bankSearchResults) return;
+  if (bankSearchInput.dataset.bound === "1") return;
   bankSearchInput.dataset.bound = "1";
 
-  bankSearchInput.addEventListener("entrada", () => {
-    si (bankSearchDebounceTimer) clearTimeout(bankSearchDebounceTimer);
-    bankSearchDebounceTimer = establecerTiempo de espera(async () => {
-      constante raw = bankSearchInput.valor || "";
-      constante recortada = raw.trim();
-      const miToken = ++bankSearchRunToken;
+  bankSearchInput.addEventListener("input", () => {
+    if (bankSearchDebounceTimer) clearTimeout(bankSearchDebounceTimer);
+    bankSearchDebounceTimer = setTimeout(async () => {
+      const raw = bankSearchInput.value || "";
+      const trimmed = raw.trim();
+      const myToken = ++bankSearchRunToken;
 
-      si (!recortado) {
-        renderBankSearchResults([], "", { escaneado: bankCasesScanCount, almacenado en caché: bankCasesCache.length, allLoaded: bankCasesAllLoaded });
-        devolver;
+      if (!trimmed) {
+        renderBankSearchResults([], "", { scanned: bankCasesScanCount, cached: bankCasesCache.length, allLoaded: bankCasesAllLoaded });
+        return;
       }
 
-      // retroalimentación inmediata
-      renderMensajeVacío(
-        Resultados de búsqueda bancaria,
+      // feedback inmediato
+      renderEmptyMessage(
+        bankSearchResults,
         `Buscando "${escapeHtml(trimmed)}"… (cargados: ${bankCasesCache.length} · escaneados: ${bankCasesScanCount}${bankCasesAllLoaded ? "" : " · buscando en todo el banco"})`
       );
 
-      const { resultados, meta } = await searchBankCasesAsync(recortado, {
-        maxResults: MÁXIMOS_RESULTADOS_DE_BÚSQUEDA_BANCARIA,
-        tamaño_del_lote: TAMAÑO_DE_LOTE_DE_BÚSQUEDA_BANCARIA,
+      const { results, meta } = await searchBankCasesAsync(trimmed, {
+        maxResults: BANK_SEARCH_MAX_RESULTS,
+        batchSize: BANK_SEARCH_BATCH_SIZE,
         isCancelled: () => myToken !== bankSearchRunToken,
       });
 
-      if (myToken! == bankSearchRunToken) regresa;
+      if (myToken !== bankSearchRunToken) return;
 
-      renderBankSearchResults(resultados, recortado, meta);
+      renderBankSearchResults(results, trimmed, meta);
     }, 320);
   });
 }
 
-función resetBankSearchUI() {
-  si (bankSearchInput) bankSearchInput.value = "";
+function resetBankSearchUI() {
+  if (bankSearchInput) bankSearchInput.value = "";
   if (bankSearchResults) bankSearchResults.innerHTML = "";
 }
 
@@ -1833,50 +1833,50 @@ función resetBankSearchUI() {
  * ✅ BUSCADOR DE BANCO PARA MINI EXÁMENES (mismo banco cache)
  ****************************************************/
 
-función renderMiniBankSearchResults(resultados, queryText, meta = null) {
-  si (!miniBankSearchResults) retorna;
+function renderMiniBankSearchResults(results, queryText, meta = null) {
+  if (!miniBankSearchResults) return;
 
-  si (!texto de consulta) {
-    constante baseMsg = bankCasesLoadedOnce
+  if (!queryText) {
+    const baseMsg = bankCasesLoadedOnce
       ? `Banco listo. Escribe para buscar (cargados: ${bankCasesCache.length}).`
       : "Escribe para buscar.";
 
-    estadísticas constantes = meta
+    const stats = meta
       ? ` Escaneados: ${meta.scanned ?? bankCasesScanCount}${(meta.allLoaded ?? bankCasesAllLoaded) ? "" : " (cargando según búsqueda)"}`
       : "";
 
-    renderEmptyMessage(miniBankSearchResults, baseMsg + estadísticas);
-    devolver;
+    renderEmptyMessage(miniBankSearchResults, baseMsg + stats);
+    return;
   }
 
-  si (!resultados.longitud) {
-    renderMensajeVacío(
-      Resultados de búsqueda de miniBank,
+  if (!results.length) {
+    renderEmptyMessage(
+      miniBankSearchResults,
       `Sin resultados para "${queryText}". Prueba con otro término.`
     );
-    devolver;
+    return;
   }
 
-  constante usedSet = getMiniBankCa seIdsSet();
+  const usedSet = getMiniBankCaseIdsSet();
 
-  constante statsBar = meta ? `
+  const statsBar = meta ? `
     <div class="card" style="padding:10px 12px;margin-bottom:10px;font-size:12px;color:#9ca3af;">
       Coincidencias: ${results.length}${meta.capped ? " (mostrando primeras coincidencias; refina búsqueda)" : ""} · Cargados: ${meta.cached ?? bankCasesCache.length} · Escaneados: ${meta.scanned ?? bankCasesScanCount}${(meta.allLoaded ?? bankCasesAllLoaded) ? "" : " · buscando…"}
     </div>
   ` : "";
 
-  const html = statsBar + resultados
+  const html = statsBar + results
     .map((c) => {
       const specLabel = getSpecialtyLabel(c.specialty);
-      const qCount = Array.isArray(c.preguntas) ? c.preguntas.length : 0;
-      fragmento constante = (c.caseText || "").slice(0, 220);
-      constante temaTxt = (c.tema || "").toString();
-      const uso = tipo de c.usageCount === "número" ? c.usageCount : 0;
+      const qCount = Array.isArray(c.questions) ? c.questions.length : 0;
+      const snippet = (c.caseText || "").slice(0, 220);
+      const topicTxt = (c.topic || "").toString();
+      const usage = typeof c.usageCount === "number" ? c.usageCount : 0;
 
-      constante isUsed = usedSet.has(c.id);
+      const isUsed = usedSet.has(c.id);
 
-      regresar `
-        <div clase="elemento-de-tarjeta" estilo="visualización:flexible;dirección-flexible:columna;espacio:8px;">
+      return `
+        <div class="card-item" style="display:flex;flex-direction:column;gap:8px;">
           <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
             <div style="flex:1;">
               <div style="font-weight:600;font-size:13px;">
@@ -1887,8 +1887,8 @@ función renderMiniBankSearchResults(resultados, queryText, meta = null) {
               </div>
             </div>
             <button class="btn btn-sm btn-primary admin-mini-bank-add-case" data-id="${c.id}" ${isUsed ? "disabled" : ""}>
-              ${¿se utiliza? "Ya está en mini": "Agregar a mini solicitudes"}
-            </botón>
+              ${isUsed ? "Ya está en mini" : "Agregar a mini exámenes"}
+            </button>
           </div>
 
           <div style="font-size:13px;line-height:1.45;color:#e5e7eb;">
@@ -1897,93 +1897,93 @@ función renderMiniBankSearchResults(resultados, queryText, meta = null) {
         </div>
       `;
     })
-    .unirse("");
+    .join("");
 
   miniBankSearchResults.innerHTML = html;
 
-  Resultados de búsqueda de miniBank
+  miniBankSearchResults
     .querySelectorAll(".admin-mini-bank-add-case")
-    .paraCada((btn) => {
-      btn.addEventListener("clic", async () => {
-        constante id = btn.conjunto de datos.id;
-        constante encontrado = bankCasesById.get(id) || bankCasesCache.find((x) => x.id === id);
-        si (!encontrado) retorna;
+    .forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const found = bankCasesById.get(id) || bankCasesCache.find((x) => x.id === id);
+        if (!found) return;
 
-        sincronizarMiniCasesFromDOM();
+        syncMiniCasesFromDOM();
 
-        const usadoAhora = getMiniBankCaseIdsSet();
-        si (usadoAhora.tiene(id)) {
+        const usedNow = getMiniBankCaseIdsSet();
+        if (usedNow.has(id)) {
           alert("Ese caso ya está agregado en mini exámenes. No se puede repetir.");
-          devolver;
+          return;
         }
 
-        constante clonada = {
-          id: nulo,
+        const cloned = {
+          id: null,
           bankCaseId: found.id, // ✅ persistente
-          caseText: encontrado.caseText || "",
-          especialidad: found.specialty || "",
-          preguntas: Array.isArray(encontrado.preguntas)
-            ? encontrado.preguntas.mapa((q) => ({
-                preguntaTexto: q.preguntaTexto || "",
-                opciónA: q.opcionA || "",
-                opciónB: q.opcionB || "",
-                opciónC: q.opcionC || "",
-                opciónD: q.opcionD || "",
-                opcióncorrecta: q.opcióncorrecta || "",
-                justificación: q.justificación || "",
-                subtipo: q.subtipo || "salud_publica",
-                dificultad: q.dificultad || "medios",
+          caseText: found.caseText || "",
+          specialty: found.specialty || "",
+          questions: Array.isArray(found.questions)
+            ? found.questions.map((q) => ({
+                questionText: q.questionText || "",
+                optionA: q.optionA || "",
+                optionB: q.optionB || "",
+                optionC: q.optionC || "",
+                optionD: q.optionD || "",
+                correctOption: q.correctOption || "",
+                justification: q.justification || "",
+                subtype: q.subtype || "salud_publica",
+                difficulty: q.difficulty || "media",
               }))
-            : [crearPreguntaVacía()],
+            : [createEmptyQuestion()],
         };
 
-        miniCases.push(clonado);
+        miniCases.push(cloned);
         renderMiniCases();
 
         btn.textContent = "Agregado";
-        btn.disabled = verdadero;
+        btn.disabled = true;
       });
     });
 }
 
-función initMiniBankSearchUI() {
-  si (!miniBankSearchInput || !miniBankSearchResults) devolver;
-  si (miniBankSearchInput.dataset.bound === "1" devolver;
+function initMiniBankSearchUI() {
+  if (!miniBankSearchInput || !miniBankSearchResults) return;
+  if (miniBankSearchInput.dataset.bound === "1") return;
   miniBankSearchInput.dataset.bound = "1";
 
-  miniBankSearchInput.addEventListener("entrada", () => {
-    si (miniBankSearchDebounceTimer) clearTimeout(miniBankSearchDebounceTimer);
+  miniBankSearchInput.addEventListener("input", () => {
+    if (miniBankSearchDebounceTimer) clearTimeout(miniBankSearchDebounceTimer);
 
     miniBankSearchDebounceTimer = setTimeout(async () => {
-      constante raw = miniBankSearchInput.valor || "";
-      constante recortada = raw.trim();
-      const miToken = ++miniBankSearchRunToken;
+      const raw = miniBankSearchInput.value || "";
+      const trimmed = raw.trim();
+      const myToken = ++miniBankSearchRunToken;
 
-      si (!recortado) {
-        renderMiniBankSearchResults([], "", { escaneado: bankCasesScanCount, almacenado en caché: bankCasesCache.length, allLoaded: bankCasesAllLoaded });
-        devolver;
+      if (!trimmed) {
+        renderMiniBankSearchResults([], "", { scanned: bankCasesScanCount, cached: bankCasesCache.length, allLoaded: bankCasesAllLoaded });
+        return;
       }
 
-      renderMensajeVacío(
-        Resultados de búsqueda de miniBank,
+      renderEmptyMessage(
+        miniBankSearchResults,
         `Buscando "${escapeHtml(trimmed)}"… (cargados: ${bankCasesCache.length} · escaneados: ${bankCasesScanCount}${bankCasesAllLoaded ? "" : " · buscando en todo el banco"})`
       );
 
-      const { resultados, meta } = await searchBankCasesAsync(recortado, {
-        maxResults: MÁXIMOS_RESULTADOS_DE_BÚSQUEDA_BANCARIA,
-        tamaño_del_lote: TAMAÑO_DE_LOTE_DE_BÚSQUEDA_BANCARIA,
-        está cancelado: () => myToken !== miniBankSearchRunToken,
+      const { results, meta } = await searchBankCasesAsync(trimmed, {
+        maxResults: BANK_SEARCH_MAX_RESULTS,
+        batchSize: BANK_SEARCH_BATCH_SIZE,
+        isCancelled: () => myToken !== miniBankSearchRunToken,
       });
 
-      if (myToken! == miniBankSearchRunToken) regresa;
+      if (myToken !== miniBankSearchRunToken) return;
 
-      renderMiniBankSearchResults(resultados, recortado, meta);
+      renderMiniBankSearchResults(results, trimmed, meta);
     }, 320);
   });
 }
 
-función resetMiniBankSearchUI() {
-  si (miniBankSearchInput) miniBankSearchInput.valor = "";
+function resetMiniBankSearchUI() {
+  if (miniBankSearchInput) miniBankSearchInput.value = "";
   if (miniBankSearchResults) miniBankSearchResults.innerHTML = "";
 }
 
@@ -1991,466 +1991,466 @@ función resetMiniBankSearchUI() {
 /****************************************************
  * ✅ GENERADOR AUTOMÁTICO DE EXÁMENES (POR TEMAS + CUPOS POR ESPECIALIDAD/SUBTIPO)
  * - No altera el flujo existente: solo rellena currentExamCases y renderiza.
- * - Prioriza casos con menor useCount.
+ * - Prioriza casos con menor usageCount.
  ****************************************************/
 
-función buildAutoGenTargetRow(inicial = {}) {
-  si (!autoGenTargetsWrap) devuelve nulo;
+function buildAutoGenTargetRow(initial = {}) {
+  if (!autoGenTargetsWrap) return null;
 
-  constante fila = document.createElement("div");
-  fila.className = "auto-gen-row";
-  fila.estilo.pantalla = "cuadrícula";
-  fila.style.gridTemplateColumns = "1.4fr 1.2fr 0.8fr automático";
-  fila.estilo.espacio = "8px";
-  fila.style.alignItems = "fin";
-  fila.style.marginTop = "10px";
+  const row = document.createElement("div");
+  row.className = "auto-gen-row";
+  row.style.display = "grid";
+  row.style.gridTemplateColumns = "1.4fr 1.2fr 0.8fr auto";
+  row.style.gap = "8px";
+  row.style.alignItems = "end";
+  row.style.marginTop = "10px";
 
-  const specialityValue = initial.specialty || Object.keys(ESPECIALIDADES)[0] || "";
+  const specialtyValue = initial.specialty || Object.keys(SPECIALTIES)[0] || "";
   const subtypeValue = initial.subtype || "urgencias";
-  const countValue = typeof initial.count === "número" ? initial.count : 0;
+  const countValue = typeof initial.count === "number" ? initial.count : 0;
 
-  fila.innerHTML = `
-    <label clase="campo" estilo="margen:0;">
+  row.innerHTML = `
+    <label class="field" style="margin:0;">
       <span>Especialidad</span>
       <select class="auto-gen-specialty">
-        ${Object.entries(ESPECIALIDADES)
-          .map(([k, etiqueta]) => `<opción valor="${k}" ${k === specialityValue ? "seleccionado" : ""}>${etiqueta}</opción>`)
-          .unirse("")}
-      </seleccionar>
-    </etiqueta>
+        ${Object.entries(SPECIALTIES)
+          .map(([k, label]) => `<option value="${k}" ${k === specialtyValue ? "selected" : ""}>${label}</option>`)
+          .join("")}
+      </select>
+    </label>
 
-    <label clase="campo" estilo="margen:0;">
-      Subtipo
-      <seleccionar clase="subtipo-gen-automático">
-        ${Objeto.entradas(SUBTIPOS)
-          .map(([k, etiqueta]) => `<opción valor="${k}" ${k === subtipoValor ? "seleccionado" : ""}>${etiqueta}</opción>`)
-          .unirse("")}
-      </seleccionar>
-    </etiqueta>
+    <label class="field" style="margin:0;">
+      <span>Subtipo</span>
+      <select class="auto-gen-subtype">
+        ${Object.entries(SUBTYPES)
+          .map(([k, label]) => `<option value="${k}" ${k === subtypeValue ? "selected" : ""}>${label}</option>`)
+          .join("")}
+      </select>
+    </label>
 
-    <label clase="campo" estilo="margen:0;">
+    <label class="field" style="margin:0;">
       <span># preguntas</span>
-      <input clase="auto-gen-count" tipo="número" min="0" paso="1" valor="${countValue}" />
-    </etiqueta>
+      <input class="auto-gen-count" type="number" min="0" step="1" value="${countValue}" />
+    </label>
 
     <button type="button" class="btn btn-outline btn-sm auto-gen-remove" style="height:40px;">
       Quitar
-    </botón>
+    </button>
   `;
 
-  fila.querySelector(".auto-gen-remove")?.addEventListener("clic", () => {
-    fila.eliminar();
+  row.querySelector(".auto-gen-remove")?.addEventListener("click", () => {
+    row.remove();
     renderAutoGenSummary();
   });
 
-  fila.querySelectorAll("seleccionar,entrada").forEach((el) => {
-    el.addEventListener("cambio", renderAutoGenSummary);
-    el.addEventListener("entrada", renderAutoGenSummary);
+  row.querySelectorAll("select,input").forEach((el) => {
+    el.addEventListener("change", renderAutoGenSummary);
+    el.addEventListener("input", renderAutoGenSummary);
   });
 
-  fila de retorno;
+  return row;
 }
 
-función getAutoGenTargetsFromUI() {
-  si (!autoGenTargetsWrap) devuelve [];
-  constante filas = autoGenTargetsWrap.querySelectorAll(".auto-gen-row");
-  const objetivos = [];
-  filas.paraCada((r) => {
-    const especialidad = r.querySelector(".auto-gen-specialty")?.valor || "";
-    constante subtipo = r.querySelector(".auto-gen-subtype")?.valor || "";
-    const count = Número(r.querySelector(".auto-gen-count")?.valor || 0);
+function getAutoGenTargetsFromUI() {
+  if (!autoGenTargetsWrap) return [];
+  const rows = autoGenTargetsWrap.querySelectorAll(".auto-gen-row");
+  const targets = [];
+  rows.forEach((r) => {
+    const specialty = r.querySelector(".auto-gen-specialty")?.value || "";
+    const subtype = r.querySelector(".auto-gen-subtype")?.value || "";
+    const count = Number(r.querySelector(".auto-gen-count")?.value || 0);
 
-    si (!especialidad || !subtipo) retorna;
-    si (!Number.isFinite(count) || count <= 0) devolver;
+    if (!specialty || !subtype) return;
+    if (!Number.isFinite(count) || count <= 0) return;
 
-    objetivos.push({ especialidad, subtipo, conteo });
+    targets.push({ specialty, subtype, count });
   });
-  objetivos de retorno;
+  return targets;
 }
 
-función parseAutoGenTopicQueries(raw) {
+function parseAutoGenTopicQueries(raw) {
   const txt = (raw || "").toString().trim();
-  si (!txt) devuelve [];
-  líneas constantes = txt
-    .dividir(/\n|\r/)
+  if (!txt) return [];
+  const lines = txt
+    .split(/\n|\r/)
     .map((s) => s.trim())
-    .filtro(Booleano);
+    .filter(Boolean);
 
-  // Cada línea es una consulta; si hay una sola línea con comas, también se permite
-  si (líneas.longitud === 1 && líneas[0].incluye(",")) {
-    líneas de retorno[0]
-      .dividir(",")
+  // Cada línea es un query; si hay una sola línea con comas, también se permite
+  if (lines.length === 1 && lines[0].includes(",")) {
+    return lines[0]
+      .split(",")
       .map((s) => s.trim())
-      .filter(booleano)
+      .filter(Boolean)
       .map((q) => tokenizeBankSearch(q));
   }
 
-  devolver líneas.map((q) => tokenizeBankSearch(q));
+  return lines.map((q) => tokenizeBankSearch(q));
 }
 
-función bankCaseMatchesAnyTopicQuery(bankCase, topicQueriesTokens) {
-  si (!topicQueriesTokens || !topicQueriesTokens.length) devuelve verdadero;
-  devolver temaQueriesTokens.some((tokens) => tokens.length && bankCaseMatchesTokens(bankCase, tokens));
+function bankCaseMatchesAnyTopicQuery(bankCase, topicQueriesTokens) {
+  if (!topicQueriesTokens || !topicQueriesTokens.length) return true;
+  return topicQueriesTokens.some((tokens) => tokens.length && bankCaseMatchesTokens(bankCase, tokens));
 }
 
-función renderAutoGenSummary() {
-  si (!autoGenSummary) retorna;
+function renderAutoGenSummary() {
+  if (!autoGenSummary) return;
 
-  constante objetivos = getAutoGenTargetsFromUI();
-  const total = objetivos.reduce((acc, t) => acc + t.count, 0);
+  const targets = getAutoGenTargetsFromUI();
+  const total = targets.reduce((acc, t) => acc + t.count, 0);
 
-  si (!objetivos.longitud) {
+  if (!targets.length) {
     autoGenSummary.innerHTML = `
       <div style="font-size:12px;color:#9ca3af;">
         Agrega al menos un objetivo (especialidad + subtipo + # preguntas).
       </div>
     `;
-    devolver;
+    return;
   }
 
   // Agrupar por especialidad
-  constante porSpec = {};
-  objetivos.paraCada((t) => {
-    si (!porEspec[t.especialidad]) porEspec[t.especialidad] = [];
-    porSpec[t.specialty].push(t);
+  const bySpec = {};
+  targets.forEach((t) => {
+    if (!bySpec[t.specialty]) bySpec[t.specialty] = [];
+    bySpec[t.specialty].push(t);
   });
 
-  líneas constantes = Object.entries(bySpec).map(([spec, items]) => {
-    constante specLabel = getSpecialtyLabel(especificación);
-    partes constantes = elementos
-      .map((it) => `${SUBTIPOS[it.subtipo] || it.subtipo}: ${it.count}`)
-      .unirse(" · ");
-    devolver `<div style="margin-top:6px;"><b>${escapeHtml(specLabel || spec)}</b>: ${escapeHtml(partes)}</div>`;
+  const lines = Object.entries(bySpec).map(([spec, items]) => {
+    const specLabel = getSpecialtyLabel(spec);
+    const parts = items
+      .map((it) => `${SUBTYPES[it.subtype] || it.subtype}: ${it.count}`)
+      .join(" · ");
+    return `<div style="margin-top:6px;"><b>${escapeHtml(specLabel || spec)}</b>: ${escapeHtml(parts)}</div>`;
   });
 
   autoGenSummary.innerHTML = `
     <div style="font-size:12px;color:#9ca3af;">
-      Objetivo total: <b style="color:#e5e7eb;">${total}</b> preguntas
-      ${líneas.join("")}
+      Total objetivo: <b style="color:#e5e7eb;">${total}</b> preguntas
+      ${lines.join("")}
     </div>
   `;
 }
 
-función asíncrona ensureBankLoadedForGenerator(minCandidates = 1) {
-  // Asegura que haya caché inicial
-  esperar loadBankCasesIfNeeded();
+async function ensureBankLoadedForGenerator(minCandidates = 1) {
+  // Asegura que haya cache inicial
+  await loadBankCasesIfNeeded();
 
-  // Si ya hay suficientes en caché o ya se cargó todo, OK.
-  si (bankCasesAllLoaded || bankCasesCache.length >= minCandidates) devolver;
+  // Si ya hay suficientes en cache o ya se cargó todo, OK.
+  if (bankCasesAllLoaded || bankCasesCache.length >= minCandidates) return;
 
   // Degradar: cargar unos lotes extra.
-  deje que el guardia = 0;
-  mientras (!bankCasesAllLoaded && bankCasesCache.length < minCandidates && guard < 25) {
-    guardia++;
-    esperar cargarMásCasosBancaDesdeFirestore(TAMAÑO_DE_LOTE_DE_BÚSQUEDA_BANCARIA);
+  let guard = 0;
+  while (!bankCasesAllLoaded && bankCasesCache.length < minCandidates && guard < 25) {
+    guard++;
+    await loadMoreBankCasesFromFirestore(BANK_SEARCH_BATCH_SIZE);
   }
 }
 
-función computeSubtypeCountsForCaseQuestions(preguntasArr) {
+function computeSubtypeCountsForCaseQuestions(questionsArr) {
   const counts = { salud_publica: 0, medicina_familiar: 0, urgencias: 0 };
-  (preguntasArr || []).forEach((q) => {
+  (questionsArr || []).forEach((q) => {
     const st = (q && q.subtype) ? q.subtype : "salud_publica";
-    si (counts[st] === indefinido) counts[st] = 0;
-    cuenta[st] += 1;
+    if (counts[st] === undefined) counts[st] = 0;
+    counts[st] += 1;
   });
-  el retorno cuenta;
+  return counts;
 }
 
-función cloneBankCaseForExam(bankCase, keptIdxs) {
-  const allQs = Array.isArray(bankCase.preguntas) ? bankCase.preguntas : [];
+function cloneBankCaseForExam(bankCase, keptIdxs) {
+  const allQs = Array.isArray(bankCase.questions) ? bankCase.questions : [];
   const idxs = Array.isArray(keptIdxs) && keptIdxs.length ? keptIdxs : allQs.map((_, i) => i);
 
   const pickedQs = idxs.map((i) => allQs[i]).filter(Boolean).map((q) => ({
-    preguntaTexto: q.preguntaTexto || "",
-    opciónA: q.opcionA || "",
-    opciónB: q.opcionB || "",
-    opciónC: q.opcionC || "",
-    opciónD: q.opcionD || "",
-    opcióncorrecta: q.opcióncorrecta || "",
-    justificación: q.justificación || "",
-    subtipo: q.subtipo || "salud_publica",
-    dificultad: q.dificultad || "medios",
+    questionText: q.questionText || "",
+    optionA: q.optionA || "",
+    optionB: q.optionB || "",
+    optionC: q.optionC || "",
+    optionD: q.optionD || "",
+    correctOption: q.correctOption || "",
+    justification: q.justification || "",
+    subtype: q.subtype || "salud_publica",
+    difficulty: q.difficulty || "media",
   }));
 
   // Seguridad: mínimo 2 preguntas por caso (requisito del usuario)
-  si (pickedQs.length < 2) {
-    // reserva: no clonar
-    devuelve nulo;
+  if (pickedQs.length < 2) {
+    // fallback: no clonar
+    return null;
   }
 
-  devolver {
+  return {
     bankCaseId: bankCase.id,
     caseText: bankCase.caseText || "",
-    especialidad: bankCase.specialty || "",
-    tema: (bankCase.topic || "").toString(),
-    preguntas: pickedQs,
+    specialty: bankCase.specialty || "",
+    topic: (bankCase.topic || "").toString(),
+    questions: pickedQs,
   };
 }
 
-función buildRemainingMap(objetivos) {
-  const restante = nuevo Mapa();
-  objetivos.paraCada((t) => {
-    clave constante = `${t.specialty}|${t.subtype}`;
-    restante.set(clave, (restante.get(clave) || 0) + Número(t.count || 0));
+function buildRemainingMap(targets) {
+  const remaining = new Map();
+  targets.forEach((t) => {
+    const key = `${t.specialty}|${t.subtype}`;
+    remaining.set(key, (remaining.get(key) || 0) + Number(t.count || 0));
   });
-  devolver restante;
+  return remaining;
 }
 
-función total_residual(mapa_residual) {
-  sea ​​total = 0;
-  para (const v de remainingMap.values()) total += v;
-  devolver total;
+function remainingTotal(remainingMap) {
+  let total = 0;
+  for (const v of remainingMap.values()) total += v;
+  return total;
 }
 
-función restanteParaEspecialidad(maparestante, especialidad) {
-  sea ​​total = 0;
-  para (const [k, v] de remainingMap.entries()) {
-    si (k.startsWith(`${especialidad}|`)) total += v;
+function remainingForSpecialty(remainingMap, specialty) {
+  let total = 0;
+  for (const [k, v] of remainingMap.entries()) {
+    if (k.startsWith(`${specialty}|`)) total += v;
   }
-  devolver total;
+  return total;
 }
 
-función canFitVariant(remainingMap, especialidad, contribCounts) {
-  para (const [subtipo, c] de Object.entries(contribCounts)) {
-    const need = remainingMap.get(`${especialidad}|${subtipo}`) || 0;
-    si (c > need) devuelve falso;
+function canFitVariant(remainingMap, specialty, contribCounts) {
+  for (const [subtype, c] of Object.entries(contribCounts)) {
+    const need = remainingMap.get(`${specialty}|${subtype}`) || 0;
+    if (c > need) return false;
   }
-  devuelve verdadero;
+  return true;
 }
 
-función applyVariant(remainingMap, especialidad, contribCounts) {
-  para (const [subtipo, c] de Object.entries(contribCounts)) {
-    const clave = `${especialidad}|${subtipo}`;
-    const need = remainingMap.get(clave) || 0;
-    remainingMap.set(clave, Math.max(0, necesidad - c));
+function applyVariant(remainingMap, specialty, contribCounts) {
+  for (const [subtype, c] of Object.entries(contribCounts)) {
+    const key = `${specialty}|${subtype}`;
+    const need = remainingMap.get(key) || 0;
+    remainingMap.set(key, Math.max(0, need - c));
   }
 }
 
-función pickBestVariantForCase(bankCase, remainingMap) {
-  const qs = Array.isArray(bankCase.preguntas) ? bankCase.preguntas : [];
-  si (qs.length < 2) devuelve nulo;
+function pickBestVariantForCase(bankCase, remainingMap) {
+  const qs = Array.isArray(bankCase.questions) ? bankCase.questions : [];
+  if (qs.length < 2) return null;
 
-  const variantes = [];
-  si (qs.length === 2) {
-    variantes.push([0, 1]);
-  } de lo contrario si (qs.length >= 3) {
-    variantes.push([0, 1, 2], [0, 1], [0, 2], [1, 2]);
+  const variants = [];
+  if (qs.length === 2) {
+    variants.push([0, 1]);
+  } else if (qs.length >= 3) {
+    variants.push([0, 1, 2], [0, 1], [0, 2], [1, 2]);
   }
 
-  constante spec = bankCase.specialty || "";
-  si (!spec) devuelve nulo;
+  const spec = bankCase.specialty || "";
+  if (!spec) return null;
 
-  sea ​​mejor = nulo;
+  let best = null;
 
-  para (const idxs de variantes) {
-    constante pickedQs = idxs.map((i) => qs[i]).filter(Boolean);
-    constante contrib = computeSubtypeCountsForCaseQuestions(pickedQs);
+  for (const idxs of variants) {
+    const pickedQs = idxs.map((i) => qs[i]).filter(Boolean);
+    const contrib = computeSubtypeCountsForCaseQuestions(pickedQs);
 
     // Solo evaluamos variantes que NO se pasan del cupo solicitado.
-    si (!canFitVariant(remainingMap, spec, contrib)) continuar;
+    if (!canFitVariant(remainingMap, spec, contrib)) continue;
 
-    // puntaje = # preguntas que realmente cubren necesidades (aquí será = total variante)
-    puntuación constante = idxs.length;
+    // score = # preguntas que realmente cubren necesidades (aquí será = total variante)
+    const score = idxs.length;
 
-    si (!mejor || puntuación > mejor.puntuación) {
-      mejor = { idxs, contrib, puntuación };
+    if (!best || score > best.score) {
+      best = { idxs, contrib, score };
     }
   }
 
-  devolver mejor;
+  return best;
 }
 
-función asíncrona runAutoGenerator() {
-  si (!currentExamId) {
+async function runAutoGenerator() {
+  if (!currentExamId) {
     alert("Primero abre un examen.");
-    devolver;
+    return;
   }
 
-  constante objetivos = getAutoGenTargetsFromUI();
-  si (!objetivos.longitud) {
+  const targets = getAutoGenTargetsFromUI();
+  if (!targets.length) {
     alert("Define al menos un objetivo (especialidad + subtipo + # preguntas).");
-    devolver;
+    return;
   }
 
-  constante topicQueriesTokens = parseAutoGenTopicQueries(autoGenTopicsInput?.value || "");
+  const topicQueriesTokens = parseAutoGenTopicQueries(autoGenTopicsInput?.value || "");
 
-  // objetivo total
-  const remainingMap = buildRemainingMap(objetivos);
-  const totalTarget = totalRestante(MapaRestante);
-  si (objetivo total <= 0) {
+  // total objetivo
+  const remainingMap = buildRemainingMap(targets);
+  const totalTarget = remainingTotal(remainingMap);
+  if (totalTarget <= 0) {
     alert("El total objetivo debe ser mayor a 0.");
-    devolver;
+    return;
   }
 
   
 
   // El generador trabaja por casos clínicos (2–3 preguntas). Con total objetivo < 2 no hay forma de cumplir.
-  si (objetivototal < 2) {
+  if (totalTarget < 2) {
     alert("Con un total objetivo menor a 2 no se puede generar, porque cada caso clínico aporta 2–3 preguntas. Sube el cupo o agrega otro subtipo para completar 2+ preguntas.");
-    devolver;
+    return;
   }
 
   // Si alguna especialidad quedó con 1 pregunta total, también es imposible (cada caso tiene 2+ preguntas de esa especialidad).
-  constante porSpecTotals = {};
-  objetivos.paraCada((t) => {
-    porSpecTotals[t.specialty] = (porSpecTotals[t.specialty] || 0) + Número(t.count || 0);
+  const bySpecTotals = {};
+  targets.forEach((t) => {
+    bySpecTotals[t.specialty] = (bySpecTotals[t.specialty] || 0) + Number(t.count || 0);
   });
   const impossibleSpecs = Object.entries(bySpecTotals).filter(([_, n]) => n === 1);
-  si (imposibleSpecs.length) {
-    etiqueta constante = impossibleSpecs.map(([s]) => getSpecialtyLabel(s) || s).join(", ");
+  if (impossibleSpecs.length) {
+    const label = impossibleSpecs.map(([s]) => getSpecialtyLabel(s) || s).join(", ");
     alert("No se puede generar porque pediste 1 pregunta total en: " + label + ". Cada caso clínico tiene 2–3 preguntas. Ajusta el cupo por esa especialidad (2+).");
-    devolver;
+    return;
   }
-// Carga banco suficiente (mejor esfuerzo)
+// Cargar banco suficiente (best-effort)
   const hasTopics = Array.isArray(topicQueriesTokens) && topicQueriesTokens.length > 0;
-  constante cargaDeseada = tieneTemas ? Math.max(800, objetivoTotal * 12) : Math.max(400, objetivoTotal * 6);
-  esperar asegurarBankLoadedForGenerator(Math.min(desiredLoad, 2000));
+  const desiredLoad = hasTopics ? Math.max(800, totalTarget * 12) : Math.max(400, totalTarget * 6);
+  await ensureBankLoadedForGenerator(Math.min(desiredLoad, 2000));
 // Filtrar candidatos
-  const allowedSpecs = nuevo Conjunto(objetivos.map((t) => t.specialty));
+  const allowedSpecs = new Set(targets.map((t) => t.specialty));
 
-  constante candidatos = bankCasesCache
+  const candidates = bankCasesCache
     .filter((c) => c && c.id && allowedSpecs.has(c.specialty))
     .filter((c) => bankCaseMatchesAnyTopicQuery(c, topicQueriesTokens))
-    .slice(); // copiar
+    .slice(); // copy
 
-  // Orden: useCount asc (prioridad 0 usos), luego por createAt desc
-  candidatos.sort((a, b) => {
-    const ua = typeof a.usageCount === "número" ? a.usageCount : 0;
-    const ub = typeof b.usageCount === "número" ? b.usageCount : 0;
+  // Orden: usageCount asc (prioridad 0 usos), luego por createdAt desc
+  candidates.sort((a, b) => {
+    const ua = typeof a.usageCount === "number" ? a.usageCount : 0;
+    const ub = typeof b.usageCount === "number" ? b.usageCount : 0;
     if (ua !== ub) return ua - ub;
 
-    constante sa = a.createdAt?.segundos || 0;
-    constante sb = b.createdAt?.segundos || 0;
-    devolver sb - sa;
+    const sa = a.createdAt?.seconds || 0;
+    const sb = b.createdAt?.seconds || 0;
+    return sb - sa;
   });
 
   // Generar selección
-  constante seleccionada = [];
-  constante selectedIds = nuevo Conjunto();
+  const selected = [];
+  const selectedIds = new Set();
 
   // Para evitar duplicados con lo ya cargado en el examen actual
-  sincronizarCasosDeExámenesActualesDesdeDOM();
-  constante yaEnExamen = getCurrentExamBankCaseIdsSet();
-  para (const id de yaEnExamen) selectedIds.add(id);
+  syncCurrentExamCasesFromDOM();
+  const alreadyInExam = getCurrentExamBankCaseIdsSet();
+  for (const id of alreadyInExam) selectedIds.add(id);
 
   // Greedy por especialidad: recorre candidatos y agrega si encaja
-  para (const c de candidatos) {
-    si (totalrestante(maparestante) <= 0) romper;
-    si (!c || !c.id) continuar;
-    si (selectedIds.has(c.id)) continuar;
+  for (const c of candidates) {
+    if (remainingTotal(remainingMap) <= 0) break;
+    if (!c || !c.id) continue;
+    if (selectedIds.has(c.id)) continue;
 
     // Si para la especialidad ya no falta nada, saltar
-    si (restanteParaEspecialidad(maparestante, c.especialidad) <= 0) continuar;
+    if (remainingForSpecialty(remainingMap, c.specialty) <= 0) continue;
 
-    constante mejor = pickBestVariantForCase(c, mapaRemanente);
-    si (!mejor) continuar;
+    const best = pickBestVariantForCase(c, remainingMap);
+    if (!best) continue;
 
-    const clonado = cloneBankCaseForExam(c, best.idxs);
-    si (!clonado) continuar;
+    const cloned = cloneBankCaseForExam(c, best.idxs);
+    if (!cloned) continue;
 
     // Aplicar contribución
-    aplicarVariante(MapaRestante, c.especialidad, mejor.contribución);
+    applyVariant(remainingMap, c.specialty, best.contrib);
 
-    seleccionado.push(clonado);
+    selected.push(cloned);
     selectedIds.add(c.id);
   }
 
-  const restanteDespués = restanteTotal(maparestante);
+  const remainingAfter = remainingTotal(remainingMap);
 
-  si (!seleccionado.longitud) {
-    const specLabel = objetivos
-      .map((t) => `${getSpecialtyLabel(t.specialty) || t.specialty} / ${SUBTIPOS[t.subtipo] || t.subtipo}: ${t.count}`)
-      .join("| ");
-    constante temaTxt = (autoGenTopicsInput?.valor || "").trim();
-    alerta(
+  if (!selected.length) {
+    const specLabel = targets
+      .map((t) => `${getSpecialtyLabel(t.specialty) || t.specialty} / ${SUBTYPES[t.subtype] || t.subtype}: ${t.count}`)
+      .join(" | ");
+    const topicTxt = (autoGenTopicsInput?.value || "").trim();
+    alert(
       "No se encontraron casos que cumplan tus criterios.\n\n" +
-        "Objetivos: " + specLabel + (topicTxt ? ("\nTemas: " + topicTxt): "") + "\n\n" +
-        "Sugerencias: (1) aumenta el cupo total (cada caso aporta 2–3 preguntas), (2) agrega cupos para más subtipos (los casos suelen mezclar subtipos), (3) usa temas menos restrictivos o déjalos vacíos para probar disponibilidad."
+        "Objetivos: " + specLabel + (topicTxt ? ("\nTemas: " + topicTxt) : "") + "\n\n" +
+        "Sugerencias: (1) aumenta el cupo total (cada caso aporta 2–3 preguntas), (2) agrega cupos para más subtipos (los casos suelen mezclar subtipos), (3) usa temas menos restrictivos o déjalos vacío para probar disponibilidad."
     );
-    devolver;
+    return;
   }
 
-  si (restanteDespués > 0) {
-    alerta(
+  if (remainingAfter > 0) {
+    alert(
       "No fue posible completar el examen con los cupos solicitados usando los filtros actuales (temas/especialidades/subtipos).\n" +
-        "Se generó una parte, pero faltan " + restanteAfter + " preguntas por completar.\n" +
+        "Se generó una parte, pero faltan " + remainingAfter + " preguntas por completar.\n" +
         "Ajusta los cupos o usa temas menos restrictivos."
     );
   }
 // Reemplazar casos actuales por los generados (sin borrar el examen hasta que guardes)
-  currentExamCases = seleccionado;
-  renderizarCasosDeExamen();
+  currentExamCases = selected;
+  renderExamCases();
 
-  // Resumen final
-  si (autoGenSummary) {
-    constante totalesgenerados = {};
-    seleccionado.paraCada((cc) => {
-      constante spec = cc.specialty || "";
-      if (!generatedTotals[spec]) generateTotals[spec] = { salud_publica: 0, medicina_familiar: 0, urgencias: 0 };
-      (cc.preguntas || []).forEach((q) => {
-        const st = q.subtipo || "salud_publica";
-        si (generatedTotals[spec][st] === indefinido) generatedTotals[spec][st] = 0;
-        totalesgenerados[especificación][st] += 1;
+  // Summary final
+  if (autoGenSummary) {
+    const generatedTotals = {};
+    selected.forEach((cc) => {
+      const spec = cc.specialty || "";
+      if (!generatedTotals[spec]) generatedTotals[spec] = { salud_publica: 0, medicina_familiar: 0, urgencias: 0 };
+      (cc.questions || []).forEach((q) => {
+        const st = q.subtype || "salud_publica";
+        if (generatedTotals[spec][st] === undefined) generatedTotals[spec][st] = 0;
+        generatedTotals[spec][st] += 1;
       });
     });
 
-    líneas constantes = Object.entries(generatedTotals).map(([spec, counts]) => {
-      constante specLabel = getSpecialtyLabel(especificación);
-      const partes = Object.entries(cuenta)
-        .filtro(([_, v]) => v > 0)
-        .map(([st, v]) => `${SUBTIPOS[st] || st}: ${v}`)
-        .unirse(" · ");
-      devolver `<div style="margin-top:6px;"><b>${escapeHtml(specLabel || spec)}</b>: ${escapeHtml(partes || "—")}</div>`;
+    const lines = Object.entries(generatedTotals).map(([spec, counts]) => {
+      const specLabel = getSpecialtyLabel(spec);
+      const parts = Object.entries(counts)
+        .filter(([_, v]) => v > 0)
+        .map(([st, v]) => `${SUBTYPES[st] || st}: ${v}`)
+        .join(" · ");
+      return `<div style="margin-top:6px;"><b>${escapeHtml(specLabel || spec)}</b>: ${escapeHtml(parts || "—")}</div>`;
     });
 
     autoGenSummary.innerHTML = `
       <div style="font-size:12px;color:#9ca3af;">
         Generado: <b style="color:#e5e7eb;">${selected.reduce((acc, c) => acc + (c.questions?.length || 0), 0)}</b> preguntas en
         <b style="color:#e5e7eb;">${selected.length}</b> casos.
-        ${restanteDespués > 0 ? `<div style="margin-top:6px;color:#fca5a5;">Pendiente por completar: ${remainingAfter} preguntas.</div>` : ""}
-        ${líneas.join("")}
+        ${remainingAfter > 0 ? `<div style="margin-top:6px;color:#fca5a5;">Pendiente por completar: ${remainingAfter} preguntas.</div>` : ""}
+        ${lines.join("")}
         <div style="margin-top:8px;">
-          Nota: el uso (usageCount) se ajusta hasta que guarda el examen.
+          Nota: el uso (usageCount) se ajusta hasta que guardes el examen.
         </div>
       </div>
     `;
   }
 }
 
-función initAutoGeneratorUI() {
-  si (!autoGenTargetsWrap || !autoGenBtnAddTarget || !autoGenBtnGenerate) devolver;
-  si (autoGenBtnGenerate.dataset.bound === "1") devolver;
+function initAutoGeneratorUI() {
+  if (!autoGenTargetsWrap || !autoGenBtnAddTarget || !autoGenBtnGenerate) return;
+  if (autoGenBtnGenerate.dataset.bound === "1") return;
 
   autoGenBtnGenerate.dataset.bound = "1";
 
   // Estado inicial: una fila por defecto
-  si (!autoGenTargetsWrap.querySelector(".auto-gen-row")) {
-    const first = buildAutoGenTargetRow({ especialidad: Object.keys(ESPECIALIDADES)[0], subtipo: "urgencias", count: 10 });
-    si (primero) autoGenTargetsWrap.appendChild(primero);
+  if (!autoGenTargetsWrap.querySelector(".auto-gen-row")) {
+    const first = buildAutoGenTargetRow({ specialty: Object.keys(SPECIALTIES)[0], subtype: "urgencias", count: 10 });
+    if (first) autoGenTargetsWrap.appendChild(first);
   }
 
   renderAutoGenSummary();
 
-  autoGenBtnAddTarget.addEventListener("clic", () => {
-    const row = buildAutoGenTargetRow({ especialidad: Object.keys(ESPECIALIDADES)[0], subtipo: "urgencias", count: 10 });
-    si (fila) autoGenTargetsWrap.appendChild(fila);
+  autoGenBtnAddTarget.addEventListener("click", () => {
+    const row = buildAutoGenTargetRow({ specialty: Object.keys(SPECIALTIES)[0], subtype: "urgencias", count: 10 });
+    if (row) autoGenTargetsWrap.appendChild(row);
     renderAutoGenSummary();
   });
 
-  autoGenBtnGenerate.addEventListener("clic", async () => {
-    constante btn = autoGenBtnGenerate;
+  autoGenBtnGenerate.addEventListener("click", async () => {
+    const btn = autoGenBtnGenerate;
     setLoadingButton(btn, true, "Generar");
-    intentar {
-      esperar runAutoGenerator();
-    } captura (e) {
+    try {
+      await runAutoGenerator();
+    } catch (e) {
       console.error("Error generando examen automático:", e);
       alert("Ocurrió un error al generar el examen automático. Revisa consola.");
-    } finalmente {
+    } finally {
       setLoadingButton(btn, false, "Generar");
     }
   });
 
-  autoGenTopicsInput?.addEventListener("entrada", () => {
+  autoGenTopicsInput?.addEventListener("input", () => {
     // No recalcula búsqueda todavía, solo refresca resumen
     renderAutoGenSummary();
   });
@@ -2459,52 +2459,52 @@ función initAutoGeneratorUI() {
 /****************************************************
  * VALIDACIÓN DE SESIÓN Y CARGA INICIAL (ADMIN)
  ****************************************************/
-onAuthStateChanged(auth, async (usuario) => {
-  si (!usuario) {
-    ventana.ubicación.href = "index.html";
-    devolver;
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = "index.html";
+    return;
   }
 
-  intentar {
-    const userRef = doc(db, "usuarios", usuario.email);
-    constante userSnap = await getDoc(userRef);
+  try {
+    const userRef = doc(db, "users", user.email);
+    const userSnap = await getDoc(userRef);
 
-    si (!userSnap.exists()) {
+    if (!userSnap.exists()) {
       alert("Tu usuario no existe en la base de datos de Estudiante ENARM.");
-      esperar signOut(auth);
-      ventana.ubicación.href = "index.html";
-      devolver;
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
     }
 
-    constante datos = userSnap.data();
+    const data = userSnap.data();
 
-    si (datos.rol !== "admin") {
+    if (data.role !== "admin") {
       alert("Acceso no autorizado. Este usuario no es administrador.");
-      esperar signOut(auth);
-      ventana.ubicación.href = "index.html";
-      devolver;
+      await signOut(auth);
+      window.location.href = "index.html";
+      return;
     }
 
-    usuarioAdminactual = {
-      uid: usuario.uid,
-      correo electrónico: usuario.email,
-      ...datos,
+    currentAdminUser = {
+      uid: user.uid,
+      email: user.email,
+      ...data,
     };
 
-    si (adminUserEmailSpan) {
-      adminUserEmailSpan.textContent = usuario.correo electrónico;
+    if (adminUserEmailSpan) {
+      adminUserEmailSpan.textContent = user.email;
     }
 
     // Restaurar estado de navegación (refresh / regreso desde otras páginas)
-    constante restaurada = readAdminNavState();
-    si (restaurado) {
-      adminNavState = {...adminNavState, ...restaurado};
+    const restored = readAdminNavState();
+    if (restored) {
+      adminNavState = { ...adminNavState, ...restored };
     }
 
-  } atrapar (err) {
-    console.error("Error al obtener el perfil de administrador:", err);
-    alert("Error al cargar datos de administrador.");
-    devolver;
+  } catch (err) {
+    console.error("Error obteniendo perfil de administrador:", err);
+    alert("Error cargando datos de administrador.");
+    return;
   }
 
   // Inicializar buscadores
@@ -2512,29 +2512,29 @@ onAuthStateChanged(auth, async (usuario) => {
   initMiniBankSearchUI();
   initAutoGeneratorUI();
 
-  intentar {
-    _isRestoringNav = verdadero;
-    esperar loadSections();
-    _isRestoringNav = falso;
+  try {
+    _isRestoringNav = true;
+    await loadSections();
+    _isRestoringNav = false;
 
     // Aplicar panel/vista restaurada (si existe)
-    intentar {
-      espere applyAdminNavState(adminNavState);
-    } atrapar (err) {
+    try {
+      await applyAdminNavState(adminNavState);
+    } catch (err) {
       console.error("Error aplicando estado restaurado:", err);
     }
 
-    // Asegura estado base en historial para que 'Atrás' funcione dentro de la aplicación
-    reemplazarAdminHistory();
+    // Asegura estado base en history para que 'Atrás' funcione dentro de la app
+    replaceAdminHistory();
 
-  } atrapar (err) {
-    console.error("Error al cargar secciones:", err);
+  } catch (err) {
+    console.error("Error cargando secciones:", err);
   }
 
-  intentar {
-    esperar loadLandingSettings();
-  } atrapar (err) {
-    console.error("Error al cargar la configuración de aterrizaje:", err);
+  try {
+    await loadLandingSettings();
+  } catch (err) {
+    console.error("Error cargando configuración de landing:", err);
   }
 
   console.log("admin.js cargado correctamente y panel inicializado (carga mínima).");
@@ -2544,109 +2544,109 @@ onAuthStateChanged(auth, async (usuario) => {
  * NAVEGACIÓN LATERAL
  ****************************************************/
 
-función clearSidebarActive() {
+function clearSidebarActive() {
   [
-    Exámenes btnNav,
-    Banco btnNav,
+    btnNavExams,
+    btnNavBank,
     btnNavMini,
-    Usuarios de btnNav,
-    Análisis btnNav,
+    btnNavUsers,
+    btnNavAnalytics,
     btnNavLanding,
     btnNavImportExport,
-  ].forEach((b) => b && b.classList.remove("barra lateral-btn--activo"));
+  ].forEach((b) => b && b.classList.remove("sidebar-btn--active"));
 }
 
-si (btnNavExams) {
-  btnNavExams.addEventListener("clic", () => {
-    borrarBarraLateralActiva();
-    btnNavExams.classList.add("barra lateral-btn--activa");
-    setActivePanel("exámenes");
-    sidebar.classList.remove("barra lateral--abrir");
+if (btnNavExams) {
+  btnNavExams.addEventListener("click", () => {
+    clearSidebarActive();
+    btnNavExams.classList.add("sidebar-btn--active");
+    setActivePanel("exams");
+    sidebar.classList.remove("sidebar--open");
   });
 }
 
-si (btnNavBank) {
-  btnNavBank.addEventListener("clic", async () => {
-    borrarBarraLateralActiva();
-    btnNavBank.classList.add("barra lateral-btn--activa");
-    setActivePanel("banco");
-    sidebar.classList.remove("barra lateral--abrir");
+if (btnNavBank) {
+  btnNavBank.addEventListener("click", async () => {
+    clearSidebarActive();
+    btnNavBank.classList.add("sidebar-btn--active");
+    setActivePanel("bank");
+    sidebar.classList.remove("sidebar--open");
 
-    esperar loadQuestionsBank(verdadero);
+    await loadQuestionsBank(true);
   });
 }
 
-si (btnNavMini) {
-  btnNavMini.addEventListener("clic", async () => {
-    borrarBarraLateralActiva();
-    btnNavMini.classList.add("barra lateral-btn--activa");
+if (btnNavMini) {
+  btnNavMini.addEventListener("click", async () => {
+    clearSidebarActive();
+    btnNavMini.classList.add("sidebar-btn--active");
     setActivePanel("mini");
-    sidebar.classList.remove("barra lateral--abrir");
+    sidebar.classList.remove("sidebar--open");
 
-    cargarMiniCases();
+    loadMiniCases();
 
-    restablecerMiniBankSearchUI();
-    esperar loadBankCasesIfNeeded();
+    resetMiniBankSearchUI();
+    await loadBankCasesIfNeeded();
   });
 }
 
-si (btnNavUsers) {
-  btnNavUsers.addEventListener("clic", () => {
-    borrarBarraLateralActiva();
-    btnNavUsers.classList.add("barra lateral-btn--activa");
-    setActivePanel("usuarios");
-    sidebar.classList.remove("barra lateral--abrir");
-    cargarUsuarios();
+if (btnNavUsers) {
+  btnNavUsers.addEventListener("click", () => {
+    clearSidebarActive();
+    btnNavUsers.classList.add("sidebar-btn--active");
+    setActivePanel("users");
+    sidebar.classList.remove("sidebar--open");
+    loadUsers();
   });
 }
 
-si (btnNavAnalytics) {
-  btnNavAnalytics.addEventListener("clic", () => {
-    borrarBarraLateralActiva();
-    btnNavAnalytics.classList.add("barra lateral-btn--activa");
-    setActivePanel("analítica");
-    sidebar.classList.remove("barra lateral--abrir");
-    cargarAnalyticsSummary();
+if (btnNavAnalytics) {
+  btnNavAnalytics.addEventListener("click", () => {
+    clearSidebarActive();
+    btnNavAnalytics.classList.add("sidebar-btn--active");
+    setActivePanel("analytics");
+    sidebar.classList.remove("sidebar--open");
+    loadAnalyticsSummary();
   });
 }
 
-si (btnNavLanding) {
-  btnNavLanding.addEventListener("clic", () => {
-    borrarBarraLateralActiva();
-    btnNavLanding.classList.add("barra lateral-btn--activa");
-    setActivePanel("aterrizaje");
-    sidebar.classList.remove("barra lateral--abrir");
-    cargarConfiguraciónDeAterrizaje();
-    cargarSocialLinksIntoLanding();
+if (btnNavLanding) {
+  btnNavLanding.addEventListener("click", () => {
+    clearSidebarActive();
+    btnNavLanding.classList.add("sidebar-btn--active");
+    setActivePanel("landing");
+    sidebar.classList.remove("sidebar--open");
+    loadLandingSettings();
+    loadSocialLinksIntoLanding();
   });
 }
 
 
 
-si (btnNavResources) {
-  btnNavResources.addEventListener("clic", async () => {
-    borrarBarraLateralActiva();
-    btnNavResources.classList.add("barra lateral-btn--activa");
-    setActivePanel("recursos");
-    sidebar.classList.remove("barra lateral--abrir");
-    esperar asegurarResourcesAdminLoaded();
-    // Al entrar, restaurante lista/detalle según estado
-    si (adminNavState.resourcesTopicId) {
+if (btnNavResources) {
+  btnNavResources.addEventListener("click", async () => {
+    clearSidebarActive();
+    btnNavResources.classList.add("sidebar-btn--active");
+    setActivePanel("resources");
+    sidebar.classList.remove("sidebar--open");
+    await ensureResourcesAdminLoaded();
+    // Al entrar, restaura lista/detalle según estado
+    if (adminNavState.resourcesTopicId) {
       adminResourcesSelectTopic(adminNavState.resourcesTopicId);
-    } demás {
-      adminRecursosOpenList();
+    } else {
+      adminResourcesOpenList();
     }
   });
 }
 
-si (btnNavImportExport) {
-  btnNavImportExport.addEventListener("clic", () => {
-    // Redirigir a la pantalla de Importación/Exportación (import-exam.html)
+if (btnNavImportExport) {
+  btnNavImportExport.addEventListener("click", () => {
+    // Redirige a la pantalla de Import / Export (import-exam.html)
     // Nota: no cambia estado de paneles porque salimos de la página.
-    borrarBarraLateralActiva();
-    btnNavImportExport.classList.add("barra lateral-btn--activa");
-    sidebar.classList.remove("barra lateral--abrir");
-    ventana.ubicación.href = "import-examen.html";
+    clearSidebarActive();
+    btnNavImportExport.classList.add("sidebar-btn--active");
+    sidebar.classList.remove("sidebar--open");
+    window.location.href = "import-exam.html";
   });
 }
 
@@ -2654,302 +2654,302 @@ si (btnNavImportExport) {
 /****************************************************
  * POPSTATE (Botón Atrás / Gesto móvil)
  ****************************************************/
-ventana.addEventListener("popstate", (e) => {
-  constante st = e.state?.adminNav;
-  si (!st) retorna;
+window.addEventListener("popstate", (e) => {
+  const st = e.state?.adminNav;
+  if (!st) return;
   // Restaurar navegación interna
-  aplicarAdminNavState(st);
+  applyAdminNavState(st);
 });
 
 /****************************************************
  * SECCIONES (CRUD + REORDENAR) (SIN CAMBIOS)
  ****************************************************/
 
-función asíncrona loadSections() {
-  si (!seccionesList) retorna;
+async function loadSections() {
+  if (!sectionsList) return;
 
-  const qSec = consulta(colección(db, "secciones"), orderBy("orden", "asc"));
-  constante snap = esperar getDocs(qSec);
-  seccionesList.innerHTML = "";
+  const qSec = query(collection(db, "sections"), orderBy("order", "asc"));
+  const snap = await getDocs(qSec);
+  sectionsList.innerHTML = "";
 
-  si (snap.vacío) {
+  if (snap.empty) {
     renderEmptyMessage(sectionsList, "No hay secciones. Crea la primera.");
-    currentSectionId = nulo;
+    currentSectionId = null;
     currentSectionTitle.textContent = "Sin secciones";
-    exámenesListEl.innerHTML = "";
-    devolver;
+    examsListEl.innerHTML = "";
+    return;
   }
 
   // Preferencia: restaurar la última sección si aplica
-  constante preferredSectionId =
-    adminNavState?.panel === "exámenes" || adminNavState?.view?.startsWith("examen")
-      ? (adminNavState.sectionId || nulo)
-      : nulo;
+  const preferredSectionId =
+    adminNavState?.panel === "exams" || adminNavState?.view?.startsWith("exam")
+      ? (adminNavState.sectionId || null)
+      : null;
 
-  deje seleccionado = falso;
-  deje que firstId = null;
-  deje que firstName = null;
+  let selected = false;
+  let firstId = null;
+  let firstName = null;
 
-  snap.paraCada((docSnap) => {
-    constante datos = docSnap.data();
-    constante id = docSnap.id;
-    nombre constante = (datos?.nombre || "").toString() || "Sección";
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const id = docSnap.id;
+    const name = (data?.name || "").toString() || "Sección";
 
-    si (!firstId) {
-      primerId = id;
-      nombre = nombre;
+    if (!firstId) {
+      firstId = id;
+      firstName = name;
     }
 
-    constante li = document.createElement("li");
-    li.className = "elemento de sección__barra lateral";
-    li.draggable = verdadero;
+    const li = document.createElement("li");
+    li.className = "sidebar__section-item";
+    li.draggable = true;
     li.dataset.sectionId = id;
-    li.dataset.sectionName = nombre;
+    li.dataset.sectionName = name;
 
     li.innerHTML = `
-      <div class="sidebar__section-name">${nombre}</div>
-      <div class="barra lateral__sección-acciones">
+      <div class="sidebar__section-name">${name}</div>
+      <div class="sidebar__section-actions">
         <button class="icon-btn admin-edit-section" title="Editar sección">✏</button>
         <button class="icon-btn admin-delete-section" title="Eliminar sección">🗑</button>
       </div>
     `;
 
-    li.addEventListener("clic", (e) => {
-      si (
-        e.target.classList.contains("sección-de-edición-de-administrador") ||
-        e.target.classList.contains("sección de eliminación de administrador")
+    li.addEventListener("click", (e) => {
+      if (
+        e.target.classList.contains("admin-edit-section") ||
+        e.target.classList.contains("admin-delete-section")
       ) {
-        devolver;
+        return;
       }
-      selectSection(id, nombre);
-      // Persistir + historial
-      si (!_isRestoringNav) {
+      selectSection(id, name);
+      // Persist + history
+      if (!_isRestoringNav) {
         adminNavState.sectionId = id;
-        adminNavState.examId = nulo;
-        adminNavState.view = "lista_de_exámenes";
-        persistirAdminNavState();
+        adminNavState.examId = null;
+        adminNavState.view = "exams_list";
+        persistAdminNavState();
         pushAdminHistoryIfChanged();
       }
     });
 
     li
-      .querySelector(".sección-de-edición-de-admin")
-      .addEventListener("clic", (e) => {
+      .querySelector(".admin-edit-section")
+      .addEventListener("click", (e) => {
         e.stopPropagation();
-        openEditSectionModal(id, nombre);
+        openEditSectionModal(id, name);
       });
 
     li
-      .querySelector(".admin-eliminar-sección")
-      .addEventListener("clic", async (e) => {
+      .querySelector(".admin-delete-section")
+      .addEventListener("click", async (e) => {
         e.stopPropagation();
-        const ok = ventana.confirm(
-          "¿Eliminar esta sección y TODOS los solicitudes y casos clínicos asociados?"
+        const ok = window.confirm(
+          "¿Eliminar esta sección y TODOS los exámenes y casos clínicos asociados?"
         );
-        si (!ok) retorna;
-        esperar deleteSectionWithAllData(id);
-        esperar loadSections();
-        si (currentSectionId === id) {
-          currentSectionId = nulo;
+        if (!ok) return;
+        await deleteSectionWithAllData(id);
+        await loadSections();
+        if (currentSectionId === id) {
+          currentSectionId = null;
           currentSectionTitle.textContent = "Sin sección seleccionada";
-          exámenesListEl.innerHTML = "";
+          examsListEl.innerHTML = "";
         }
       });
 
-    li.addEventListener("arrastrar inicio", (e) => {
-      e.dataTransfer.effectAllowed = "mover";
-      li.classList.add("arrastrando");
+    li.addEventListener("dragstart", (e) => {
+      e.dataTransfer.effectAllowed = "move";
+      li.classList.add("dragging");
     });
 
     li.addEventListener("dragend", () => {
-      li.classList.remove("arrastrando");
-      guardarSeccionesOrden();
+      li.classList.remove("dragging");
+      saveSectionsOrder();
     });
 
     li.addEventListener("dragover", (e) => {
       e.preventDefault();
-      const arrastrando = sectionsList.querySelector(".arrastrando");
-      si (!arrastrando || arrastrando === li) return;
-      constante delimitadora = li.getBoundingClientRect();
-      const offset = e.clientY - delimitador.superior;
-      si (desplazamiento > altura delimitadora / 2) {
-        seccionesList.insertBefore(arrastrando, li.nextSibling);
-      } demás {
-        seccionesList.insertBefore(arrastrando, li);
+      const dragging = sectionsList.querySelector(".dragging");
+      if (!dragging || dragging === li) return;
+      const bounding = li.getBoundingClientRect();
+      const offset = e.clientY - bounding.top;
+      if (offset > bounding.height / 2) {
+        sectionsList.insertBefore(dragging, li.nextSibling);
+      } else {
+        sectionsList.insertBefore(dragging, li);
       }
     });
 
-    seccionesList.appendChild(li);
+    sectionsList.appendChild(li);
 
     // Restauración: selecciona la sección preferida (si existe)
-    si (!seleccionado && IdDeSecciónPreferida && id === IdDeSecciónPreferida) {
-      seleccionado = verdadero;
-      selectSection(id, nombre);
-      li.classList.add("barra lateral__sección-elemento--activo");
+    if (!selected && preferredSectionId && id === preferredSectionId) {
+      selected = true;
+      selectSection(id, name);
+      li.classList.add("sidebar__section-item--active");
     }
   });
 
-  // Fallback: selecciona la primera sección SOLO si estamos en panel de solicitudes
-  si (!seleccionado && (adminNavState?.panel === "exámenes")) {
-    si (primerId) {
+  // Fallback: selecciona la primera sección SOLO si estamos en panel exámenes
+  if (!selected && (adminNavState?.panel === "exams")) {
+    if (firstId) {
       const firstLi = sectionsList.querySelector(`.sidebar__section-item[data-section-id="${firstId}"]`);
-      si (firstLi) firstLi.classList.add("sidebar__section-item--activo");
-      selectSection(primerId, primerNombre || "Sección");
-      adminNavState.sectionId = primerId;
-      adminNavState.view = "lista_de_exámenes";
-      adminNavState.examId = nulo;
-      persistirAdminNavState();
-      si (!_isRestoringNav) {
-        reemplazarAdminHistory();
+      if (firstLi) firstLi.classList.add("sidebar__section-item--active");
+      selectSection(firstId, firstName || "Sección");
+      adminNavState.sectionId = firstId;
+      adminNavState.view = "exams_list";
+      adminNavState.examId = null;
+      persistAdminNavState();
+      if (!_isRestoringNav) {
+        replaceAdminHistory();
       }
     }
   }
 }
 
-función selectSection(id, nombre) {
+function selectSection(id, name) {
   currentSectionId = id;
-  currentSectionTitle.textContent = nombre || "Sección";
+  currentSectionTitle.textContent = name || "Sección";
 
-  Lista de secciones
+  sectionsList
     .querySelectorAll(".sidebar__section-item")
     .forEach((el) => el.classList.remove("sidebar__section-item--active"));
-  const activeLi = seccionesList.querySelector(
-    `.sidebar__section-item[sección-de-datos-id="${id}"]`
+  const activeLi = sectionsList.querySelector(
+    `.sidebar__section-item[data-section-id="${id}"]`
   );
-  si (activoLi) {
-    activeLi.classList.add("barra lateral__sección-elemento--activo");
+  if (activeLi) {
+    activeLi.classList.add("sidebar__section-item--active");
   }
 
-  cargarExámenesParaSección(id);
+  loadExamsForSection(id);
 
-  si (!_isRestoringNav) {
+  if (!_isRestoringNav) {
     adminNavState.sectionId = id;
-    adminNavState.examId = nulo;
-    adminNavState.view = "lista_de_exámenes";
-    persistirAdminNavState();
+    adminNavState.examId = null;
+    adminNavState.view = "exams_list";
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
 }
 
-función asíncrona saveSectionsOrder() {
-  si (!seccionesList) retorna;
+async function saveSectionsOrder() {
+  if (!sectionsList) return;
   const items = Array.from(
-    seccionesList.querySelectorAll(".sidebar__section-item")
+    sectionsList.querySelectorAll(".sidebar__section-item")
   );
-  const batchUpdates = items.map((li, índice) => {
-    constante id = li.dataset.sectionId;
-    devolver updateDoc(doc(db, "secciones", id), { orden: índice });
+  const batchUpdates = items.map((li, index) => {
+    const id = li.dataset.sectionId;
+    return updateDoc(doc(db, "sections", id), { order: index });
   });
-  intentar {
-    esperar Promise.all(batchUpdates);
-  } atrapar (err) {
+  try {
+    await Promise.all(batchUpdates);
+  } catch (err) {
     console.error("Error actualizando orden de secciones:", err);
   }
 }
 
-función asíncrona deleteSectionWithAllData(sectionId) {
-  constante qEx = consulta(
-    colección(db, "exámenes"),
-    donde("secciónId", "==", secciónId)
+async function deleteSectionWithAllData(sectionId) {
+  const qEx = query(
+    collection(db, "exams"),
+    where("sectionId", "==", sectionId)
   );
-  constante exSnap = esperar getDocs(qEx);
+  const exSnap = await getDocs(qEx);
 
-  para (const ex de exSnap.docs) {
-    constante examId = ex.id;
+  for (const ex of exSnap.docs) {
+    const examId = ex.id;
 
-    constante qCases = consulta(
-      colección(db, "preguntas"),
-      donde("IdExamen", "==", IdExamen)
+    const qCases = query(
+      collection(db, "questions"),
+      where("examId", "==", examId)
     );
-    const caseSnap = esperar getDocs(qCases);
+    const caseSnap = await getDocs(qCases);
 
-    // ✅ ajustar useCount por borrar examen (bankCaseId)
-    constante bankIds = caseSnap.docs
+    // ✅ ajustar usageCount por borrar examen (bankCaseId)
+    const bankIds = caseSnap.docs
       .map((d) => (d.data() || {}).bankCaseId)
-      .filtro(Booleano);
-    si (bankIds.length) {
-      espere applyUsageDelta(bankIds, []); // decrementa todo lo que estaba usado en ese examen
+      .filter(Boolean);
+    if (bankIds.length) {
+      await applyUsageDelta(bankIds, []); // decrementa todo lo que estaba usado en ese examen
     }
 
-    para (const c de caseSnap.docs) {
-      esperar deleteDoc(c.ref);
+    for (const c of caseSnap.docs) {
+      await deleteDoc(c.ref);
     }
 
-    esperar deleteDoc(ex.ref);
+    await deleteDoc(ex.ref);
   }
 
-  esperar deleteDoc(doc(db, "secciones", sectionId));
+  await deleteDoc(doc(db, "sections", sectionId));
 }
 
-función openEditSectionModal(sectionId, currentName) {
+function openEditSectionModal(sectionId, currentName) {
   openModal({
-    título: "Editar sección",
-    cuerpoHtml: `
-      <label class="campo">
+    title: "Editar sección",
+    bodyHtml: `
+      <label class="field">
         <span>Nombre de la sección</span>
-        <input type="text" id="nombre-de-sección-modal" value="${nombre-actual || ""}" />
-      </etiqueta>
+        <input type="text" id="modal-section-name" value="${currentName || ""}" />
+      </label>
     `,
-    onOk: async() => {
-      const input = document.getElementById("nombre-de-sección-modal");
-      constante nombre = entrada.valor.trim();
-      si (!nombre) {
+    onOk: async () => {
+      const input = document.getElementById("modal-section-name");
+      const name = input.value.trim();
+      if (!name) {
         alert("Escribe un nombre.");
-        devolver;
+        return;
       }
-      constante btn = modalBtnOk;
-      setLoadingButton(btn, verdadero);
-      intentar {
-        esperar updateDoc(doc(db, "secciones", sectionId), { nombre });
-        esperar loadSections();
-        cerrarModal();
-      } atrapar (err) {
-        consola.error(err);
+      const btn = modalBtnOk;
+      setLoadingButton(btn, true);
+      try {
+        await updateDoc(doc(db, "sections", sectionId), { name });
+        await loadSections();
+        closeModal();
+      } catch (err) {
+        console.error(err);
         alert("No se pudo actualizar la sección.");
-      } finalmente {
+      } finally {
         setLoadingButton(btn, false, "Guardar");
       }
     },
   });
 }
 
-si (btnAddSection) {
-  btnAddSection.addEventListener("clic", () => {
+if (btnAddSection) {
+  btnAddSection.addEventListener("click", () => {
     openModal({
-      título: "Nueva sección",
-      cuerpoHtml: `
-        <label class="campo">
+      title: "Nueva sección",
+      bodyHtml: `
+        <label class="field">
           <span>Nombre de la sección</span>
-          <input type="text" id="nombre-de-sección-modal" />
-        </etiqueta>
+          <input type="text" id="modal-new-section-name" />
+        </label>
       `,
-      onOk: async() => {
-        const input = document.getElementById("modal-nueva-sección-nombre");
-        constante nombre = entrada.valor.trim();
-        si (!nombre) {
+      onOk: async () => {
+        const input = document.getElementById("modal-new-section-name");
+        const name = input.value.trim();
+        if (!name) {
           alert("Escribe un nombre.");
-          devolver;
+          return;
         }
 
-        constante btn = modalBtnOk;
-        setLoadingButton(btn, verdadero);
+        const btn = modalBtnOk;
+        setLoadingButton(btn, true);
 
-        intentar {
-          const qSec = await getDocs(colección(db, "secciones"));
-          constante orden = qSec.size;
+        try {
+          const qSec = await getDocs(collection(db, "sections"));
+          const order = qSec.size;
 
-          esperar addDoc(colección(db, "secciones"), {
-            nombre,
-            orden,
-            creadoEn: serverTimestamp(),
+          await addDoc(collection(db, "sections"), {
+            name,
+            order,
+            createdAt: serverTimestamp(),
           });
 
-          esperar loadSections();
-          cerrarModal();
-        } atrapar (err) {
-          consola.error(err);
+          await loadSections();
+          closeModal();
+        } catch (err) {
+          console.error(err);
           alert("No se pudo crear la sección.");
-        } finalmente {
+        } finally {
           setLoadingButton(btn, false, "Guardar");
         }
       },
@@ -2960,172 +2960,172 @@ si (btnAddSection) {
 /**
  * Devuelve el ID de la sección por nombre; si no existe, la crea.
  */
-función asíncrona getOrCreateSectionByName(nombre) {
-  const trimmed = (nombre || "").trim();
-  si (!trimmed) arroja nuevo Error("sectionName vacío en JSON.");
+async function getOrCreateSectionByName(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) throw new Error("sectionName vacío en JSON.");
 
-  constante qByName = consulta(
-    colección(db, "secciones"),
-    donde("nombre", "==", recortado)
+  const qByName = query(
+    collection(db, "sections"),
+    where("name", "==", trimmed)
   );
-  constante snap = esperar getDocs(qByName);
-  si (!snap.vacío) {
-    devolver snap.docs[0].id;
+  const snap = await getDocs(qByName);
+  if (!snap.empty) {
+    return snap.docs[0].id;
   }
 
-  const all = await getDocs(colección(db, "secciones"));
-  const orden = todos.tamaño;
+  const all = await getDocs(collection(db, "sections"));
+  const order = all.size;
 
-  const ref = await addDoc(colección(db, "secciones"), {
-    nombre: recortado,
-    orden,
-    creadoEn: serverTimestamp(),
+  const ref = await addDoc(collection(db, "sections"), {
+    name: trimmed,
+    order,
+    createdAt: serverTimestamp(),
   });
 
-  devolver ref.id;
+  return ref.id;
 }
 
 /****************************************************
  * EXÁMENES (LISTA POR SECCIÓN)
  ****************************************************/
 
-función asíncrona loadExamsForSection(sectionId) {
-  si (!examsListEl) retorna;
-  exámenesListEl.innerHTML = "";
+async function loadExamsForSection(sectionId) {
+  if (!examsListEl) return;
+  examsListEl.innerHTML = "";
 
-  constante thisLoadToken = ++examsLoadToken;
+  const thisLoadToken = ++examsLoadToken;
 
-  constante qEx = consulta(
-    colección(db, "exámenes"),
-    donde("secciónId", "==", secciónId)
+  const qEx = query(
+    collection(db, "exams"),
+    where("sectionId", "==", sectionId)
   );
-  constante snap = esperar getDocs(qEx);
+  const snap = await getDocs(qEx);
 
-  si (esteToken de carga !== examenesToken de carga || sectionId !== currentSectionId) {
-    devolver;
+  if (thisLoadToken !== examsLoadToken || sectionId !== currentSectionId) {
+    return;
   }
 
-  si (snap.vacío) {
-    renderMensajeVacío(
-      exámenesListEl,
-      "No hay solicitudes en esta sección. Crea el primero."
+  if (snap.empty) {
+    renderEmptyMessage(
+      examsListEl,
+      "No hay exámenes en esta sección. Crea el primero."
     );
-    devolver;
+    return;
   }
 
-  constante sortedDocs = snap.docs
-    .rebanada()
+  const sortedDocs = snap.docs
+    .slice()
     .sort((a, b) => {
-      const nombreA = (a.datos().nombre || "").toString();
-      const nombreB = (b.datos().nombre || "").toString();
-      devolver nombreA.localeCompare(nombreB, "es", {
-        numérico: verdadero,
-        sensibilidad: "base",
+      const nameA = (a.data().name || "").toString();
+      const nameB = (b.data().name || "").toString();
+      return nameA.localeCompare(nameB, "es", {
+        numeric: true,
+        sensitivity: "base",
       });
     });
 
-  sortedDocs.paraCada((docSnap) => {
-    constante examId = docSnap.id;
-    constante datos = docSnap.data();
-    nombre constante = nombre.datos || "Examen sin título";
+  sortedDocs.forEach((docSnap) => {
+    const examId = docSnap.id;
+    const data = docSnap.data();
+    const name = data.name || "Examen sin título";
 
-    constante tarjeta = documento.createElement("div");
-    card.className = "elemento-de-tarjeta";
+    const card = document.createElement("div");
+    card.className = "card-item";
 
-    tarjeta.innerHTML = `
-      <div class="tarjeta-elemento__título-fila">
-        <div class="card-item__title">${nombre}</div>
+    card.innerHTML = `
+      <div class="card-item__title-row">
+        <div class="card-item__title">${name}</div>
         <div class="card-item__actions">
-          <button class="btn btn-sm btn-secundaria admin-open-exam">Abrir</button>
+          <button class="btn btn-sm btn-secondary admin-open-exam">Abrir</button>
           <button class="icon-btn admin-edit-exam" title="Editar nombre">✏</button>
           <button class="icon-btn admin-delete-exam" title="Eliminar examen">🗑</button>
         </div>
       </div>
     `;
 
-    tarjeta
+    card
       .querySelector(".admin-open-exam")
-      .addEventListener("clic", () => openExamDetail(examId, nombre));
+      .addEventListener("click", () => openExamDetail(examId, name));
 
-    tarjeta
+    card
       .querySelector(".admin-edit-exam")
-      .addEventListener("clic", () =>
-        openEditExamNameModal(examId, nombre)
+      .addEventListener("click", () =>
+        openEditExamNameModal(examId, name)
       );
 
-    tarjeta
+    card
       .querySelector(".admin-delete-exam")
-      .addEventListener("clic", async () => {
-        const ok = ventana.confirm(
+      .addEventListener("click", async () => {
+        const ok = window.confirm(
           "¿Eliminar este examen y todos sus casos clínicos?"
         );
-        si (!ok) retorna;
+        if (!ok) return;
 
-        // ✅ Antes de borrar, recolectar bankCaseId para bajar useCount
-        constante qCases = consulta(
-          colección(db, "preguntas"),
-          donde("IdExamen", "==", IdExamen)
+        // ✅ Antes de borrar, recolectar bankCaseId para bajar usageCount
+        const qCases = query(
+          collection(db, "questions"),
+          where("examId", "==", examId)
         );
-        constante snapCases = esperar getDocs(qCases);
+        const snapCases = await getDocs(qCases);
 
         const bankIds = snapCases.docs
           .map((d) => (d.data() || {}).bankCaseId)
-          .filtro(Booleano);
+          .filter(Boolean);
 
-        si (bankIds.length) {
-          espere applyUsageDelta(bankIds, []); // decrementa lo usado por ese examen
+        if (bankIds.length) {
+          await applyUsageDelta(bankIds, []); // decrementa lo usado por ese examen
         }
 
-        para (const c de snapCases.docs) {
-          esperar deleteDoc(c.ref);
+        for (const c of snapCases.docs) {
+          await deleteDoc(c.ref);
         }
 
-        esperar deleteDoc(doc(db, "exámenes", examId));
-        cargarExámenesParaSección(secciónId);
+        await deleteDoc(doc(db, "exams", examId));
+        loadExamsForSection(sectionId);
       });
 
-    exámenesListEl.appendChild(tarjeta);
+    examsListEl.appendChild(card);
   });
 }
 
-si (btnAddExam) {
-  btnAddExam.addEventListener("clic", () => {
-    si (!currentSectionId) {
+if (btnAddExam) {
+  btnAddExam.addEventListener("click", () => {
+    if (!currentSectionId) {
       alert("Selecciona primero una sección.");
-      devolver;
+      return;
     }
     openModal({
-      título: "Nuevo examen",
-      cuerpoHtml: `
-        <label class="campo">
+      title: "Nuevo examen",
+      bodyHtml: `
+        <label class="field">
           <span>Nombre del examen</span>
-          <input type="text" id="modal-nuevo-nombre-del-examen" />
-        </etiqueta>
+          <input type="text" id="modal-new-exam-name" />
+        </label>
       `,
-      onOk: async() => {
-        const input = document.getElementById("modal-nuevo-nombre-del-examen");
-        constante nombre = entrada.valor.trim();
-        si (!nombre) {
+      onOk: async () => {
+        const input = document.getElementById("modal-new-exam-name");
+        const name = input.value.trim();
+        if (!name) {
           alert("Escribe un nombre.");
-          devolver;
+          return;
         }
 
-        constante btn = modalBtnOk;
-        setLoadingButton(btn, verdadero);
+        const btn = modalBtnOk;
+        setLoadingButton(btn, true);
 
-        intentar {
-          const docRef = await addDoc(colección(db, "exámenes"), {
-            nombre,
+        try {
+          const docRef = await addDoc(collection(db, "exams"), {
+            name,
             sectionId: currentSectionId,
-            creadoEn: serverTimestamp(),
+            createdAt: serverTimestamp(),
           });
-          esperar cargarExámenesParaSección(currentSectionId);
-          cerrarModal();
-          openExamDetail(docRef.id, nombre);
-        } atrapar (err) {
-          consola.error(err);
+          await loadExamsForSection(currentSectionId);
+          closeModal();
+          openExamDetail(docRef.id, name);
+        } catch (err) {
+          console.error(err);
           alert("No se pudo crear el examen.");
-        } finalmente {
+        } finally {
           setLoadingButton(btn, false, "Guardar");
         }
       },
@@ -3133,38 +3133,38 @@ si (btnAddExam) {
   });
 }
 
-función openEditExamNameModal(examId, currentName) {
+function openEditExamNameModal(examId, currentName) {
   openModal({
-    título: "Editar nombre del examen",
-    cuerpoHtml: `
-      <label class="campo">
+    title: "Editar nombre del examen",
+    bodyHtml: `
+      <label class="field">
         <span>Nombre del examen</span>
         <input type="text" id="modal-edit-exam-name" value="${currentName || ""}" />
-      </etiqueta>
+      </label>
     `,
-    onOk: async() => {
-      const input = document.getElementById("modal-edit-examen-nombre");
-      constante nombre = entrada.valor.trim();
-      si (!nombre) {
+    onOk: async () => {
+      const input = document.getElementById("modal-edit-exam-name");
+      const name = input.value.trim();
+      if (!name) {
         alert("Escribe un nombre.");
-        devolver;
+        return;
       }
-      constante btn = modalBtnOk;
-      setLoadingButton(btn, verdadero);
-      intentar {
-        esperar updateDoc(doc(db, "exámenes", examId), {
-          nombre,
-          actualizadoEn: serverTimestamp(),
+      const btn = modalBtnOk;
+      setLoadingButton(btn, true);
+      try {
+        await updateDoc(doc(db, "exams", examId), {
+          name,
+          updatedAt: serverTimestamp(),
         });
-        esperar cargarExámenesParaSección(currentSectionId);
-        si (currentExamId === examId && examTitleInput) {
-          examTitleInput.value = nombre;
+        await loadExamsForSection(currentSectionId);
+        if (currentExamId === examId && examTitleInput) {
+          examTitleInput.value = name;
         }
-        cerrarModal();
-      } atrapar (err) {
-        consola.error(err);
+        closeModal();
+      } catch (err) {
+        console.error(err);
         alert("No se pudo actualizar el examen.");
-      } finalmente {
+      } finally {
         setLoadingButton(btn, false, "Guardar");
       }
     },
@@ -3172,112 +3172,112 @@ función openEditExamNameModal(examId, currentName) {
 }
 
 /**
- * Importar varios solicitudes desde un JSON
+ * Importar varios exámenes desde un JSON
  */
-función asíncrona importExamsFromJson(json) {
-  deje que examsArray = [];
+async function importExamsFromJson(json) {
+  let examsArray = [];
 
-  si (Array.isArray(json)) {
+  if (Array.isArray(json)) {
     examsArray = json;
-  } de lo contrario si (json && Array.isArray(json.exams)) {
+  } else if (json && Array.isArray(json.exams)) {
     examsArray = json.exams;
   }
 
-  si (!examsArray.length) {
+  if (!examsArray.length) {
     alert("El JSON no contiene ningún examen (se esperaba un arreglo).");
-    devolver;
+    return;
   }
 
-  const ok = ventana.confirm(
-    `Se crearán ${examsArray.length} solicitudes nuevas a partir del JSON. `+
-    `Cada examen incluye sus casos clínicos y preguntas.\n\n¿Continuar?`
+  const ok = window.confirm(
+    `Se crearán ${examsArray.length} exámenes nuevos a partir del JSON. ` +
+    `Cada examen incluirá sus casos clínicos y preguntas.\n\n¿Continuar?`
   );
-  si (!ok) retorna;
+  if (!ok) return;
 
-  para (const examSpec de examsArray) {
+  for (const examSpec of examsArray) {
     const sectionName = examSpec.sectionName || examSpec.section || null;
-    const nombreexamen = especificaciónexamen.nombreexamen || examenSpec.name || "Examen sin título";
+    const examName = examSpec.examName || examSpec.name || "Examen sin título";
 
-    si (!nombreSección) {
-      console.warn("Examen sin nombre de sección, se omite:", especificación de examen);
-      continuar;
+    if (!sectionName) {
+      console.warn("Examen sin sectionName, se omite:", examSpec);
+      continue;
     }
 
-    const sectionId = await getOrCreateSectionByName(nombreDeSección);
+    const sectionId = await getOrCreateSectionByName(sectionName);
 
-    const examRef = await addDoc(colección(db, "exámenes"), {
-      nombre: examName,
-      secciónId,
-      creadoEn: serverTimestamp(),
+    const examRef = await addDoc(collection(db, "exams"), {
+      name: examName,
+      sectionId,
+      createdAt: serverTimestamp(),
     });
-    constante examId = examRef.id;
+    const examId = examRef.id;
 
     const casesArr = Array.isArray(examSpec.cases) ? examSpec.cases : [];
 
-    para (const caseSpec de casesArr) {
-      const caseText = caseSpec.caseText || casoSpec.caso || "";
-      const especialidad = caseSpec.specialty || "";
-      constante tema = (caseSpec.tema || "").toString().trim();
+    for (const caseSpec of casesArr) {
+      const caseText = caseSpec.caseText || caseSpec.case || "";
+      const specialty = caseSpec.specialty || "";
+      const topic = (caseSpec.topic || "").toString().trim();
 
-      constante preguntasSrc = Array.isArray(caseSpec.preguntas)
-        ? caseSpec.preguntas
+      const questionsSrc = Array.isArray(caseSpec.questions)
+        ? caseSpec.questions
         : [];
 
-      const preguntasFormatted = preguntasSrc
+      const questionsFormatted = questionsSrc
         .map((q) => ({
-          preguntaTexto: q.preguntaTexto || q.pregunta || "",
-          opciónA: q.opciónA || qa || "",
-          opciónB: q.opcionB || qb || "",
-          opciónC: q.opcionC || qc || "",
-          opciónD: q.opcionD || qd || "",
-          opciónCorrecta: q.opciónCorrecta || q.correcto || q.respuesta || "",
-          subtipo: q.subtipo || "salud_publica",
-          dificultad: q.dificultad || "medios",
-          justificación: q.justificación || q.explicación || "",
+          questionText: q.questionText || q.question || "",
+          optionA: q.optionA || q.a || "",
+          optionB: q.optionB || q.b || "",
+          optionC: q.optionC || q.c || "",
+          optionD: q.optionD || q.d || "",
+          correctOption: q.correctOption || q.correct || q.answer || "",
+          subtype: q.subtype || "salud_publica",
+          difficulty: q.difficulty || "media",
+          justification: q.justification || q.explanation || "",
         }))
-        .filtrar(
+        .filter(
           (q) =>
-            q.preguntaTexto &&
-            q.opcionA &&
-            q.opcionB &&
-            q.opcionC &&
-            q.opcionD &&
-            q.opcióncorrecta &&
-            q.justificación
+            q.questionText &&
+            q.optionA &&
+            q.optionB &&
+            q.optionC &&
+            q.optionD &&
+            q.correctOption &&
+            q.justification
         );
 
-      si (!textoCaso || !preguntasFormato.longitud) {
+      if (!caseText || !questionsFormatted.length) {
         console.warn("Caso omitido por falta de datos:", caseSpec);
-        continuar;
+        continue;
       }
 
-      esperar addDoc(colección(db, "preguntas"), {
-        ID de examen,
+      await addDoc(collection(db, "questions"), {
+        examId,
         bankCaseId: null, // ✅ importado no viene del banco
-        casoTexto,
-        especialidad,
-        tema,
-        preguntas: preguntasFormateadas,
-        creadoEn: serverTimestamp(),
+        caseText,
+        specialty,
+        topic,
+        questions: questionsFormatted,
+        createdAt: serverTimestamp(),
       });
     }
   }
 
-  alert("Importación de solicitudes desde JSON completada.");
+  alert("Importación de exámenes desde JSON completada.");
 
-  esperar loadSections();
-  si (currentSectionId) {
-    esperar cargarExámenesParaSección(currentSectionId);
+  await loadSections();
+  if (currentSectionId) {
+    await loadExamsForSection(currentSectionId);
   }
 }
 
-si (btnImportExamsJson) {
-  btnImportExamsJson.addEventListener("clic", () => {
+if (btnImportExamsJson) {
+  btnImportExamsJson.addEventListener("click", () => {
     openJsonFilePicker(async (json) => {
-      intentar {
-        esperar importExamsFromJson(json);
-      } atrapar (err) {
-        console.error("Error al importar solicitudes desde JSON:", err);
+      try {
+        await importExamsFromJson(json);
+      } catch (err) {
+        console.error("Error importando exámenes desde JSON:", err);
         alert("Hubo un error al importar los exámenes. Revisa la consola.");
       }
     });
@@ -3288,670 +3288,670 @@ si (btnImportExamsJson) {
  * DETALLE DE EXAMEN (CASOS CLÍNICOS + PREGUNTAS)
  ****************************************************/
 
-función createEmptyQuestion() {
-  devolver {
-    preguntaTexto: "",
-    opciónA: "",
-    opciónB: "",
-    opciónC: "",
-    opciónD: "",
-    opcióncorrecta: "",
-    justificación: "",
-    subtipo: "salud_publica",
-    dificultad: "medios",
+function createEmptyQuestion() {
+  return {
+    questionText: "",
+    optionA: "",
+    optionB: "",
+    optionC: "",
+    optionD: "",
+    correctOption: "",
+    justification: "",
+    subtype: "salud_publica",
+    difficulty: "media",
   };
 }
 
-función createEmptyCase() {
-  devolver {
-    bankCaseId: nulo,
-    casoTexto: "",
-    especialidad: "",
-    tema: "",
-    preguntas: [createEmptyQuestion()],
+function createEmptyCase() {
+  return {
+    bankCaseId: null,
+    caseText: "",
+    specialty: "",
+    topic: "",
+    questions: [createEmptyQuestion()],
   };
 }
 
 /**
  * Sincroniza currentExamCases con TODO lo escrito en el DOM actual.
  */
-función syncCurrentExamCasesFromDOM() {
-  si (!examCasesContainer) retorna;
+function syncCurrentExamCasesFromDOM() {
+  if (!examCasesContainer) return;
 
-  const caseBlocks = examCasesContainer.querySelectorAll(".examen-caso-bloque");
-  constante nuevosCasos = [];
+  const caseBlocks = examCasesContainer.querySelectorAll(".exam-case-block");
+  const newCases = [];
 
-  caseBlocks.forEach((bloque) => {
-    constante caseText =
-      bloque.querySelector(".admin-case-text")?.value.trim() || "";
-    const especialidad =
-      bloque.querySelector(".admin-case-specialty")?.valor || "";
-    tema constante =
-      bloque.querySelector(".tema-del-caso-de-administración")?.value.trim() || "";
+  caseBlocks.forEach((block) => {
+    const caseText =
+      block.querySelector(".admin-case-text")?.value.trim() || "";
+    const specialty =
+      block.querySelector(".admin-case-specialty")?.value || "";
+    const topic =
+      block.querySelector(".admin-case-topic")?.value.trim() || "";
 
-    const bankCaseId = (bloque.dataset.bankCaseId || "").trim() || null;
+    const bankCaseId = (block.dataset.bankCaseId || "").trim() || null;
 
-    const qBlocks = block.querySelectorAll(".bloque-de-preguntas-de-examen");
-    const preguntas = [];
+    const qBlocks = block.querySelectorAll(".exam-question-block");
+    const questions = [];
 
-    qBlocks.paraCada((qb) => {
-      constante preguntaTexto =
-        qb.querySelector(".admin-q-pregunta")?.value.trim() || "";
-      constante opciónA = qb.querySelector(".admin-qa")?.value.trim() || "";
-      constante opciónB = qb.querySelector(".admin-qb")?.value.trim() || "";
-      constante opciónC = qb.querySelector(".admin-qc")?.valor.trim() || "";
-      constante opciónD = qb.querySelector(".admin-qd")?.valor.trim() || "";
-      constante opcióncorrecta =
-        qb.querySelector(".admin-q-correct")?.valor || "";
-      subtipo constante =
-        qb.querySelector(".admin-q-subtype")?.valor || "salud_publica";
-      dificultad constante =
-        qb.querySelector(".admin-q-difficulty")?.value || "medios";
-      justificación constante =
+    qBlocks.forEach((qb) => {
+      const questionText =
+        qb.querySelector(".admin-q-question")?.value.trim() || "";
+      const optionA = qb.querySelector(".admin-q-a")?.value.trim() || "";
+      const optionB = qb.querySelector(".admin-q-b")?.value.trim() || "";
+      const optionC = qb.querySelector(".admin-q-c")?.value.trim() || "";
+      const optionD = qb.querySelector(".admin-q-d")?.value.trim() || "";
+      const correctOption =
+        qb.querySelector(".admin-q-correct")?.value || "";
+      const subtype =
+        qb.querySelector(".admin-q-subtype")?.value || "salud_publica";
+      const difficulty =
+        qb.querySelector(".admin-q-difficulty")?.value || "media";
+      const justification =
         qb.querySelector(".admin-q-justification")?.value.trim() || "";
 
-      constante todoVacío =
-        !preguntaTexto &&
-        !opcionA &&
-        !opcionB &&
-        !opcionC &&
-        !opcionD &&
-        !justificación;
+      const allEmpty =
+        !questionText &&
+        !optionA &&
+        !optionB &&
+        !optionC &&
+        !optionD &&
+        !justification;
 
-      si (allEmpty) retorna;
+      if (allEmpty) return;
 
-      preguntas.push({
-        preguntaTexto,
-        opciónA,
-        opciónB,
-        opciónC,
-        opciónD,
-        Opción correcta,
-        subtipo,
-        dificultad,
-        justificación,
+      questions.push({
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        subtype,
+        difficulty,
+        justification,
       });
     });
 
-    si (!caseText && !preguntas.longitud) devolver;
+    if (!caseText && !questions.length) return;
 
-    nuevosCasos.push({
-      ID de caso bancario,
-      casoTexto,
-      especialidad,
-      tema,
-      preguntas: preguntas.longitud ? preguntas : [createEmptyQuestion()],
+    newCases.push({
+      bankCaseId,
+      caseText,
+      specialty,
+      topic,
+      questions: questions.length ? questions : [createEmptyQuestion()],
     });
   });
 
-  casosdeexamenactuales =
+  currentExamCases =
     newCases.length > 0 ? newCases : [createEmptyCase()];
 }
 
-función asíncrona openExamDetail(examId, examName) {
-  si (!_isRestoringNav) {
-    adminNavState.panel = "exámenes";
-    adminNavState.view = "detalle_del_examen";
-    adminNavState.examId = idExamen;
+async function openExamDetail(examId, examName) {
+  if (!_isRestoringNav) {
+    adminNavState.panel = "exams";
+    adminNavState.view = "exam_detail";
+    adminNavState.examId = examId;
     adminNavState.sectionId = currentSectionId || adminNavState.sectionId;
-    persistirAdminNavState();
+    persistAdminNavState();
     pushAdminHistoryIfChanged();
   }
-  currentExamId = IdExamen;
-  casosDeExamenActuales = [];
+  currentExamId = examId;
+  currentExamCases = [];
 
-  mostrar(panelExámenes);
-  mostrar(examDetailView);
+  show(panelExams);
+  show(examDetailView);
 
-  restablecerBankSearchUI();
+  resetBankSearchUI();
 
-  si (examTitleInput) {
-    examTitleInput.value = nombreExamen || "";
+  if (examTitleInput) {
+    examTitleInput.value = examName || "";
   }
-  si (ContenedorCasosExamen) {
+  if (examCasesContainer) {
     examCasesContainer.innerHTML = "";
   }
 
-  constante qCases = consulta(
-    colección(db, "preguntas"),
-    donde("IdExamen", "==", IdExamen)
+  const qCases = query(
+    collection(db, "questions"),
+    where("examId", "==", examId)
   );
-  constante snap = esperar getDocs(qCases);
+  const snap = await getDocs(qCases);
 
-  si (snap.vacío) {
+  if (snap.empty) {
     currentExamCases = [createEmptyCase()];
-  } demás {
-    CasosDeExámenesActuales = snap.docs.map((d) => {
-      constante datos = d.datos() || {};
-      devolver {
-        identificación: d.id,
-        ...datos,
-        tema: (datos?.tema || "").toString(),
-        bankCaseId: datos.bankCaseId || nulo,
+  } else {
+    currentExamCases = snap.docs.map((d) => {
+      const data = d.data() || {};
+      return {
+        id: d.id,
+        ...data,
+        topic: (data?.topic || "").toString(),
+        bankCaseId: data.bankCaseId || null,
       };
     });
   }
 
-  renderizarCasosDeExamen();
+  renderExamCases();
 
-  esperar loadBankCasesIfNeeded();
+  await loadBankCasesIfNeeded();
 }
 /****************************************************
- *CONTINÚA ADMIN.JS - PARTE 2/2
+ * CONTINÚA ADMIN.JS - PARTE 2/2
  ****************************************************/
 
-función renderExamCases() {
-  si (!examCasesContainer) retorna;
+function renderExamCases() {
+  if (!examCasesContainer) return;
   examCasesContainer.innerHTML = "";
 
-  si (!currentExamCases.length) {
+  if (!currentExamCases.length) {
     currentExamCases.push(createEmptyCase());
   }
 
-  currentExamCases.forEach((caseData, índice) => {
-    constante wrapper = document.createElement("div");
-    wrapper.className = "tarjeta examen-caso-bloque";
-    wrapper.dataset.caseIndex = índice;
+  currentExamCases.forEach((caseData, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "card exam-case-block";
+    wrapper.dataset.caseIndex = index;
 
-    // ✅ Persistencia en DOM para sincronizar + guardado
+    // ✅ Persistencia en DOM para sync + guardado
     wrapper.dataset.bankCaseId = caseData.bankCaseId || "";
 
-    const specialityValue = caseData.specialty || "";
-    constante valorDeTema = (caseData.tema || "").toString();
-    constante preguntasArr = Array.isArray(caseData.preguntas)
-      ? caseData.preguntas
+    const specialtyValue = caseData.specialty || "";
+    const topicValue = (caseData.topic || "").toString();
+    const questionsArr = Array.isArray(caseData.questions)
+      ? caseData.questions
       : [];
 
     wrapper.innerHTML = `
-      <div clase="flex-row" estilo="justificar-contenido:espacio-entre;alinear-elementos:centro;margen-inferior:10px;">
+      <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3 style="font-size:15px;font-weight:600;">
           Caso clínico ${index + 1}
         </h3>
         <button type="button" class="btn btn-sm btn-outline admin-delete-case">
           Eliminar caso clínico
-        </botón>
+        </button>
       </div>
 
-      <label class="campo">
+      <label class="field">
         <span>Especialidad</span>
-        <select class="especialidad-de-casos-de-administración">
+        <select class="admin-case-specialty">
           <option value="">Selecciona...</option>
-          ${Object.entries(ESPECIALIDADES)
-            .mapa(
-              ([clave, etiqueta]) =>
-                `<opción valor="${clave}" ${
-                  clave === valorEspecialidad ? "seleccionado" : ""
-                }>${etiqueta}</opción>`
+          ${Object.entries(SPECIALTIES)
+            .map(
+              ([key, label]) =>
+                `<option value="${key}" ${
+                  key === specialtyValue ? "selected" : ""
+                }>${label}</option>`
             )
-            .unirse("")}
-        </seleccionar>
-      </etiqueta>
+            .join("")}
+        </select>
+      </label>
 
-      <label class="campo">
-        <span>Tema (tópico)</span>
-        <input type="text" class="admin-case-topic" value="${topicValue.replace(/"/g, """)}" placeholder="Escribe el tema..." />
-      </etiqueta>
+      <label class="field">
+        <span>Tema (topic)</span>
+        <input type="text" class="admin-case-topic" value="${topicValue.replace(/"/g, "&quot;")}" placeholder="Escribe el tema..." />
+      </label>
 
-      <label class="campo">
+      <label class="field">
         <span>Texto del caso clínico</span>
         <textarea class="admin-case-text" rows="4">${caseData.caseText || ""}</textarea>
-      </etiqueta>
+      </label>
 
-      <div class="preguntas-de-caso-de-administración-de-lista-de-tarjetas"></div>
+      <div class="cards-list admin-case-questions"></div>
 
-      <div clase="flex-row" estilo="justify-content:flex-end;margin-top:10px;">
+      <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
         <button type="button" class="btn btn-sm btn-primary admin-add-question">
           + Agregar pregunta
-        </botón>
+        </button>
       </div>
     `;
 
-    const qContainer = wrapper.querySelector(".preguntas-de-caso-de-administración");
+    const qContainer = wrapper.querySelector(".admin-case-questions");
 
-    si (!preguntasArr.longitud) {
+    if (!questionsArr.length) {
       qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
-    } demás {
-      preguntasArr.forEach((qData) => {
+    } else {
+      questionsArr.forEach((qData) => {
         qContainer.appendChild(renderQuestionBlock(qData));
       });
     }
 
-    envoltura
+    wrapper
       .querySelector(".admin-add-question")
-      .addEventListener("clic", () => {
+      .addEventListener("click", () => {
         qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
       });
 
-    envoltura
-      .querySelector(".admin-eliminar-caso")
-      .addEventListener("clic", () => {
-        constante idx = parseInt(wrapper.dataset.caseIndex, 10);
-        si (Number.isNaN(idx)) retorna;
-        sincronizarCasosDeExámenesActualesDesdeDOM();
+    wrapper
+      .querySelector(".admin-delete-case")
+      .addEventListener("click", () => {
+        const idx = parseInt(wrapper.dataset.caseIndex, 10);
+        if (Number.isNaN(idx)) return;
+        syncCurrentExamCasesFromDOM();
         currentExamCases.splice(idx, 1);
-        renderizarCasosDeExamen();
+        renderExamCases();
       });
 
-    examCasesContainer.appendChild(envoltorio);
+    examCasesContainer.appendChild(wrapper);
   });
 
-  constante bottomActions = document.createElement("div");
+  const bottomActions = document.createElement("div");
   bottomActions.className = "flex-row";
-  bottomActions.style.justifyContent = "extremo flexible";
+  bottomActions.style.justifyContent = "flex-end";
   bottomActions.style.marginTop = "16px";
 
   bottomActions.innerHTML = `
     <button type="button" class="btn btn-secondary" id="admin-btn-add-case-bottom">
       + Agregar caso clínico
-    </botón>
+    </button>
     <button type="button" class="btn btn-primary" id="admin-btn-save-exam-bottom">
       Guardar examen
-    </botón>
+    </button>
   `;
 
-  examCasesContainer.appendChild(accionesinferiores);
+  examCasesContainer.appendChild(bottomActions);
 
-  constante btnAddCaseBottom = document.getElementById("admin-btn-add-case-bottom");
+  const btnAddCaseBottom = document.getElementById("admin-btn-add-case-bottom");
   const btnSaveExamBottom = document.getElementById("admin-btn-save-exam-bottom");
 
-  si (btnAddCaseBottom) {
-    btnAddCaseBottom.addEventListener("clic", () => {
-      si (!currentExamId) {
+  if (btnAddCaseBottom) {
+    btnAddCaseBottom.addEventListener("click", () => {
+      if (!currentExamId) {
         alert("Primero abre un examen.");
-        devolver;
+        return;
       }
-      sincronizarCasosDeExámenesActualesDesdeDOM();
+      syncCurrentExamCasesFromDOM();
       currentExamCases.push(createEmptyCase());
-      renderizarCasosDeExamen();
+      renderExamCases();
     });
   }
 
-  si (btnGuardarExamenInferior && btnGuardarExamenTodo) {
-    btnSaveExamBottom.addEventListener("clic", () => {
-      btnGuardarExamenTodo.click();
+  if (btnSaveExamBottom && btnSaveExamAll) {
+    btnSaveExamBottom.addEventListener("click", () => {
+      btnSaveExamAll.click();
     });
   }
 }
 
-función renderQuestionBlock(qData) {
-  constante {
-    preguntaTexto = "",
-    opciónA = "",
-    opciónB = "",
-    opciónC = "",
-    opciónD = "",
-    opcióncorrecta = "",
-    justificación = "",
-    subtipo = "salud_publica",
-    dificultad = "medios",
-  } = qDatos;
+function renderQuestionBlock(qData) {
+  const {
+    questionText = "",
+    optionA = "",
+    optionB = "",
+    optionC = "",
+    optionD = "",
+    correctOption = "",
+    justification = "",
+    subtype = "salud_publica",
+    difficulty = "media",
+  } = qData;
 
-  constante tarjeta = documento.createElement("div");
-  card.className = "tarjeta-elemento-examen-pregunta-bloque";
+  const card = document.createElement("div");
+  card.className = "card-item exam-question-block";
 
-  tarjeta.innerHTML = `
-    <label class="campo">
+  card.innerHTML = `
+    <label class="field">
       <span>Pregunta</span>
       <textarea class="admin-q-question" rows="2">${questionText}</textarea>
-    </etiqueta>
+    </label>
 
-    <label class="campo">
-      Opción A
-      <input type="text" class="admin-qa" value="${optionA}" />
-    </etiqueta>
+    <label class="field">
+      <span>Opción A</span>
+      <input type="text" class="admin-q-a" value="${optionA}" />
+    </label>
 
-    <label class="campo">
-      Opción B
-      <input type="text" class="admin-qb" value="${optionB}" />
-    </etiqueta>
+    <label class="field">
+      <span>Opción B</span>
+      <input type="text" class="admin-q-b" value="${optionB}" />
+    </label>
 
-    <label class="campo">
-      Opción C
-      <input type="text" class="admin-qc" value="${optionC}" />
-    </etiqueta>
+    <label class="field">
+      <span>Opción C</span>
+      <input type="text" class="admin-q-c" value="${optionC}" />
+    </label>
 
-    <label class="campo">
-      Opción D
-      <input tipo="texto" clase="admin-qd" valor="${opciónD}" />
-    </etiqueta>
+    <label class="field">
+      <span>Opción D</span>
+      <input type="text" class="admin-q-d" value="${optionD}" />
+    </label>
 
-    <label class="campo">
+    <label class="field">
       <span>Respuesta correcta</span>
-      <seleccionar clase="admin-q-correct">
-        <option value="">Selección</option>
+      <select class="admin-q-correct">
+        <option value="">Selecciona</option>
         <option value="A" ${correctOption === "A" ? "selected" : ""}>A</option>
-        <opción valor="B" ${OpciónCorrecta === "B" ? "seleccionado" : ""}>B</opción>
-        <opción valor="C" ${OpciónCorrecta === "C" ? "seleccionado" : ""}>C</opción>
-        <opción valor="D" ${opcióncorrecta === "D" ? "seleccionado" : ""}>D</opción>
-      </seleccionar>
-    </etiqueta>
+        <option value="B" ${correctOption === "B" ? "selected" : ""}>B</option>
+        <option value="C" ${correctOption === "C" ? "selected" : ""}>C</option>
+        <option value="D" ${correctOption === "D" ? "selected" : ""}>D</option>
+      </select>
+    </label>
 
-    <label class="campo">
+    <label class="field">
       <span>Tipo de pregunta</span>
-      <seleccionar clase="admin-q-subtype">
-        ${Objeto.entradas(SUBTIPOS)
-          .mapa(
-            ([clave, etiqueta]) =>
-              `<opción valor="${clave}" ${
-                clave === subtipo ? "seleccionado" : ""
-              }>${etiqueta}</opción>`
+      <select class="admin-q-subtype">
+        ${Object.entries(SUBTYPES)
+          .map(
+            ([key, label]) =>
+              `<option value="${key}" ${
+                key === subtype ? "selected" : ""
+              }>${label}</option>`
           )
-          .unirse("")}
-      </seleccionar>
-    </etiqueta>
+          .join("")}
+      </select>
+    </label>
 
-    <label class="campo">
-      Dificultad
+    <label class="field">
+      <span>Dificultad</span>
       <select class="admin-q-difficulty">
-        ${Objeto.entradas(DIFICULTADES)
-          .mapa(
-            ([clave, etiqueta]) =>
-              `<opción valor="${clave}" ${
-                clave === dificultad ? "seleccionado" : ""
-              }>${etiqueta}</opción>`
+        ${Object.entries(DIFFICULTIES)
+          .map(
+            ([key, label]) =>
+              `<option value="${key}" ${
+                key === difficulty ? "selected" : ""
+              }>${label}</option>`
           )
-          .unirse("")}
-      </seleccionar>
-    </etiqueta>
+          .join("")}
+      </select>
+    </label>
 
-    <label class="campo">
+    <label class="field">
       <span>Justificación</span>
-      <textarea class="admin-q-justification" rows="2">${justificación}</textarea>
-    </etiqueta>
+      <textarea class="admin-q-justification" rows="2">${justification}</textarea>
+    </label>
 
     <div style="text-align:right;margin-top:6px;">
       <button type="button" class="btn btn-sm btn-outline admin-delete-question">
         Eliminar pregunta
-      </botón>
+      </button>
     </div>
   `;
 
-  tarjeta
-    .querySelector(".admin-eliminar-pregunta")
-    .addEventListener("clic", () => {
-      tarjeta.eliminar();
+  card
+    .querySelector(".admin-delete-question")
+    .addEventListener("click", () => {
+      card.remove();
     });
 
-  tarjeta de devolución;
+  return card;
 }
 
-// Botón "Volver a solicitudes"
-si (btnVolverAExámenes) {
-  btnBackToExams.addEventListener("clic", () => {
-    const st = historial.estado?.adminNav;
-    si (st && st.view === "detalle_del_examen") {
+// Botón "Volver a exámenes"
+if (btnBackToExams) {
+  btnBackToExams.addEventListener("click", () => {
+    const st = history.state?.adminNav;
+    if (st && st.view === "exam_detail") {
       // Mantiene coherencia con el botón físico/gesto "Atrás"
-      historia.atrás();
-      devolver;
+      history.back();
+      return;
     }
 
-    // Fallback (por si no hay estado en la historia)
-    currentExamId = nulo;
-    casosDeExamenActuales = [];
+    // Fallback (por si no hay estado en history)
+    currentExamId = null;
+    currentExamCases = [];
     if (examCasesContainer) examCasesContainer.innerHTML = "";
-    ocultar(examDetailView);
-    mostrar(panelExámenes);
+    hide(examDetailView);
+    show(panelExams);
 
-    restablecerBankSearchUI();
+    resetBankSearchUI();
 
-    si (currentSectionId) {
-      cargarExámenesParaSección(currentSectionId);
+    if (currentSectionId) {
+      loadExamsForSection(currentSectionId);
     }
 
-    si (!_isRestoringNav) {
-      adminNavState.panel = "exámenes";
-      adminNavState.view = "lista_de_exámenes";
-      adminNavState.examId = nulo;
+    if (!_isRestoringNav) {
+      adminNavState.panel = "exams";
+      adminNavState.view = "exams_list";
+      adminNavState.examId = null;
       adminNavState.sectionId = currentSectionId || adminNavState.sectionId;
-      persistirAdminNavState();
-      reemplazarAdminHistory();
+      persistAdminNavState();
+      replaceAdminHistory();
     }
   });
 }
 
-// Guardar examen (✅ con delta de useCount y persistencia bankCaseId)
-si (btnGuardarExamenTodo) {
-  btnSaveExamAll.addEventListener("clic", async () => {
-    si (!currentExamId) {
+// Guardar examen (✅ con delta de usageCount y persistencia bankCaseId)
+if (btnSaveExamAll) {
+  btnSaveExamAll.addEventListener("click", async () => {
+    if (!currentExamId) {
       alert("No hay examen seleccionado.");
-      devolver;
+      return;
     }
 
-    constante nuevoNombre = examTitleInput.value.trim();
-    si (!nuevoNombre) {
+    const newName = examTitleInput.value.trim();
+    if (!newName) {
       alert("Escribe un nombre para el examen.");
-      devolver;
+      return;
     }
 
-    const caseBlocks = examCasesContainer.querySelectorAll(".examen-caso-bloque");
-    si (!caseBlocks.length) {
+    const caseBlocks = examCasesContainer.querySelectorAll(".exam-case-block");
+    if (!caseBlocks.length) {
       alert("Debes agregar al menos un caso clínico.");
-      devolver;
+      return;
     }
 
-    // ✅ Anteriores (para delta)
-    deje prevBankIds = [];
-    intentar {
-      constante qPrev = consulta(
-        colección(db, "preguntas"),
-        donde("IdExamen", "==", IdExamenActual)
+    // ✅ Previos (para delta)
+    let prevBankIds = [];
+    try {
+      const qPrev = query(
+        collection(db, "questions"),
+        where("examId", "==", currentExamId)
       );
-      constante prevSnap = esperar getDocs(qPrev);
+      const prevSnap = await getDocs(qPrev);
       prevBankIds = prevSnap.docs
         .map((d) => (d.data() || {}).bankCaseId)
-        .filtro(Booleano);
-    } captura (e) {
-      console.warn("No se pudieron cargar anteriores para delta useCount:", e);
+        .filter(Boolean);
+    } catch (e) {
+      console.warn("No se pudieron cargar previos para delta usageCount:", e);
     }
 
-    constante casosParaGuardar = [];
+    const casesToSave = [];
 
-    para (bloque constante de caseBlocks) {
-      constante caseText = bloque.querySelector(".admin-case-text").value.trim();
-      const especialidad = bloque.querySelector(".admin-case-specialty").valor;
-      constante tema = bloque.querySelector(".admin-case-topic")?.value.trim() || "";
-      const bankCaseId = (bloque.dataset.bankCaseId || "").trim() || null;
+    for (const block of caseBlocks) {
+      const caseText = block.querySelector(".admin-case-text").value.trim();
+      const specialty = block.querySelector(".admin-case-specialty").value;
+      const topic = block.querySelector(".admin-case-topic")?.value.trim() || "";
+      const bankCaseId = (block.dataset.bankCaseId || "").trim() || null;
 
-      si (!caseText) {
+      if (!caseText) {
         alert("Escribe el texto del caso clínico.");
-        devolver;
+        return;
       }
 
-      const qBlocks = block.querySelectorAll(".bloque-de-preguntas-de-examen");
-      si (!qBlocks.length) {
+      const qBlocks = block.querySelectorAll(".exam-question-block");
+      if (!qBlocks.length) {
         alert("Cada caso clínico debe tener al menos una pregunta.");
-        devolver;
+        return;
       }
 
-      const preguntas = [];
+      const questions = [];
 
-      para (const qb de qBlocks) {
-        constante preguntaTexto = qb.querySelector(".admin-q-pregunta").valor.trim();
-        constante opciónA = qb.querySelector(".admin-qa").valor.trim();
-        constante opciónB = qb.querySelector(".admin-qb").valor.trim();
-        constante opciónC = qb.querySelector(".admin-qc").valor.trim();
-        constante opciónD = qb.querySelector(".admin-qd").valor.trim();
-        constante correctOption = qb.querySelector(".admin-q-correct").valor;
-        constante subtipo = qb.querySelector(".admin-q-subtype").valor;
-        constante dificultad = qb.querySelector(".admin-q-difficulty").valor;
-        justificación constante = qb
+      for (const qb of qBlocks) {
+        const questionText = qb.querySelector(".admin-q-question").value.trim();
+        const optionA = qb.querySelector(".admin-q-a").value.trim();
+        const optionB = qb.querySelector(".admin-q-b").value.trim();
+        const optionC = qb.querySelector(".admin-q-c").value.trim();
+        const optionD = qb.querySelector(".admin-q-d").value.trim();
+        const correctOption = qb.querySelector(".admin-q-correct").value;
+        const subtype = qb.querySelector(".admin-q-subtype").value;
+        const difficulty = qb.querySelector(".admin-q-difficulty").value;
+        const justification = qb
           .querySelector(".admin-q-justification")
-          .valor.trim();
+          .value.trim();
 
-        si (
-          !TextoDePregunta ||
-          !opcionA ||
-          !opcionB ||
-          !opcionC ||
-          !opcionD ||
-          !OpciónCorrecta ||
-          !justificación
+        if (
+          !questionText ||
+          !optionA ||
+          !optionB ||
+          !optionC ||
+          !optionD ||
+          !correctOption ||
+          !justification
         ) {
           alert("Completa todos los campos de cada pregunta.");
-          devolver;
+          return;
         }
 
-        preguntas.push({
-          preguntaTexto,
-          opciónA,
-          opciónB,
-          opciónC,
-          opciónD,
-          Opción correcta,
-          subtipo,
-          dificultad,
-          justificación,
+        questions.push({
+          questionText,
+          optionA,
+          optionB,
+          optionC,
+          optionD,
+          correctOption,
+          subtype,
+          difficulty,
+          justification,
         });
       }
 
-      casosParaGuardar.push({
-        ID de caso bancario,
-        casoTexto,
-        especialidad,
-        tema,
-        preguntas,
+      casesToSave.push({
+        bankCaseId,
+        caseText,
+        specialty,
+        topic,
+        questions,
       });
     }
 
-    constante newBankIds = casosParaGuardar.map((c) => c.bankCaseId).filter(Boolean);
+    const newBankIds = casesToSave.map((c) => c.bankCaseId).filter(Boolean);
 
-    constante btn = btnGuardarExamenTodo;
+    const btn = btnSaveExamAll;
     setLoadingButton(btn, true, "Guardar examen");
 
-    intentar {
-      esperar updateDoc(doc(db, "exámenes", currentExamId), {
-        nombre: nuevoNombre,
-        actualizadoEn: serverTimestamp(),
+    try {
+      await updateDoc(doc(db, "exams", currentExamId), {
+        name: newName,
+        updatedAt: serverTimestamp(),
       });
 
-      // borrar anteriores
-      constante qPrev = consulta(
-        colección(db, "preguntas"),
-        donde("IdExamen", "==", IdExamenActual)
+      // borrar previos
+      const qPrev = query(
+        collection(db, "questions"),
+        where("examId", "==", currentExamId)
       );
-      constante prevSnap = esperar getDocs(qPrev);
-      para (const c de prevSnap.docs) {
-        esperar deleteDoc(c.ref);
+      const prevSnap = await getDocs(qPrev);
+      for (const c of prevSnap.docs) {
+        await deleteDoc(c.ref);
       }
 
       // guardar nuevos
-      para (const c de casosParaGuardar) {
-        esperar addDoc(colección(db, "preguntas"), {
+      for (const c of casesToSave) {
+        await addDoc(collection(db, "questions"), {
           examId: currentExamId,
-          bankCaseId: c.bankCaseId || nulo, // ✅ persistente
-          casoTexto: c.casoTexto,
-          especialidad: c.especialidad,
-          tema: c.topic || "",
-          preguntas: c.preguntas,
-          creadoEn: serverTimestamp(),
+          bankCaseId: c.bankCaseId || null, // ✅ persistente
+          caseText: c.caseText,
+          specialty: c.specialty,
+          topic: c.topic || "",
+          questions: c.questions,
+          createdAt: serverTimestamp(),
         });
       }
 
-      // ✅ Ajuste real de useCount
-      esperar applyUsageDelta(prevBankIds, newBankIds);
+      // ✅ Ajuste real de usageCount
+      await applyUsageDelta(prevBankIds, newBankIds);
 
       alert("Examen guardado correctamente.");
-      si (currentSectionId) {
-        esperar cargarExámenesParaSección(currentSectionId);
+      if (currentSectionId) {
+        await loadExamsForSection(currentSectionId);
       }
 
       // refrescar buscador (para que se deshabiliten bien y refresque usado)
-      restablecerBankSearchUI();
-      esperar loadBankCasesIfNeeded();
-    } atrapar (err) {
-      consola.error(err);
+      resetBankSearchUI();
+      await loadBankCasesIfNeeded();
+    } catch (err) {
+      console.error(err);
       alert("Hubo un error al guardar el examen.");
-    } finalmente {
+    } finally {
       setLoadingButton(btn, false, "Guardar examen");
     }
   });
 }
 
 // Botón "Agregar caso clínico" superior
-si (btnAddCaseTop) {
-  btnAddCaseTop.addEventListener("clic", () => {
-    si (!currentExamId) {
+if (btnAddCaseTop) {
+  btnAddCaseTop.addEventListener("click", () => {
+    if (!currentExamId) {
       alert("Primero abre un examen.");
-      devolver;
+      return;
     }
-    sincronizarCasosDeExámenesActualesDesdeDOM();
+    syncCurrentExamCasesFromDOM();
     currentExamCases.push(createEmptyCase());
-    renderizarCasosDeExamen();
+    renderExamCases();
   });
 }
 
 /**
  * Importar un solo examen (JSON) directamente al formulario del examen abierto.
  */
-función normalizarPreguntaDesdeJson(raw) {
-  devolver {
-    preguntaTexto: raw.preguntaTexto || raw.pregunta || "",
-    opciónA: raw.opciónA || crudo.a || "",
-    opciónB: raw.opcionB || raw.b || "",
-    opciónC: raw.opcionC || raw.c || "",
-    opciónD: raw.opcionD || raw.d || "",
-    opciónCorrecta: raw.opciónCorrecta || raw.correcto || raw.respuesta || "",
-    subtipo: raw.subtype || "salud_publica",
-    dificultad: raw.difficulty || "media",
-    justificación: raw.justification || raw.explanation || "",
+function normalizeQuestionFromJson(raw) {
+  return {
+    questionText: raw.questionText || raw.question || "",
+    optionA: raw.optionA || raw.a || "",
+    optionB: raw.optionB || raw.b || "",
+    optionC: raw.optionC || raw.c || "",
+    optionD: raw.optionD || raw.d || "",
+    correctOption: raw.correctOption || raw.correct || raw.answer || "",
+    subtype: raw.subtype || "salud_publica",
+    difficulty: raw.difficulty || "media",
+    justification: raw.justification || raw.explanation || "",
   };
 }
 
-función cargarExamFromJsonIntoUI(json) {
-  constante nombreExamen =
-    (json && (json.nombreExamen || json.nombre)) ||
-    (examTitleInput ? examTitleInput.valor : "");
+function loadExamFromJsonIntoUI(json) {
+  const examName =
+    (json && (json.examName || json.name)) ||
+    (examTitleInput ? examTitleInput.value : "");
 
-  si (examTitleInput && examName) {
-    examTitleInput.value = nombreExamen;
+  if (examTitleInput && examName) {
+    examTitleInput.value = examName;
   }
 
-  deje que casesArr = [];
+  let casesArr = [];
 
-  si (Array.isArray(json)) {
-    casosArr = json;
-  } de lo contrario si (Array.isArray(json.cases)) {
-    casosArr = json.casos;
-  } demás {
-    alerta(
+  if (Array.isArray(json)) {
+    casesArr = json;
+  } else if (Array.isArray(json.cases)) {
+    casesArr = json.cases;
+  } else {
+    alert(
       "El JSON debe ser un objeto con propiedad 'cases' o un arreglo de casos clínicos."
     );
-    devolver;
+    return;
   }
 
-  si (!casesArr.length) {
+  if (!casesArr.length) {
     alert("El JSON no contiene casos clínicos.");
-    devolver;
+    return;
   }
 
-  CasosDeExamenActuales = casosArr.map((c) => {
-    const caseText = c.caseText || c.caso || "";
-    const especialidad = c.especialidad || "";
-    constante tema = (c.tema || "").toString().trim();
-    const qsRaw = Array.isArray(c.preguntas) ? c.preguntas : [];
-    preguntas constantes =
-      qsRaw.longitud > 0
-        ? qsRaw.map((q) => normalizarPreguntaDeJson(q))
-        : [crearPreguntaVacía()];
+  currentExamCases = casesArr.map((c) => {
+    const caseText = c.caseText || c.case || "";
+    const specialty = c.specialty || "";
+    const topic = (c.topic || "").toString().trim();
+    const qsRaw = Array.isArray(c.questions) ? c.questions : [];
+    const questions =
+      qsRaw.length > 0
+        ? qsRaw.map((q) => normalizeQuestionFromJson(q))
+        : [createEmptyQuestion()];
 
-    devolver { bankCaseId: null, caseText, especialidad, tema, preguntas };
+    return { bankCaseId: null, caseText, specialty, topic, questions };
   });
 
-  renderizarCasosDeExamen();
+  renderExamCases();
 }
 
-si (btnImportExamJson) {
-  btnImportExamJson.addEventListener("clic", () => {
-    si (!examDetailView || examDetailView.classList.contains("oculto")) {
+if (btnImportExamJson) {
+  btnImportExamJson.addEventListener("click", () => {
+    if (!examDetailView || examDetailView.classList.contains("hidden")) {
       alert("Abre primero un examen para poder importar.");
-      devolver;
+      return;
     }
 
     openJsonFilePicker((json) => {
-      intentar {
-        cargarExamFromJsonIntoUI(json);
-      } atrapar (err) {
-        console.error("Error al cargar examen desde JSON:", err);
+      try {
+        loadExamFromJsonIntoUI(json);
+      } catch (err) {
+        console.error("Error cargando examen desde JSON:", err);
         alert("No se pudo cargar el examen desde el JSON.");
       }
     });
@@ -3959,12 +3959,12 @@ si (btnImportExamJson) {
 }
 
 /****************************************************
- * BANCO DE PREGUNTAS (preguntas) – Panel administrador-panel-banco
+ * BANCO DE PREGUNTAS (questions) – Panel admin-panel-bank
  * ✅ Preguntas editables tipo examen (no JSON)
  ****************************************************/
 
-const bankFilterCaseText = document.getElementById("búsqueda-bancaria-administrador");
-const bankFilterTopic = document.getElementById("tema-del-banco-de-administración");
+const bankFilterCaseText = document.getElementById("admin-bank-search");
+const bankFilterTopic = document.getElementById("admin-bank-topic");
 const bankFilterSpecialty = document.getElementById("admin-bank-specialty");
 const bankFilterExamId = document.getElementById("admin-bank-examid");
 
@@ -3972,76 +3972,76 @@ const btnBankClear = document.getElementById("admin-bank-btn-clear");
 const btnBankRefresh = document.getElementById("admin-bank-btn-refresh");
 const btnBankApply = document.getElementById("admin-bank-btn-apply");
 
-const bankListEl = document.getElementById("admin-banco-lista");
+const bankListEl = document.getElementById("admin-bank-list");
 const btnBankLoadMore = document.getElementById("admin-bank-btn-load-more");
 
 // Estado del banco
-deje que bankPageSize = 20;
-deje que bankLastDoc = null;
-deje que bankIsLoading = falso;
-deje que bankHasMore = verdadero;
+let bankPageSize = 20;
+let bankLastDoc = null;
+let bankIsLoading = false;
+let bankHasMore = true;
 
 // Filtros actuales
-deje que bankActiveFilters = {
-  casoTexto: "",
-  tema: "",
-  especialidad: "",
-  ID del examen: "",
+let bankActiveFilters = {
+  caseText: "",
+  topic: "",
+  specialty: "",
+  examId: "",
 };
 
-función getBankFiltersFromUI() {
-  devolver {
+function getBankFiltersFromUI() {
+  return {
     caseText: (bankFilterCaseText?.value || "").trim(),
-    tema: (bankFilterTopic?.value || "").trim(),
-    especialidad: (bankFilterSpecialty?.value || "").trim(),
-    IdExamen: (IDExamenFiltrBanco?.valor || "").recortar(),
+    topic: (bankFilterTopic?.value || "").trim(),
+    specialty: (bankFilterSpecialty?.value || "").trim(),
+    examId: (bankFilterExamId?.value || "").trim(),
   };
 }
 
-función bankCaseMatchesFilters(docData, filtros) {
+function bankCaseMatchesFilters(docData, filters) {
   const caseText = normalizeText(docData.caseText || "");
-  constante tema = normalizarTexto((docData.tema || "").toString());
-  constante especialidad = normalizarTexto((docData.especialidad || "").toString());
-  constante examId = normalizeText((docData.examId || "").toString());
+  const topic = normalizeText((docData.topic || "").toString());
+  const specialty = normalizeText((docData.specialty || "").toString());
+  const examId = normalizeText((docData.examId || "").toString());
 
-  constante fCase = normalizarTexto(filtros.caseText || "");
-  const fTopic = normalizeText(filtros.tema || "");
-  const fSpec = normalizeText(filtros.specialty || "");
-  constante fExam = normalizarTexto(filtros.examId || "");
+  const fCase = normalizeText(filters.caseText || "");
+  const fTopic = normalizeText(filters.topic || "");
+  const fSpec = normalizeText(filters.specialty || "");
+  const fExam = normalizeText(filters.examId || "");
 
-  si (fCase && !caseText.includes(fCase)) devuelve falso;
-  si (fTopic && !topic.includes(fTopic)) devuelve falso;
-  si (fSpec && !specialty.includes(fSpec)) devuelve falso;
-  si (fExam && !examId.includes(fExam)) devuelve falso;
+  if (fCase && !caseText.includes(fCase)) return false;
+  if (fTopic && !topic.includes(fTopic)) return false;
+  if (fSpec && !specialty.includes(fSpec)) return false;
+  if (fExam && !examId.includes(fExam)) return false;
 
-  devuelve verdadero;
+  return true;
 }
 
-// ayudantes (usa escapeHtml global definido arriba)
+// helpers (usa escapeHtml global definida arriba)
 
-función renderBankItem(docId, datos) {
-  const specLabel = getSpecialtyLabel(datos.specialty || "");
-  const topicTxt = (datos.tema || "").toString();
-  const qCount = Array.isArray(datos.preguntas) ? datos.preguntas.length : 0;
-  const uso = tipo de datos.conteoDeUso === "número" ? datos.conteoDeUso: 0;
+function renderBankItem(docId, data) {
+  const specLabel = getSpecialtyLabel(data.specialty || "");
+  const topicTxt = (data.topic || "").toString();
+  const qCount = Array.isArray(data.questions) ? data.questions.length : 0;
+  const usage = typeof data.usageCount === "number" ? data.usageCount : 0;
 
-  constante wrap = document.createElement("div");
-  wrap.className = "elemento-de-tarjeta";
+  const wrap = document.createElement("div");
+  wrap.className = "card-item";
   wrap.dataset.id = docId;
-  wrap.dataset.mode = "vista";
+  wrap.dataset.mode = "view";
 
-  fragmento constante = escapeHtml((dat a.caseText || "").slice(0, 240));
-  const hasMore = (datos.caseText || "").length > 240;
+  const snippet = escapeHtml((data.caseText || "").slice(0, 240));
+  const hasMore = (data.caseText || "").length > 240;
 
   wrap.innerHTML = `
-    <div clase="artículo-de-tarjeta__título-fila" estilo="alinear-artículos:flex-start;">
+    <div class="card-item__title-row" style="align-items:flex-start;">
       <div style="flex:1;">
         <div class="card-item__title" style="margin-bottom:6px;">
-          ${escapeHtml(topicTxt || specLabel || "Caso (preguntas)")}
+          ${escapeHtml(topicTxt || specLabel || "Caso (questions)")}
         </div>
         <div style="font-size:12px;color:#9ca3af;">
           <div><strong>ID:</strong> <code>${docId}</code></div>
-          <div><strong>ID del examen:</strong> <code>${escapeHtml((data.examId || "—") + "")}</code></div>
+          <div><strong>ExamID:</strong> <code>${escapeHtml((data.examId || "—") + "")}</code></div>
           <div><strong>Tema:</strong> ${escapeHtml(topicTxt || "—")}</div>
           <div><strong>Preguntas:</strong> ${qCount}</div>
           <div><strong>Usado:</strong> ${usage}</div>
@@ -4050,7 +4050,7 @@ función renderBankItem(docId, datos) {
 
       <div class="card-item__actions">
         <button class="btn btn-sm btn-secondary admin-bank-inline-edit">Editar</button>
-        Eliminar
+        <button class="btn btn-sm btn-outline admin-bank-inline-delete">Eliminar</button>
       </div>
     </div>
 
@@ -4059,37 +4059,37 @@ función renderBankItem(docId, datos) {
     </div>
 
     <div class="admin-bank-edit hidden" style="margin-top:12px;">
-      <div clase="tarjeta" estilo="relleno:12px;">
-        <label class="campo">
+      <div class="card" style="padding:12px;">
+        <label class="field">
           <span>Especialidad</span>
           <select class="admin-bank-edit-specialty">
             <option value="">Selecciona...</option>
-            ${Object.entries(ESPECIALIDADES)
-              .map(([clave, etiqueta]) => `<opción valor="${clave}" ${clave === (datos.especialidad || "") ? "seleccionado" : ""}>${etiqueta}</opción>`)
-              .unirse("")}
-          </seleccionar>
-        </etiqueta>
+            ${Object.entries(SPECIALTIES)
+              .map(([key, label]) => `<option value="${key}" ${key === (data.specialty || "") ? "selected" : ""}>${label}</option>`)
+              .join("")}
+          </select>
+        </label>
 
-        <label class="campo">
-          <span>Tema (tópico)</span>
+        <label class="field">
+          <span>Tema (topic)</span>
           <input type="text" class="admin-bank-edit-topic" value="${escapeHtml((data.topic || "") + "")}" />
-        </etiqueta>
+        </label>
 
-        <label class="campo">
+        <label class="field">
           <span>Texto del caso clínico</span>
           <textarea class="admin-bank-edit-caseText" rows="5">${escapeHtml(data.caseText || "")}</textarea>
-        </etiqueta>
+        </label>
 
         <div class="card" style="padding:12px;margin-top:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             <div style="font-weight:600;font-size:13px;">Preguntas</div>
             <button type="button" class="btn btn-sm btn-primary admin-bank-add-question">+ Agregar pregunta</button>
           </div>
-          <div class="tarjetas-lista-administrador-banco-preguntas" style="margin-top:10px;"></div>
+          <div class="cards-list admin-bank-questions" style="margin-top:10px;"></div>
         </div>
 
-        <div clase="flex-row" estilo="justificar-contenido:flex-end;espacio:8px;margen-superior:10px;">
-          Cancelar
+        <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
+          <button class="btn btn-sm btn-outline admin-bank-inline-cancel">Cancelar</button>
           <button class="btn btn-sm btn-primary admin-bank-inline-save">Guardar</button>
         </div>
       </div>
@@ -4097,678 +4097,678 @@ función renderBankItem(docId, datos) {
   `;
 
   const btnEdit = wrap.querySelector(".admin-bank-inline-edit");
-  constante btnDelete = wrap.querySelector(".admin-bank-inline-delete");
-  constante btnCancel = wrap.querySelector(".admin-bank-inline-cancel");
-  constante btnSave = wrap.querySelector(".admin-bank-inline-save");
-  constante viewEl = wrap.querySelector(".admin-bank-view");
-  constante editEl = wrap.querySelector(".admin-bank-edit");
+  const btnDelete = wrap.querySelector(".admin-bank-inline-delete");
+  const btnCancel = wrap.querySelector(".admin-bank-inline-cancel");
+  const btnSave = wrap.querySelector(".admin-bank-inline-save");
+  const viewEl = wrap.querySelector(".admin-bank-view");
+  const editEl = wrap.querySelector(".admin-bank-edit");
 
   // ✅ cargar preguntas en modo editor (UI tipo examen)
-  const bankQContainer = wrap.querySelector(".admin-bank-preguntas");
-  const initialQs = Array.isArray(datos.preguntas) && datos.preguntas.length ? datos.preguntas : [createEmptyQuestion()];
+  const bankQContainer = wrap.querySelector(".admin-bank-questions");
+  const initialQs = Array.isArray(data.questions) && data.questions.length ? data.questions : [createEmptyQuestion()];
   initialQs.forEach((q) => bankQContainer.appendChild(renderQuestionBlock(q)));
 
-  wrap.querySelector(".admin-bank-add-question").addEventListener("clic", () => {
+  wrap.querySelector(".admin-bank-add-question").addEventListener("click", () => {
     bankQContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
   });
 
-  btnEdit.addEventListener("clic", () => {
-    wrap.dataset.mode = "editar";
-    viewEl.classList.add("oculto");
-    editEl.classList.remove("oculto");
-    btnEdit.disabled = verdadero;
+  btnEdit.addEventListener("click", () => {
+    wrap.dataset.mode = "edit";
+    viewEl.classList.add("hidden");
+    editEl.classList.remove("hidden");
+    btnEdit.disabled = true;
   });
 
-  btnCancel.addEventListener("clic", () => {
-    wrap.dataset.mode = "vista";
-    viewEl.classList.remove("oculto");
-    editEl.classList.add("oculto");
-    btnEdit.disabled = falso;
+  btnCancel.addEventListener("click", () => {
+    wrap.dataset.mode = "view";
+    viewEl.classList.remove("hidden");
+    editEl.classList.add("hidden");
+    btnEdit.disabled = false;
   });
 
-  btnDelete.addEventListener("clic", async () => {
-    const ok = window.confirm("¿Eliminar este caso del banco (preguntas)?");
-    si (!ok) retorna;
+  btnDelete.addEventListener("click", async () => {
+    const ok = window.confirm("¿Eliminar este caso del banco (questions)?");
+    if (!ok) return;
 
-    intentar {
-      esperar deleteDoc(doc(db, "preguntas", docId));
-      envolver.eliminar();
+    try {
+      await deleteDoc(doc(db, "questions", docId));
+      wrap.remove();
 
-      bankCasesLoadedOnce = falso;
+      bankCasesLoadedOnce = false;
       bankCasesCache = [];
-    } atrapar (err) {
-      consola.error(err);
+    } catch (err) {
+      console.error(err);
       alert("No se pudo eliminar el caso.");
     }
   });
 
-  btnSave.addEventListener("clic", async () => {
-    const especialidad = wrap.querySelector(".admin-bank-edit-specialty").valor || "";
-    constante tema = wrap.querySelector(".admin-bank-edit-topic").value.trim();
-    constante caseText = wrap.querySelector(".admin-bank-edit-caseText").value.trim();
+  btnSave.addEventListener("click", async () => {
+    const specialty = wrap.querySelector(".admin-bank-edit-specialty").value || "";
+    const topic = wrap.querySelector(".admin-bank-edit-topic").value.trim();
+    const caseText = wrap.querySelector(".admin-bank-edit-caseText").value.trim();
 
-    si (!caseText) {
+    if (!caseText) {
       alert("El texto del caso clínico no puede ir vacío.");
-      devolver;
+      return;
     }
 
     // ✅ recolectar preguntas desde UI
     const qBlocks = wrap.querySelectorAll(".admin-bank-questions .exam-question-block");
-    const preguntasParsed = [];
+    const questionsParsed = [];
 
-    para (const qb de qBlocks) {
-      constante preguntaTexto = qb.querySelector(".admin-q-pregunta").valor.trim();
-      constante opciónA = qb.querySelector(".admin-qa").valor.trim();
-      constante opciónB = qb.querySelector(".admin-qb").valor.trim();
-      constante opciónC = qb.querySelector(".admin-qc").valor.trim();
-      constante opciónD = qb.querySelector(".admin-qd").valor.trim();
-      constante correctOption = qb.querySelector(".admin-q-correct").valor;
-      constante subtipo = qb.querySelector(".admin-q-subtype").valor;
-      constante dificultad = qb.querySelector(".admin-q-difficulty").valor;
-      const justificación = qb.querySelector(".admin-q-justification").value.trim();
+    for (const qb of qBlocks) {
+      const questionText = qb.querySelector(".admin-q-question").value.trim();
+      const optionA = qb.querySelector(".admin-q-a").value.trim();
+      const optionB = qb.querySelector(".admin-q-b").value.trim();
+      const optionC = qb.querySelector(".admin-q-c").value.trim();
+      const optionD = qb.querySelector(".admin-q-d").value.trim();
+      const correctOption = qb.querySelector(".admin-q-correct").value;
+      const subtype = qb.querySelector(".admin-q-subtype").value;
+      const difficulty = qb.querySelector(".admin-q-difficulty").value;
+      const justification = qb.querySelector(".admin-q-justification").value.trim();
 
-      si (!TextoDePregunta || !opciónA || !opciónB || !opciónC || !opciónD || !opciónCorrecta || !justificación) {
+      if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctOption || !justification) {
         alert("Completa todos los campos de todas las preguntas.");
-        devolver;
+        return;
       }
 
-      preguntasParsed.push({
-        preguntaTexto,
-        opciónA,
-        opciónB,
-        opciónC,
-        opciónD,
-        Opción correcta,
-        subtipo,
-        dificultad,
-        justificación,
+      questionsParsed.push({
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        subtype,
+        difficulty,
+        justification,
       });
     }
 
-    si (!preguntasParsed.length) {
+    if (!questionsParsed.length) {
       alert("Debe existir al menos una pregunta.");
-      devolver;
+      return;
     }
 
     setLoadingButton(btnSave, true, "Guardar");
 
-    intentar {
-      esperar updateDoc(doc(db, "preguntas", docId), {
-        especialidad,
-        tema,
-        casoTexto,
-        preguntas: preguntasAnalizadas,
-        actualizadoEn: serverTimestamp(),
+    try {
+      await updateDoc(doc(db, "questions", docId), {
+        specialty,
+        topic,
+        caseText,
+        questions: questionsParsed,
+        updatedAt: serverTimestamp(),
       });
 
-      bankCasesLoadedOnce = falso;
+      bankCasesLoadedOnce = false;
       bankCasesCache = [];
 
-      esperar loadQuestionsBank(verdadero);
-    } atrapar (err) {
-      consola.error(err);
+      await loadQuestionsBank(true);
+    } catch (err) {
+      console.error(err);
       alert("No se pudo guardar la edición del caso.");
-    } finalmente {
+    } finally {
       setLoadingButton(btnSave, false, "Guardar");
     }
   });
 
-  envoltura de devolución;
+  return wrap;
 }
 
-función asíncrona loadQuestionsBank(reset = false) {
-  si (!bankListEl) retorna;
-  si (bankIsLoading) retorna;
+async function loadQuestionsBank(reset = false) {
+  if (!bankListEl) return;
+  if (bankIsLoading) return;
 
-  bankIsLoading = verdadero;
+  bankIsLoading = true;
 
-  si (reiniciar) {
+  if (reset) {
     bankListEl.innerHTML = "";
-    bancoLastDoc = nulo; //cursor de escaneo (preguntas)
-    bancoTieneMás = verdadero;
-    si (btnBankLoadMore) btnBankLoadMore.disabled = verdadero;
+    bankLastDoc = null; // cursor de escaneo (questions)
+    bankHasMore = true;
+    if (btnBankLoadMore) btnBankLoadMore.disabled = true;
   }
 
-  si (!bankListEl.children.length) {
+  if (!bankListEl.children.length) {
     bankListEl.innerHTML = `
       <div class="card" style="padding:12px 14px;font-size:13px;color:#9ca3af;">
-        Cargando banco de preguntas (preguntas)…
+        Cargando banco de preguntas (questions)…
       </div>
     `;
   }
 
-  intentar {
-    constante filtros = bankActiveFilters || obtenerBankFiltersFromUI();
+  try {
+    const filters = bankActiveFilters || getBankFiltersFromUI();
 
     // Estrategia: escanear por lotes y renderear SOLO coincidencias,
     // hasta llenar una "página" (bankPageSize) o llegar al final.
-    constante scanBatch = 250;
-    deje que se represente = 0;
-    deje que safetyLoops = 0;
+    const scanBatch = 250;
+    let rendered = 0;
+    let safetyLoops = 0;
 
-    // si venimos de resetear, limpiar marcador de posición
-    if (restablecer) bankListEl.innerHTML = "";
+    // si venimos de reset, limpiar placeholder
+    if (reset) bankListEl.innerHTML = "";
 
-    mientras (bankHasMore && renderizado < bankPageSize) {
-      bucles de seguridad++;
-      si (buclesdeseguridad > 80) {
-        // evita bucles infinitos en caso de filtros muy restrictivos + colección enorme
-        romper;
+    while (bankHasMore && rendered < bankPageSize) {
+      safetyLoops++;
+      if (safetyLoops > 80) {
+        // evita loops infinitos en caso de filtros muy restrictivos + colección enorme
+        break;
       }
 
-      deje qBase;
-      intentar {
-        qBase = consulta(
-          colección(db, "preguntas"),
-          ordenarPor("creadoEn", "desc"),
-          ...(bankLastDoc? [startAfter(bankLastDoc)] : []),
-          límite(scanBatch)
+      let qBase;
+      try {
+        qBase = query(
+          collection(db, "questions"),
+          orderBy("createdAt", "desc"),
+          ...(bankLastDoc ? [startAfter(bankLastDoc)] : []),
+          limit(scanBatch)
         );
-      } captura (e) {
-        qBase = consulta(
-          colección(db, "preguntas"),
-          ...(bankLastDoc? [startAfter(bankLastDoc)] : []),
-          límite(scanBatch)
+      } catch (e) {
+        qBase = query(
+          collection(db, "questions"),
+          ...(bankLastDoc ? [startAfter(bankLastDoc)] : []),
+          limit(scanBatch)
         );
       }
 
-      constante snap = esperar getDocs(qBase);
+      const snap = await getDocs(qBase);
 
-      si (!snap || !snap.docs || !snap.docs.length) {
-        bancoTieneMás = falso;
-        romper;
+      if (!snap || !snap.docs || !snap.docs.length) {
+        bankHasMore = false;
+        break;
       }
 
-      bancoLastDoc = snap.docs[snap.docs.length - 1];
+      bankLastDoc = snap.docs[snap.docs.length - 1];
 
       // Si el lote vino incompleto, probablemente ya es el final
-      si (snap.size < scanBatch) {
+      if (snap.size < scanBatch) {
         // Ojo: aún puede haber más, pero Firestore normalmente devuelve < limit al final
-        // Lo marcamos como que no hay más para evitar escaneos infinitos.
-        bancoTieneMás = falso;
-      } demás {
-        bancoTieneMás = verdadero;
+        // Lo marcamos como que no hay más para evitar scans infinitos.
+        bankHasMore = false;
+      } else {
+        bankHasMore = true;
       }
 
-      para (const d de snap.docs) {
-        constante datos = d.datos() || {};
-        si (!bankCaseMatchesFilters(datos, filtros)) continuar;
+      for (const d of snap.docs) {
+        const data = d.data() || {};
+        if (!bankCaseMatchesFilters(data, filters)) continue;
 
-        bankListEl.appendChild(renderBankItem(d.id, datos));
-        renderizado++;
+        bankListEl.appendChild(renderBankItem(d.id, data));
+        rendered++;
 
-        si (renderizado >= bankPageSize) romper;
+        if (rendered >= bankPageSize) break;
       }
     }
 
-    si (!bankListEl.children.length) {
-      renderEmptyMessage(bankListEl, "No hay resultados con esos filtros. Pruebe otros términos.");
+    if (!bankListEl.children.length) {
+      renderEmptyMessage(bankListEl, "No hay resultados con esos filtros. Prueba otros términos.");
     }
 
-    si (btnBankLoadMore) {
+    if (btnBankLoadMore) {
       btnBankLoadMore.disabled = !bankHasMore;
     }
-  } atrapar (err) {
-    consola.error(err);
+  } catch (err) {
+    console.error(err);
     renderEmptyMessage(bankListEl, "Error al cargar el banco. Revisa la consola.");
-    si (btnBankLoadMore) btnBankLoadMore.disabled = verdadero;
-  } finalmente {
-    bankIsLoading = falso;
+    if (btnBankLoadMore) btnBankLoadMore.disabled = true;
+  } finally {
+    bankIsLoading = false;
   }
 }
 
-si (btnBankApply) {
-  btnBankApply.addEventListener("clic", () => {
-    FiltrosActivosBanco = obtenerFiltrosBancoDesdeUI();
-    cargarPreguntasBanco(verdadero);
+if (btnBankApply) {
+  btnBankApply.addEventListener("click", () => {
+    bankActiveFilters = getBankFiltersFromUI();
+    loadQuestionsBank(true);
   });
 }
 
-si (btnBankRefresh) {
-  btnBankRefresh.addEventListener("clic", () => {
-    cargarPreguntasBanco(verdadero);
+if (btnBankRefresh) {
+  btnBankRefresh.addEventListener("click", () => {
+    loadQuestionsBank(true);
   });
 }
 
-si (btnBankClear) {
-  btnBankClear.addEventListener("clic", () => {
-    si (bankFilterCaseText) bankFilterCaseText.valor = "";
-    si (tema de filtro del banco) tema de filtro del banco.valor = "";
+if (btnBankClear) {
+  btnBankClear.addEventListener("click", () => {
+    if (bankFilterCaseText) bankFilterCaseText.value = "";
+    if (bankFilterTopic) bankFilterTopic.value = "";
     if (bankFilterSpecialty) bankFilterSpecialty.value = "";
-    si (bankFilterExamId) bankFilterExamId.value = "";
-    bankActiveFilters = { caseText: "", tema: "", especialidad: "", examId: "" };
-    cargarPreguntasBanco(verdadero);
+    if (bankFilterExamId) bankFilterExamId.value = "";
+    bankActiveFilters = { caseText: "", topic: "", specialty: "", examId: "" };
+    loadQuestionsBank(true);
   });
 }
 
-si (btnBankLoadMore) {
-  btnBankLoadMore.addEventListener("clic", () => {
-    si (!bankHasMore) retorna;
-    cargarPreguntasBanco(falso);
+if (btnBankLoadMore) {
+  btnBankLoadMore.addEventListener("click", () => {
+    if (!bankHasMore) return;
+    loadQuestionsBank(false);
   });
 }
 
 /****************************************************
- * MINI EXÁMENES – BANCO GLOBAL DE CASOS (miniPreguntas)
- * ✅ guarda bankCaseId y ajusta useCount por delta al guardar
+ * MINI EXÁMENES – BANCO GLOBAL DE CASOS (miniQuestions)
+ * ✅ guarda bankCaseId y ajusta usageCount por delta al guardar
  ****************************************************/
 
 const miniCasesContainer = document.getElementById("admin-mini-cases");
-constante btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
-constante btnMiniSaveAll = document.getElementById("admin-mini-btn-save-all");
+const btnMiniAddCase = document.getElementById("admin-mini-btn-add-case");
+const btnMiniSaveAll = document.getElementById("admin-mini-btn-save-all");
 
-función syncMiniCasesFromDOM() {
-  si (!miniCasesContainer) retorna;
+function syncMiniCasesFromDOM() {
+  if (!miniCasesContainer) return;
 
   const caseBlocks = miniCasesContainer.querySelectorAll(".mini-case-block");
-  constante nuevosCasos = [];
+  const newCases = [];
 
-  caseBlocks.forEach((bloque) => {
-    constante idx = parseInt(bloque.conjunto de datos.índice de caso, 10);
+  caseBlocks.forEach((block) => {
+    const idx = parseInt(block.dataset.caseIndex, 10);
     const prev = !Number.isNaN(idx) && miniCases[idx] ? miniCases[idx] : {};
 
-    constante caseText =
-      bloque.querySelector(".admin-mini-case-text")?.value.trim() || "";
-    const especialidad =
-      bloque.querySelector(".admin-mini-case-specialty")?.valor || "";
+    const caseText =
+      block.querySelector(".admin-mini-case-text")?.value.trim() || "";
+    const specialty =
+      block.querySelector(".admin-mini-case-specialty")?.value || "";
 
-    const bankCaseId = (bloque.dataset.bankCaseId || "").trim() || (prev.bankCaseId || null);
+    const bankCaseId = (block.dataset.bankCaseId || "").trim() || (prev.bankCaseId || null);
 
-    const qBlocks = block.querySelectorAll(".bloque-de-preguntas-de-examen");
-    const preguntas = [];
+    const qBlocks = block.querySelectorAll(".exam-question-block");
+    const questions = [];
 
-    qBlocks.paraCada((qb) => {
-      constante preguntaTexto =
-        qb.querySelector(".admin-q-pregunta")?.value.trim() || "";
-      constante opciónA = qb.querySelector(".admin-qa")?.value.trim() || "";
-      constante opciónB = qb.querySelector(".admin-qb")?.value.trim() || "";
-      constante opciónC = qb.querySelector(".admin-qc")?.valor.trim() || "";
-      constante opciónD = qb.querySelector(".admin-qd")?.valor.trim() || "";
-      constante opcióncorrecta =
-        qb.querySelector(".admin-q-correct")?.valor || "A";
-      subtipo constante =
-        qb.querySelector(".admin-q-subtype")?.valor || "salud_publica";
-      dificultad constante =
-        qb.querySelector(".admin-q-difficulty")?.value || "medios";
-      justificación constante =
+    qBlocks.forEach((qb) => {
+      const questionText =
+        qb.querySelector(".admin-q-question")?.value.trim() || "";
+      const optionA = qb.querySelector(".admin-q-a")?.value.trim() || "";
+      const optionB = qb.querySelector(".admin-q-b")?.value.trim() || "";
+      const optionC = qb.querySelector(".admin-q-c")?.value.trim() || "";
+      const optionD = qb.querySelector(".admin-q-d")?.value.trim() || "";
+      const correctOption =
+        qb.querySelector(".admin-q-correct")?.value || "A";
+      const subtype =
+        qb.querySelector(".admin-q-subtype")?.value || "salud_publica";
+      const difficulty =
+        qb.querySelector(".admin-q-difficulty")?.value || "media";
+      const justification =
         qb.querySelector(".admin-q-justification")?.value.trim() || "";
 
-      constante todoVacío =
-        !preguntaTexto &&
-        !opcionA &&
-        !opcionB &&
-        !opcionC &&
-        !opcionD &&
-        !justificación;
+      const allEmpty =
+        !questionText &&
+        !optionA &&
+        !optionB &&
+        !optionC &&
+        !optionD &&
+        !justification;
 
-      si (allEmpty) retorna;
+      if (allEmpty) return;
 
-      preguntas.push({
-        preguntaTexto,
-        opciónA,
-        opciónB,
-        opciónC,
-        opciónD,
-        Opción correcta,
-        subtipo,
-        dificultad,
-        justificación,
+      questions.push({
+        questionText,
+        optionA,
+        optionB,
+        optionC,
+        optionD,
+        correctOption,
+        subtype,
+        difficulty,
+        justification,
       });
     });
 
-    si (!caseText && !preguntas.longitud) devolver;
+    if (!caseText && !questions.length) return;
 
-    nuevosCasos.push({
-      id: prev.id || nulo,
-      ID de caso bancario,
-      casoTexto,
-      especialidad,
-      preguntas,
+    newCases.push({
+      id: prev.id || null,
+      bankCaseId,
+      caseText,
+      specialty,
+      questions,
     });
   });
 
-  miniCasos =
+  miniCases =
     newCases.length > 0
-      ? nuevos casos
-      :[
+      ? newCases
+      : [
           {
-            id: nulo,
-            bankCaseId: nulo,
-            casoTexto: "",
-            especialidad: "",
-            preguntas: [createEmptyQuestion()],
+            id: null,
+            bankCaseId: null,
+            caseText: "",
+            specialty: "",
+            questions: [createEmptyQuestion()],
           },
         ];
 }
 
-función asíncrona loadMiniCases() {
-  si (!miniCasesContainer) retorna;
+async function loadMiniCases() {
+  if (!miniCasesContainer) return;
 
-  si (miniCasesLoadedOnce && miniCases.length) {
+  if (miniCasesLoadedOnce && miniCases.length) {
     renderMiniCases();
-    devolver;
+    return;
   }
 
   miniCasesContainer.innerHTML = `
-    <div class="tarjeta">
-      <p class="panel-subtitle">Cargando banco de mini solicitudes…</p>
+    <div class="card">
+      <p class="panel-subtitle">Cargando banco de mini exámenes…</p>
     </div>
   `;
 
-  intentar {
-    const snap = await getDocs(colección(db, "miniPreguntas"));
-    miniCasos = snap.docs.map((d) => {
-      constante datos = d.data();
-      devolver {
-        identificación: d.id,
-        bankCaseId: datos.bankCaseId || nulo,
-        caseText: datos.caseText || "",
-        especialidad: datos.especialidad || "",
-        preguntas:
-          Array.isArray(datos.preguntas) && datos.preguntas.longitud
-            ? datos.preguntas
-            : [crearPreguntaVacía()],
+  try {
+    const snap = await getDocs(collection(db, "miniQuestions"));
+    miniCases = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        bankCaseId: data.bankCaseId || null,
+        caseText: data.caseText || "",
+        specialty: data.specialty || "",
+        questions:
+          Array.isArray(data.questions) && data.questions.length
+            ? data.questions
+            : [createEmptyQuestion()],
       };
     });
-  } atrapar (err) {
-    consola.error(err);
-    miniCasos = [];
+  } catch (err) {
+    console.error(err);
+    miniCases = [];
     miniCasesContainer.innerHTML = `
-      <div class="tarjeta">
-        <p class="panel-subtitle">Error al cargar el banco de mini solicitudes.</p>
+      <div class="card">
+        <p class="panel-subtitle">Error al cargar el banco de mini exámenes.</p>
       </div>
     `;
-    devolver;
+    return;
   }
 
-  si (!miniCases.length) {
-    miniCasos.push({
-      id: nulo,
-      bankCaseId: nulo,
-      casoTexto: "",
-      especialidad: "",
-      preguntas: [createEmptyQuestion()],
+  if (!miniCases.length) {
+    miniCases.push({
+      id: null,
+      bankCaseId: null,
+      caseText: "",
+      specialty: "",
+      questions: [createEmptyQuestion()],
     });
   }
 
-  miniCasesLoadedOnce = verdadero;
+  miniCasesLoadedOnce = true;
   renderMiniCases();
 }
 
-función renderMiniCases() {
-  si (!miniCasesContainer) retorna;
+function renderMiniCases() {
+  if (!miniCasesContainer) return;
   miniCasesContainer.innerHTML = "";
 
-  si (!miniCases.length) {
-    miniCasos.push({
-      id: nulo,
-      bankCaseId: nulo,
-      casoTexto: "",
-      especialidad: "",
-      preguntas: [createEmptyQuestion()],
+  if (!miniCases.length) {
+    miniCases.push({
+      id: null,
+      bankCaseId: null,
+      caseText: "",
+      specialty: "",
+      questions: [createEmptyQuestion()],
     });
   }
 
-  miniCasos.forEach((caseData, índice) => {
-    constante wrapper = document.createElement("div");
-    wrapper.className = "bloque-mini-estuche-de-tarjeta";
-    wrapper.dataset.caseIndex = índice;
+  miniCases.forEach((caseData, index) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "card mini-case-block";
+    wrapper.dataset.caseIndex = index;
 
     // ✅ persistencia en DOM
     wrapper.dataset.bankCaseId = caseData.bankCaseId || "";
 
-    const specialityValue = caseData.specialty || "";
-    constante preguntasArr = Array.isArray(caseData.preguntas)
-      ? caseData.preguntas
+    const specialtyValue = caseData.specialty || "";
+    const questionsArr = Array.isArray(caseData.questions)
+      ? caseData.questions
       : [];
 
     wrapper.innerHTML = `
-      <div clase="flex-row" estilo="justificar-contenido:espacio-entre;alinear-elementos:centro;margen-inferior:10px;">
+      <div class="flex-row" style="justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h3 style="font-size:15px;font-weight:600;">
           Caso clínico global ${index + 1}
         </h3>
         <button type="button" class="btn btn-sm btn-outline admin-mini-delete-case">
           Eliminar caso
-        </botón>
+        </button>
       </div>
 
-      <label class="campo">
+      <label class="field">
         <span>Especialidad</span>
-        <seleccionar clase="admin-mini-case-specialty">
+        <select class="admin-mini-case-specialty">
           <option value="">Selecciona…</option>
-          ${Object.entries(ESPECIALIDADES)
-            .mapa(
-              ([clave, etiqueta]) =>
-                `<opción valor="${clave}" ${
-                  clave === valorEspecialidad ? "seleccionado" : ""
-                }>${etiqueta}</opción>`
+          ${Object.entries(SPECIALTIES)
+            .map(
+              ([key, label]) =>
+                `<option value="${key}" ${
+                  key === specialtyValue ? "selected" : ""
+                }>${label}</option>`
             )
-            .unirse("")}
-        </seleccionar>
-      </etiqueta>
+            .join("")}
+        </select>
+      </label>
 
-      <label class="campo">
+      <label class="field">
         <span>Texto del caso clínico</span>
         <textarea class="admin-mini-case-text" rows="4">${caseData.caseText || ""}</textarea>
-      </etiqueta>
+      </label>
 
-      <div class="tarjetas-lista-administrador-mini-caso-preguntas"></div>
+      <div class="cards-list admin-mini-case-questions"></div>
 
-      <div clase="flex-row" estilo="justify-content:flex-end;margin-top:10px;">
+      <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
         <button type="button" class="btn btn-sm btn-primary admin-mini-add-question">
           + Agregar pregunta
-        </botón>
+        </button>
       </div>
     `;
 
     const qContainer = wrapper.querySelector(".admin-mini-case-questions");
 
-    si (!preguntasArr.longitud) {
+    if (!questionsArr.length) {
       qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
-    } demás {
-      preguntasArr.forEach((qData) => {
+    } else {
+      questionsArr.forEach((qData) => {
         qContainer.appendChild(renderQuestionBlock(qData));
       });
     }
 
-    envoltura
+    wrapper
       .querySelector(".admin-mini-add-question")
-      .addEventListener("clic", () => {
+      .addEventListener("click", () => {
         qContainer.appendChild(renderQuestionBlock(createEmptyQuestion()));
       });
 
-    envoltura
-      .querySelector(".admin-mini-eliminar-caso")
-      .addEventListener("clic", () => {
-        constante idx = parseInt(wrapper.dataset.caseIndex, 10);
-        si (Number.isNaN(idx)) retorna;
-        miniCasos.splice(idx, 1);
+    wrapper
+      .querySelector(".admin-mini-delete-case")
+      .addEventListener("click", () => {
+        const idx = parseInt(wrapper.dataset.caseIndex, 10);
+        if (Number.isNaN(idx)) return;
+        miniCases.splice(idx, 1);
         renderMiniCases();
       });
 
-    miniCasesContainer.appendChild(envoltorio);
+    miniCasesContainer.appendChild(wrapper);
   });
 
-  constante inferior = document.createElement("div");
-  inferior.className = "flex-row";
-  inferior.style.justifyContent = "extremo flexible";
-  fondo.estilo.espacio = "8px";
-  inferior.estilo.marginTop = "12px";
+  const bottom = document.createElement("div");
+  bottom.className = "flex-row";
+  bottom.style.justifyContent = "flex-end";
+  bottom.style.gap = "8px";
+  bottom.style.marginTop = "12px";
 
-  const btnAddBottom = document.createElement("botón");
-  btnAddBottom.type = "botón";
-  btnAddBottom.className = "btn btn-sm btn-secundario";
+  const btnAddBottom = document.createElement("button");
+  btnAddBottom.type = "button";
+  btnAddBottom.className = "btn btn-sm btn-secondary";
   btnAddBottom.textContent = "+ Agregar caso clínico";
-  btnAddBottom.addEventListener("clic", () => {
-    si (btnMiniAddCase) btnMiniAddCase.click();
+  btnAddBottom.addEventListener("click", () => {
+    if (btnMiniAddCase) btnMiniAddCase.click();
   });
 
-  const btnSaveBottom = document.createElement("botón");
-  btnSaveBottom.type = "botón";
+  const btnSaveBottom = document.createElement("button");
+  btnSaveBottom.type = "button";
   btnSaveBottom.className = "btn btn-sm btn-primary";
   btnSaveBottom.textContent = "Guardar banco";
-  btnSaveBottom.addEventListener("clic", () => {
-    si (btnMiniSaveAll) btnMiniSaveAll.click();
+  btnSaveBottom.addEventListener("click", () => {
+    if (btnMiniSaveAll) btnMiniSaveAll.click();
   });
 
-  inferior.appendChild(btnAddBottom);
-  inferior.appendChild(btnSaveBottom);
-  miniCasesContainer.appendChild(abajo);
+  bottom.appendChild(btnAddBottom);
+  bottom.appendChild(btnSaveBottom);
+  miniCasesContainer.appendChild(bottom);
 }
 
-si (btnMiniAddCase && miniCasesContainer) {
-  btnMiniAddCase.addEventListener("clic", () => {
-    sincronizarMiniCasesFromDOM();
-    miniCasos.push({
-      id: nulo,
-      bankCaseId: nulo,
-      casoTexto: "",
-      especialidad: "",
-      preguntas: [createEmptyQuestion()],
+if (btnMiniAddCase && miniCasesContainer) {
+  btnMiniAddCase.addEventListener("click", () => {
+    syncMiniCasesFromDOM();
+    miniCases.push({
+      id: null,
+      bankCaseId: null,
+      caseText: "",
+      specialty: "",
+      questions: [createEmptyQuestion()],
     });
     renderMiniCases();
   });
 }
 
-función asíncrona handleSaveMiniBank() {
-  si (!miniCasesContainer) retorna;
+async function handleSaveMiniBank() {
+  if (!miniCasesContainer) return;
 
-  // ✅ anterior para delta usageCount
-  deje prevBankIds = [];
-  intentar {
-    const prevSnap = await getDocs(colección(db, "miniPreguntas"));
+  // ✅ prev para delta usageCount
+  let prevBankIds = [];
+  try {
+    const prevSnap = await getDocs(collection(db, "miniQuestions"));
     prevBankIds = prevSnap.docs.map(d => (d.data() || {}).bankCaseId).filter(Boolean);
-  } captura (e) {
-    console.warn("No se pudieron leer miniPreguntas anteriores para delta:", e);
+  } catch (e) {
+    console.warn("No se pudieron leer previos miniQuestions para delta:", e);
   }
 
-  sincronizarMiniCasesFromDOM();
+  syncMiniCasesFromDOM();
 
-  si (!miniCases.length) {
-    si (
-      !confirmar(
-        "No hay casos en el banco. Si continúas, se eliminarán todos los casos previos de mini solicitudes. ¿Continuar?"
+  if (!miniCases.length) {
+    if (
+      !confirm(
+        "No hay casos en el banco. Si continúas, se eliminarán todos los casos previos de mini exámenes. ¿Continuar?"
       )
     ) {
-      devolver;
+      return;
     }
   }
 
-  para (const c de miniCasos) {
-    si (!c.caseText.trim()) {
+  for (const c of miniCases) {
+    if (!c.caseText.trim()) {
       alert("Escribe el texto del caso clínico en todos los casos.");
-      devolver;
+      return;
     }
-    si (!c.preguntas.longitud) {
+    if (!c.questions.length) {
       alert("Cada caso clínico del banco debe tener al menos una pregunta.");
-      devolver;
+      return;
     }
-    para (const q de c.preguntas) {
-      si (
-        !q.preguntaTexto ||
-        !q.opcionA ||
-        !q.opcionB ||
-        !q.opcionC ||
-        !q.opcionD ||
-        !q.opcioncorrecta ||
-        !q.justificación
+    for (const q of c.questions) {
+      if (
+        !q.questionText ||
+        !q.optionA ||
+        !q.optionB ||
+        !q.optionC ||
+        !q.optionD ||
+        !q.correctOption ||
+        !q.justification
       ) {
         alert("Completa todos los campos en todas las preguntas del banco.");
-        devolver;
+        return;
       }
     }
   }
 
-  constante newBankIds = miniCases.map(c => c.bankCaseId).filter(Boolean);
+  const newBankIds = miniCases.map(c => c.bankCaseId).filter(Boolean);
 
-  constante btn = btnMiniSaveAll;
+  const btn = btnMiniSaveAll;
   if (btn) setLoadingButton(btn, true, "Guardar banco");
 
-  intentar {
-    const prevSnap = await getDocs(colección(db, "miniPreguntas"));
-    para (const d de prevSnap.docs) {
-      esperar deleteDoc(d.ref);
+  try {
+    const prevSnap = await getDocs(collection(db, "miniQuestions"));
+    for (const d of prevSnap.docs) {
+      await deleteDoc(d.ref);
     }
 
-    para (const c de miniCasos) {
-      esperar addDoc(colección(db, "miniPreguntas"), {
-        bankCaseId: c.bankCaseId || nulo, // ✅
-        casoTexto: c.casoTexto,
-        especialidad: c.especialidad,
-        preguntas: c.preguntas,
-        creadoEn: serverTimestamp(),
+    for (const c of miniCases) {
+      await addDoc(collection(db, "miniQuestions"), {
+        bankCaseId: c.bankCaseId || null, // ✅
+        caseText: c.caseText,
+        specialty: c.specialty,
+        questions: c.questions,
+        createdAt: serverTimestamp(),
       });
     }
 
-    // ✅ recuento de uso delta real
-    esperar applyUsageDelta(prevBankIds, newBankIds);
+    // ✅ delta usageCount real
+    await applyUsageDelta(prevBankIds, newBankIds);
 
-    alert("Banco de mini expedientes guardado correctamente.");
-  } atrapar (err) {
-    consola.error(err);
-    alert("Hubo un error al guardar el banco de mini solicitudes.");
-  } finalmente {
+    alert("Banco de mini exámenes guardado correctamente.");
+  } catch (err) {
+    console.error(err);
+    alert("Hubo un error al guardar el banco de mini exámenes.");
+  } finally {
     if (btn) setLoadingButton(btn, false, "Guardar banco");
   }
 }
 
-si (btnMiniSaveAll && miniCasesContainer) {
-  btnMiniSaveAll.addEventListener("clic", handleSaveMiniBank);
+if (btnMiniSaveAll && miniCasesContainer) {
+  btnMiniSaveAll.addEventListener("click", handleSaveMiniBank);
 }
 
 /****************************************************
  * USUARIOS (CRUD) (SIN CAMBIOS)
  ****************************************************/
 
-función asíncrona loadUsers() {
-  si (!usersTableContainer) retorna;
+async function loadUsers() {
+  if (!usersTableContainer) return;
 
-  const snap = await getDocs(colección(db, "usuarios"));
+  const snap = await getDocs(collection(db, "users"));
 
-  si (snap.vacío) {
-    usuariosTableContainer.innerHTML = "";
-    renderMensajeVacío(
-      usuariosTableContainer,
+  if (snap.empty) {
+    usersTableContainer.innerHTML = "";
+    renderEmptyMessage(
+      usersTableContainer,
       "No hay usuarios creados. Usa el formulario superior para crear uno."
     );
-    devolver;
+    return;
   }
 
-  deje que html = `
-    <tabla>
-      <cabeza>
+  let html = `
+    <table>
+      <thead>
         <tr>
           <th>Nombre</th>
-          Correo
-          Rol
-          Estado
-          Vence
+          <th>Correo</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Vence</th>
           <th></th>
         </tr>
-      </cabeza>
-      <cuerpo>
+      </thead>
+      <tbody>
   `;
 
-  snap.paraCada((docSnap) => {
-    constante datos = docSnap.data();
-    constante id = docSnap.id;
-    const nombre = datos.nombre || "";
-    constante email = datos.email || id;
-    rol constante = data.role || "usuario";
-    estado constante = datos.status || "inactivo";
-    const expiry = datos.fechaDeExpiración || "";
+  snap.forEach((docSnap) => {
+    const data = docSnap.data();
+    const id = docSnap.id;
+    const name = data.name || "";
+    const email = data.email || id;
+    const role = data.role || "usuario";
+    const status = data.status || "inactivo";
+    const expiry = data.expiryDate || "";
 
-    const chipRoleClass = rol === "admin" ? "chip--admin" : "chip--usuario";
-    constante chipStatusClass =
-      estado === "activo" ? "chip--activo" : "chip--inactivo";
+    const chipRoleClass = role === "admin" ? "chip--admin" : "chip--user";
+    const chipStatusClass =
+      status === "activo" ? "chip--activo" : "chip--inactivo";
 
     html += `
       <tr data-id="${id}">
-        <td>${nombre}</td>
-        <td>${correo electrónico}</td>
-        <td><span class="chip ${chipRoleClass}">${rol}</span></td>
-        <td><span class="chip ${chipStatusClass}">${estado}</span></td>
-        <td>${caducidad || "—"}</td>
+        <td>${name}</td>
+        <td>${email}</td>
+        <td><span class="chip ${chipRoleClass}">${role}</span></td>
+        <td><span class="chip ${chipStatusClass}">${status}</span></td>
+        <td>${expiry || "—"}</td>
         <td>
           <button class="icon-btn admin-edit-user" title="Editar">✏</button>
           <button class="icon-btn admin-delete-user" title="Eliminar">🗑</button>
@@ -4778,163 +4778,163 @@ función asíncrona loadUsers() {
   });
 
   html += "</tbody></table>";
-  usuariosTableContainer.innerHTML = html;
+  usersTableContainer.innerHTML = html;
 
-  usuariosTableContainer
-    .querySelectorAll("tr[id-de-datos]")
-    .forEach((fila) => attachUserRowEvents(fila));
+  usersTableContainer
+    .querySelectorAll("tr[data-id]")
+    .forEach((row) => attachUserRowEvents(row));
 }
 
-función attachUserRowEvents(fila) {
-  constante id = fila.conjunto de datos.id;
+function attachUserRowEvents(row) {
+  const id = row.dataset.id;
   const btnEdit = row.querySelector(".admin-edit-user");
-  const btnDelete = fila.querySelector(".admin-delete-user");
+  const btnDelete = row.querySelector(".admin-delete-user");
 
-  btnEdit.addEventListener("clic", () => openUserEditModal(id));
-  btnDelete.addEventListener("clic", async () => {
+  btnEdit.addEventListener("click", () => openUserEditModal(id));
+  btnDelete.addEventListener("click", async () => {
     const ok = window.confirm("¿Eliminar este usuario?");
-    si (!ok) retorna;
-    intentar {
-      esperar deleteDoc(doc(db, "usuarios", id));
-      cargarUsuarios();
-    } atrapar (err) {
-      consola.error(err);
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(db, "users", id));
+      loadUsers();
+    } catch (err) {
+      console.error(err);
       alert("No se pudo eliminar el usuario.");
     }
   });
 }
 
-si (btnCreateUser) {
-  btnCreateUser.addEventListener("clic", async () => {
-    constante nombre = nuevoNombreUsuarioInput.value.trim();
-    constante correo electrónico = newUserEmailInput.value.trim();
-    constante contraseña = newUserPasswordInput.value.trim();
-    constante rol = newUserRoleSelect.valor;
-    constante estado = newUserStatusSelect.valor;
-    constante expiración = newUserExpiryInput.value || "";
+if (btnCreateUser) {
+  btnCreateUser.addEventListener("click", async () => {
+    const name = newUserNameInput.value.trim();
+    const email = newUserEmailInput.value.trim();
+    const password = newUserPasswordInput.value.trim();
+    const role = newUserRoleSelect.value;
+    const status = newUserStatusSelect.value;
+    const expiry = newUserExpiryInput.value || "";
 
-    si (!nombre || !correo electrónico || !contraseña) {
+    if (!name || !email || !password) {
       alert("Nombre, correo y contraseña son obligatorios.");
-      devolver;
+      return;
     }
 
-    intentar {
-      esperar setDoc(doc(db, "usuarios", correo electrónico), {
-        nombre,
-        correo electrónico,
-        contraseña,
+    try {
+      await setDoc(doc(db, "users", email), {
+        name,
+        email,
+        password,
         role,
-        estado,
-        fecha de caducidad: caducidad,
-        creadoEn: serverTimestamp(),
-        actualizadoEn: serverTimestamp(),
+        status,
+        expiryDate: expiry,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
-      alerta(
-        "Usuario creado en Firestore.\nRecuerde crearlo también en Firebase Authentication manualmente."
+      alert(
+        "Usuario creado en Firestore.\nRecuerda crearlo también en Firebase Authentication manualmente."
       );
 
-      nuevoNombreUsuarioInput.value = "";
-      nuevoUserEmailInput.valor = "";
-      nuevaContraseñaDeUsuarioInput.valor = "";
+      newUserNameInput.value = "";
+      newUserEmailInput.value = "";
+      newUserPasswordInput.value = "";
       newUserRoleSelect.value = "usuario";
       newUserStatusSelect.value = "activo";
-      nuevoUserExpiryInput.valor = "";
+      newUserExpiryInput.value = "";
 
-      cargarUsuarios();
-    } atrapar (err) {
-      consola.error(err);
+      loadUsers();
+    } catch (err) {
+      console.error(err);
       alert("No se pudo crear el usuario.");
     }
   });
 }
 
-función openUserEditModal(userId) {
-  const ref = doc(db, "usuarios", userId);
-  obtenerDoc(ref).luego((snap) => {
-    si (!snap.existe()) {
+function openUserEditModal(userId) {
+  const ref = doc(db, "users", userId);
+  getDoc(ref).then((snap) => {
+    if (!snap.exists()) {
       alert("No se encontró el usuario.");
-      devolver;
+      return;
     }
 
-    constante datos = snap.data();
+    const data = snap.data();
 
     openModal({
-      título: "Editar usuario",
-      cuerpoHtml: `
-        <label class="campo">
+      title: "Editar usuario",
+      bodyHtml: `
+        <label class="field">
           <span>Nombre</span>
-          <input type="text" id="nombre-de-usuario-modal" value="${data.name || ""}" />
-        </etiqueta>
-        <label class="campo">
+          <input type="text" id="modal-user-name" value="${data.name || ""}" />
+        </label>
+        <label class="field">
           <span>Correo (ID)</span>
           <input type="email" id="modal-user-email" value="${data.email || userId}" readonly />
-        </etiqueta>
-        <label class="campo">
+        </label>
+        <label class="field">
           <span>Contraseña (referencia)</span>
           <input type="text" id="modal-user-password" value="${data.password || ""}" />
-        </etiqueta>
-        <label class="campo">
-          Rol
-          <seleccionar id="rol-de-usuario-modal">
-            <opción valor="admin" ${
-              data.role === "admin" ? "seleccionado" : ""
-            }>Administrador</opción>
-            <opción valor="usuario" ${
-              data.role === "usuario" ? "seleccionado" : ""
+        </label>
+        <label class="field">
+          <span>Rol</span>
+          <select id="modal-user-role">
+            <option value="admin" ${
+              data.role === "admin" ? "selected" : ""
+            }>Administrador</option>
+            <option value="usuario" ${
+              data.role === "usuario" ? "selected" : ""
             }>Usuario</option>
-          </seleccionar>
-        </etiqueta>
-        <label class="campo">
+          </select>
+        </label>
+        <label class="field">
           <span>Estado</span>
-          <select id="estado-de-usuario-modal">
-            <opción valor="activo" ${
-              data.status === "activo" ? "seleccionado" : ""
-            }>Activo</opción>
-            <opción valor="inactivo" ${
-              data.status === "inactivo" ? "seleccionado" : ""
-            }>Inactivo</opción>
-          </seleccionar>
-        </etiqueta>
-        <label class="campo">
+          <select id="modal-user-status">
+            <option value="activo" ${
+              data.status === "activo" ? "selected" : ""
+            }>Activo</option>
+            <option value="inactivo" ${
+              data.status === "inactivo" ? "selected" : ""
+            }>Inactivo</option>
+          </select>
+        </label>
+        <label class="field">
           <span>Fecha de vencimiento</span>
-          <input type="fecha" id="modal-user-expiry" valor="${data.expiryDate || ""}" />
-        </etiqueta>
+          <input type="date" id="modal-user-expiry" value="${data.expiryDate || ""}" />
+        </label>
       `,
-      onOk: async() => {
-        const nombre = document.getElementById("nombre-de-usuario-modal").value.trim();
-        const email = document.getElementById("modal-usuario-email").value.trim();
-        const contraseña = documento
-          .getElementById("modal-usuario-contraseña")
-          .valor.trim();
+      onOk: async () => {
+        const name = document.getElementById("modal-user-name").value.trim();
+        const email = document.getElementById("modal-user-email").value.trim();
+        const password = document
+          .getElementById("modal-user-password")
+          .value.trim();
         const role = document.getElementById("modal-user-role").value;
-        const status = document.getElementById("estado-del-usuario-modal").value;
+        const status = document.getElementById("modal-user-status").value;
         const expiry = document.getElementById("modal-user-expiry").value || "";
 
-        si (!nombre || !correo electrónico) {
+        if (!name || !email) {
           alert("Nombre y correo son obligatorios.");
-          devolver;
+          return;
         }
 
-        constante btn = modalBtnOk;
-        setLoadingButton(btn, verdadero);
+        const btn = modalBtnOk;
+        setLoadingButton(btn, true);
 
-        intentar {
-          esperar updateDoc(doc(db, "usuarios", correo electrónico), {
-            nombre,
-            correo electrónico,
-            contraseña,
+        try {
+          await updateDoc(doc(db, "users", email), {
+            name,
+            email,
+            password,
             role,
-            estado,
-            fecha de caducidad: caducidad,
-            actualizadoEn: serverTimestamp(),
+            status,
+            expiryDate: expiry,
+            updatedAt: serverTimestamp(),
           });
-          esperar cargarUsers();
-          cerrarModal();
-        } atrapar (err) {
-          consola.error(err);
+          await loadUsers();
+          closeModal();
+        } catch (err) {
+          console.error(err);
           alert("No se pudo actualizar el usuario.");
-        } finalmente {
+        } finally {
           setLoadingButton(btn, false, "Guardar");
         }
       },
@@ -4943,195 +4943,195 @@ función openUserEditModal(userId) {
 }
 
 /****************************************************
- * PANTALLA PRINCIPAL / ATERRIZAJE (SIN CAMBIOS)
+ * PANTALLA PRINCIPAL / LANDING (SIN CAMBIOS)
  ****************************************************/
 
-función asíncrona loadLandingSettings() {
-  si (!landingTextArea) retorna;
+async function loadLandingSettings() {
+  if (!landingTextArea) return;
 
-  intentar {
-    const ref = doc(db, "configuración", "landingPage");
-    constante snap = esperar obtenerDoc(ref);
+  try {
+    const ref = doc(db, "settings", "landingPage");
+    const snap = await getDoc(ref);
 
-    si (!snap.existe()) {
-      áreaDeTextoDeAterrizaje.valor =
+    if (!snap.exists()) {
+      landingTextArea.value =
         "Aquí podrás conocer todo lo que incluye la plataforma Estudiante ENARM.";
       monthlyLabelInput.value = "Plan mensual";
-      mensualPriceInput.value = "0";
+      monthlyPriceInput.value = "0";
       enarmLabelInput.value = "Plan ENARM 2026";
-      enarmPriceInput.valor = "0";
-      whatsappPhoneInput.valor = "+525515656316";
-      devolver;
+      enarmPriceInput.value = "0";
+      whatsappPhoneInput.value = "+525515656316";
+      return;
     }
 
-    constante datos = snap.data();
+    const data = snap.data();
 
-    landingTextArea.value = datos.descripción || "";
+    landingTextArea.value = data.description || "";
     monthlyLabelInput.value = data.monthlyLabel || "Plan mensual";
-    entradaPrecioMensual.valor = datos.PrecioMensual || "0";
+    monthlyPriceInput.value = data.monthlyPrice || "0";
     enarmLabelInput.value = data.enarmLabel || "Plan ENARM 2026";
-    enarmPriceInput.value = datos.enarmPrice || "0";
-    whatsappPhoneInput.valor = datos.whatsappPhone || "+525515656316";
-  } atrapar (err) {
-    console.error("Error al cargar landingPage:", err);
+    enarmPriceInput.value = data.enarmPrice || "0";
+    whatsappPhoneInput.value = data.whatsappPhone || "+525515656316";
+  } catch (err) {
+    console.error("Error cargando landingPage:", err);
   }
 }
 
-si (btnGuardarAterrizaje) {
-  btnSaveLanding.addEventListener("clic", async () => {
-    si (!landingTextArea) retorna;
+if (btnSaveLanding) {
+  btnSaveLanding.addEventListener("click", async () => {
+    if (!landingTextArea) return;
 
-    constante descripción = landingTextArea.value.trim();
+    const description = landingTextArea.value.trim();
     const monthlyLabel = monthlyLabelInput.value.trim() || "Plan mensual";
-    const precioMensual = PrecioMensualInput.value.trim() || "0";
+    const monthlyPrice = monthlyPriceInput.value.trim() || "0";
     const enarmLabel = enarmLabelInput.value.trim() || "Plan ENARM 2026";
-    constante enarmPrice = enarmPriceInput.value.trim() || "0";
-    constante whatsappPhone =
+    const enarmPrice = enarmPriceInput.value.trim() || "0";
+    const whatsappPhone =
       whatsappPhoneInput.value.trim() || "+525515656316";
 
-    constante btn = btnSaveLanding;
-    setLoadingButton(btn, verdadero);
+    const btn = btnSaveLanding;
+    setLoadingButton(btn, true);
 
-    intentar {
-      esperar setDoc(
-        doc(db, "configuración", "página de destino"),
+    try {
+      await setDoc(
+        doc(db, "settings", "landingPage"),
         {
-          descripción,
-          etiqueta mensual,
-          Precio mensual,
-          etiqueta enarm,
+          description,
+          monthlyLabel,
+          monthlyPrice,
+          enarmLabel,
           enarmPrice,
-          WhatsAppTeléfono,
-          actualizadoEn: serverTimestamp(),
+          whatsappPhone,
+          updatedAt: serverTimestamp(),
         },
-        { fusionar: verdadero }
+        { merge: true }
       );
 
       alert("Pantalla principal guardada.");
-    } atrapar (err) {
-      consola.error(err);
+    } catch (err) {
+      console.error(err);
       alert("Error al guardar la pantalla principal.");
-    } finalmente {
+    } finally {
       setLoadingButton(btn, false, "Guardar");
     }
   });
 }
 
 /****************************************************
- * ENLACES SOCIALES (SIN CAMBIOS)
+ * SOCIAL LINKS (SIN CAMBIOS)
  ****************************************************/
 
-función asíncrona loadSocialLinks() {
-  intentar {
-    const ref = doc(db, "configuración", "enlaces sociales");
-    constante snap = esperar obtenerDoc(ref);
-    si (!snap.exists()) retorna;
+async function loadSocialLinks() {
+  try {
+    const ref = doc(db, "settings", "socialLinks");
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
 
-    constante datos = snap.data();
+    const data = snap.data();
 
-    adminSocialIcons.forEach((icono) => {
-      const red = icono.conjunto de datos.red;
-      si (datos[red]) {
-        icon.dataset.url = datos[red];
+    adminSocialIcons.forEach((icon) => {
+      const network = icon.dataset.network;
+      if (data[network]) {
+        icon.dataset.url = data[network];
       }
     });
-  } atrapar (err) {
-    console.error("Error al cargar enlaces sociales:", err);
+  } catch (err) {
+    console.error("Error cargando socialLinks:", err);
   }
 
-  adminSocialIcons.forEach((icono) => {
-    icon.addEventListener("clic", () => {
-      const url = icono.conjunto de datos.url;
-      si (!url) {
+  adminSocialIcons.forEach((icon) => {
+    icon.addEventListener("click", () => {
+      const url = icon.dataset.url;
+      if (!url) {
         alert("No se ha configurado el enlace para esta red social.");
-        devolver;
+        return;
       }
-      ventana.open(url, "_blank", "noopener,noreferrer");
+      window.open(url, "_blank", "noopener,noreferrer");
     });
   });
 }
 
-función asíncrona loadSocialLinksIntoLanding() {
-  intentar {
-    const ref = doc(db, "configuración", "enlaces sociales");
-    constante snap = esperar obtenerDoc(ref);
-    si (!snap.exists()) retorna;
+async function loadSocialLinksIntoLanding() {
+  try {
+    const ref = doc(db, "settings", "socialLinks");
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
 
-    constante datos = snap.data();
+    const data = snap.data();
 
-    si (aterrizajeInstagramInput)
-      landingInstagramInput.value = datos.instagram || "";
-    si (aterrizajeWhatsappLinkInput)
-      aterrizajeWhatsappLinkInput.valor = datos.whatsapp || "";
-    si (landingTiktokInput) landingTiktokInput.valor = datos.tiktok || "";
-    si (aterrizajeTelegramInput)
-      landingTelegramInput.value = datos.telegrama || "";
-  } atrapar (err) {
-    console.error("Error al cargar socialLinks para el panel de inicio:", err);
+    if (landingInstagramInput)
+      landingInstagramInput.value = data.instagram || "";
+    if (landingWhatsappLinkInput)
+      landingWhatsappLinkInput.value = data.whatsapp || "";
+    if (landingTiktokInput) landingTiktokInput.value = data.tiktok || "";
+    if (landingTelegramInput)
+      landingTelegramInput.value = data.telegram || "";
+  } catch (err) {
+    console.error("Error cargando socialLinks para panel landing:", err);
   }
 }
 
-const btnSaveSocialLinks = document.getElementById("admin-btn-guardar-enlaces-sociales");
-si (btnGuardarEnlacesSociales) {
-  btnSaveSocialLinks.addEventListener("clic", async () => {
-    constante instagram = landingInstagramInput.value.trim();
-    constante whatsapp = landingWhatsappLinkInput.value.trim();
-    constante tiktok = landingTiktokInput.value.trim();
-    constante telegrama = landingTelegramInput.value.trim();
+const btnSaveSocialLinks = document.getElementById("admin-btn-save-social-links");
+if (btnSaveSocialLinks) {
+  btnSaveSocialLinks.addEventListener("click", async () => {
+    const instagram = landingInstagramInput.value.trim();
+    const whatsapp = landingWhatsappLinkInput.value.trim();
+    const tiktok = landingTiktokInput.value.trim();
+    const telegram = landingTelegramInput.value.trim();
 
-    constante btn = btnSaveSocialLinks;
-    setLoadingButton(btn, verdadero);
+    const btn = btnSaveSocialLinks;
+    setLoadingButton(btn, true);
 
-    intentar {
-      esperar setDoc(
-        doc(db, "configuración", "enlaces sociales"),
+    try {
+      await setDoc(
+        doc(db, "settings", "socialLinks"),
         {
-          Instagram,
-          WhatsApp,
-          tik tok,
-          telegrama,
-          actualizadoEn: serverTimestamp(),
+          instagram,
+          whatsapp,
+          tiktok,
+          telegram,
+          updatedAt: serverTimestamp(),
         },
-        { fusionar: verdadero }
+        { merge: true }
       );
 
-      alert("Enlaces de redes sociales guardados.");
-      cargarSocialLinks();
-    } atrapar (err) {
-      consola.error(err);
-      alert("No se pudieron guardar los enlaces de redes.");
-    } finalmente {
+      alert("Links de redes sociales guardados.");
+      loadSocialLinks();
+    } catch (err) {
+      console.error(err);
+      alert("No se pudieron guardar los links de redes.");
+    } finally {
       setLoadingButton(btn, false, "Guardar");
     }
   });
 }
 
 /****************************************************
- * ANÁLISIS BÁSICOS (SIN CAMBIOS)
+ * ANALYTICS BÁSICOS (SIN CAMBIOS)
  ****************************************************/
 
-función asíncrona loadAnalyticsSummary() {
-  si (!analyticsSummaryBox || !analyticsUsersBox) devolver;
+async function loadAnalyticsSummary() {
+  if (!analyticsSummaryBox || !analyticsUsersBox) return;
 
-  intentar {
-    const sectionsSnap = await getDocs(colección(db, "secciones"));
-    const examsSnap = await getDocs(colección(db, "exámenes"));
-    const casesSnap = await getDocs(colección(db, "preguntas"));
-    const usersSnap = await getDocs(colección(db, "usuarios"));
+  try {
+    const sectionsSnap = await getDocs(collection(db, "sections"));
+    const examsSnap = await getDocs(collection(db, "exams"));
+    const casesSnap = await getDocs(collection(db, "questions"));
+    const usersSnap = await getDocs(collection(db, "users"));
 
-    deje totalCases = 0;
-    deje totalPreguntas = 0;
+    let totalCases = 0;
+    let totalQuestions = 0;
 
-    casosSnap.forEach((docSnap) => {
-      totalCasos+= 1;
-      constante datos = docSnap.data();
-      const arr = Array.isArray(datos.preguntas) ? datos.preguntas : [];
-      totalPreguntas+= arr.length;
+    casesSnap.forEach((docSnap) => {
+      totalCases += 1;
+      const data = docSnap.data();
+      const arr = Array.isArray(data.questions) ? data.questions : [];
+      totalQuestions += arr.length;
     });
 
     analyticsSummaryBox.innerHTML = `
-      <div class="tarjeta">
-        <h3 style="font-size:16px;margin-bottom:8px;">Currículum global</h3>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:8px;">Resumen global</h3>
         <p>Secciones: <strong>${sectionsSnap.size}</strong></p>
         <p>Exámenes: <strong>${examsSnap.size}</strong></p>
         <p>Casos clínicos: <strong>${totalCases}</strong></p>
@@ -5139,61 +5139,61 @@ función asíncrona loadAnalyticsSummary() {
       </div>
     `;
 
-    constante userRows = [];
-    para (const u de usersSnap.docs) {
-      constante userData = u.data();
+    const userRows = [];
+    for (const u of usersSnap.docs) {
+      const userData = u.data();
       const email = userData.email || u.id;
-      const nombre = userData.name || correo electrónico;
+      const name = userData.name || email;
 
-      const intentosSnap = esperar obtenerDocs(
-        colección(db, "usuarios", correo electrónico, "intentosdeexamen")
+      const attemptsSnap = await getDocs(
+        collection(db, "users", email, "examAttempts")
       );
 
-      si (intentosSnap.empty) continuar;
+      if (attemptsSnap.empty) continue;
 
-      sea ​​sumaPuntuación = 0;
-      deje que el conteo sea 0;
+      let sumScore = 0;
+      let count = 0;
 
-      intentosSnap.forEach((a) => {
-        constante d = a.data();
-        si (tipo de d.score === "número") {
-          sumaPuntuación += d.puntuación;
-          contar++;
+      attemptsSnap.forEach((a) => {
+        const d = a.data();
+        if (typeof d.score === "number") {
+          sumScore += d.score;
+          count++;
         }
       });
 
-      const avg = count ? sumaPuntuación / count : 0;
-      userRows.push({ nombre, correo electrónico, promedio, exámenes: recuento });
+      const avg = count ? sumScore / count : 0;
+      userRows.push({ name, email, avg, exams: count });
     }
 
-    si (!userRows.length) {
+    if (!userRows.length) {
       analyticsUsersBox.innerHTML = `
-        <div class="tarjeta">
-          <p>Aún no hay intentos de solicitudes registradas.</p>
+        <div class="card">
+          <p>Aún no hay intentos de exámenes registrados.</p>
         </div>
       `;
-      devolver;
+      return;
     }
 
-    deje que tableHtml = `
-      <div class="tarjeta">
+    let tableHtml = `
+      <div class="card">
         <h3 style="font-size:16px;margin-bottom:8px;">Promedios por usuario</h3>
-        <tabla>
-          <cabeza>
+        <table>
+          <thead>
             <tr>
               <th>Usuario</th>
-              Correo
-              Intentos
-              Promedio ponderado
+              <th>Correo</th>
+              <th>Intentos</th>
+              <th>Promedio ponderado</th>
             </tr>
-          </cabeza>
-          <cuerpo>
+          </thead>
+          <tbody>
     `;
 
     userRows.forEach((u) => {
-      tablaHtml += `
+      tableHtml += `
         <tr>
-          <td>${u.nombre}</td>
+          <td>${u.name}</td>
           <td>${u.email}</td>
           <td>${u.exams}</td>
           <td>${u.avg.toFixed(1)}%</td>
@@ -5201,12 +5201,12 @@ función asíncrona loadAnalyticsSummary() {
       `;
     });
 
-    tablaHtml += "</tbody></tabla></div>";
-    analyticsUsersBox.innerHTML = tablaHtml;
-  } atrapar (err) {
-    console.error("Error al cargar análisis:", err);
+    tableHtml += "</tbody></table></div>";
+    analyticsUsersBox.innerHTML = tableHtml;
+  } catch (err) {
+    console.error("Error cargando analytics:", err);
     analyticsSummaryBox.innerHTML = `
-      <div class="tarjeta">
+      <div class="card">
         <p>No se pudieron cargar las estadísticas.</p>
       </div>
     `;
@@ -5216,9 +5216,9 @@ función asíncrona loadAnalyticsSummary() {
 /****************************************************
  * FIN ADMIN.JS
  ****************************************************/
-console.log("admin.js cargado correctamente (banco editable + bloqueo duplicados + useCount delta).");
+console.log("admin.js cargado correctamente (banco editable + bloqueo duplicados + usageCount delta).");
 
-  } atrapar (err) {
-    console.error("Error de arranque del administrador:", err);
+  } catch (err) {
+    console.error("Admin bootstrap error:", err);
   }
 })();
