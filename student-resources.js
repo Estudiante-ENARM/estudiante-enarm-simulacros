@@ -8,17 +8,17 @@ import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebase
 import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 /****************************************************
- * Firebase (proyecto de BIBLIOTECA)
+ * Firebase (proyecto de BIBLIOTECA) - pagina-buena
+ * ✅ CONFIG COMPLETA (NO solo apiKey)
  ****************************************************/
 const RESOURCES_FIREBASE_CONFIG = {
-const firebaseConfig = {
   apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
   authDomain: "pagina-buena.firebaseapp.com",
   databaseURL: "https://pagina-buena-default-rtdb.firebaseio.com",
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.firebasestorage.app",
   messagingSenderId: "810208199031",
-  appId: "1:810208199031:web:707a76b931ee7d2f002172"
+  appId: "1:810208199031:web:707a76b931ee7d2f002172",
 };
 
 let resourcesDb = null;
@@ -330,8 +330,7 @@ function setPreviewLoading(on) {
 
 function showPreviewUnavailableNote(customText) {
   if (_previewNoteEl) {
-    _previewNoteEl.textContent =
-      customText || "No se pudo mostrar el PDF aquí. Ábrelo en pestaña nueva.";
+    _previewNoteEl.textContent = customText || "No se pudo mostrar el PDF aquí. Ábrelo en pestaña nueva.";
   }
   if (_previewBoxEl) _previewBoxEl.classList.add("hidden");
 }
@@ -683,7 +682,10 @@ export async function getStudentResourcesProgressStats(options = {}) {
       _dataLoaded = true;
     }
 
-    const topics = includeAccesoGratuito ? _allTopics : _allTopics.filter((t) => t.specialtyKey !== "acceso_gratuito");
+    const topics = includeAccesoGratuito
+      ? _allTopics
+      : _allTopics.filter((t) => t.specialtyKey !== "acceso_gratuito");
+
     const set = loadCompletedSet();
     const topicIds = new Set(topics.map((t) => String(t.id)));
 
