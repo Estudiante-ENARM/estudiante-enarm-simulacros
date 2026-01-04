@@ -1,417 +1,418 @@
-// student-resources.js
+// recursos-para-estudiantes.js
 // Biblioteca de Resúmenes / PDFs / GPC (usa el 2° proyecto Firebase: pagina-buena)
 // Objetivo: UI moderna + filtros robustos (sin romper simulacros).
-// OPT PRO: iOS-safe preview (1 iframe + throttle + hard reset) + event delegation.
-// REQ: SOLO PDFs en vista previa. Resto SOLO pestaña nueva. NO descargas automáticas.
+// OPT PRO: vista previa segura para iOS (1 iframe + aceleración + reinicio completo) + delegación de eventos.
+// REQ: PDF SOLO en vista previa. Resto SOLO pestaña nueva. NO descargas automáticas.
 
-import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+importar { initializeApp, getApps, getApp } desde "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+importar { getFirestore, colección, getDocs, getDoc, doc, consulta, orderBy } desde "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 /****************************************************
  * Firebase (proyecto de BIBLIOTECA) - pagina-buena
- * ✅ CONFIG COMPLETA (NO solo apiKey)
+ * ✅ CONFIGURACIÓN COMPLETA (SIN apiKey solo)
  ****************************************************/
-const RESOURCES_FIREBASE_CONFIG = {
+constante RECURSOS_FIREBASE_CONFIG = {
   apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
-  authDomain: "pagina-buena.firebaseapp.com",
-  databaseURL: "https://pagina-buena-default-rtdb.firebaseio.com",
+  dominio_de_autorización: "pagina-buena.firebaseapp.com",
+  URL de la base de datos: "https://pagina-buena-default-rtdb.firebaseio.com",
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.firebasestorage.app",
-  messagingSenderId: "810208199031",
-  appId: "1:810208199031:web:707a76b931ee7d2f002172",
+  Id. del remitente de mensajería: "810208199031",
+  ID de aplicación: "1:810208199031:web:707a76b931ee7d2f002172",
 };
 
-let resourcesDb = null;
-function ensureResourcesDb() {
-  if (resourcesDb) return resourcesDb;
+deje que recursosDb = null;
+función asegurarRecursosDb() {
+  si (recursosDb) devuelve recursosDb;
 
-  const exists = getApps().some((a) => a.name === "resourcesApp");
+  const existe = getApps().some((a) => a.name === "resourcesApp");
   const app = exists ? getApp("resourcesApp") : initializeApp(RESOURCES_FIREBASE_CONFIG, "resourcesApp");
 
-  resourcesDb = getFirestore(app);
-  return resourcesDb;
+  recursosDb = getFirestore(app);
+  devolver recursosDb;
 }
 
 /****************************************************
  * Estado
  ****************************************************/
-let _uiInitialized = false;
-let _dataLoaded = false;
-let _allTopics = [];
+deje que _uiInitialized = falso;
+deje que _dataLoaded = falso;
+deje que _allTopics = [];
 
-let selectedSpecialtyKey = "";
-let searchQuery = "";
+deje que selectedSpecialtyKey = "";
+deje que searchQuery = "";
 
 // navegación (sin modal)
-let _selectedTopicId = null;
+deje que _selectedTopicId = nulo;
 
-// guardamos link real y link de preview por separado
-let _selectedPreviewUrl = ""; // SIEMPRE viewer (no download)
+// guardamos link real y link de vista previa por separado
+let _selectedPreviewUrl = ""; // Visor SIEMPRE (sin descarga)
 let _selectedOpenUrl = ""; // para abrir en pestaña nueva
 
-// progreso (localStorage por usuario)
-let _currentUserKey = "anon";
+// progreso (almacenamiento local por usuario)
+deje que _currentUserKey = "anónimo";
 
-let viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
+deje que viewEl, searchEl, specialtyEl, listEl, detailEl, countEl, emptyEl, loadingEl;
+deje que progressTextEl, progressBarEl;
 
-let modalRoot = null; // se conserva (no se elimina), pero ya no lo usamos para abrir temas
+let modalRoot = nulo; // se conserva (no se elimina), pero ya no lo usamos para abrir temas
 
 /****************************************************
- * ✅ Optimización iOS: preview estable (1 iframe + throttle)
+ * ✅ Optimización iOS: vista previa estable (1 iframe + acelerador)
  ****************************************************/
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-const IS_MOBILE =
-  window.matchMedia("(pointer:coarse)").matches ||
-  window.matchMedia("(hover: none)").matches ||
-  window.matchMedia("(max-width: 900px)").matches;
+constante IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+constante IS_MOBILE =
+  ventana.matchMedia("(puntero:grueso)").coincidencias ||
+  ventana.matchMedia("(hover: none)").matches ||
+  ventana.matchMedia("(ancho máximo: 900px)").matches;
 
-let _previewFrameEl = null;
-let _previewBoxEl = null;
-let _previewNoteEl = null;
-let _previewOpenBtnEl = null;
-let _previewLoadingEl = null;
+sea ​​_previewFrameEl = null;
+sea ​​_previewBoxEl = null;
+sea ​​_previewNoteEl = null;
+sea ​​_previewOpenBtnEl = null;
+deje que _previewLoadingEl = null;
 
-let _previewToken = 0;
-let _previewTimer = null;
-let _previewLastSwitchAt = 0;
+deje que _previewToken = 0;
+deje que _previewTimer = null;
+deje que _previewLastSwitchAt = 0;
 
-// render scheduler (evita renders en ráfaga)
-let _renderScheduled = false;
+// programador de renderizado (evita renders en ráfaga)
+deje que _renderScheduled = falso;
 
 /****************************************************
  * Normalización y mapeo (FIX del filtro)
  ****************************************************/
-function normalizeText(s) {
-  return String(s || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+función normalizarTexto(s) {
+  devuelve cadena(s || "")
+    .normalizar("NFD")
+    .reemplazar(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .reemplazar(/[_-]+/g, " ")
+    .reemplazar(/\s+/g, " ")
+    .recortar();
 }
 
-function canonicalizeSpecialty(raw) {
-  const n = normalizeText(raw);
+función canonicalizeSpecialty(raw) {
+  const n = normalizarTexto(raw);
 
   if (n.includes("acceso gratuito")) return "acceso_gratuito";
-  if (n.includes("cirugia")) return "cirugia_general";
+  if (n.includes("cirugia")) devuelve "cirugia_general";
   if (n.includes("medicina interna") || (n.includes("medicina") && n.includes("interna"))) return "medicina_interna";
-  if (n.includes("pediatr")) return "pediatria";
+  si (n.includes("pediatr")) devuelve "pediatria";
   if (n.includes("gine") || n.includes("obst")) return "gine_obstetricia";
 
   return "otros";
 }
 
-function specialtyLabelFromKey(key) {
-  switch (key) {
-    case "medicina_interna":
-      return "Medicina interna";
-    case "cirugia_general":
-      return "Cirugía general";
-    case "pediatria":
-      return "Pediatría";
-    case "gine_obstetricia":
-      return "Ginecología y Obstetricia";
-    case "acceso_gratuito":
-      return "Acceso gratuito limitado";
-    default:
-      return "Otros";
+función specialtyLabelFromKey(clave) {
+  interruptor (tecla) {
+    caso "medicina_interna":
+      devolver "Medicina interna";
+    caso "cirugia_general":
+      volver "Cirugía general";
+    caso "pediatría":
+      volver "Pediatría";
+    caso "gine_obstetricia":
+      volver "Ginecología y Obstetricia";
+    caso "acceso_gratuito":
+      devolver "Acceso gratuito limitado";
+    por defecto:
+      devolver "Otros";
   }
 }
 
 /****************************************************
- * Helpers UI
+ * Interfaz de usuario de ayudantes
  ****************************************************/
-function show(el) {
-  if (el) el.classList.remove("hidden");
+función show(el) {
+  si (el) el.classList.remove("oculto");
 }
-function hide(el) {
-  if (el) el.classList.add("hidden");
-}
-
-function escapeHtml(str) {
-  return String(str || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+función ocultar(el) {
+  si (el) el.classList.add("oculto");
 }
 
-function guessLinkType(label, url) {
-  const l = normalizeText(label);
-  const u = normalizeText(url);
+función escapeHtml(str) {
+  devolver cadena (str || "")
+    .replace(/&/g, "&")
+    .reemplazar(/</g, "<")
+    .reemplazar(/>/g, ">")
+    .reemplazar(/"/g, """)
+    .replace(/'/g, "'");
+}
+
+función guessLinkType(etiqueta, url) {
+  const l = normalizeText(etiqueta);
+  const u = normalizarTexto(url);
 
   // Resumen/Word/Docs -> NO se previsualiza (se abre link real)
-  if (l.includes("resumen") || l.includes("word") || u.includes("docs.google.com/document") || u.includes(".doc")) {
-    return "resumen";
+  si (l.includes("resumen") || l.includes("word") || u.includes("docs.google.com/document") || u.includes(".doc")) {
+    devolver "resumen";
   }
 
-  // GPC: NO preview (solo pestaña nueva) aunque sea PDF
-  if (l.includes("gpc") || l.includes("guia") || l.includes("practica clinica")) {
-    return "gpc";
+  // GPC: NO vista previa (solo pestaña nueva) aunque sea PDF
+  if (l.includes("gpc") || l.includes("guia") || l.includes("practica clínica")) {
+    devolver "gpc";
   }
 
   // PDF
-  if (l.includes("pdf") || u.includes(".pdf") || u.includes("application/pdf")) {
-    return "pdf";
+  si (l.includes("pdf") || u.includes(".pdf") || u.includes("aplicacion/pdf")) {
+    devolver "pdf";
   }
-  if (u.includes("drive.google.com/file")) return "pdf";
-  if (u.includes("drive.google.com/uc") && u.includes("id=")) return "pdf";
+  si (u.includes("drive.google.com/file")) devuelve "pdf";
+  si (u.includes("drive.google.com/uc") y u.includes("id=")) devuelve "pdf";
 
-  return "otro";
+  devolver "otro";
 }
 
-function buildLinkGroups(topic) {
-  const links = Array.isArray(topic.links) ? topic.links : [];
-  const groups = { resumen: [], pdf: [], gpc: [], otro: [] };
+función buildLinkGroups(tema) {
+  const links = Array.isArray(tema.links) ? tema.links : [];
+  const grupos = { resumen: [], pdf: [], gpc: [], otro: [] };
 
-  links.forEach((x) => {
+  enlaces.paraCada((x) => {
     const label = x?.label || x?.name || x?.title || "Documento";
-    const url = x?.url || x?.href || "";
-    if (!url) return;
+    constante url = x?.url || x?.href || "";
+    si (!url) retorna;
 
-    const type = guessLinkType(label, url);
-    groups[type].push({ label, url });
+    constante tipo = guessLinkType(etiqueta, url);
+    grupos[tipo].push({ etiqueta, url });
   });
 
-  groups.resumen.sort((a, b) => a.label.localeCompare(b.label));
-  groups.pdf.sort((a, b) => a.label.localeCompare(b.label));
-  groups.gpc.sort((a, b) => a.label.localeCompare(b.label));
-  groups.otro.sort((a, b) => a.label.localeCompare(b.label));
+  grupos.resumen.sort((a, b) => a.label.localeCompare(b.label));
+  grupos.pdf.sort((a, b) => a.label.localeCompare(b.label));
+  grupos.gpc.sort((a, b) => a.label.localeCompare(b.label));
+  grupos.otro.sort((a, b) => a.label.localeCompare(b.label));
 
-  return groups;
+  grupos de retorno;
 }
 
 /****************************************************
- * Progreso (localStorage)
+ * Progreso (almacenamiento local)
  ****************************************************/
-function getProgressStorageKey() {
-  return `resources_completed_${_currentUserKey}`;
+función getProgressStorageKey() {
+  devuelve `recursos_completados_${_currentUserKey}`;
 }
 
-function loadCompletedSet() {
-  try {
+función loadCompletedSet() {
+  intentar {
     const raw = localStorage.getItem(getProgressStorageKey());
     const arr = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
+    devolver nuevo Conjunto(Array.isArray(arr) ? arr : []);
+  } atrapar {
+    devolver nuevo Conjunto();
   }
 }
 
-function saveCompletedSet(set) {
-  try {
+función saveCompletedSet(conjunto) {
+  intentar {
     localStorage.setItem(getProgressStorageKey(), JSON.stringify(Array.from(set)));
-  } catch {
-    // no-op
+  } atrapar {
+    // sin operación
   }
 }
 
-function isTopicCompleted(topicId) {
-  return loadCompletedSet().has(String(topicId));
+función isTopicCompleted(topicId) {
+  devolver loadCompletedSet().has(String(topicId));
 }
 
-function toggleTopicCompleted(topicId) {
-  const id = String(topicId);
-  const set = loadCompletedSet();
-  if (set.has(id)) set.delete(id);
-  else set.add(id);
-  saveCompletedSet(set);
+función toggleTopicCompleted(topicId) {
+  constante id = String(temaId);
+  constante set = loadCompletedSet();
+  si (set.has(id)) set.delete(id);
+  de lo contrario set.add(id);
+  saveCompletedSet(conjunto);
 }
 
 /****************************************************
- * Preview helpers (PDF inline SOLAMENTE, sin descargas)
+ * Ayudas de vista previa (PDF en línea SOLAMENTE, sin descargas)
  ****************************************************/
-function extractDriveFileId(url) {
-  const u = String(url || "");
+función extractDriveFileId(url) {
+  constante u = Cadena(url || "");
 
-  // /file/d/<id>
-  const m1 = u.match(/\/file\/d\/([^/]+)/i);
-  if (m1 && m1[1]) return m1[1];
+  // /archivo/d/<id>
+  constante m1 = u.match(/\/archivo\/d\/([^/]+)/i);
+  si (m1 && m1[1]) devuelve m1[1];
 
   // ?id=<id>
-  const m2 = u.match(/[?&]id=([^&]+)/i);
-  if (m2 && m2[1]) return m2[1];
+  constante m2 = u.match(/[?&]id=([^&]+)/i);
+  si (m2 && m2[1]) devuelve m2[1];
 
-  return "";
+  devolver "";
 }
 
-function makeDrivePreviewViewerUrl(fileId) {
-  if (!fileId) return "";
-  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
+función makeDrivePreviewViewerUrl(fileId) {
+  si (!fileId) devuelve "";
+  devuelve `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/preview`;
 }
 
-function makeDriveViewUrl(fileId) {
-  if (!fileId) return "";
-  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
+función makeDriveViewUrl(fileId) {
+  si (!fileId) devuelve "";
+  devuelve `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
 }
 
-function makeGoogleGviewUrl(pdfUrl) {
-  if (!pdfUrl) return "";
-  return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}`;
+función makeGoogleGviewUrl(pdfUrl) {
+  si (!pdfUrl) devuelve "";
+  devuelve `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}`;
 }
 
-function makePreviewUrl(url) {
-  const raw = String(url || "").trim();
-  const n = normalizeText(raw);
+función makePreviewUrl(url) {
+  constante raw = String(url || "").trim();
+  const n = normalizarTexto(raw);
 
-  if (!raw) return "";
+  si (!raw) devuelve "";
 
-  // Si ya es un viewer, lo respetamos
-  if (n.includes("docs.google.com/gview?embedded=1")) return raw;
-  if (n.includes("drive.google.com/file") && n.includes("/preview")) return raw;
+  // Si ya es un espectador, lo respetamos
+  si (n.includes("docs.google.com/gview?embedded=1")) devuelve sin procesar;
+  si (n.includes("drive.google.com/file") y n.includes("/preview")) devuelve sin procesar;
 
-  // Drive (file o uc): SIEMPRE usar /preview
-  if (n.includes("drive.google.com")) {
-    const id = extractDriveFileId(raw);
-    if (id) return makeDrivePreviewViewerUrl(id);
-    return "";
+  // Unidad (archivo o uc): SIEMPRE usar /preview
+  si (n.includes("drive.google.com")) {
+    constante id = extractDriveFileId(raw);
+    si (id) devuelve makeDrivePreviewViewerUrl(id);
+    devolver "";
   }
 
   // PDF directo: usar gview para evitar descarga automática
-  if (n.includes(".pdf") || n.includes("application/pdf")) {
-    return makeGoogleGviewUrl(raw);
+  si (n.includes(".pdf") || n.includes("aplicacion/pdf")) {
+    devolver makeGoogleGviewUrl(raw);
   }
 
-  return "";
+  devolver "";
 }
 
-function makeOpenUrl(url) {
-  const raw = String(url || "").trim();
-  const n = normalizeText(raw);
-  if (!raw) return "";
+función makeOpenUrl(url) {
+  constante raw = String(url || "").trim();
+  const n = normalizarTexto(raw);
+  si (!raw) devuelve "";
 
-  if (n.includes("drive.google.com")) {
-    const id = extractDriveFileId(raw);
-    if (id) return makeDriveViewUrl(id);
-    return raw;
+  si (n.includes("drive.google.com")) {
+    constante id = extractDriveFileId(raw);
+    si (id) devuelve makeDriveViewUrl(id);
+    devolver crudo;
   }
 
-  return raw;
+  devolver crudo;
 }
 
 /****************************************************
- * ✅ Preview DOM control (1 iframe + throttle + hard reset)
+ * ✅ Control DOM de vista previa (1 iframe + acelerador + reinicio completo)
  ****************************************************/
-function cachePreviewDomRefs() {
-  if (!listEl) return;
+función cachePreviewDomRefs() {
+  si (!listEl) retorna;
 
-  _previewFrameEl = listEl.querySelector("#student-resources-preview-frame");
-  _previewBoxEl = listEl.querySelector("#student-resources-preview-box");
-  _previewNoteEl = listEl.querySelector("#student-resources-preview-note");
-  _previewOpenBtnEl = listEl.querySelector("#student-resources-open-newtab");
-  _previewLoadingEl = listEl.querySelector("#student-resources-preview-loading");
+  _previewFrameEl = listEl.querySelector("#marco-de-vista-previa-de-recursos-para-estudiantes");
+  _previewBoxEl = listEl.querySelector("#cuadro-de-vista-previa-de-recursos-para-estudiantes");
+  _previewNoteEl = listEl.querySelector("#nota-de-vista-previa-de-recursos-para-estudiantes");
+  _previewOpenBtnEl = listEl.querySelector("#recursos-para-estudiantes-abrir-nueva-pestaña");
+  _previewLoadingEl = listEl.querySelector("#recursos-para-estudiantes-vista-previa-carga");
 
-  if (_previewFrameEl && !_previewFrameEl.dataset.bound) {
+  si (_previewFrameEl && !_previewFrameEl.dataset.bound) {
     _previewFrameEl.dataset.bound = "1";
 
-    _previewFrameEl.addEventListener("load", () => {
-      if (!_previewFrameEl) return;
-      if (String(_previewToken) !== String(_previewFrameEl.dataset.token || "")) return;
-      setPreviewLoading(false);
+    _previewFrameEl.addEventListener("cargar", () => {
+      si (!_previewFrameEl) retorna;
+      si (Cadena(_previewToken) !== Cadena(_previewFrameEl.dataset.token || "")) devolver;
+      setPreviewLoading(falso);
     });
 
     _previewFrameEl.addEventListener("error", () => {
-      if (!_previewFrameEl) return;
-      if (String(_previewToken) !== String(_previewFrameEl.dataset.token || "")) return;
-      setPreviewLoading(false);
-      showPreviewUnavailableNote();
+      si (!_previewFrameEl) retorna;
+      si (Cadena(_previewToken) !== Cadena(_previewFrameEl.dataset.token || "")) devolver;
+      setPreviewLoading(falso);
+      mostrarVistaPreviaNoDisponibleNota();
     });
   }
 }
 
-function setPreviewLoading(on) {
-  if (!_previewLoadingEl) return;
-  if (on) _previewLoadingEl.classList.remove("hidden");
-  else _previewLoadingEl.classList.add("hidden");
+función setPreviewLoading(on) {
+  si (!_previewLoadingEl) retorna;
+  si (activado) _previewLoadingEl.classList.remove("oculto");
+  de lo contrario _previewLoadingEl.classList.add("oculto");
 }
 
-function showPreviewUnavailableNote(customText) {
-  if (_previewNoteEl) {
-    _previewNoteEl.textContent = customText || "No se pudo mostrar el PDF aquí. Ábrelo en pestaña nueva.";
+función mostrarPreviewUnavailableNote(texto personalizado) {
+  si (_previewNoteEl) {
+    _previewNoteEl.textContent = texto personalizado || "No se pudo mostrar el PDF aquí. Ábrelo en pestaña nueva.";
   }
-  if (_previewBoxEl) _previewBoxEl.classList.add("hidden");
+  si (_previewBoxEl) _previewBoxEl.classList.add("oculto");
 }
 
-function disposeInlinePreview() {
-  try {
-    if (_previewFrameEl) _previewFrameEl.src = "about:blank";
-  } catch {}
-  setPreviewLoading(false);
+función disposeInlinePreview() {
+  intentar {
+    si (_previewFrameEl) _previewFrameEl.src = "acerca de:en blanco";
+  } atrapar {}
+  setPreviewLoading(falso);
   clearTimeout(_previewTimer);
-  _previewTimer = null;
+  _previewTimer = nulo;
 }
 
-function applyPreviewToDom(token) {
-  if (!_previewFrameEl) return;
+función applyPreviewToDom(token) {
+  si (!_previewFrameEl) retorna;
 
   // botón abrir (solo si hay PDF seleccionado)
-  if (_previewOpenBtnEl) {
-    if (_selectedOpenUrl) {
-      _previewOpenBtnEl.classList.remove("hidden");
+  si (_previewOpenBtnEl) {
+    si (_selectedOpenUrl) {
+      _previewOpenBtnEl.classList.remove("oculto");
       _previewOpenBtnEl.setAttribute("href", _selectedOpenUrl);
-    } else {
-      _previewOpenBtnEl.classList.add("hidden");
+    } demás {
+      _previewOpenBtnEl.classList.add("oculto");
       _previewOpenBtnEl.removeAttribute("href");
     }
   }
 
-  // si no hay preview (no hay PDFs o no se pudo construir URL)
-  if (!_selectedPreviewUrl) {
-    _previewFrameEl.src = "about:blank";
+  // si no hay vista previa (no hay PDF o no se pudo construir URL)
+  si (!_selectedPreviewUrl) {
+    _previewFrameEl.src = "acerca de:en blanco";
     showPreviewUnavailableNote("Este tema no tiene PDF para vista previa.");
-    return;
+    devolver;
   }
 
-  if (_previewBoxEl) _previewBoxEl.classList.remove("hidden");
+  si (_previewBoxEl) _previewBoxEl.classList.remove("oculto");
   if (_previewNoteEl) _previewNoteEl.textContent = "Vista previa (PDF)";
 
-  setPreviewLoading(true);
+  setPreviewLoading(verdadero);
 
-  // HARD RESET
+  // REINICIO COMPLETO
   _previewFrameEl.dataset.token = String(token);
-  _previewFrameEl.src = "about:blank";
+  _previewFrameEl.src = "acerca de:en blanco";
 
-  requestAnimationFrame(() => {
-    if (token !== _previewToken) return;
+  solicitudAnimationFrame(() => {
+    si (token !== _previewToken) retorna;
 
-    const url = _selectedPreviewUrl;
-    const sep = url.includes("?") ? "&" : "?";
+    constante url = _selectedPreviewUrl;
+    constante sep = url.includes("?") ? "&" : "?";
     const finalUrl = `${url}${sep}v=${token}`;
 
     _previewFrameEl.dataset.token = String(token);
-    _previewFrameEl.src = finalUrl;
+    _previewFrameEl.src = URL final;
   });
 }
 
-function schedulePreviewUpdate() {
-  if (!_previewFrameEl) return;
+función schedulePreviewUpdate() {
+  si (!_previewFrameEl) retorna;
 
-  const now = performance.now();
-  const minGap = IS_IOS ? 650 : IS_MOBILE ? 450 : 150;
-  const wait = Math.max(0, minGap - (now - _previewLastSwitchAt));
-  _previewLastSwitchAt = now;
+  const ahora = rendimiento.now();
+  constante minGap = IS_IOS ? 650 : IS_MOBILE ? 450 : 150;
+  const wait = Math.max(0, minGap - (ahora - _previewLastSwitchAt));
+  _previewLastSwitchAt = ahora;
 
   clearTimeout(_previewTimer);
-  const token = ++_previewToken;
+  constante token = +++_previewToken;
 
-  _previewTimer = setTimeout(() => {
-    applyPreviewToDom(token);
-  }, wait);
+  _previewTimer = establecerTiempoDeVista(() => {
+    aplicarPreviewToDom(token);
+  }, esperar);
 }
 
 /****************************************************
  * Modal (SE CONSERVA)
  ****************************************************/
-function ensureModal() {
-  if (modalRoot) return;
+función asegurarModal() {
+  si (modalRoot) retorna;
 
-  modalRoot = document.createElement("div");
-  modalRoot.id = "student-resources-modal";
-  modalRoot.className = "resources-modal hidden";
-  modalRoot.setAttribute("aria-hidden", "true");
+  modalRoot = documento.createElement("div");
+  modalRoot.id = "recursos-estudiantes-modal";
+  modalRoot.className = "recursos-modales ocultos";
+  modalRoot.setAttribute("aria-hidden", "verdadero");
 
   modalRoot.innerHTML = `
     <div class="resources-modal__overlay" data-close="1"></div>
@@ -423,65 +424,67 @@ function ensureModal() {
         </div>
         <button class="btn btn-outline btn-sm" id="student-resources-modal-close">Cerrar</button>
       </div>
-      <div class="resources-modal__body" id="student-resources-modal-body"></div>
+      <div class="recursos-modal__body" id="recursos-para-estudiantes-modal-body"></div>
     </div>
   `;
 
-  document.body.appendChild(modalRoot);
+  documento.cuerpo.appendChild(modalRoot);
 
-  const closeBtn = modalRoot.querySelector("#student-resources-modal-close");
-  const overlay = modalRoot.querySelector("[data-close='1']");
+  const closeBtn = modalRoot.querySelector("#recursos-para-estudiantes-modal-close");
+  const superposición = modalRoot.querySelector("[data-close='1']");
 
-  closeBtn?.addEventListener("click", closeModal);
-  overlay?.addEventListener("click", closeModal);
+  closeBtn?.addEventListener("clic", closeModal);
+  superposición?.addEventListener("clic", closeModal);
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && modalRoot && !modalRoot.classList.contains("hidden")) closeModal();
+  documento.addEventListener("keydown", (e) => {
+    si (e.key === "Escape" && modalRoot && !modalRoot.classList.contains("hidden")) closeModal();
   });
 }
 
-function closeModal() {
-  if (!modalRoot) return;
-  modalRoot.classList.add("hidden");
-  modalRoot.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
+función closeModal() {
+  si (!modalRoot) retorna;
+  modalRoot.classList.add("oculto");
+  modalRoot.setAttribute("aria-hidden", "verdadero");
+  document.body.classList.remove("modal-abierto");
 }
 
 /****************************************************
- * UI init
+ * Inicialización de la interfaz de usuario
  ****************************************************/
-export function initStudentResourcesUI() {
-  if (_uiInitialized) return;
-  _uiInitialized = true;
+función de exportación initStudentResourcesUI() {
+  si (_uiInitialized) retorna;
+  _uiInitialized = verdadero;
 
-  viewEl = document.getElementById("student-resources-view");
-  searchEl = document.getElementById("student-resources-search");
-  specialtyEl = document.getElementById("student-resources-specialty");
-  listEl = document.getElementById("student-resources-list");
-  detailEl = document.getElementById("student-resources-detail");
-  countEl = document.getElementById("student-resources-count");
-  emptyEl = document.getElementById("student-resources-empty");
-  loadingEl = document.getElementById("student-resources-loading");
+  viewEl = document.getElementById("vista-de-recursos-para-estudiantes");
+  searchEl = document.getElementById("busqueda-de-recursos-para-estudiantes");
+  especialidadEl = document.getElementById("recursos-para-estudiantes-especialidad");
+  listEl = document.getElementById("lista-de-recursos-para-estudiantes");
+  detailEl = document.getElementById("detalle-de-recursos-para-estudiantes");
+  countEl = document.getElementById("número-de-recursos-para-estudiantes");
+  emptyEl = document.getElementById("recursos-para-estudiantes-vacíos");
+  loadingEl = document.getElementById("carga-de-recursos-para-estudiantes");
+  progressTextEl = document.getElementById("texto-de-progreso-de-recursos-para-estudiantes");
+  progressBarEl = document.getElementById("barra-de-progreso-de-recursos-para-estudiantes");
 
-  if (viewEl) viewEl.setAttribute("data-ui", "cards");
-  if (detailEl) detailEl.innerHTML = "";
+  si (viewEl) viewEl.setAttribute("data-ui", "tarjetas");
+  if (detalleEl) detalleEl.innerHTML = "";
 
   // Ocultar columna derecha (si existe) y usar todo el ancho para lista
-  if (detailEl) {
+  si (detalleEl) {
     const rightCol = detailEl.closest("div");
-    if (rightCol) rightCol.classList.add("hidden");
+    si (columnaderecha) col.claseLista.add("oculto");
   }
-  if (listEl) {
-    const leftCol = listEl.closest("div");
-    if (leftCol) {
+  si (listaEl) {
+    constante leftCol = listEl.closest("div");
+    si (columna izquierda) {
       leftCol.style.flex = "1 1 100%";
       leftCol.style.minWidth = "0";
     }
   }
 
-  if (specialtyEl && !specialtyEl.dataset.bound) {
-    specialtyEl.dataset.bound = "1";
-    specialtyEl.innerHTML = `
+  si (especialidadEl && !especialidadEl.conjuntodedatos.límite) {
+    especialidadEl.dataset.bound = "1";
+    especialidadEl.innerHTML = `
       <option value="">Todas</option>
       <option value="medicina_interna">Medicina interna</option>
       <option value="cirugia_general">Cirugía general</option>
@@ -489,486 +492,546 @@ export function initStudentResourcesUI() {
       <option value="gine_obstetricia">Ginecología y Obstetricia</option>
       <option value="acceso_gratuito">Acceso gratuito limitado</option>
     `;
-    specialtyEl.addEventListener("change", () => {
-      selectedSpecialtyKey = specialtyEl.value || "";
-      _selectedTopicId = null;
+    specialtyEl.addEventListener("cambio", () => {
+      selectedSpecialtyKey = especialidadEl.valor || "";
+      _selectedTopicId = nulo;
       _selectedPreviewUrl = "";
       _selectedOpenUrl = "";
-      disposeInlinePreview();
-      scheduleRender();
+      disponerVistaPreviaEnLínea();
+      programarRender();
     });
   }
 
-  if (searchEl && !searchEl.dataset.bound) {
+  si (searchEl && !searchEl.dataset.bound) {
     searchEl.dataset.bound = "1";
 
     // debounce liviano para no renderizar en ráfaga
-    let t = null;
-    searchEl.addEventListener("input", () => {
+    sea ​​t = nulo;
+    searchEl.addEventListener("entrada", () => {
       clearTimeout(t);
-      t = setTimeout(() => {
-        searchQuery = String(searchEl.value || "").trim();
-        _selectedTopicId = null;
+      t = establecerTiempo de espera(() => {
+        consultaDeBúsqueda = String(buscarEl.valor || "").trim();
+        _selectedTopicId = nulo;
         _selectedPreviewUrl = "";
         _selectedOpenUrl = "";
-        disposeInlinePreview();
-        scheduleRender();
+        disponerVistaPreviaEnLínea();
+        programarRender();
       }, 120);
     });
   }
 
-  // Event delegation (1 solo listener, más ligero)
-  if (listEl && !listEl.dataset.bound) {
+  // Delegación de eventos (1 oyente solista, más ligero)
+  si (listEl && !listEl.dataset.bound) {
     listEl.dataset.bound = "1";
 
-    listEl.addEventListener("click", (e) => {
-      const target = e.target;
+    listEl.addEventListener("clic", async (e) => {
+      constante objetivo = e.objetivo;
 
-      // LIST VIEW: abrir tarjeta
-      const openBtn = target?.closest?.(".resource-card__open");
-      const card = target?.closest?.(".resource-card");
-      if (openBtn || card) {
-        const root = openBtn || card;
-        const id = root?.getAttribute?.("data-topic-id");
-        if (id) {
+      // VISTA DE LISTA: abrir tarjeta
+      const openBtn = objetivo?.más cercano?.(".tarjeta-de-recurso__abierta");
+      const card = target?.closest?.(".tarjeta-de-recurso");
+      si (openBtn || tarjeta) {
+        const root = openBtn || tarjeta;
+        const id = root?.getAttribute?.("id-del-tema-de-datos");
+        si (id) {
           e.preventDefault();
           e.stopPropagation();
-          disposeInlinePreview();
+          disponerVistaPreviaEnLínea();
           _selectedTopicId = id;
           _selectedPreviewUrl = "";
           _selectedOpenUrl = "";
-          scheduleRender();
-          return;
+          programarRender();
+          devolver;
         }
       }
 
-      // DETAIL VIEW: back
-      if (target?.closest?.("#student-resources-back")) {
+      // VISTA DE DETALLE: atrás
+      si (objetivo?.más cercano?.("#student-resources-back")) {
         e.preventDefault();
-        disposeInlinePreview();
-        _selectedTopicId = null;
+        disponerVistaPreviaEnLínea();
+        _selectedTopicId = nulo;
         _selectedPreviewUrl = "";
         _selectedOpenUrl = "";
-        scheduleRender();
-        return;
+        programarRender();
+        devolver;
       }
-
-      // DETAIL VIEW: complete
-      if (target?.closest?.("#student-resources-complete")) {
+      // VISTA DETALLADA: iniciar mini-examen del tema
+      si (objetivo?.más cercano?.("#recursos-para-estudiantes-inicio-tema-examen")) {
         e.preventDefault();
-        const topic = getSelectedTopic();
-        if (topic) {
-          toggleTopicCompleted(topic.id);
-          scheduleRender();
+        intentar {
+          const db = await asegurarResourcesDb();
+          const ref = doc(db, "tema_exámenes", String(_selectedTopicId));
+          constante snap = esperar obtenerDoc(ref);
+          si (!snap.existe()) {
+            alert("Este tema aún no tiene mini-examen configurado.");
+            devolver;
+          }
+          constante datos = snap.data() || {};
+          const casos = Array.isArray(datos.casos) ? datos.casos : [];
+          constante tema = _allTopics.find((t) => String(t.id) === String(_selectedTopicId));
+          const topicTitle = topic?.title || "Mini-examen del tema";
+
+          ventana.dispatchEvent(
+            nuevo CustomEvent("estudiante:openTopicExam", {
+              detalle: { topicId: String(_selectedTopicId), topicTitle, casos },
+            })
+          );
+        } atrapar (err) {
+          consola.error(err);
+          alert("No se pudo iniciar el mini-examen. Intento de nuevo.");
         }
-        return;
+        devolver;
       }
 
-      // DETAIL VIEW: preview button (SOLO PDFs)
-      const previewBtn = target?.closest?.("button[data-preview-url]");
-      if (previewBtn) {
+
+
+      // VISTA DE DETALLE: completa
+      si (objetivo?.más cercano?.("#student-resources-complete")) {
+        e.preventDefault();
+        constante tema = getSelectedTopic();
+        si (tema) {
+          toggleTopicCompleted(tema.id);
+          programarRender();
+        }
+        devolver;
+      }
+
+      // VISTA DE DETALLE: botón de vista previa (PDF SOLO)
+      const previewBtn = target?.closest?.("botón[url-vista-previa-de-datos]");
+      si (previewBtn) {
         e.preventDefault();
 
-        const raw = previewBtn.getAttribute("data-preview-url") || "";
-        if (!raw) return;
+        const raw = previewBtn.getAttribute("url-vista-previa-de-datos") || "";
+        si (!raw) retorna;
 
-        // Abrir en nueva pestaña: preferimos viewer (no download)
-        _selectedOpenUrl = makeOpenUrl(raw);
+        // Abrir en nueva pestaña: visor preferido (sin descarga)
+        _selectedOpenUrl = makeOpenUrl(sin procesar);
 
-        // Preview: SIEMPRE viewer (no download)
-        const preview = makePreviewUrl(raw);
-        _selectedPreviewUrl = preview || "";
+        // Vista previa: visor SIEMPRE (sin descarga)
+        constante vista previa = makePreviewUrl(raw);
+        _selectedPreviewUrl = vista previa || "";
 
         // Marca visual (ARIA) sin re-render
-        listEl.querySelectorAll("button[data-preview-url][aria-pressed='true']").forEach((b) => {
-          b.setAttribute("aria-pressed", "false");
+        listEl.querySelectorAll("botón[url-vista-previa-de-datos][aria-pressed='true']").forEach((b) => {
+          b.setAttribute("aria-presionado", "falso");
         });
-        previewBtn.setAttribute("aria-pressed", "true");
+        previewBtn.setAttribute("aria-pressed", "verdadero");
 
-        cachePreviewDomRefs();
-        schedulePreviewUpdate();
-        return;
+        vista previa en cachéDomRefs();
+        programarPreviewUpdate();
+        devolver;
       }
     });
   }
 
-  // Si el tab se oculta, corta el iframe (reduce freezes en iOS)
-  if (!document.documentElement.dataset.resourcesVisBound) {
-    document.documentElement.dataset.resourcesVisBound = "1";
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) disposeInlinePreview();
+  // Si la pestaña se oculta, corta el iframe (reduce congelaciones en iOS)
+  si (!documento.documentElement.dataset.resourcesVisBound) {
+    documento.documentElement.dataset.resourcesVisBound = "1";
+    document.addEventListener("cambio de visibilidad", () => {
+      si (documento.oculto) disposeInlinePreview();
     });
   }
 
-  ensureModal();
+  asegurarModal();
 }
 
 /****************************************************
- * Load data
+ * Cargar datos
  ****************************************************/
-export async function activateStudentResources() {
+exportar función asíncrona activateStudentResources() {
   initStudentResourcesUI();
 
-  try {
-    show(loadingEl);
-    hide(emptyEl);
+  intentar {
+    mostrar(cargandoEl);
+    ocultar(vacíoEl);
 
-    if (!_dataLoaded) {
-      const db = ensureResourcesDb();
-      const q = query(collection(db, "temas"), orderBy("title", "asc"));
-      const snap = await getDocs(q);
+    si (!_datos cargados) {
+      constante db = asegurarRecursosDb();
+      const q = consulta(colección(db, "temas"), orderBy("título", "asc"));
+      constante snap = esperar getDocs(q);
 
       _allTopics = snap.docs.map((d) => {
-        const data = d.data() || {};
-        const specialtyRaw = data.specialty || "";
-        return {
-          id: d.id,
-          title: data.title || "Tema sin título",
-          specialty: specialtyRaw,
+        constante datos = d.datos() || {};
+        const especialidadRaw = datos.especialidad || "";
+        devolver {
+          identificación: d.id,
+          título: datos.título || "Tema sin título",
+          especialidad: especialidadCruda,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
-          links: Array.isArray(data.links) ? data.links : [],
+          enlaces: Array.isArray(datos.enlaces) ? datos.enlaces : [],
         };
       });
 
-      _dataLoaded = true;
+      _dataLoaded = verdadero;
     }
 
-    scheduleRender(true);
-  } catch (err) {
-    console.error("Error cargando biblioteca (temas):", err);
-    if (listEl) {
-      listEl.innerHTML = `
-        <div class="card" style="padding:12px 14px;">
-          <div class="panel-subtitle">No se pudieron cargar los temas. Intenta de nuevo.</div>
+    scheduleRender(verdadero);
+  } atrapar (err) {
+    console.error("Error al cargar biblioteca (temas):", err);
+    si (listaEl) {
+      listaEl.innerHTML = `
+        <div clase="tarjeta" estilo="relleno:12px 14px;">
+          <div class="panel-subtitle">No se pudieron cargar los temas. Intento de nuevo.</div>
         </div>
       `;
     }
-  } finally {
-    hide(loadingEl);
+  } finalmente {
+    ocultar(cargandoEl);
   }
 }
 
 /****************************************************
- * API opcional: setear usuario
+ * API opcional: configurar usuario
  ****************************************************/
-export function setStudentResourcesUserIdentity(emailOrUid) {
-  _currentUserKey = normalizeText(emailOrUid || "anon") || "anon";
+función de exportación setStudentResourcesUserIdentity(emailOrUid) {
+  _currentUserKey = normalizeText(emailOrUid || "anónimo") || "anónimo";
 }
 
 /****************************************************
- * API: stats de progreso para la vista "Progreso"
+ * API: estadísticas de progreso para la vista "Progreso"
  ****************************************************/
-export async function getStudentResourcesProgressStats(options = {}) {
-  const { includeAccesoGratuito = false } = options || {};
-  try {
-    // Cargar data si aún no está
-    if (!_dataLoaded) {
-      const db = ensureResourcesDb();
-      const q = query(collection(db, "temas"), orderBy("title", "asc"));
-      const snap = await getDocs(q);
+exportar función asíncrona getStudentResourcesProgressStats(opciones = {}) {
+  const { includeAccesoGratuito = false } = opciones || {};
+  intentar {
+    // Cargar datos si aún no está
+    si (!_datos cargados) {
+      constante db = asegurarRecursosDb();
+      const q = consulta(colección(db, "temas"), orderBy("título", "asc"));
+      constante snap = esperar getDocs(q);
 
       _allTopics = snap.docs.map((d) => {
-        const data = d.data() || {};
-        const specialtyRaw = data.specialty || "";
-        return {
-          id: d.id,
-          title: data.title || "Tema sin título",
-          specialty: specialtyRaw,
+        constante datos = d.datos() || {};
+        const especialidadRaw = datos.especialidad || "";
+        devolver {
+          identificación: d.id,
+          título: datos.título || "Tema sin título",
+          especialidad: especialidadCruda,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
-          links: Array.isArray(data.links) ? data.links : [],
+          enlaces: Array.isArray(datos.enlaces) ? datos.enlaces : [],
         };
       });
 
-      _dataLoaded = true;
+      _dataLoaded = verdadero;
     }
 
     const topics = includeAccesoGratuito
-      ? _allTopics
+      ?_todos los temas
       : _allTopics.filter((t) => t.specialtyKey !== "acceso_gratuito");
 
-    const set = loadCompletedSet();
-    const topicIds = new Set(topics.map((t) => String(t.id)));
+    constante set = loadCompletedSet();
+    constante topicIds = nuevo Conjunto(temas.map((t) => String(t.id)));
 
-    let completedCount = 0;
-    set.forEach((id) => {
-      if (topicIds.has(String(id))) completedCount += 1;
+    deje que completeCount = 0;
+    establecer.paraCada((id) => {
+      si (topicIds.has(String(id))) completedCount += 1;
     });
 
-    const total = topics.length;
-    const percent = total > 0 ? (completedCount / total) * 100 : 0;
+    const total = temas.longitud;
+    constante porcentaje = total > 0 ? (conteo completado / total) * 100 : 0;
 
-    return { totalTopics: total, completedTopics: completedCount, percent };
-  } catch (err) {
-    console.error("Error obteniendo stats de biblioteca:", err);
-    return { totalTopics: 0, completedTopics: 0, percent: 0 };
+    devolver { totalTopics: total, completedTopics: completedCount, porcentaje };
+  } atrapar (err) {
+    console.error("Error al obtener estadísticas de biblioteca:", err);
+    devolver { totalTopics: 0, completeTopics: 0, porcentaje: 0 };
   }
 }
 
 /****************************************************
- * Render
+ * Prestar
  ****************************************************/
-function applyFilters(topics) {
-  const q = normalizeText(searchQuery);
-  const selected = selectedSpecialtyKey || "";
+función aplicarFiltros(temas) {
+  const q = normalizarTexto(ConsultaDeBúsqueda);
+  constante seleccionado = claveEspecialSeleccionada || "";
 
-  return topics.filter((t) => {
-    if (!selected) {
-      if (t.specialtyKey === "acceso_gratuito") return false;
-    } else {
-      if (t.specialtyKey !== selected) return false;
+  devolver temas.filter((t) => {
+    si (!seleccionado) {
+      si (t.specialtyKey === "acceso_gratuito") devuelve falso;
+    } demás {
+      si (t.specialtyKey !== seleccionado) devuelve falso;
     }
 
-    if (!q) return true;
+    si (!q) devuelve verdadero;
 
-    const title = normalizeText(t.title);
+    constante titulo = normalizarTexto(t.titulo);
     const sp = normalizeText(t.specialty);
-    return title.includes(q) || sp.includes(q);
+    devolver título.includes(q) || sp.includes(q);
   });
 }
 
-function getSelectedTopic() {
-  if (!_selectedTopicId) return null;
-  return _allTopics.find((t) => String(t.id) === String(_selectedTopicId)) || null;
+función getSelectedTopic() {
+  si (!_selectedTopicId) devuelve nulo;
+  devolver _allTopics.find((t) => String(t.id) === String(_selectedTopicId)) || nulo;
 }
 
-function scheduleRender(forceImmediate = false) {
-  if (!_dataLoaded || !listEl) return;
+función scheduleRender(forceImmediate = false) {
+  si (!_dataLoaded || !listEl) retorna;
 
-  if (forceImmediate) {
-    _renderScheduled = false;
-    render();
-    return;
+  si (fuerzaInmediata) {
+    _renderScheduled = falso;
+    prestar();
+    devolver;
   }
 
-  if (_renderScheduled) return;
-  _renderScheduled = true;
+  si (_renderScheduled) retorna;
+  _renderScheduled = verdadero;
 
-  requestAnimationFrame(() => {
-    _renderScheduled = false;
-    render();
+  solicitudAnimationFrame(() => {
+    _renderScheduled = falso;
+    prestar();
   });
 }
 
-function render() {
-  if (!listEl) return;
+función render() {
+  si (!listEl) retorna;
 
-  const filtered = applyFilters(_allTopics);
+  constante filtrada = aplicarFiltros(_todosLosTemas);
 
-  if (countEl) countEl.textContent = `${filtered.length} tema${filtered.length === 1 ? "" : "s"}`;
+  // ✅ Progreso (según filtros actuales)
+  si (progressTextEl && progressBarEl) {
+    const includeAccesoGratuito = !selectedSpecialtyKey || selectedSpecialtyKey === "acceso_gratuito";
+    constante topicsForStats = includeAccesoGratuito
+      ?_todos los temas
+      : _allTopics.filter((t) => t.specialtyKey !== "acceso_gratuito");
 
-  const selected = getSelectedTopic();
-  if (selected) {
-    hide(emptyEl);
-    renderTopicDetail(selected);
-    return;
+    constante topicIds = nuevo Set(temasParaEstadísticas.map((t) => String(t.id)));
+    constante set = loadCompletedSet();
+    deje que completeCount = 0;
+    establecer.paraCada((id) => {
+      si (topicIds.has(String(id))) completedCount += 1;
+    });
+
+    constante total = topicIds.size;
+    constante pct = total ? Math.round((completedCount / total) * 100) : 0;
+
+    ProgressTextEl.textContent = `${completedCount} / ${total} (${pct}%)`;
+    progressBarEl.style.width = `${pct}%`;
   }
 
-  // list view
-  if (!filtered.length) {
-    listEl.innerHTML = "";
-    show(emptyEl);
-    return;
+
+  si (countEl) countEl.textContent = `${filtered.length} tema${filtered.length === 1 ? "" : "s"}`;
+
+  constante seleccionado = getSelectedTopic();
+  si (seleccionado) {
+    ocultar(vacíoEl);
+    renderTopicDetail(seleccionado);
+    devolver;
   }
 
-  hide(emptyEl);
-  listEl.classList.add("resources-grid");
+  // vista de lista
+  si (!filtrado.longitud) {
+    listaEl.innerHTML = "";
+    mostrar(vacíoEl);
+    devolver;
+  }
 
-  const frag = document.createDocumentFragment();
+  ocultar(vacíoEl);
+  listEl.classList.add("cuadrícula-de-recursos");
 
-  filtered.forEach((t) => {
-    const groups = buildLinkGroups(t);
-    const hasResumen = groups.resumen.length > 0;
-    const pdfCount = groups.pdf.length;
-    const gpcCount = groups.gpc.length;
-    const otherCount = groups.otro.length;
+  const frag = documento.createDocumentFragment();
+
+  filtrado.paraCada((t) => {
+    const grupos = buildLinkGroups(t);
+    const hasResumen = grupos.resumen.length > 0;
+    const pdfCount = grupos.pdf.length;
+    const gpcCount = grupos.gpc.length;
+    const otherCount = grupos.otro.length;
 
     const spLabel = specialtyLabelFromKey(t.specialtyKey);
-    const completed = isTopicCompleted(t.id);
+    constante completado = isTopicCompleted(t.id);
 
-    const badges = [];
-    if (completed) badges.push(`<span class="resource-badge">Completado</span>`);
-    if (hasResumen) badges.push(`<span class="resource-badge">Resumen</span>`);
-    if (pdfCount) badges.push(`<span class="resource-badge">PDF ${pdfCount}</span>`);
-    if (gpcCount) badges.push(`<span class="resource-badge">GPC ${gpcCount}</span>`);
-    if (otherCount) badges.push(`<span class="resource-badge resource-badge--muted">Otros ${otherCount}</span>`);
+    constantes insignias = [];
+    si (completado) insignias.push(`<span class="resource-badge">Completado</span>`);
+    si (tieneCurrículum) insignias.push(`<span class="resource-badge">Currículum</span>`);
+    si (pdfCount) insignias.push(`<span class="resource-badge">PDF ${pdfCount}</span>`);
+    si (gpcCount) insignias.push(`<span class="resource-badge">GPC ${gpcCount}</span>`);
+    si (otherCount) insignias.push(`<span class="resource-badge resource-badge--muted">Otros ${otherCount}</span>`);
 
-    const card = document.createElement("div");
-    card.className = `resource-card ${completed ? "resource-card--completed" : ""}`;
-    card.setAttribute("data-topic-id", String(t.id));
-    card.innerHTML = `
-      <div class="resource-card__top">
-        <div class="resource-card__meta">
+    constante tarjeta = documento.createElement("div");
+    card.className = `tarjeta-de-recurso ${completado ? "tarjeta-de-recurso--completado" : ""}`;
+    card.setAttribute("id-del-tema-de-datos", String(t.id));
+    tarjeta.innerHTML = `
+      <div class="tarjeta-de-recursos__top">
+        <div class="tarjeta-de-recurso__meta">
           <div class="resource-card__specialty">${escapeHtml(spLabel)}</div>
           <div class="resource-card__title">${escapeHtml(t.title)}</div>
         </div>
-        <button class="btn btn-primary btn-sm resource-card__open" type="button" data-topic-id="${escapeHtml(
-          String(t.id)
+        <button clase="btn btn-primary btn-sm tarjeta-de-recursos__abierta" tipo="botón" id-de-tema-de-datos="${escapeHtml(
+          Cadena(t.id)
         )}">Abrir</button>
       </div>
-      <div class="resource-card__badges">${badges.join("")}</div>
+      <div class="resource-card__badges">${insignias.join("")}</div>
     `;
 
-    frag.appendChild(card);
+    frag.appendChild(tarjeta);
   });
 
-  listEl.innerHTML = "";
-  listEl.appendChild(frag);
+  listaEl.innerHTML = "";
+  listaEl.appendChild(fragmento);
 }
 
-function renderTopicDetail(topic) {
-  const spLabel = specialtyLabelFromKey(topic.specialtyKey);
-  const groups = buildLinkGroups(topic);
+función renderTopicDetail(tema) {
+  const spLabel = specialtyLabelFromKey(tema.specialtyKey);
+  const grupos = buildLinkGroups(tema);
 
-  // ✅ Al abrir el tema: cargar preview AUTOMÁTICO del primer PDF (viewer, sin download)
-  if (!_selectedOpenUrl) {
-    const firstPdf = groups.pdf[0]?.url || "";
-    if (firstPdf) {
-      _selectedOpenUrl = makeOpenUrl(firstPdf);
-      _selectedPreviewUrl = makePreviewUrl(firstPdf);
-    } else {
+  // ✅ Al abrir el tema: cargar vista previa AUTOMÁTICO del primer PDF (visor, sin descargar)
+  si (!_selectedOpenUrl) {
+    const firstPdf = grupos.pdf[0]?.url || "";
+    si (primerPdf) {
+      _selectedOpenUrl = makeOpenUrl(primerPdf);
+      _selectedPreviewUrl = makePreviewUrl(primerPdf);
+    } demás {
       _selectedOpenUrl = "";
       _selectedPreviewUrl = "";
     }
   }
 
-  // Si no hay PDF, aseguramos que no intente previsualizar nada
-  if (!groups.pdf.length) {
+  // Si no hay PDF, aseguramos que no intentaremos previsualizar nada
+  si (!grupos.pdf.longitud) {
     _selectedOpenUrl = "";
     _selectedPreviewUrl = "";
   }
 
-  const completed = isTopicCompleted(topic.id);
+  const completado = isTopicCompleted(tema.id);
 
   // Helpers de botones (sin textos extra)
-  const newTabLinks = (items) =>
-    (items || [])
-      .map(
+  const newTabLinks = (elementos) =>
+    (elementos || [])
+      .mapa(
         (l) => `
-      <a class="btn btn-outline btn-sm btn-external" href="${escapeHtml(makeOpenUrl(l.url))}" target="_blank" rel="noopener noreferrer">
+      <a clase="btn btn-outline btn-sm btn-external" href="${escapeHtml(makeOpenUrl(l.url))}" objetivo="_blank" rel="noopener noreferrer">
         ${escapeHtml(l.label)} <span class="btn-external__icon" aria-hidden="true">↗</span>
       </a>
     `
       )
-      .join("");
+      .unirse("");
 
   // Resúmenes: abrir en pestaña nueva
-  const resumenLinks = newTabLinks(groups.resumen);
+  const resumenLinks = newTabLinks(grupos.resumen);
 
-  // PDFs: botones de vista previa
-  const previewButtons = (items) =>
-    (items || [])
-      .map(
+  // PDF: botones de vista previa
+  const previewButtons = (elementos) =>
+    (elementos || [])
+      .mapa(
         (l) => `
-      <button
-        class="btn btn-outline btn-sm btn-preview"
-        data-preview-url="${escapeHtml(l.url)}"
-        type="button"
-        aria-pressed="false"
+      <botón
+        clase="btn btn-outline btn-sm btn-preview"
+        vista previa de datos-url="${escapeHtml(l.url)}"
+        tipo="botón"
+        aria-pressed="falso"
       >${escapeHtml(l.label)}</button>
     `
       )
-      .join("");
+      .unirse("");
 
-  const pdfBtns = previewButtons(groups.pdf);
+  const pdfBtns = previewButtons(grupos.pdf);
 
   // GPC/Otros: NO se previsualizan. Solo pestaña nueva.
-  const gpcLinks = newTabLinks(groups.gpc);
-  const otherLinks = newTabLinks(groups.otro);
+  const gpcLinks = newTabLinks(grupos.gpc);
+  const otherLinks = newTabLinks(grupos.otro);
 
-  const previewBlock = `
+  constante previewBlock = `
     <div class="card" style="margin-top:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
         <div>
           <div style="font-weight:700;font-size:14px;">Vista previa</div>
-          <div class="panel-subtitle" id="student-resources-preview-note" style="margin-top:4px;">Vista previa (PDF)</div>
+          Vista previa (PDF)
         </div>
 
         <a
-          id="student-resources-open-newtab"
-          class="btn btn-primary btn-sm hidden"
+          id="recursos-para-estudiantes-abrir-nueva-pestaña"
+          clase="btn btn-primary btn-sm oculto"
           href="#"
-          target="_blank"
-          rel="noopener noreferrer"
+          objetivo="_en blanco"
+          rel="sin abridor ni referenciador"
         >
           Abrir PDF
         </a>
       </div>
 
-      <div
-        id="student-resources-preview-box"
-        class="hidden"
-        style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; position:relative;"
+      <división
+        id="cuadro de vista previa de recursos para estudiantes"
+        clase="oculto"
+        estilo="margen superior:12px; ancho:100%; alto:70vh; radio del borde:12px; desbordamiento:oculto; borde:1px sólido #e5e7eb; posición:relativa;"
       >
-        <div
-          id="student-resources-preview-loading"
-          class="hidden"
-          style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.85); z-index:2; font-weight:700;"
+        <división
+          id="vista previa de recursos para estudiantes"
+          clase="oculto"
+          estilo="posición:absoluta; recuadro:0; visualización:flexible; alinear elementos:centrar; justificar contenido:centrar; fondo:rgba(255,255,255,.85); índice z:2; peso de fuente:700;"
         >
           Cargando…
         </div>
 
         <iframe
-          id="student-resources-preview-frame"
-          title="Vista previa"
-          src="about:blank"
-          style="width:100%;height:100%;border:0;"
-          loading="eager"
+          id="marco de vista previa de recursos para estudiantes"
+          título="Vista previa"
+          src="acerca de:en blanco"
+          estilo="ancho:100%;alto:100%;borde:0;"
+          cargando="ansioso"
         ></iframe>
       </div>
     </div>
   `;
 
   // ✅ Un solo bloque "Recursos" sin textos extra / sin paréntesis.
-  // Orden: PDFs (preview) -> Resúmenes -> GPC -> Otros
-  const allButtons = [pdfBtns, resumenLinks, gpcLinks, otherLinks].filter(Boolean).join("");
+  // Orden: PDFs (vista previa) -> Resúmenes -> GPC -> Otros
+  const allButtons = [pdfBtns, resumenLinks, gpcLinks, otrosLinks].filter(Boolean).join("");
 
-  const resourcesPanel = `
-    <div class="card resource-unified-card" style="margin-top:12px;">
+  constante recursosPanel = `
+    <div class="tarjeta recurso-tarjeta-unificada" style="margin-top:12px;">
       <div class="resource-unified-card__header">
         <div class="resource-unified-card__title">Recursos</div>
       </div>
-      <div class="resource-unified-card__body">
-        <div class="resource-unified-buttons">
-          ${allButtons || `<div class="panel-subtitle">No hay recursos en este tema.</div>`}
+      <div class="tarjeta-unificada-de-recursos__body">
+        <div class="botones-unificados-de-recursos">
+          ${todos los botones || `<div class="panel-subtitle">No hay recursos en este tema.</div>`}
         </div>
       </div>
     </div>
   `;
 
-  listEl.classList.remove("resources-grid");
+  listEl.classList.remove("cuadrícula-de-recursos");
 
-  listEl.innerHTML = `
-    <div class="card" style="padding:14px;">
+  listaEl.innerHTML = `
+    <div clase="tarjeta" estilo="relleno:14px;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <div style="min-width:240px;">
+        <div style="ancho mínimo:240px;">
           <div class="panel-subtitle">${escapeHtml(spLabel)}</div>
-          <div style="font-weight:800;font-size:18px; margin-top:4px;">${escapeHtml(topic.title)}</div>
-          ${completed ? `<div style="margin-top:10px;"><span class="resource-detail-chip">✓ Completado</span></div>` : ``}
+          <div style="font-weight:800;font-size:18px; margin-top:4px;">${escapeHtml(tema.título)}</div>
+          ${completado ? `<div style="margin-top:10px;"><span class="resource-detail-chip">✓ Completado</span></div>` : ``}
         </div>
 
         <div style="display:flex;gap:8px;align-items:center;">
           <button id="student-resources-back" class="btn btn-outline btn-sm" type="button">← Volver</button>
-          <button id="student-resources-complete" class="btn ${completed ? "btn-outline" : "btn-primary"} btn-sm" type="button">
-            ${completed ? "Marcar como no completado" : "Marcar como completado"}
-          </button>
+          <button id="recursos-para-estudiantes-completos" class="btn ${completado ? "btn-outline" : "btn-primary"} btn-sm" type="button">
+            ${completado? "Marcar como no completado" : "Marcar como completado"}
+          </botón>
         </div>
       </div>
     </div>
 
     ${previewBlock}
     ${resourcesPanel}
+
+    <div class="card" style="margin-top:12px;">
+      <div style="font-weight:700;font-size:14px;">Mini-examen del tema</div>
+      <div class="panel-subtitle" style="margin-top:4px;">Resuelve un caso clínico con preguntas de este tema.</div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="student-resources-start-topic-exam" class="btn btn-primary btn-sm" type="button">Iniciar mini-examen</button>
+      </div>
+    </div>
+
   `;
 
-  cachePreviewDomRefs();
+  vista previa en cachéDomRefs();
 
-  // Marca inicial active (si existe) - SOLO PDFs
-  if (_selectedOpenUrl && groups.pdf.length) {
-    const firstRaw = groups.pdf[0]?.url || "";
-    if (firstRaw) {
+  // Marca inicial activa (si existe) - SOLO PDFs
+  si (_selectedOpenUrl && grupos.pdf.length) {
+    const firstRaw = grupos.pdf[0]?.url || "";
+    si (firstRaw) {
       const matchBtn = listEl.querySelector(`button[data-preview-url="${CSS.escape(firstRaw)}"]`);
-      if (matchBtn) matchBtn.setAttribute("aria-pressed", "true");
+      si (matchBtn) matchBtn.setAttribute("aria-pressed", "verdadero");
     }
   }
 
-  schedulePreviewUpdate();
+  programarPreviewUpdate();
 }
