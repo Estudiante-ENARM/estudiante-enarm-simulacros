@@ -11,7 +11,7 @@ import { getFirestore, collection, getDocs, query, orderBy } from "https://www.g
  * Firebase (proyecto de BIBLIOTECA)
  ****************************************************/
 const RESOURCES_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCgxVWMPttDzvGxqo7jaP-jKgS4Cj8P30I",
+  apiKey: "AIzaSyCjOqAQUDeKi_bucZ8PzunNQsx1UlomuEw",
   authDomain: "pagina-buena.firebaseapp.com",
   projectId: "pagina-buena",
   storageBucket: "pagina-buena.appspot.com",
