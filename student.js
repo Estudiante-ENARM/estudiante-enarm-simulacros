@@ -51,6 +51,7 @@ const sidebar = document.getElementById("sidebar");
 const btnToggleSidebar = document.getElementById("btn-toggle-sidebar");
 
 const btnMiniExamsSidebar = document.getElementById("student-mini-exams-btn");
+const btnExamsSidebar = document.getElementById("student-exams-btn");
 const sidebarSections = document.getElementById("student-sidebar-sections");
 const btnProgressView = document.getElementById("student-progress-btn");
 
