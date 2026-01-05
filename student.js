@@ -725,12 +725,16 @@ if (btnMiniExamsSidebar) {
 
 if (btnExamsSidebar) {
   btnExamsSidebar.addEventListener("click", () => {
+    // 1) Asegura estar en la vista de exámenes
+    if (currentView !== "section") {
+      switchToSectionView({ restore: true }); // evita tocar el estado guardado
+    }
+
+    // 2) Toggle del menú de secciones
     _examsMenuOpen = !_examsMenuOpen;
     setSidebarSectionsVisible(_examsMenuOpen);
-    switchToSectionView();
   });
 }
-
 
 // Biblioteca
 if (btnResourcesView) {
@@ -894,8 +898,11 @@ function switchToMiniView(opts = {}) {
 }
 
 function switchToSectionView(opts = {}) {
-  _examsMenuOpen = false;
-  setSidebarSectionsVisible(false);
+  // NO tocar _examsMenuOpen aquí
+  // NO llamar setSidebarSectionsVisible(false) aquí
+  currentView = "section";
+  ...
+}
 
   currentView = "section";
   hide(miniBuilderView);
