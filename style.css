@@ -1688,6 +1688,24 @@ body.modal-open { overflow: hidden; }
     background: rgba(16, 185, 129, 0.18);
   }
 }
+/* ===== FIX: Mostrar TODAS las secciones del sidebar ===== */
+#student-sidebar-sections.sidebar-sections {
+  display: block;            /* por si alguna regla lo colapsa */
+  max-height: 320px;         /* evita que solo se vea 1 */
+  overflow-y: auto;          /* scroll si son muchas */
+  margin: 8px 0 12px;
+  padding: 0;
+}
+
+#student-sidebar-sections.sidebar-sections li,
+#student-sidebar-sections .sidebar__section-item {
+  display: flex;             /* asegura que no se oculten */
+  width: 100%;
+}
+
+#student-sidebar-sections .sidebar__section-item--active {
+  display: flex;             /* por si tu CSS solo muestra el activo */
+}
 
 /* ===================================================
    FIN
