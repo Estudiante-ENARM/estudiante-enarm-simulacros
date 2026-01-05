@@ -898,11 +898,9 @@ function switchToMiniView(opts = {}) {
 }
 
 function switchToSectionView(opts = {}) {
-  // NO tocar _examsMenuOpen aquí
-  // NO llamar setSidebarSectionsVisible(false) aquí
-  currentView = "section";
-  ...
-}
+  // ✅ Aquí NO cierres el menú de secciones
+  // _examsMenuOpen = false;
+  // setSidebarSectionsVisible(false);
 
   currentView = "section";
   hide(miniBuilderView);
