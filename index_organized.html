@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Estudiante ENARM | Plataforma</title>
+<!-- Fuente -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Estilos compartidos -->
+<link href="style.css" rel="stylesheet">
+<!-- Favicon (evita error 404 /favicon.ico) -->
+<link href="logo.png" rel="icon" type="image/png"/>
+<!-- Google Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+<script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+<!-- Meta Pixel Code -->
+<script>
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;
+      n=f.fbq=function(){ n.callMethod ?
+        n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+      if(!f._fbq)f._fbq=n;
+      n.push=n;
+      n.loaded=!0;
+      n.version='2.0';
+      n.queue=[];
+      t=b.createElement(e);t.async=!0;
+      t.src=v;
+      s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s);
+    }(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+  </script>
+<!-- End Meta Pixel Code -->
+</link></head>
+<body>
+<!-- Meta Pixel (noscript) -->
+<noscript>
+<img height="1" src="https://www.facebook.com/tr?id=1146031771035535&amp;ev=PageView&amp;noscript=1" style="display:none" width="1"/>
+</noscript>
+<!-- Banner de cookies -->
+<div class="cookie-banner" id="cookie-banner">
+<div class="cookie-banner__text">
+      Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
+      Esto incluye Google Analytics y Meta Pixel. Puedes aceptar o rechazar estas cookies.
+    </div>
+<div class="cookie-banner__actions">
+<button class="btn btn-primary btn-sm" id="cookie-accept">Aceptar</button>
+<button class="btn btn-outline btn-sm" id="cookie-decline">Rechazar</button>
+</div>
+</div>
+<section class="view" id="login-view">
+<div class="login-card"><div class="login-grid"><div class="login-pane"><h1>Estudiante ENARM</h1><p class="panel-subtitle" style="margin-bottom:16px;">
+        Accede con tu correo y contraseña para comenzar tus simulacros.
+      </p><!-- LOGIN --><div class="field">
+<span>Correo electrónico</span>
+<input autocomplete="email" id="login-email" placeholder="correo@ejemplo.com" type="email"/>
+</div><div class="field">
+<span>Contraseña</span>
+<input autocomplete="current-password" id="login-password" placeholder="********" type="password"/>
+</div><div class="flex-row" style="justify-content:flex-end;margin-top:4px;">
+<button class="btn btn-outline" id="login-btn-cancel">Cancelar</button>
+<button class="btn btn-primary" id="login-btn">Entrar</button>
+</div><div class="error" id="login-error" style="display:none;"></div><!-- PANEL DE INFORMACIÓN + PLANES --></div><div class="info-pane"><div id="landing-card">
+<p id="landing-text">
+          Cargando información de la plataforma…
+        </p>
+<!-- ✅ VISTA PREVIA (solo UI; no afecta la lógica del login/planes/redes) -->
+<div aria-label="Vista previa de la plataforma" class="landing-showcase">
+<div class="landing-showcase-head">
+<div class="landing-showcase-title">Así se ve por dentro</div>
+<div class="landing-showcase-subtitle">Desliza para ver funciones clave.</div>
+</div>
+<div class="landing-carousel" role="list">
+<article class="landing-slide" role="listitem">
+<div class="landing-slide-top">
+<div aria-hidden="true" class="landing-icon">
+<svg fill="none" height="22" viewbox="0 0 24 24" width="22">
+<path d="M7 3h7l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"></path>
+<path d="M14 3v5h5" stroke="currentColor" stroke-width="2"></path>
+<path d="M8 13h8M8 17h6" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="landing-slide-title">Resúmenes y GPC</div>
+</div>
+<div class="landing-slide-text">
+                Filtra por especialidad, abre recursos y marca temas como completados.
+              </div>
+</article>
+<article class="landing-slide" role="listitem">
+<div class="landing-slide-top">
+<div aria-hidden="true" class="landing-icon">
+<svg fill="none" height="22" viewbox="0 0 24 24" width="22">
+<path d="M4 5h16M4 12h16M4 19h10" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+<path d="M18 16l2 2-4 4-2-2 4-4Z" stroke="currentColor" stroke-width="2"></path>
+</svg>
+</div>
+<div class="landing-slide-title">Mini-exámenes</div>
+</div>
+<div class="landing-slide-text">
+                Arma mini-exámenes por una o varias especialidades para repasar.
+              </div>
+</article>
+<article class="landing-slide" role="listitem">
+<div class="landing-slide-top">
+<div aria-hidden="true" class="landing-icon">
+<svg fill="none" height="22" viewbox="0 0 24 24" width="22">
+<path d="M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"></path>
+<path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="landing-slide-title">Simulacros</div>
+</div>
+<div class="landing-slide-text">
+                Exámenes completos con cronómetro y revisión al finalizar.
+              </div>
+</article>
+<article class="landing-slide" role="listitem">
+<div class="landing-slide-top">
+<div aria-hidden="true" class="landing-icon">
+<svg fill="none" height="22" viewbox="0 0 24 24" width="22">
+<path d="M4 19V5M4 19h16" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+<path d="M8 17v-6M12 17V7M16 17v-9" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path>
+</svg>
+</div>
+<div class="landing-slide-title">Progreso</div>
+</div>
+<div class="landing-slide-text">
+                Visualiza tu avance por especialidad y en general.
+              </div>
+</article>
+</div>
+<div class="landing-carousel-hint">Tip: desliza horizontalmente</div>
+<div class="landing-highlight-grid" role="list">
+<div class="landing-highlight" role="listitem">
+<div class="landing-highlight-title">Acceso rápido</div>
+<div class="landing-highlight-text">Todo desde el menú del estudiante.</div>
+</div>
+<div class="landing-highlight" role="listitem">
+<div class="landing-highlight-title">Modo móvil</div>
+<div class="landing-highlight-text">Diseño responsivo para estudiar donde sea.</div>
+</div>
+<div class="landing-highlight" role="listitem">
+<div class="landing-highlight-title">Organización</div>
+<div class="landing-highlight-text">Filtra, busca y guarda tu progreso.</div>
+</div>
+<div class="landing-highlight" role="listitem">
+<div class="landing-highlight-title">Enfoque ENARM</div>
+<div class="landing-highlight-text">Preguntas tipo ENARM con retroalimentación.</div>
+</div>
+</div>
+</div>
+<div class="flex-row" style="margin-top:14px;justify-content:space-between;">
+<button class="btn btn-outline" id="btn-price-month">
+            Plan mensual
+          </button>
+<button class="btn btn-primary" id="btn-price-full">
+            Plan ENARM 2026
+          </button>
+</div>
+<!-- ICONOS DE REDES (AHORA DENTRO DEL PANEL) -->
+<div class="sidebar-social" style="margin-top:16px;border-top:none;justify-content:space-around;">
+<img alt="WhatsApp" class="social-icon" data-network="whatsapp" src="whatsapp.png"/>
+<img alt="Instagram" class="social-icon" data-network="instagram" src="instagram.png"/>
+<img alt="TikTok" class="social-icon" data-network="tiktok" src="tiktok.png"/>
+<img alt="Telegram" class="social-icon" data-network="telegram" src="telegram.png"/>
+</div>
+</div></div></div></div>
+</section>
+<!-- Lógica de la página de bienvenida -->
+<script src="index.js" type="module"></script>
+<!-- Lógica del banner de cookies -->
+<script>
+    (function () {
+      const banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+
+      const KEY = 'cookies_enarm_preference';
+
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted' || stored === 'declined') {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        banner.style.display = 'none';
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
+</body>
+</html>
