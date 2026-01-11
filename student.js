@@ -881,8 +881,71 @@ if (miniRandomCheckbox) {
   miniRandomCheckbox.addEventListener("change", syncRandom);
 }
 
+
+/****************************************************
+ * BIBLIOTECA – UI "EN PROCESO" PARA MINI-EXAMEN POR TEMA
+ * Cuando un tema no tiene mini-examen configurado:
+ * - Cambia el botón a "En proceso"
+ * - Cambia color y lo deshabilita
+ ****************************************************/
+let _topicMiniInProgressStylesInjected = false;
+
+function injectTopicMiniInProgressStyles() {
+  if (_topicMiniInProgressStylesInjected) return;
+  _topicMiniInProgressStylesInjected = true;
+
+  const style = document.createElement("style");
+  style.id = "topic-mini-in-progress-styles";
+  style.textContent = `
+    /* Botón "En proceso" (tema sin mini-examen configurado) */
+    .btn-mini-in-progress,
+    .btn-mini-in-progress:disabled {
+      background: rgba(100,116,139,0.95) !important; /* slate */
+      border-color: rgba(100,116,139,0.95) !important;
+      color: #fff !important;
+      opacity: 0.95 !important;
+      cursor: not-allowed !important;
+      box-shadow: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function findTopicMiniExamButtonInDetail(detailEl) {
+  if (!detailEl) return null;
+
+  // 1) Si ya está marcado como "en proceso", lo priorizamos
+  const inProgress = detailEl.querySelector("button.btn-mini-in-progress");
+  if (inProgress) return inProgress;
+
+  // 2) Botón normal (por texto). Evitamos tocar botones de recursos ("Abrir", "PDF", "GPC", etc.)
+  const buttons = Array.from(detailEl.querySelectorAll("button"));
+  return (
+    buttons.find((b) => /mini\s*-?\s*examen/i.test((b.textContent || "").trim())) ||
+    null
+  );
+}
+
+function setTopicMiniExamButtonInProgressUI() {
+  injectTopicMiniInProgressStyles();
+
+  const detail = document.getElementById("student-resources-detail");
+  const btn = findTopicMiniExamButtonInDetail(detail);
+  if (!btn) return;
+
+  btn.textContent = "En proceso";
+  btn.disabled = true;
+  btn.classList.add("btn-mini-in-progress");
+}
+
+function setupTopicMiniExamButtonObserver() {
+  // Hoy solo necesitamos inyectar estilos (no observador).
+  injectTopicMiniInProgressStyles();
+}
+
 async function ensureStudentResourcesActivated() {
   initStudentResourcesUI();
+  setupTopicMiniExamButtonObserver();
   if (resourcesActivatedOnce) return;
   await activateStudentResources();
   resourcesActivatedOnce = true;
@@ -1938,7 +2001,7 @@ function startTopicExamFromResources({ topicId, topicTitle, cases }) {
   });
 
   if (!flat.length) {
-    alert("Este tema aún no tiene mini-examen configurado.");
+    setTopicMiniExamButtonInProgressUI();
     return;
   }
 
