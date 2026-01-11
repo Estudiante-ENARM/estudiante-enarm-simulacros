@@ -1936,3 +1936,30 @@ body.modal-open { overflow: hidden; }
   line-height: 1.2;
   padding-top: 2px;
 }
+/* ====== Login scroll/zoom fix (2026-01-11) ======
+   #login-view estaba centrado verticalmente. Cuando el contenido es más alto
+   que el viewport (móvil), eso deja la parte superior fuera (inaccesible).
+   Este override evita recorte y permite scroll normal.
+*/
+
+#login-view.view{
+  height: auto;             /* override: .view { height:100%; } */
+  min-height: 100vh;
+  padding: 28px 16px;
+  display: flex;
+  justify-content: center;  /* centrado horizontal */
+  align-items: flex-start;  /* NO centrar vertical */
+}
+
+@media (max-width: 520px){
+  #login-view.view{
+    padding: 18px 12px;
+    align-items: flex-start;
+  }
+}
+
+/* Evita que el título se vea "cortado" por métricas de fuente/line-height */
+.login-card h1{
+  line-height: 1.2;
+  padding-top: 2px;
+}
