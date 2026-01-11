@@ -878,6 +878,175 @@ async function ensureStudentResourcesActivated() {
   resourcesActivatedOnce = true;
 }
 
+
+
+/****************************************************
+ * BIBLIOTECA (RESÚMENES / GPC)
+ * Progreso por especialidad (UI)
+ * - Se calcula con base en los temas listados (sin afectar por búsqueda)
+ * - Se actualiza cuando cambia la especialidad o se marca un tema como completado
+ ****************************************************/
+let _resourcesProgressBound = false;
+let _resourcesProgressBaseline = { total: 0, done: 0 };
+
+function _resourcesUserKey() {
+  // Preferimos email para que el progreso sea consistente entre dispositivos
+  return (currentUser && (currentUser.email || currentUser.uid)) || "anon";
+}
+
+function _readCompletedResourcesSet() {
+  const userKey = _resourcesUserKey();
+  const key = `resources_completed_${userKey}`;
+  try {
+    const raw = localStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    const set = new Set();
+
+    for (const item of arr) {
+      if (typeof item === "string") {
+        set.add(item.trim());
+        continue;
+      }
+      if (item && typeof item === "object") {
+        // Intentamos varios campos comunes
+        const candidates = [
+          item.topicId,
+          item.docId,
+          item.id,
+          item.key,
+          item.title,
+          item.topicTitle,
+          item.name,
+        ].filter(Boolean);
+        for (const c of candidates) set.add(String(c).trim());
+      }
+    }
+    return set;
+  } catch {
+    return new Set();
+  }
+}
+
+function _extractTopicKeyFromCard(card) {
+  if (!card) return null;
+
+  const ds = card.dataset || {};
+  const candidates = [
+    ds.topicId,
+    ds.docId,
+    ds.id,
+    ds.key,
+    card.getAttribute("data-topic-id"),
+    card.getAttribute("data-doc-id"),
+    card.getAttribute("data-id"),
+    card.getAttribute("data-key"),
+  ].filter(Boolean);
+
+  if (candidates.length) return String(candidates[0]).trim();
+
+  // Fallback: usa el título visible (si no hay dataset)
+  const titleEl =
+    card.querySelector("h3, h4, .resource-title, .card-title, .topic-title") ||
+    card.querySelector("[data-title]");
+  if (titleEl) {
+    const t = (titleEl.textContent || titleEl.getAttribute("data-title") || "").trim();
+    if (t) return t;
+  }
+  return null;
+}
+
+function _getVisibleResourceTopicKeys(listEl) {
+  if (!listEl) return new Set();
+  // Intentamos capturar tarjetas/ítems típicos
+  const candidates = listEl.querySelectorAll(
+    "[data-topic-id],[data-doc-id],[data-id],[data-key],.resource-card,.card"
+  );
+  const keys = new Set();
+  candidates.forEach((el) => {
+    const k = _extractTopicKeyFromCard(el);
+    if (k) keys.add(k);
+  });
+  return keys;
+}
+
+function _setResourcesProgressUI(done, total) {
+  const textEl = document.getElementById("student-resources-progress-text");
+  const barEl = document.getElementById("student-resources-progress-bar");
+  if (!textEl || !barEl) return;
+
+  const safeTotal = Math.max(0, Number(total) || 0);
+  const safeDone = Math.max(0, Math.min(safeTotal, Number(done) || 0));
+  const pct = safeTotal ? Math.round((safeDone / safeTotal) * 100) : 0;
+
+  textEl.textContent = `${safeDone} de ${safeTotal} (${pct}%)`;
+  barEl.style.width = `${pct}%`;
+}
+
+function _recomputeResourcesProgressBaseline() {
+  const listEl = document.getElementById("student-resources-list");
+  const searchEl = document.getElementById("student-resources-search");
+  if (!listEl) return;
+
+  // La barra de progreso debe depender SOLO de la especialidad (no del texto de búsqueda)
+  const hasSearch = !!(searchEl && String(searchEl.value || "").trim());
+  if (hasSearch) return;
+
+  const visibleKeys = _getVisibleResourceTopicKeys(listEl);
+  const completedSet = _readCompletedResourcesSet();
+
+  let done = 0;
+  visibleKeys.forEach((k) => {
+    if (completedSet.has(k)) done += 1;
+  });
+
+  _resourcesProgressBaseline = { total: visibleKeys.size, done };
+  _setResourcesProgressUI(done, visibleKeys.size);
+}
+
+function bindStudentResourcesProgressUI() {
+  if (_resourcesProgressBound) return;
+  _resourcesProgressBound = true;
+
+  const listEl = document.getElementById("student-resources-list");
+  const searchEl = document.getElementById("student-resources-search");
+  const specialtyEl = document.getElementById("student-resources-specialty");
+
+  if (!listEl) return;
+
+  // Observa cambios del listado (carga inicial, marcar completado, cambiar especialidad, etc.)
+  const mo = new MutationObserver(() => {
+    // Recalcula baseline solo si NO hay búsqueda activa
+    _recomputeResourcesProgressBaseline();
+  });
+  mo.observe(listEl, { childList: true, subtree: true });
+
+  // Cuando se cambia especialidad:
+  if (specialtyEl) {
+    specialtyEl.addEventListener("change", () => {
+      if (searchEl) {
+        // Reset de búsqueda para que el total refleje la especialidad completa
+        searchEl.value = "";
+        searchEl.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      // Recalcular después de que el listado se actualice
+      setTimeout(() => _recomputeResourcesProgressBaseline(), 50);
+    });
+  }
+
+  // Al borrar búsqueda manualmente, reactivamos el baseline
+  if (searchEl) {
+    searchEl.addEventListener("input", () => {
+      const hasSearch = !!String(searchEl.value || "").trim();
+      if (!hasSearch) {
+        setTimeout(() => _recomputeResourcesProgressBaseline(), 50);
+      }
+    });
+  }
+
+  // Primer cálculo (cuando ya esté renderizado)
+  setTimeout(() => _recomputeResourcesProgressBaseline(), 120);
+}
+
 /****************************************************
  * CAMBIO DE VISTAS
  ****************************************************/
@@ -931,6 +1100,11 @@ async function switchToResourcesView(opts = {}) {
 
   try {
     await ensureStudentResourcesActivated();
+    bindStudentResourcesProgressUI();
+    // Recalcula progreso (por si ya hay temas renderizados)
+    setTimeout(() => {
+      try { _recomputeResourcesProgressBaseline(); } catch (e) {}
+    }, 120);
   } catch (err) {
     console.error("Error activando la biblioteca:", err);
   }
