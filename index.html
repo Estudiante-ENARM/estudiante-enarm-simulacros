@@ -66,61 +66,191 @@
   </div>
 
   <section id="login-view" class="view">
-    <div class="login-card">
-      <h1>Estudiante ENARM</h1>
-      <p class="panel-subtitle" style="margin-bottom:16px;">
-        Accede con tu correo y contraseña para comenzar tus simulacros.
-      </p>
 
-      <!-- LOGIN -->
-      <div class="field">
-        <span>Correo electrónico</span>
-        <input
-          type="email"
-          id="login-email"
-          placeholder="correo@ejemplo.com"
-          autocomplete="email"
-        />
-      </div>
-
-      <div class="field">
-        <span>Contraseña</span>
-        <input
-          type="password"
-          id="login-password"
-          placeholder="********"
-          autocomplete="current-password"
-        />
-      </div>
-
-      <div class="flex-row" style="justify-content:flex-end;margin-top:4px;">
-        <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
-        <button id="login-btn" class="btn btn-primary">Entrar</button>
-      </div>
-
-      <div id="login-error" class="error" style="display:none;"></div>
-
-      <!-- PANEL DE INFORMACIÓN + PLANES -->
-      <div id="landing-card">
-        <p id="landing-text">
-          Cargando información de la plataforma…
+    <div class="login-card landing-layout">
+      <!-- Columna izquierda: login (NO tocar IDs ni lógica) -->
+      <div class="login-form">
+        <h1>Estudiante ENARM</h1>
+        <p class="panel-subtitle" style="margin-bottom:16px;">
+          Accede con tu correo y contraseña para comenzar tus simulacros.
         </p>
 
-        <div class="flex-row" style="margin-top:14px;justify-content:space-between;">
-          <button id="btn-price-month" class="btn btn-outline">
-            Plan mensual
-          </button>
-          <button id="btn-price-full" class="btn btn-primary">
-            Plan ENARM 2026
-          </button>
+        <!-- LOGIN -->
+        <div class="field">
+          <span>Correo electrónico</span>
+          <input
+            type="email"
+            id="login-email"
+            placeholder="correo@ejemplo.com"
+            autocomplete="email"
+          />
         </div>
 
-        <!-- ICONOS DE REDES (AHORA DENTRO DEL PANEL) -->
-        <div class="sidebar-social" style="margin-top:16px;border-top:none;justify-content:space-around;">
-          <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
-          <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
-          <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
-          <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
+        <div class="field">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="login-password"
+            placeholder="********"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="flex-row" style="justify-content:flex-end;margin-top:4px;">
+          <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+          <button id="login-btn" class="btn btn-primary">Entrar</button>
+        </div>
+
+        <div id="login-error" class="error" style="display:none;"></div>
+      </div>
+
+      <!-- Columna derecha: landing / venta (solo UI) -->
+      <div id="landing-card" class="landing-panel">
+        <div class="landing-copy">
+          <h2 class="landing-title">¿Qué incluye la plataforma?</h2>
+
+          <div class="landing-text-wrap">
+            <p id="landing-text" class="landing-text">
+              Cargando información de la plataforma…
+            </p>
+            <button id="landing-text-toggle" class="btn btn-outline btn-sm landing-text-toggle" type="button">
+              Ver más
+            </button>
+          </div>
+
+          <div class="landing-highlights" aria-label="Puntos destacados">
+            <div class="highlight-item">
+              <div class="highlight-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4 19V6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M8 8h7M8 11h7M8 14h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="highlight-text">
+                <div class="highlight-title">Resúmenes y GPC</div>
+                <div class="highlight-desc">Filtra por especialidad y marca temas como completados.</div>
+              </div>
+            </div>
+
+            <div class="highlight-item">
+              <div class="highlight-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M7 7h10M7 12h10M7 17h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-3 2v-2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="highlight-text">
+                <div class="highlight-title">Mini‑exámenes</div>
+                <div class="highlight-desc">Arma exámenes por especialidad y repasa con casos clínicos.</div>
+              </div>
+            </div>
+
+            <div class="highlight-item">
+              <div class="highlight-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 20V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M18 20V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M6 20v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M4 20h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="highlight-text">
+                <div class="highlight-title">Progreso</div>
+                <div class="highlight-desc">Visualiza avance por especialidad y en general.</div>
+              </div>
+            </div>
+
+            <div class="highlight-item">
+              <div class="highlight-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18h6M10 22h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M12 2a7 7 0 0 0-4 12c.7.6 1 1.1 1 2h6c0-.9.3-1.4 1-2A7 7 0 0 0 12 2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="highlight-text">
+                <div class="highlight-title">Usable en móvil</div>
+                <div class="highlight-desc">Diseño responsivo para estudiar desde cualquier dispositivo.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="landing-showcase" aria-label="Vista previa de la plataforma">
+          <div class="showcase-viewport">
+            <div class="showcase-track">
+              <div class="showcase-slide">
+                <div class="showcase-label">Resúmenes y GPC</div>
+                <div class="mockup">
+                  <div class="mockup-topbar"></div>
+                  <div class="mockup-body">
+                    <div class="mockup-chip">Medicina interna</div>
+                    <div class="mockup-title">Búsqueda por tema</div>
+                    <div class="mockup-row"></div>
+                    <div class="mockup-row"></div>
+                    <div class="mockup-progress">
+                      <div class="mockup-progress-bar"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="showcase-slide">
+                <div class="showcase-label">Mini‑exámenes</div>
+                <div class="mockup">
+                  <div class="mockup-topbar"></div>
+                  <div class="mockup-body">
+                    <div class="mockup-title">Selecciona especialidades</div>
+                    <div class="mockup-chips">
+                      <span class="mockup-chip">Cirugía</span>
+                      <span class="mockup-chip">Pediatría</span>
+                      <span class="mockup-chip">MI</span>
+                    </div>
+                    <div class="mockup-row"></div>
+                    <div class="mockup-btn"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="showcase-slide">
+                <div class="showcase-label">Exámenes</div>
+                <div class="mockup">
+                  <div class="mockup-topbar"></div>
+                  <div class="mockup-body">
+                    <div class="mockup-title">Casos clínicos tipo ENARM</div>
+                    <div class="mockup-card"></div>
+                    <div class="mockup-card"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="showcase-controls">
+            <button class="showcase-nav" type="button" data-dir="-1" aria-label="Anterior">‹</button>
+            <div class="showcase-dots" aria-label="Paginación"></div>
+            <button class="showcase-nav" type="button" data-dir="1" aria-label="Siguiente">›</button>
+          </div>
+        </div>
+
+        <!-- PLANES -->
+        <div class="landing-actions">
+          <div class="flex-row" style="justify-content:space-between;">
+            <button id="btn-price-month" class="btn btn-outline">
+              Plan mensual
+            </button>
+            <button id="btn-price-full" class="btn btn-primary">
+              Plan ENARM 2026
+            </button>
+          </div>
+
+          <!-- ICONOS DE REDES (mantener) -->
+          <div class="sidebar-social landing-social">
+            <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
+            <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
+            <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
+            <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
+          </div>
         </div>
       </div>
     </div>
@@ -128,6 +258,100 @@
 
   <!-- Lógica de la página de bienvenida -->
   <script type="module" src="index.js"></script>
+
+  <!-- UI landing (solo visual / no afecta lógica) -->
+  <script>
+    (function () {
+      // ===== "Ver más" para el texto editable (settings/landingPage) =====
+      const text = document.getElementById('landing-text');
+      const toggle = document.getElementById('landing-text-toggle');
+
+      function setToggleLabel() {
+        if (!toggle || !text) return;
+        toggle.textContent = text.classList.contains('expanded') ? 'Ver menos' : 'Ver más';
+      }
+
+      if (text && toggle) {
+        toggle.addEventListener('click', function () {
+          text.classList.toggle('expanded');
+          setToggleLabel();
+        });
+        setToggleLabel();
+      }
+
+      // ===== Carrusel (mockups) =====
+      const showcase = document.querySelector('.landing-showcase');
+      if (!showcase) return;
+
+      const track = showcase.querySelector('.showcase-track');
+      const slides = Array.from(showcase.querySelectorAll('.showcase-slide'));
+      const dotsWrap = showcase.querySelector('.showcase-dots');
+      const navButtons = showcase.querySelectorAll('.showcase-nav');
+
+      if (!track || slides.length === 0 || !dotsWrap) return;
+
+      let index = 0;
+      let timer = null;
+
+      function renderDots() {
+        dotsWrap.innerHTML = '';
+        slides.forEach((_, i) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'showcase-dot' + (i === index ? ' active' : '');
+          b.setAttribute('aria-label', 'Ir a slide ' + (i + 1));
+          b.addEventListener('click', () => goTo(i, true));
+          dotsWrap.appendChild(b);
+        });
+      }
+
+      function applyTransform() {
+        track.style.transform = 'translateX(-' + (index * 100) + '%)';
+        const dots = dotsWrap.querySelectorAll('.showcase-dot');
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
+      }
+
+      function goTo(i, userAction) {
+        index = (i + slides.length) % slides.length;
+        applyTransform();
+        if (userAction) restart();
+      }
+
+      function next() { goTo(index + 1, false); }
+      function prev() { goTo(index - 1, false); }
+
+      function stop() {
+        if (timer) clearInterval(timer);
+        timer = null;
+      }
+
+      function start() {
+        stop();
+        timer = setInterval(next, 4800);
+      }
+
+      function restart() {
+        stop();
+        start();
+      }
+
+      navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const dir = Number(btn.dataset.dir || 0);
+          if (dir === 1) goTo(index + 1, true);
+          if (dir === -1) goTo(index - 1, true);
+        });
+      });
+
+      showcase.addEventListener('mouseenter', stop);
+      showcase.addEventListener('mouseleave', start);
+
+      renderDots();
+      applyTransform();
+      start();
+    })();
+  </script>
+
 
   <!-- Lógica del banner de cookies -->
   <script>
