@@ -1981,3 +1981,20 @@ body.modal-open { overflow: hidden; }
   width: 100%;
   text-align: center;
 }
+/* ================================
+   FIX MOBILE: que NO se corte el inicio
+   (evita centrado vertical cuando el contenido es más alto que la pantalla)
+================================ */
+
+@media (max-width: 980px){
+  #login-view.view{
+    align-items: flex-start !important;  /* antes estaba center */
+    justify-content: flex-start !important;
+    padding-top: calc(16px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .lp-shell{
+    margin-top: 0 !important;
+  }
+}
