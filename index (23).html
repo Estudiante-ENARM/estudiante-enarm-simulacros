@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Estudiante ENARM | Plataforma</title>
+
+  <!-- Fuente -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos compartidos -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Favicon (evita error 404 /favicon.ico) -->
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-B43LFZV7MR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-B43LFZV7MR');
+  </script>
+
+  <!-- Meta Pixel Code -->
+  <script>
+    !function(f,b,e,v,n,t,s){
+      if(f.fbq)return;
+      n=f.fbq=function(){ n.callMethod ?
+        n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+      if(!f._fbq)f._fbq=n;
+      n.push=n;
+      n.loaded=!0;
+      n.version='2.0';
+      n.queue=[];
+      t=b.createElement(e);t.async=!0;
+      t.src=v;
+      s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s);
+    }(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1146031771035535');
+    fbq('track', 'PageView');
+  </script>
+  <!-- End Meta Pixel Code -->
+</head>
+
+<body>
+  <!-- Meta Pixel (noscript) -->
+  <noscript>
+    <img height="1" width="1" style="display:none"
+         src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
+  </noscript>
+
+  <!-- Banner de cookies -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cookie-banner__text">
+      Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
+      Esto incluye Google Analytics y Meta Pixel. Puedes aceptar o rechazar estas cookies.
+    </div>
+    <div class="cookie-banner__actions">
+      <button id="cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+      <button id="cookie-decline" class="btn btn-outline btn-sm">Rechazar</button>
+    </div>
+  </div>
+
+  <section id="login-view" class="view">
+    <div class="login-card landing-shell">
+      <!-- Columna izquierda: Login (NO tocar IDs) -->
+      <div class="login-top">
+        <div class="auth-head">
+          <h1>Estudiante ENARM</h1>
+          <p class="panel-subtitle">
+            Accede con tu correo y contraseña para comenzar tus simulacros.
+          </p>
+        </div>
+
+        <div class="field">
+          <span>Correo electrónico</span>
+          <input
+            type="email"
+            id="login-email"
+            placeholder="correo@ejemplo.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="field">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="login-password"
+            placeholder="********"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="auth-actions">
+          <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+          <button id="login-btn" class="btn btn-primary">Entrar</button>
+        </div>
+
+        <div class="auth-note">
+          Si olvidaste tu contraseña, solicita un restablecimiento al administrador.
+        </div>
+
+        <div id="login-error" class="error" style="display:none;"></div>
+      </div>
+
+      <!-- Columna derecha: Info + Planes (NO tocar IDs) -->
+      <div id="landing-card" aria-label="Información de la plataforma">
+        <div class="landing-head">
+          <h2>Descubre la plataforma</h2>
+          <div class="landing-underline" aria-hidden="true"></div>
+        </div>
+
+        <div class="landing-subhead">
+          <div class="landing-kicker">Recursos, simulacros y seguimiento de progreso con enfoque ENARM.</div>
+          <div id="landing-text">Cargando información de la plataforma…</div>
+        </div>
+
+        <div class="feature-grid" aria-label="Funciones clave">
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📚</div>
+            <div class="feature-title">Resúmenes y GPC</div>
+            <div class="feature-desc">Guías y resúmenes por especialidad.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">🧪</div>
+            <div class="feature-title">Exámenes simulacro</div>
+            <div class="feature-desc">Mini-exámenes y simulacros completos.</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📈</div>
+            <div class="feature-title">Progreso y estadísticas</div>
+            <div class="feature-desc">Analiza tu rendimiento y avance.</div>
+          </div>
+        </div>
+
+        <div class="pricing-box" aria-label="Planes">
+          <div class="pricing-copy">
+            Prepárate para el <strong>ENARM</strong> con las mejores herramientas en un solo lugar.
+          </div>
+
+          <div class="price-actions">
+            <button id="btn-price-month" class="btn btn-outline">Plan mensual</button>
+            <button id="btn-price-full" class="btn btn-primary">Plan ENARM 2026</button>
+          </div>
+        </div>
+
+        <div class="social-block">
+          <div class="social-title">Contacto y comunidad</div>
+          <div class="sidebar-social landing-social">
+            <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
+            <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
+            <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
+            <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lógica de la página de bienvenida -->
+  <script type="module" src="index.js"></script>
+
+  <!-- Lógica del banner de cookies -->
+  <script>
+    (function () {
+      const banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+
+      const KEY = 'cookies_enarm_preference';
+
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted' || stored === 'declined') {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        banner.style.display = 'none';
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
+</body>
+</html>
