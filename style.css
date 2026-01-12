@@ -1923,3 +1923,56 @@ body.modal-open { overflow: hidden; }
     grid-template-columns: 1fr;
   }
 }
+/* =========================================
+   FIX: Centrar TODO el panel izquierdo (login)
+   - Título, texto, inputs, botones y link
+   ========================================= */
+
+.lp-left{
+  display: flex;
+  flex-direction: column;
+  align-items: center;     /* centra todo horizontal */
+  text-align: center;      /* centra textos */
+}
+
+/* Limita el ancho real del formulario para que quede “pro” y centrado */
+.lp-left .field,
+.lp-left .lp-actions{
+  width: 100%;
+  max-width: 520px;        /* ajusta aquí si lo quieres más ancho/angosto */
+}
+
+/* Labels alineados bonito (centrados) */
+.lp-left .field span{
+  text-align: left;        /* opcional: label alineado a la izquierda se ve más pro */
+  width: 100%;
+}
+
+/* Inputs ocupan el ancho del bloque centrado */
+.lp-left .field input{
+  width: 100%;
+}
+
+/* Botones centrados y proporcionales */
+.lp-actions{
+  justify-content: center;
+}
+
+/* El link “¿Olvidaste…?” centrado */
+.lp-forgot{
+  width: 100%;
+  max-width: 520px;
+  text-align: center;
+}
+
+/* Si quieres el título más “centrado visualmente” */
+.lp-brand{
+  width: 100%;
+  max-width: 520px;
+}
+.lp-sub{
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
