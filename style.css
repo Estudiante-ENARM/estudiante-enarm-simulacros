@@ -1944,7 +1944,7 @@ body.modal-open { overflow: hidden; }
 
 /* Labels alineados bonito (centrados) */
 .lp-left .field span{
-  text-align: left;        /* opcional: label alineado a la izquierda se ve más pro */
+  text-align: center;        /* opcional: label alineado a la izquierda se ve más pro */
   width: 100%;
 }
 
