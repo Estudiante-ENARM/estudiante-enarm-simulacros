@@ -1998,3 +1998,12 @@ body.modal-open { overflow: hidden; }
     margin-top: 0 !important;
   }
 }
+/* Asegura scroll normal del body en móvil */
+@media (max-width: 980px){
+  html, body{
+    height: auto !important;
+  }
+  body{
+    overflow-y: auto !important;
+  }
+}
