@@ -8,7 +8,7 @@
   <!-- Fuente -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Estilos compartidos -->
+  <!-- Estilos -->
   <link rel="stylesheet" href="style.css" />
 
   <!-- Favicon -->
@@ -23,36 +23,29 @@
     gtag('config', 'G-B43LFZV7MR');
   </script>
 
-  <!-- Meta Pixel Code -->
+  <!-- Meta Pixel -->
   <script>
     !function(f,b,e,v,n,t,s){
       if(f.fbq)return;
       n=f.fbq=function(){ n.callMethod ?
         n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
       if(!f._fbq)f._fbq=n;
-      n.push=n;
-      n.loaded=!0;
-      n.version='2.0';
-      n.queue=[];
-      t=b.createElement(e);t.async=!0;
-      t.src=v;
-      s=b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t,s);
-    }(window, document,'script',
-      'https://connect.facebook.net/en_US/fbevents.js');
+      n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[];
+      t=b.createElement(e);t.async=!0; t.src=v;
+      s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+    }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '1146031771035535');
     fbq('track', 'PageView');
   </script>
 </head>
 
 <body>
-  <!-- Meta Pixel (noscript) -->
   <noscript>
     <img height="1" width="1" style="display:none"
          src="https://www.facebook.com/tr?id=1146031771035535&ev=PageView&noscript=1" />
   </noscript>
 
-  <!-- Banner de cookies -->
+  <!-- Banner cookies -->
   <div id="cookie-banner" class="cookie-banner">
     <div class="cookie-banner__text">
       Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
@@ -64,132 +57,129 @@
     </div>
   </div>
 
-  <section id="login-view" class="view" aria-label="Acceso a la plataforma">
+  <section id="login-view" class="view">
+    <div class="lp-shell">
 
-    <!-- Contenedor ÚNICO (como mockup) -->
-    <div class="landing-shell">
+      <!-- IZQUIERDA: LOGIN -->
+      <div class="lp-left">
+        <h1 class="lp-brand">Estudiante ENARM</h1>
+        <p class="lp-sub">
+          Accede con tu correo y contraseña para comenzar tus simulacros.
+        </p>
 
-      <!-- Panel izquierdo (Login) -->
-      <div class="auth-pane" role="region" aria-label="Inicio de sesión">
-        <header class="auth-header">
-          <h1 class="brand-title">Estudiante ENARM</h1>
-          <p class="panel-subtitle">
-            Accede con tu correo y contraseña para comenzar tus simulacros.
-          </p>
-        </header>
-
-        <div class="auth-form">
-          <div class="field">
-            <span>Correo electrónico</span>
-            <input
-              type="email"
-              id="login-email"
-              placeholder="correo@ejemplo.com"
-              autocomplete="email"
-            />
-          </div>
-
-          <div class="field">
-            <span>Contraseña</span>
-            <input
-              type="password"
-              id="login-password"
-              placeholder="********"
-              autocomplete="current-password"
-            />
-          </div>
-
-          <div class="auth-help">
-            Si olvidaste tu contraseña, solicita un restablecimiento al administrador.
-          </div>
-
-          <div class="auth-actions">
-            <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
-            <button id="login-btn" class="btn btn-primary">Entrar</button>
-          </div>
-
-          <div id="login-error" class="error" style="display:none;"></div>
+        <div class="field">
+          <span>Correo electrónico</span>
+          <input
+            type="email"
+            id="login-email"
+            placeholder="correo@ejemplo.com"
+            autocomplete="email"
+          />
         </div>
+
+        <div class="field">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="login-password"
+            placeholder="********"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="lp-actions">
+          <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+          <button id="login-btn" class="btn btn-primary">Entrar</button>
+        </div>
+
+        <!-- NO link real, solo visual estilo mockup -->
+        <div class="lp-forgot">
+          ¿Olvidaste tu contraseña?
+        </div>
+
+        <div id="login-error" class="error" style="display:none;"></div>
       </div>
 
-      <!-- Panel derecho (Info + Planes) -->
-      <div id="landing-card" class="info-pane" role="region" aria-label="Información y planes">
-        <header class="info-header">
-          <h2 class="info-title">Descubre la plataforma</h2>
-          <p class="info-subtitle">
-            Recursos, simulacros y seguimiento de progreso con enfoque ENARM.
-          </p>
-        </header>
+      <!-- DIVISOR -->
+      <div class="lp-divider" aria-hidden="true"></div>
 
-        <p id="landing-text">Cargando información de la plataforma…</p>
+      <!-- DERECHA: INFO/PLANES -->
+      <div class="lp-right">
+        <h2 class="lp-title">Descubre la plataforma</h2>
+        <div class="lp-title-line"></div>
 
-        <!-- FEATURES (con iconos tipo mockup y textos centrados) -->
-        <div class="demo-section" aria-label="Funciones clave">
-          <div class="demo-carousel" role="list">
+        <!-- 3 FEATURES -->
+        <div class="lp-features">
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO LIBRO -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5z" />
+                <path d="M8 6h8" />
+                <path d="M8 10h8" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Resúmenes y GPC</div>
+            <div class="lp-fdesc">Guías y resúmenes<br/>por especialidad.</div>
+          </div>
 
-            <article class="demo-card" role="listitem">
-              <div class="demo-icon" aria-hidden="true">
-                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                  <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5z" />
-                  <path d="M8 6h8" />
-                  <path d="M8 10h8" />
-                </svg>
-              </div>
-              <div class="demo-copy">
-                <div class="demo-title">Resúmenes y GPC</div>
-                <div class="demo-desc">Guías y resúmenes por especialidad.</div>
-              </div>
-            </article>
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO CLIPBOARD -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M9 5h6" />
+                <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2z" />
+                <path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
+                <path d="M9 13l2 2 4-4" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Exámenes simulacro</div>
+            <div class="lp-fdesc">Mini-exámenes y<br/>simulacros completos.</div>
+          </div>
 
-            <article class="demo-card" role="listitem">
-              <div class="demo-icon" aria-hidden="true">
-                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M9 5h6" />
-                  <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2z" />
-                  <path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
-                  <path d="M9 13l2 2 4-4" />
-                </svg>
-              </div>
-              <div class="demo-copy">
-                <div class="demo-title">Exámenes simulacro</div>
-                <div class="demo-desc">Mini-exámenes y simulacros completos.</div>
-              </div>
-            </article>
-
-            <article class="demo-card" role="listitem">
-              <div class="demo-icon" aria-hidden="true">
-                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M3 3v18h18" />
-                  <path d="M7 15l4-4 3 3 5-6" />
-                  <path d="M7 15v3" />
-                </svg>
-              </div>
-              <div class="demo-copy">
-                <div class="demo-title">Progreso y estadísticas</div>
-                <div class="demo-desc">Analiza tu rendimiento y avance.</div>
-              </div>
-            </article>
-
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO GRAFICA -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M3 3v18h18" />
+                <path d="M7 15l4-4 3 3 5-6" />
+                <path d="M7 15v3" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Progreso y estadísticas</div>
+            <div class="lp-fdesc">Analiza tu rendimiento<br/>y avance.</div>
           </div>
         </div>
 
-        <!-- PLANES (manteniendo IDs para JS/Admin) -->
-        <div class="plans-row" aria-label="Planes disponibles">
-          <button id="btn-price-month" class="btn btn-outline btn-plan">Plan mensual</button>
-          <button id="btn-price-full" class="btn btn-primary btn-plan">Plan ENARM 2026</button>
-        </div>
+        <!-- TEXTO DINÁMICO (ADMIN/JS) -->
+        <p id="landing-text" class="lp-landing-text">
+          Cargando información de la plataforma…
+        </p>
 
-        <!-- REDES (manteniendo data-network) -->
-        <div class="landing-social" aria-label="Redes sociales">
-          <div class="sidebar-social landing-social__icons">
-            <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
-            <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
-            <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
-            <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
+        <!-- CAJA PLANES -->
+        <div class="lp-plans-box">
+          <div class="lp-plans-copy">
+            Prepárate para el <b>ENARM</b> con las mejores herramientas en un solo lugar.
+          </div>
+
+          <div class="lp-plans-actions">
+            <button id="btn-price-month" class="btn btn-primary lp-btn-plan">
+              Ver Plan Mensual
+            </button>
+            <button id="btn-price-full" class="btn btn-primary lp-btn-plan lp-btn-dark">
+              Ver Plan Completo
+            </button>
           </div>
         </div>
 
+        <!-- REDES (mantengo tus iconos y data-network para tu JS) -->
+        <div class="lp-social">
+          <img src="whatsapp.png" alt="WhatsApp" class="lp-social-icon" data-network="whatsapp" />
+          <img src="instagram.png" alt="Instagram" class="lp-social-icon" data-network="instagram" />
+          <img src="tiktok.png" alt="TikTok" class="lp-social-icon" data-network="tiktok" />
+          <img src="telegram.png" alt="Telegram" class="lp-social-icon" data-network="telegram" />
+        </div>
       </div>
     </div>
   </section>
@@ -204,7 +194,6 @@
       if (!banner) return;
 
       const KEY = 'cookies_enarm_preference';
-
       const stored = localStorage.getItem(KEY);
       if (stored === 'accepted' || stored === 'declined') {
         banner.style.display = 'none';
