@@ -11,7 +11,7 @@
   <!-- Estilos compartidos -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Favicon (evita error 404 /favicon.ico) -->
+  <!-- Favicon -->
   <link rel="icon" type="image/png" href="logo.png" />
 
   <!-- Google Analytics -->
@@ -43,7 +43,6 @@
     fbq('init', '1146031771035535');
     fbq('track', 'PageView');
   </script>
-  <!-- End Meta Pixel Code -->
 </head>
 
 <body>
@@ -65,109 +64,140 @@
     </div>
   </div>
 
-  <section id="login-view" class="view">
-    <div class="login-card landing-shell">
-      <!-- Columna izquierda: Login (NO tocar IDs) -->
-      <div class="login-top">
-        <div class="auth-head">
-          <h1>Estudiante ENARM</h1>
+  <section id="login-view" class="view" aria-label="Acceso a la plataforma">
+
+    <!-- Contenedor ÚNICO (como mockup) -->
+    <div class="landing-shell">
+
+      <!-- Panel izquierdo (Login) -->
+      <div class="auth-pane" role="region" aria-label="Inicio de sesión">
+        <header class="auth-header">
+          <h1 class="brand-title">Estudiante ENARM</h1>
           <p class="panel-subtitle">
             Accede con tu correo y contraseña para comenzar tus simulacros.
           </p>
-        </div>
+        </header>
 
-        <div class="field">
-          <span>Correo electrónico</span>
-          <input
-            type="email"
-            id="login-email"
-            placeholder="correo@ejemplo.com"
-            autocomplete="email"
-          />
-        </div>
+        <div class="auth-form">
+          <div class="field">
+            <span>Correo electrónico</span>
+            <input
+              type="email"
+              id="login-email"
+              placeholder="correo@ejemplo.com"
+              autocomplete="email"
+            />
+          </div>
 
-        <div class="field">
-          <span>Contraseña</span>
-          <input
-            type="password"
-            id="login-password"
-            placeholder="********"
-            autocomplete="current-password"
-          />
-        </div>
+          <div class="field">
+            <span>Contraseña</span>
+            <input
+              type="password"
+              id="login-password"
+              placeholder="********"
+              autocomplete="current-password"
+            />
+          </div>
 
-        <div class="auth-actions">
-          <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
-          <button id="login-btn" class="btn btn-primary">Entrar</button>
-        </div>
+          <div class="auth-help">
+            Si olvidaste tu contraseña, solicita un restablecimiento al administrador.
+          </div>
 
-        <div class="auth-note">
-          Si olvidaste tu contraseña, solicita un restablecimiento al administrador.
-        </div>
+          <div class="auth-actions">
+            <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+            <button id="login-btn" class="btn btn-primary">Entrar</button>
+          </div>
 
-        <div id="login-error" class="error" style="display:none;"></div>
+          <div id="login-error" class="error" style="display:none;"></div>
+        </div>
       </div>
 
-      <!-- Columna derecha: Info + Planes (NO tocar IDs) -->
-      <div id="landing-card" aria-label="Información de la plataforma">
-        <div class="landing-head">
-          <h2>Descubre la plataforma</h2>
-          <div class="landing-underline" aria-hidden="true"></div>
+      <!-- Panel derecho (Info + Planes) -->
+      <div id="landing-card" class="info-pane" role="region" aria-label="Información y planes">
+        <header class="info-header">
+          <h2 class="info-title">Descubre la plataforma</h2>
+          <p class="info-subtitle">
+            Recursos, simulacros y seguimiento de progreso con enfoque ENARM.
+          </p>
+        </header>
+
+        <p id="landing-text">Cargando información de la plataforma…</p>
+
+        <!-- FEATURES (con iconos tipo mockup y textos centrados) -->
+        <div class="demo-section" aria-label="Funciones clave">
+          <div class="demo-carousel" role="list">
+
+            <article class="demo-card" role="listitem">
+              <div class="demo-icon" aria-hidden="true">
+                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5z" />
+                  <path d="M8 6h8" />
+                  <path d="M8 10h8" />
+                </svg>
+              </div>
+              <div class="demo-copy">
+                <div class="demo-title">Resúmenes y GPC</div>
+                <div class="demo-desc">Guías y resúmenes por especialidad.</div>
+              </div>
+            </article>
+
+            <article class="demo-card" role="listitem">
+              <div class="demo-icon" aria-hidden="true">
+                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M9 5h6" />
+                  <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2z" />
+                  <path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
+                  <path d="M9 13l2 2 4-4" />
+                </svg>
+              </div>
+              <div class="demo-copy">
+                <div class="demo-title">Exámenes simulacro</div>
+                <div class="demo-desc">Mini-exámenes y simulacros completos.</div>
+              </div>
+            </article>
+
+            <article class="demo-card" role="listitem">
+              <div class="demo-icon" aria-hidden="true">
+                <svg class="demo-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3 3v18h18" />
+                  <path d="M7 15l4-4 3 3 5-6" />
+                  <path d="M7 15v3" />
+                </svg>
+              </div>
+              <div class="demo-copy">
+                <div class="demo-title">Progreso y estadísticas</div>
+                <div class="demo-desc">Analiza tu rendimiento y avance.</div>
+              </div>
+            </article>
+
+          </div>
         </div>
 
-        <div class="landing-subhead">
-          <div class="landing-kicker">Recursos, simulacros y seguimiento de progreso con enfoque ENARM.</div>
-          <div id="landing-text">Cargando información de la plataforma…</div>
+        <!-- PLANES (manteniendo IDs para JS/Admin) -->
+        <div class="plans-row" aria-label="Planes disponibles">
+          <button id="btn-price-month" class="btn btn-outline btn-plan">Plan mensual</button>
+          <button id="btn-price-full" class="btn btn-primary btn-plan">Plan ENARM 2026</button>
         </div>
 
-        <div class="feature-grid" aria-label="Funciones clave">
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">📚</div>
-            <div class="feature-title">Resúmenes y GPC</div>
-            <div class="feature-desc">Guías y resúmenes por especialidad.</div>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">🧪</div>
-            <div class="feature-title">Exámenes simulacro</div>
-            <div class="feature-desc">Mini-exámenes y simulacros completos.</div>
-          </div>
-
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">📈</div>
-            <div class="feature-title">Progreso y estadísticas</div>
-            <div class="feature-desc">Analiza tu rendimiento y avance.</div>
-          </div>
-        </div>
-
-        <div class="pricing-box" aria-label="Planes">
-          <div class="pricing-copy">
-            Prepárate para el <strong>ENARM</strong> con las mejores herramientas en un solo lugar.
-          </div>
-
-          <div class="price-actions">
-            <button id="btn-price-month" class="btn btn-outline">Plan mensual</button>
-            <button id="btn-price-full" class="btn btn-primary">Plan ENARM 2026</button>
-          </div>
-        </div>
-
-        <div class="social-block">
-          <div class="social-title">Contacto y comunidad</div>
-          <div class="sidebar-social landing-social">
+        <!-- REDES (manteniendo data-network) -->
+        <div class="landing-social" aria-label="Redes sociales">
+          <div class="sidebar-social landing-social__icons">
             <img src="whatsapp.png" alt="WhatsApp" class="social-icon" data-network="whatsapp" />
             <img src="instagram.png" alt="Instagram" class="social-icon" data-network="instagram" />
             <img src="tiktok.png" alt="TikTok" class="social-icon" data-network="tiktok" />
             <img src="telegram.png" alt="Telegram" class="social-icon" data-network="telegram" />
           </div>
         </div>
+
       </div>
     </div>
   </section>
 
-  <!-- Lógica de la página de bienvenida -->
+  <!-- Lógica -->
   <script type="module" src="index.js"></script>
 
-  <!-- Lógica del banner de cookies -->
+  <!-- Cookies -->
   <script>
     (function () {
       const banner = document.getElementById('cookie-banner');
