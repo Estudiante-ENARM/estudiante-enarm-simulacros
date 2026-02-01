@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Estudiante ENARM | Administrador</title>
+  <title>Administrador - Estudiante ENARM</title>
 
-  <!-- Fuente moderna -->
+  <!-- FUENTE -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Estilos compartidos -->
@@ -43,7 +43,7 @@
       </button>
 
       <!-- Navegación de paneles -->
-      <div style="margin-top:12px;">
+      <div id="admin-nav-list" style="margin-top:12px;">
         <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
           Secciones y exámenes
         </button>
@@ -91,163 +91,127 @@
             <button id="admin-btn-import-exams-json" class="btn btn-outline btn-sm">
               Importar exámenes (JSON)
             </button>
-            <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">
-              + Agregar examen
-            </button>
           </div>
         </div>
 
-        <!-- Lista de exámenes por sección -->
-        <div id="admin-exams-list" class="cards-list"></div>
-
-        <!-- DETALLE DE EXAMEN (CASOS CLÍNICOS) -->
-        <section id="admin-exam-detail" class="panel hidden">
-          <div class="panel-header" style="align-items:flex-end;gap:12px;">
-            <button id="admin-btn-back-to-exams" class="btn btn-outline">
-              ← Volver a exámenes
-            </button>
-
-            <div style="flex:1;">
-              <label class="field">
-                <span>Nombre del examen</span>
-                <input type="text" id="admin-exam-title-input" />
-              </label>
-            </div>
-
-            <div class="flex-row" style="justify-content:flex-end;">
-              <button id="admin-btn-import-exam" class="btn btn-outline btn-sm">
-                Importar examen (JSON)
-              </button>
-              <button id="admin-btn-add-case" class="btn btn-secondary btn-sm">
-                + Agregar caso clínico
-              </button>
-              <button id="admin-btn-save-exam" class="btn btn-primary btn-sm">
-                Guardar examen
-              </button>
+        <div class="card">
+          <div class="flex-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div class="panel-subtitle" id="admin-section-info">—</div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-btn-add-exam" class="btn btn-primary btn-sm">+ Nuevo examen</button>
+              <button id="admin-btn-delete-section" class="btn btn-secondary btn-sm">Eliminar sección</button>
             </div>
           </div>
 
-          <!-- ================= BUSCADOR PARA AGREGAR CASOS AL EXAMEN ================= -->
-          <div class="card" style="margin-top:14px;">
-            <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
+          <div style="margin-top:12px;">
+            <div id="admin-exams-list" class="cards-list"></div>
+          </div>
+        </div>
 
+        <!-- DETALLE DE EXAMEN -->
+        <div id="admin-exam-detail" class="card hidden" style="margin-top:12px;">
+          <div class="flex-row" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 id="admin-exam-title" style="margin:0;font-size:16px;">Examen</h3>
+              <div id="admin-exam-meta" class="panel-subtitle" style="margin-top:4px;">—</div>
+            </div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-btn-delete-exam" class="btn btn-secondary btn-sm">Eliminar examen</button>
+              <button id="admin-btn-save-exam" class="btn btn-primary btn-sm">Guardar cambios</button>
+            </div>
+          </div>
+
+          <div class="divider" style="margin:12px 0;"></div>
+
+          <div class="create-user-grid">
             <label class="field">
-              <span>Buscar</span>
-              <input
-                type="text"
-                id="admin-bank-search-input"
-                placeholder="Escribe para buscar..."
-              />
+              <span>Nombre del examen</span>
+              <input id="admin-exam-name" type="text" placeholder="Ej. Examen 1" />
             </label>
 
-            <div id="admin-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
-          </div>
-          <!-- ================= FIN BUSCADOR ================= -->
-
-          <!-- ================= GENERADOR AUTOMÁTICO ================= -->
-          <div class="card" style="margin-top:14px;">
-            <h3 style="font-size:15px;margin-bottom:8px;">Generador automático (por temas + cupos)</h3>
-
             <label class="field">
-              <span>Temas (opcional)</span>
-              <textarea
-                id="admin-auto-gen-topics"
-                rows="3"
-                placeholder="Ejemplos:
-SICA SEST
-Diabetes + nefropatía
-Apendicitis, colecistitis
-(una línea por tema o separados por comas)"
-              ></textarea>
+              <span>Número de preguntas</span>
+              <input id="admin-exam-num-questions" type="number" min="1" placeholder="Ej. 60" />
             </label>
-
-            <div style="margin-top:8px;">
-              <div style="font-size:12px;color:#9ca3af;margin-bottom:6px;">
-                Define objetivos por especialidad y subtipo (número de preguntas). El total se calcula automáticamente.
-              </div>
-
-              <div id="admin-auto-gen-targets"></div>
-
-              <div class="flex-row" style="justify-content:flex-start;gap:8px;margin-top:10px;">
-                <button id="admin-auto-gen-add-target" class="btn btn-outline btn-sm" type="button">
-                  + Agregar objetivo
-                </button>
-                <button id="admin-auto-gen-generate" class="btn btn-primary btn-sm" type="button">
-                  Generar
-                </button>
-              </div>
-
-              <div id="admin-auto-gen-summary" style="margin-top:10px;"></div>
-
-              <div style="margin-top:10px;font-size:12px;color:#9ca3af;">
-                Nota: El examen se llena en pantalla. Los cambios se guardan solo cuando presionas <b>Guardar examen</b>.
-              </div>
-            </div>
           </div>
-          <!-- ================= FIN GENERADOR AUTOMÁTICO ================= -->
 
-          <!-- Contenedor de casos clínicos + preguntas -->
-          <div id="admin-exam-cases" class="cards-list"></div>
-        </section>
+          <div style="margin-top:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <h4 style="margin:0;font-size:14px;">Casos clínicos</h4>
+              <button id="admin-btn-add-case" class="btn btn-outline btn-sm">+ Agregar caso</button>
+            </div>
+            <div id="admin-cases-list" style="margin-top:10px;"></div>
+          </div>
+        </div>
       </section>
 
-      <!-- ================= PANEL: BANCO DE PREGUNTAS (questions) ================= -->
+      <!-- ================= PANEL: BANCO DE PREGUNTAS ================= -->
       <section id="admin-panel-bank" class="panel hidden">
         <div class="panel-header">
           <div>
             <h2>Banco de preguntas</h2>
-            <p class="panel-subtitle">
-              Administra el banco general (<code>questions</code>). Filtra, revisa y edita directamente.
-            </p>
+            <p class="panel-subtitle">Crea y administra casos y preguntas para reutilizarlos.</p>
           </div>
         </div>
 
-        <!-- Filtros -->
         <div class="card">
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Buscar texto (caseText)</span>
-              <input id="admin-bank-search" type="text" placeholder="Buscar dentro del caso clínico..." />
-            </div>
-
-            <div class="field">
-              <span>Tema (topic)</span>
-              <input id="admin-bank-topic" type="text" placeholder="Filtrar por tema..." />
-            </div>
-
-            <div class="field">
-              <span>Especialidad</span>
-              <input id="admin-bank-specialty" type="text" placeholder="Filtrar por especialidad..." />
-            </div>
-
-            <div class="field">
-              <span>ExamID</span>
-              <input id="admin-bank-examid" type="text" placeholder="Filtrar por ID de examen..." />
+          <div class="flex-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div class="panel-subtitle" id="admin-bank-info">—</div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-bank-btn-new" class="btn btn-primary btn-sm">+ Nuevo caso</button>
+              <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
             </div>
           </div>
 
-          <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
-            <button id="admin-bank-btn-clear" class="btn btn-outline btn-sm">Limpiar</button>
-            <button id="admin-bank-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
-            <button id="admin-bank-btn-apply" class="btn btn-primary btn-sm">Aplicar filtros</button>
+          <div class="create-user-grid" style="margin-top:12px;">
+            <label class="field">
+              <span>Buscar</span>
+              <input id="admin-bank-search" type="text" placeholder="Buscar por texto o tema..." />
+            </label>
+
+            <label class="field">
+              <span>Filtrar por sección</span>
+              <select id="admin-bank-filter-section">
+                <option value="">Todas</option>
+              </select>
+            </label>
           </div>
+
+          <div id="admin-bank-list" class="cards-list" style="margin-top:12px;"></div>
         </div>
 
-        <!-- Acciones -->
-        <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div class="panel-subtitle" style="margin:0;">
-            Aquí se muestra el caso completo para editarlo (incluye preguntas).
+        <!-- Editor caso banco -->
+        <div id="admin-bank-editor" class="card hidden" style="margin-top:12px;">
+          <div class="flex-row" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 id="admin-bank-editor-title" style="margin:0;font-size:16px;">Caso</h3>
+              <div id="admin-bank-editor-meta" class="panel-subtitle" style="margin-top:4px;">—</div>
+            </div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-bank-btn-delete" class="btn btn-secondary btn-sm">Eliminar</button>
+              <button id="admin-bank-btn-save" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
           </div>
-        </div>
 
-        <!-- Lista del banco -->
-        <div id="admin-bank-list" class="cards-list"></div>
+          <div class="divider" style="margin:12px 0;"></div>
 
-        <!-- Paginación -->
-        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
-          <button id="admin-bank-btn-load-more" class="btn btn-outline btn-sm">
-            Cargar más
-          </button>
+          <label class="field">
+            <span>Tema</span>
+            <input id="admin-bank-topic" type="text" placeholder="Ej. Apendicitis aguda" />
+          </label>
+
+          <label class="field">
+            <span>Texto del caso clínico</span>
+            <textarea id="admin-bank-case-text" rows="5" placeholder="Describe el caso clínico..."></textarea>
+          </label>
+
+          <div style="margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <h4 style="margin:0;font-size:14px;">Preguntas</h4>
+              <button id="admin-bank-btn-add-q" class="btn btn-outline btn-sm">+ Agregar pregunta</button>
+            </div>
+            <div id="admin-bank-questions" style="margin-top:10px;"></div>
+          </div>
         </div>
       </section>
 
@@ -256,39 +220,55 @@ Apendicitis, colecistitis
         <div class="panel-header">
           <div>
             <h2>Mini exámenes</h2>
-            <p class="panel-subtitle">
-              Banco global para mini exámenes del estudiante.
-            </p>
-          </div>
-
-          <div class="flex-row" style="justify-content:flex-end;">
-            <button id="admin-mini-btn-add-case" class="btn btn-secondary">
-              + Agregar caso clínico
-            </button>
-            <button id="admin-mini-btn-save-all" class="btn btn-primary">
-              Guardar banco
-            </button>
+            <p class="panel-subtitle">Genera mini exámenes por sección o tema.</p>
           </div>
         </div>
 
-        <!-- ✅ BUSCADOR PARA AGREGAR CASOS AL BANCO DE MINI EXÁMENES -->
-        <div class="card" style="margin-bottom:14px;">
-          <h3 style="font-size:15px;margin-bottom:8px;">Agregar casos desde banco</h3>
+        <div class="card">
+          <div class="flex-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div class="panel-subtitle" id="admin-mini-info">—</div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-mini-btn-new" class="btn btn-primary btn-sm">+ Nuevo mini examen</button>
+              <button id="admin-mini-btn-refresh" class="btn btn-outline btn-sm">Refrescar</button>
+            </div>
+          </div>
 
-          <label class="field">
-            <span>Buscar</span>
-            <input
-              type="text"
-              id="admin-mini-bank-search-input"
-              placeholder="Escribe para buscar..."
-            />
-          </label>
-
-          <div id="admin-mini-bank-search-results" class="cards-list" style="margin-top:10px;"></div>
+          <div id="admin-mini-list" class="cards-list" style="margin-top:12px;"></div>
         </div>
 
-        <!-- Contenedor de mini casos -->
-        <div id="admin-mini-cases" class="cards-list"></div>
+        <div id="admin-mini-editor" class="card hidden" style="margin-top:12px;">
+          <div class="flex-row" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 id="admin-mini-editor-title" style="margin:0;font-size:16px;">Mini examen</h3>
+              <div id="admin-mini-editor-meta" class="panel-subtitle" style="margin-top:4px;">—</div>
+            </div>
+            <div class="flex-row" style="gap:8px;">
+              <button id="admin-mini-btn-delete" class="btn btn-secondary btn-sm">Eliminar</button>
+              <button id="admin-mini-btn-save" class="btn btn-primary btn-sm">Guardar</button>
+            </div>
+          </div>
+
+          <div class="divider" style="margin:12px 0;"></div>
+
+          <div class="create-user-grid">
+            <label class="field">
+              <span>Título</span>
+              <input id="admin-mini-title" type="text" placeholder="Ej. Mini - Cirugía" />
+            </label>
+            <label class="field">
+              <span>Sección</span>
+              <select id="admin-mini-section"></select>
+            </label>
+          </div>
+
+          <div style="margin-top:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <h4 style="margin:0;font-size:14px;">Casos clínicos</h4>
+              <button id="admin-mini-btn-add-case" class="btn btn-outline btn-sm">+ Agregar caso</button>
+            </div>
+            <div id="admin-mini-cases" style="margin-top:10px;"></div>
+          </div>
+        </div>
       </section>
 
       <!-- ================= PANEL: USUARIOS ================= -->
@@ -297,63 +277,61 @@ Apendicitis, colecistitis
           <div>
             <h2>Usuarios</h2>
             <p class="panel-subtitle">
-              Crea, edita y administra los accesos a la plataforma.
+              Crea cuentas, asigna secciones y administra accesos.
             </p>
           </div>
+          <div class="flex-row" style="justify-content:flex-end;gap:8px;">
+            <button id="admin-btn-refresh-users" class="btn btn-outline btn-sm">Refrescar</button>
+          </div>
         </div>
 
-        <div id="create-user-card">
-          <h3>Nuevo usuario</h3>
-
+        <div class="card">
           <div class="create-user-grid">
-            <div class="field">
-              <span>Nombre completo</span>
-              <input type="text" id="admin-new-user-name" placeholder="Nombre del estudiante o admin" />
-            </div>
-
-            <div class="field">
-              <span>Correo (ID del documento)</span>
-              <input type="email" id="admin-new-user-email" placeholder="correo@ejemplo.com" />
-            </div>
-
-            <div class="field">
-              <span>Contraseña (referencia)</span>
-              <input type="text" id="admin-new-user-password" placeholder="Misma que en Authentication" />
-            </div>
-
-            <div class="field">
-              <span>Rol</span>
-              <select id="admin-new-user-role">
-                <option value="usuario">Usuario</option>
-                <option value="admin">Administrador</option>
+            <label class="field">
+              <span>Email</span>
+              <input id="admin-input-new-user-email" type="email" placeholder="correo@dominio.com" />
+            </label>
+            <label class="field">
+              <span>Contraseña</span>
+              <input id="admin-input-new-user-pass" type="password" placeholder="••••••••" />
+            </label>
+            <label class="field">
+              <span>Plan</span>
+              <select id="admin-select-plan">
+                <option value="plan_mensual">Plan mensual</option>
+                <option value="plan_enarm2026">Plan ENARM 2026</option>
+                <option value="acceso_gratuito">Acceso gratuito</option>
               </select>
-            </div>
-
-            <div class="field">
-              <span>Estado</span>
-              <select id="admin-new-user-status">
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <span>Fecha de vencimiento</span>
-              <input type="date" id="admin-new-user-expiry" />
-            </div>
+            </label>
           </div>
 
-          <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-create-user" class="btn btn-primary">
-              Agregar usuario
-            </button>
+          <div class="flex-row" style="justify-content:flex-end;margin-top:10px;">
+            <button id="admin-btn-create-user" class="btn btn-primary">Crear usuario</button>
           </div>
         </div>
 
-        <div id="admin-users-table"></div>
+        <div class="card" style="margin-top:12px;">
+          <div class="create-user-grid" style="margin-bottom:12px;">
+            <label class="field">
+              <span>Buscar</span>
+              <input id="admin-users-search" type="text" placeholder="Buscar por email..." />
+            </label>
+            <label class="field">
+              <span>Filtrar por plan</span>
+              <select id="admin-users-filter-plan">
+                <option value="">Todos</option>
+                <option value="plan_mensual">Plan mensual</option>
+                <option value="plan_enarm2026">Plan ENARM 2026</option>
+                <option value="acceso_gratuito">Acceso gratuito</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="admin-users-list" class="cards-list"></div>
+        </div>
       </section>
 
-      <!-- ================= PANEL: ANÁLISIS ================= -->
+      <!-- ================= PANEL: ANALYTICS ================= -->
       <section id="admin-panel-analytics" class="panel hidden">
         <div class="panel-header">
           <div>
@@ -421,6 +399,7 @@ Apendicitis, colecistitis
             <div id="admin-resources-editor" class="card" style="padding:14px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
                 <button id="admin-resources-btn-back" class="btn btn-outline btn-sm" type="button">← Lista</button>
+             
                 <h3 style="font-size:15px;margin:0;">Editor de tema</h3>
               </div>
 
@@ -475,23 +454,55 @@ Apendicitis, colecistitis
                 <div id="admin-resources-links" style="margin-top:8px;"></div>
               </div>
 
+              <!-- ✅ NUEVO: PDF para vista previa (se sube a Firebase Storage) -->
+              <div id="admin-resources-preview-pdf-wrap" class="card" style="margin-top:12px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                  <div style="min-width:220px;">
+                    <div style="font-weight:700;font-size:13px;">PDF para vista previa</div>
+                    <div class="panel-subtitle" style="margin-top:4px;">
+                      Sube el PDF que se mostrará en la vista previa del estudiante. El link externo se mantiene en “Links / PDFs”.
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <button id="admin-resources-preview-pdf-btn-choose" class="btn btn-outline btn-sm" type="button">
+                      Seleccionar PDF
+                    </button>
+                    <button id="admin-resources-preview-pdf-btn-upload" class="btn btn-primary btn-sm" type="button">
+                      Subir / Reemplazar
+                    </button>
+                    <button id="admin-resources-preview-pdf-btn-delete" class="btn btn-secondary btn-sm" type="button">
+                      Eliminar PDF
+                    </button>
+                    <button id="admin-resources-preview-pdf-btn-save" class="btn btn-outline btn-sm" type="button">
+                      Guardar PDF
+                    </button>
+                  </div>
+                </div>
 
-                <!-- ✅ NUEVO: Mini-examen del tema (caso clínico + preguntas) -->
+                <input id="admin-resources-preview-pdf-input" type="file" accept="application/pdf" style="display:none;" />
+
+                <div id="admin-resources-preview-pdf-status" class="panel-subtitle" style="margin-top:10px;">
+                  — 
+                </div>
+              </div>
+
+
+                <!-- ✅ Repaso del tema (caso clínico + preguntas) -->
                 <div id="admin-resources-topic-exam-wrap" class="card" style="margin-top:12px;padding:12px;">
                   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                     <div>
-                      <div style="font-weight:700;font-size:13px;">Mini-examen del tema</div>
+                      <div style="font-weight:700;font-size:13px;">Repaso del tema</div>
                       <div class="panel-subtitle" style="margin-top:4px;">Se guarda en <b>topic_exams/{topicId}</b> (solo caso clínico + preguntas).</div>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                       <button id="admin-resources-topic-exam-btn-add-case" class="btn btn-outline btn-sm" type="button">+ Agregar caso</button>
-                      <button id="admin-resources-topic-exam-btn-delete" class="btn btn-secondary btn-sm" type="button">Eliminar mini-examen</button>
-                      <button id="admin-resources-topic-exam-btn-save" class="btn btn-primary btn-sm" type="button">Guardar mini-examen</button>
+                      <button id="admin-resources-topic-exam-btn-delete" class="btn btn-secondary btn-sm" type="button">Eliminar repaso</button>
+                      <button id="admin-resources-topic-exam-btn-save" class="btn btn-primary btn-sm" type="button">Guardar repaso</button>
                     </div>
                   </div>
 
                   <div id="admin-resources-topic-exam-cases" style="margin-top:10px;"></div>
-                  <div id="admin-resources-topic-exam-empty" class="panel-subtitle" style="margin-top:10px;">Aún no hay mini-examen para este tema.</div>
+                  <div id="admin-resources-topic-exam-empty" class="panel-subtitle" style="margin-top:10px;">Aún no hay repaso para este tema.</div>
                 </div>
 
               <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:12px;">
@@ -507,81 +518,97 @@ Apendicitis, colecistitis
         </div>
       </section>
 
-<!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
-      <section id="admin-panel-landing" class="panel hidden">
+      <!-- ================= PANEL: IMPORTAR / EXPORTAR ================= -->
+      <section id="admin-panel-import-export" class="panel hidden">
         <div class="panel-header">
           <div>
-            <h2>Pantalla principal</h2>
+            <h2>Importar / Exportar</h2>
             <p class="panel-subtitle">
-              Configura texto, precios y enlaces públicos.
+              Exporta la base de datos o importa exámenes desde JSON.
             </p>
           </div>
         </div>
 
         <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Descripción de la plataforma</h3>
-          <label class="field">
-            <span>Texto que aparece debajo del panel de acceso</span>
-            <textarea id="admin-landing-text" rows="5"></textarea>
-          </label>
+          <div class="flex-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0;font-size:15px;">Exportar todo</h3>
+              <div class="panel-subtitle">Descarga un JSON con exámenes, banco y datos necesarios.</div>
+            </div>
+            <button id="admin-btn-export-all" class="btn btn-primary">Exportar</button>
+          </div>
+
+          <div class="divider" style="margin:12px 0;"></div>
+
+          <div class="flex-row" style="justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0;font-size:15px;">Importar todo</h3>
+              <div class="panel-subtitle">Sube un JSON previamente exportado.</div>
+            </div>
+            <button id="admin-btn-import-all" class="btn btn-outline">Importar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PANEL: PANTALLA PRINCIPAL ================= -->
+      <section id="admin-panel-landing" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Pantalla principal</h2>
+            <p class="panel-subtitle">
+              Configura logo, texto, precios y redes sociales.
+            </p>
+          </div>
         </div>
 
         <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Planes y WhatsApp</h3>
-
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Etiqueta plan mensual</span>
-              <input type="text" id="admin-monthly-label" />
-            </div>
-            <div class="field">
-              <span>Precio plan mensual (MXN)</span>
-              <input type="number" id="admin-monthly-price" min="0" step="1" />
-            </div>
-
-            <div class="field">
-              <span>Etiqueta plan ENARM 2026</span>
-              <input type="text" id="admin-enarm-label" />
-            </div>
-            <div class="field">
-              <span>Precio plan ENARM 2026 (MXN)</span>
-              <input type="number" id="admin-enarm-price" min="0" step="1" />
-            </div>
-
-            <div class="field">
-              <span>Número de WhatsApp</span>
-              <input type="text" id="admin-whatsapp-phone" />
-            </div>
-          </div>
+          <h3 style="margin:0;font-size:15px;">Mensaje principal</h3>
+          <div class="panel-subtitle">Texto visible en la pantalla inicial (antes del login).</div>
+          <textarea id="admin-input-landing-message" rows="4" style="margin-top:10px;" placeholder="Escribe tu mensaje..."></textarea>
 
           <div style="text-align:right;margin-top:10px;">
-            <button id="admin-btn-save-landing" class="btn btn-primary">
-              Guardar pantalla principal
+            <button id="admin-btn-save-landing-message" class="btn btn-primary">
+              Guardar mensaje
             </button>
           </div>
         </div>
 
-        <div class="card">
-          <h3 style="font-size:16px;margin-bottom:8px;">Redes sociales</h3>
+        <div class="card" style="margin-top:12px;">
+          <h3 style="margin:0;font-size:15px;">Planes</h3>
+          <div class="panel-subtitle">Configura precios y descripciones.</div>
 
-          <div class="create-user-grid">
-            <div class="field">
-              <span>Instagram</span>
-              <input type="url" id="admin-instagram-link" />
-            </div>
-            <div class="field">
-              <span>WhatsApp (URL completa)</span>
-              <input type="url" id="admin-whatsapp-link" />
-            </div>
-            <div class="field">
-              <span>TikTok</span>
-              <input type="url" id="admin-tiktok-link" />
-            </div>
-            <div class="field">
-              <span>Telegram</span>
-              <input type="url" id="admin-telegram-link" />
-            </div>
+          <div class="create-user-grid" style="margin-top:10px;">
+            <label class="field">
+              <span>Plan mensual (texto)</span>
+              <input id="admin-input-plan-monthly-text" type="text" placeholder="Ej. Plan mensual" />
+            </label>
+            <label class="field">
+              <span>Plan mensual (precio)</span>
+              <input id="admin-input-plan-monthly-price" type="text" placeholder="Ej. $199" />
+            </label>
+
+            <label class="field">
+              <span>Plan ENARM 2026 (texto)</span>
+              <input id="admin-input-plan-full-text" type="text" placeholder="Ej. Plan ENARM 2026" />
+            </label>
+            <label class="field">
+              <span>Plan ENARM 2026 (precio)</span>
+              <input id="admin-input-plan-full-price" type="text" placeholder="Ej. $999" />
+            </label>
           </div>
+
+          <div style="text-align:right;margin-top:10px;">
+            <button id="admin-btn-save-plans" class="btn btn-primary">
+              Guardar planes
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px;">
+          <h3 style="margin:0;font-size:15px;">Redes sociales</h3>
+          <div class="panel-subtitle">Links visibles en la pantalla principal.</div>
+
+          <div id="admin-social-links" style="margin-top:10px;"></div>
 
           <div style="text-align:right;margin-top:10px;">
             <button id="admin-btn-save-social-links" class="btn btn-primary">
