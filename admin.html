@@ -8,8 +8,8 @@
   <!-- FUENTE -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Estilos compartidos -->
-  <link rel="stylesheet" href="style.css" />
+  <!-- Estilos compartidos (cache-bust) -->
+  <link rel="stylesheet" href="style.css?v=20260201_1" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="logo.png" />
@@ -42,7 +42,7 @@
         + Agregar sección
       </button>
 
-      <!-- Navegación de paneles -->
+      <!-- Navegación de paneles (drag & drop) -->
       <div id="admin-nav-list" style="margin-top:12px;">
         <button id="admin-btn-nav-exams" class="sidebar-btn sidebar-btn--active">
           Secciones y exámenes
@@ -65,7 +65,7 @@
         <button id="admin-btn-nav-landing" class="sidebar-btn">
           Pantalla principal
         </button>
-        
+
         <button id="admin-btn-nav-resources" class="sidebar-btn">
           Resúmenes y GPC
         </button>
@@ -346,7 +346,7 @@
         <div id="admin-analytics-users" class="cards-list" style="margin-top:10px;"></div>
       </section>
 
-      
+
       <!-- ================= PANEL: RESÚMENES Y GPC ================= -->
       <section id="admin-panel-resources" class="panel hidden">
         <div class="panel-header">
@@ -399,7 +399,7 @@
             <div id="admin-resources-editor" class="card" style="padding:14px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
                 <button id="admin-resources-btn-back" class="btn btn-outline btn-sm" type="button">← Lista</button>
-             
+
                 <h3 style="font-size:15px;margin:0;">Editor de tema</h3>
               </div>
 
@@ -432,7 +432,6 @@
               </div>
 
 
-
               <label class="field">
                 <span>Título</span>
                 <input id="admin-resources-title" type="text" placeholder="Ej. Apendicitis aguda" />
@@ -454,7 +453,7 @@
                 <div id="admin-resources-links" style="margin-top:8px;"></div>
               </div>
 
-              <!-- ✅ NUEVO: PDF para vista previa (se sube a Firebase Storage) -->
+              <!-- ✅ PDF para vista previa (Firebase Storage) -->
               <div id="admin-resources-preview-pdf-wrap" class="card" style="margin-top:12px;padding:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
                   <div style="min-width:220px;">
@@ -482,28 +481,28 @@
                 <input id="admin-resources-preview-pdf-input" type="file" accept="application/pdf" style="display:none;" />
 
                 <div id="admin-resources-preview-pdf-status" class="panel-subtitle" style="margin-top:10px;">
-                  — 
+                  —
                 </div>
               </div>
 
 
-                <!-- ✅ Repaso del tema (caso clínico + preguntas) -->
-                <div id="admin-resources-topic-exam-wrap" class="card" style="margin-top:12px;padding:12px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <div>
-                      <div style="font-weight:700;font-size:13px;">Repaso del tema</div>
-                      <div class="panel-subtitle" style="margin-top:4px;">Se guarda en <b>topic_exams/{topicId}</b> (solo caso clínico + preguntas).</div>
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button id="admin-resources-topic-exam-btn-add-case" class="btn btn-outline btn-sm" type="button">+ Agregar caso</button>
-                      <button id="admin-resources-topic-exam-btn-delete" class="btn btn-secondary btn-sm" type="button">Eliminar repaso</button>
-                      <button id="admin-resources-topic-exam-btn-save" class="btn btn-primary btn-sm" type="button">Guardar repaso</button>
-                    </div>
+              <!-- ✅ Repaso del tema -->
+              <div id="admin-resources-topic-exam-wrap" class="card" style="margin-top:12px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <div>
+                    <div style="font-weight:700;font-size:13px;">Repaso del tema</div>
+                    <div class="panel-subtitle" style="margin-top:4px;">Se guarda en <b>topic_exams/{topicId}</b> (solo caso clínico + preguntas).</div>
                   </div>
-
-                  <div id="admin-resources-topic-exam-cases" style="margin-top:10px;"></div>
-                  <div id="admin-resources-topic-exam-empty" class="panel-subtitle" style="margin-top:10px;">Aún no hay repaso para este tema.</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button id="admin-resources-topic-exam-btn-add-case" class="btn btn-outline btn-sm" type="button">+ Agregar caso</button>
+                    <button id="admin-resources-topic-exam-btn-delete" class="btn btn-secondary btn-sm" type="button">Eliminar repaso</button>
+                    <button id="admin-resources-topic-exam-btn-save" class="btn btn-primary btn-sm" type="button">Guardar repaso</button>
+                  </div>
                 </div>
+
+                <div id="admin-resources-topic-exam-cases" style="margin-top:10px;"></div>
+                <div id="admin-resources-topic-exam-empty" class="panel-subtitle" style="margin-top:10px;">Aún no hay repaso para este tema.</div>
+              </div>
 
               <div class="flex-row" style="justify-content:flex-end;gap:8px;margin-top:12px;">
                 <button id="admin-resources-btn-delete" class="btn btn-secondary btn-sm" type="button">
@@ -634,7 +633,7 @@
 
   </section>
 
-  <!-- LÓGICA ADMIN -->
-  <script type="module" src="admin.js"></script>
+  <!-- LÓGICA ADMIN (cache-bust para evitar admin.js viejo) -->
+  <script type="module" src="admin.js?v=20260201_1"></script>
 </body>
 </html>
