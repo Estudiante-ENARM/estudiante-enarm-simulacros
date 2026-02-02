@@ -420,6 +420,18 @@ function makeGoogleGviewUrl(pdfUrl) {
 }
 
 
+
+
+// ✅ PDF.js viewer (mejor en iOS para multi-página + zoom dentro de iframe)
+// Nota: usa el viewer oficial alojado en GitHub Pages de Mozilla.
+// Requiere que el PDF sea público y permita CORS (GitHub Pages normalmente sí).
+function makePdfJsViewerUrl(pdfUrl) {
+  const abs = toAbsoluteUrl(pdfUrl);
+  if (!abs) return "";
+  return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(abs)}`;
+}
+
+
 function normalizeGithubPdfUrl(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -477,11 +489,21 @@ function appendVersionParam(rawUrl, version) {
   }
 }
 
+
 function makeDirectPdfEmbedUrl(rawUrl) {
-  // Evita que algunos viewers muestren UI excesiva
   const abs = toAbsoluteUrl(rawUrl);
   if (!abs) return "";
+
+  // Si ya trae #, lo respetamos tal cual.
   if (abs.includes("#")) return abs;
+
+  // iOS Safari es frágil embebiendo PDFs con fragmentos: usar URL limpia.
+  if (IS_IOS) return abs;
+
+  // En móvil, evitamos esconder el scrollbar (permite scroll multipágina).
+  if (IS_MOBILE) return `${abs}#toolbar=0&navpanes=0`;
+
+  // Desktop: UI mínima
   return `${abs}#toolbar=0&navpanes=0&scrollbar=0`;
 }
 
@@ -508,8 +530,10 @@ function makePreviewUrl(url) {
   // PDF directo: lo embebemos tal cual.
   // (Ya NO usamos docs.google.com/gview porque hoy suele bloquearse por X-Frame-Options.)
   if (n.includes(".pdf") || n.includes("application/pdf")) {
-    return makeDirectPdfEmbedUrl(raw);
-  }
+  // iOS: usar PDF.js viewer para evitar "solo primera página" y zoom raro dentro de iframe.
+  if (IS_IOS) return makePdfJsViewerUrl(raw) || makeDirectPdfEmbedUrl(raw);
+  return makeDirectPdfEmbedUrl(raw);
+}
 
   return "";
 }
@@ -966,11 +990,59 @@ export function initStudentResourcesUI() {
     });
   }
 
-  // Si el tab se oculta, corta el iframe (reduce freezes en iOS)
+  
+// ✅ Mantener vista previa al cambiar de pestaña
+// Algunos navegadores (Safari/iOS y también algunos desktop) pueden “vaciar” el PDF embebido al volver.
+// Solución: NO limpiar al ocultar; al volver, forzamos un refresh suave del iframe.
   if (!document.documentElement.dataset.resourcesVisBound) {
     document.documentElement.dataset.resourcesVisBound = "1";
+
+    let _tabWasHidden = false;
+
+    const refreshPreviewAfterTabReturn = () => {
+      try {
+        // Solo si estamos viendo un tema con PDF
+        if (!_selectedTopicId || !_selectedPreviewUrl) return;
+
+        cachePreviewDomRefs();
+        if (!_previewFrameEl || !_previewBoxEl) return;
+        if (_previewBoxEl.classList.contains("hidden")) return;
+
+        // Refresh suave: si hay src, re-asignarlo; si está en blanco, aplicar preview normal.
+        const currentSrc = String(_previewFrameEl.getAttribute("src") || _previewFrameEl.src || "");
+        if (currentSrc && currentSrc !== "about:blank") {
+          setPreviewLoading(true);
+          _previewFrameEl.dataset.token = String(++_previewToken);
+          _previewFrameEl.src = currentSrc;
+          return;
+        }
+
+        schedulePreviewUpdate();
+      } catch {
+        // fallback duro
+        schedulePreviewUpdate();
+      }
+    };
+
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) disposeInlinePreview();
+      if (document.hidden) {
+        _tabWasHidden = true;
+        return;
+      }
+      if (_tabWasHidden) {
+        _tabWasHidden = false;
+        refreshPreviewAfterTabReturn();
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      // En algunos casos no dispara visibilitychange (mobile); focus ayuda.
+      refreshPreviewAfterTabReturn();
+    });
+
+    window.addEventListener("pageshow", (e) => {
+      // Si el navegador regresa desde BFCache, re-hidratar.
+      if (e && e.persisted) refreshPreviewAfterTabReturn();
     });
   }
 
@@ -1300,9 +1372,10 @@ function renderTopicDetail(topic) {
           src="about:blank"
           style="width:100%;height:100%;border:0;"
           loading="eager"
+          scrolling="yes"
+          allow="fullscreen"
+          allowfullscreen
         ></iframe>
-
-        </iframe>
 
         <button
           id="student-resources-preview-fs-open"
