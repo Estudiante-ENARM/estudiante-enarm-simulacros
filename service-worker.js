@@ -1,100 +1,130 @@
-/* service-worker.js
-   Cache de PDFs (vista previa) para reducir descargas repetidas.
-   Funciona SOLO si el PDF está en el MISMO ORIGEN que la página (GitHub Pages).
+// service-worker.js
+// Cache de PDFs para GitHub Pages (reduce recargas / consumo de datos)
+// Estrategia:
+// - PDFs: cache-first con refresh en background (stale-while-revalidate) + TTL 9 meses
+// - Viewer local (pdf-viewer.html) y libs PDF.js (/pdfjs/*): cache-first (TTL 30 días)
 
-   TTL objetivo: 9 meses (aprox 270 días). Nota: el navegador puede limpiar caché
-   por falta de espacio; no es garantía absoluta.
-*/
-const CACHE_VERSION = "v1";
-const PDF_CACHE = `pdf-preview-${CACHE_VERSION}`;
-const META_CACHE = `pdf-preview-meta-${CACHE_VERSION}`;
+const SW_VERSION = "v3";
+const PDF_CACHE = `pdf-cache-${SW_VERSION}`;
+const META_CACHE = `pdf-meta-${SW_VERSION}`;
+const VIEWER_CACHE = `pdf-viewer-${SW_VERSION}`;
 
-// 270 días ~ 9 meses
-const TTL_MS = 270 * 24 * 60 * 60 * 1000;
+// 9 meses (aprox. 270 días)
+const PDF_TTL_MS = 270 * 24 * 60 * 60 * 1000;
+// Viewer/libs: 30 días
+const VIEWER_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-self.addEventListener("install", () => {
-  self.skipWaiting();
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    // Limpieza de caches antiguos
-    const keys = await caches.keys();
-    await Promise.all(keys.map((k) => {
-      if (k.startsWith("pdf-preview-") && k !== PDF_CACHE) return caches.delete(k);
-      if (k.startsWith("pdf-preview-meta-") && k !== META_CACHE) return caches.delete(k);
-      return Promise.resolve();
-    }));
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((k) => ![PDF_CACHE, META_CACHE, VIEWER_CACHE].includes(k))
+          .map((k) => caches.delete(k))
+      );
+      await self.clients.claim();
+    })()
+  );
 });
 
-function isPdfRequest(req) {
+function isPdfRequest(url) {
+  return url && url.pathname && url.pathname.toLowerCase().endsWith(".pdf");
+}
+
+function isViewerAsset(url) {
+  const p = (url && url.pathname) ? url.pathname.toLowerCase() : "";
+  if (!p) return false;
+  if (p.endsWith("/pdf-viewer.html")) return true;
+  if (p.includes("/pdfjs/")) return true;
+  return false;
+}
+
+async function getTimestamp(metaCache, urlKey) {
+  const metaRes = await metaCache.match(urlKey);
+  if (!metaRes) return 0;
   try {
-    const url = new URL(req.url);
-    // Solo cachear PDFs del mismo origen
-    if (url.origin !== self.location.origin) return false;
-    return url.pathname.toLowerCase().endsWith(".pdf");
+    const data = await metaRes.json();
+    return Number(data && data.ts) || 0;
   } catch {
-    return false;
+    return 0;
   }
 }
 
-async function getMeta(url) {
-  const cache = await caches.open(META_CACHE);
-  const res = await cache.match(url);
-  if (!res) return null;
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
+async function setTimestamp(metaCache, urlKey) {
+  await metaCache.put(
+    urlKey,
+    new Response(JSON.stringify({ ts: Date.now() }), {
+      headers: { "Content-Type": "application/json" },
+    })
+  );
 }
 
-async function setMeta(url, meta) {
-  const cache = await caches.open(META_CACHE);
-  await cache.put(url, new Response(JSON.stringify(meta), {
-    headers: { "Content-Type": "application/json" },
-  }));
-}
+async function cacheFirstWithTtl(event, cacheName, ttlMs) {
+  const req = event.request;
+  const urlKey = req.url;
 
-async function cacheFreshPdf(request) {
-  const cache = await caches.open(PDF_CACHE);
-  const meta = await getMeta(request.url);
-  const cached = await cache.match(request);
+  const cache = await caches.open(cacheName);
+  const meta = await caches.open(META_CACHE);
 
-  if (cached && meta && typeof meta.cachedAt === "number") {
-    const age = Date.now() - meta.cachedAt;
-    if (age <= TTL_MS) {
-      return cached;
+  const cached = await cache.match(req);
+  if (cached) {
+    const ts = await getTimestamp(meta, urlKey);
+    const fresh = ts && (Date.now() - ts) < ttlMs;
+
+    // Refrescar en background si está viejo (no bloquea)
+    if (!fresh) {
+      event.waitUntil(
+        (async () => {
+          try {
+            const net = await fetch(req);
+            if (net && (net.ok || net.type === "opaque")) {
+              await cache.put(req, net.clone());
+              await setTimestamp(meta, urlKey);
+            }
+          } catch {}
+        })()
+      );
     }
-    // expirado: borrar
-    await cache.delete(request);
+
+    return cached;
   }
 
-  // red: obtener y guardar
-  const network = await fetch(request);
-  // Solo cachear respuestas OK
-  if (network && (network.status === 200 || network.status === 0)) {
-    await cache.put(request, network.clone());
-    await setMeta(request.url, { cachedAt: Date.now() });
+  // No hay cache: ir a red
+  try {
+    const net = await fetch(req);
+    if (net && (net.ok || net.type === "opaque")) {
+      await cache.put(req, net.clone());
+      await setTimestamp(meta, urlKey);
+    }
+    return net;
+  } catch (err) {
+    // offline sin cache
+    return new Response("Offline", { status: 503 });
   }
-  return network;
 }
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  if (!isPdfRequest(req)) return;
 
-  event.respondWith((async () => {
-    try {
-      return await cacheFreshPdf(req);
-    } catch (e) {
-      // Offline: intenta devolver cache aunque esté viejo
-      const cache = await caches.open(PDF_CACHE);
-      const cached = await cache.match(req);
-      if (cached) return cached;
-      throw e;
-    }
-  })());
+  // Solo GET
+  if (!req || req.method !== "GET") return;
+
+  const url = new URL(req.url);
+
+  // PDFs (mismo origen o externo): cache-first + TTL largo
+  if (isPdfRequest(url)) {
+    event.respondWith(cacheFirstWithTtl(event, PDF_CACHE, PDF_TTL_MS));
+    return;
+  }
+
+  // Viewer y libs (mismo origen): cache-first + TTL medio
+  if (url.origin === self.location.origin && isViewerAsset(url)) {
+    event.respondWith(cacheFirstWithTtl(event, VIEWER_CACHE, VIEWER_TTL_MS));
+    return;
+  }
 });
