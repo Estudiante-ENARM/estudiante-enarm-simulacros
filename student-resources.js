@@ -51,7 +51,10 @@ function ensureResourcesStorage() {
 
 /****************************************************
  * ✅ PDF de vista previa (desde Storage)
- * Firestore: temas/<id>.previewPdf = { path, version, bytes, updatedAt }
+ * Firestore: temas/<id>.previewPdf puede ser:
+ *   - (LEGACY Storage) { path, version, bytes, updatedAt }
+ *   - (GitHub Pages)   { url, version, updatedAt }
+ * También soporta campos legacy: previewPdfUrl / previewPdfVersion
  ****************************************************/
 const _previewPdfUrlByPath = new Map(); // path -> downloadURL
 
@@ -77,38 +80,35 @@ async function hydrateSelectedTopicPreviewPdf(topic) {
 
   cachePreviewDomRefs();
 
-  // ✅ NUEVO: PDF dedicado para vista previa (GitHub Pages recomendado)
-  // Firestore (temas/<id>):
-  //   previewPdf: { url, version, updatedAt }  ó  previewPdf: { path, ... } (legacy Storage)
-  //   También soporta campos simples: previewPdfUrl / previewPdfVersion
-  const rawUrl =
-    topic?.previewPdf && typeof topic.previewPdf === "object" && topic.previewPdf.url
-      ? String(topic.previewPdf.url || "").trim()
-      : String(topic?.previewPdfUrl || "").trim();
+  // ✅ NUEVO: URL del PDF para vista previa (GitHub Pages)
+  const rawUrl = (topic?.previewPdf && typeof topic.previewPdf === "object" && topic.previewPdf.url)
+    ? String(topic.previewPdf.url || "").trim()
+    : String(topic?.previewPdfUrl || "").trim();
 
-  const version =
-    topic?.previewPdf && typeof topic.previewPdf === "object" && topic.previewPdf.version != null
-      ? String(topic.previewPdf.version || "").trim()
-      : String(topic?.previewPdfVersion || "").trim();
+  const version = (topic?.previewPdf && typeof topic.previewPdf === "object" && topic.previewPdf.version != null)
+    ? String(topic.previewPdf.version || "").trim()
+    : String(topic?.previewPdfVersion || "").trim();
 
   if (rawUrl) {
     const withV = appendVersionParam(rawUrl, version);
-    _selectedPreviewUrl = makePreviewUrl(withV) || toAbsoluteUrl(withV) || "";
+    const viewer = makePreviewUrl(withV);
+    _selectedPreviewUrl = viewer || "";
 
     if (!_selectedPreviewUrl) {
       showPreviewUnavailableNote("No se pudo cargar el PDF de vista previa.");
       return;
     }
 
-    // Si no hay PDF externo en "Abrir PDF", usamos este mismo
+    // Si no hay PDF externo, el botón "Abrir PDF" abre el mismo PDF de vista previa
     if (!_selectedOpenUrl) _selectedOpenUrl = makeOpenUrl(withV) || withV;
 
     schedulePreviewUpdate();
     return;
   }
 
-  // ✅ LEGACY: PDF de vista previa desde Firebase Storage (si aún hay temas viejos)
+  // ✅ LEGACY: PDF de vista previa desde Firebase Storage (si todavía tienes temas viejos)
   const path = topic?.previewPdf?.path || "";
+
   if (!path) {
     _selectedPreviewUrl = "";
     showPreviewUnavailableNote("Este tema no tiene PDF para vista previa.");
@@ -119,18 +119,18 @@ async function hydrateSelectedTopicPreviewPdf(topic) {
 
   if (String(_selectedTopicId || "") !== topicId) return;
 
-  _selectedPreviewUrl = url || "";
+  const viewer = makePreviewUrl(url);
+  _selectedPreviewUrl = viewer || "";
 
   if (!_selectedPreviewUrl) {
     showPreviewUnavailableNote("No se pudo cargar el PDF de vista previa.");
     return;
   }
 
-  if (!_selectedOpenUrl) _selectedOpenUrl = _selectedPreviewUrl;
+  if (!_selectedOpenUrl) _selectedOpenUrl = makeOpenUrl(url) || url;
 
   schedulePreviewUpdate();
 }
-
 
 /****************************************************
  * ✅ Repaso del tema (topic_exams)
@@ -192,6 +192,15 @@ let _uiInitialized = false;
 let _dataLoaded = false;
 let _allTopics = [];
 
+function selectedTopicHasDedicatedPreviewPdf() {
+  const id = String(_selectedTopicId || "");
+  if (!id) return false;
+  const t = (_allTopics || []).find((x) => String(x?.id || "") === id);
+  const url = (t?.previewPdf && typeof t.previewPdf === "object" && t.previewPdf.url) ? t.previewPdf.url : t?.previewPdfUrl;
+  const path = (t?.previewPdf && typeof t.previewPdf === "object" && t.previewPdf.path) ? t.previewPdf.path : "";
+  return !!(String(url || "").trim() || String(path || "").trim());
+}
+
 let selectedSpecialtyKey = "";
 let searchQuery = "";
 
@@ -224,16 +233,9 @@ let _previewBoxEl = null;
 let _previewNoteEl = null;
 let _previewOpenBtnEl = null;
 let _previewLoadingEl = null;
-
-// PDF.js viewer refs
-let _pdfjsViewerEl = null;
-let _pdfjsPagesEl = null;
-let _pdfjsFsBtnEl = null;
-
-let _pdfjsLoadingTask = null;
-let _pdfjsDoc = null;
-let _pdfjsActiveUrl = "";
-let _pdfjsRenderSeq = 0;
+let _previewFsOpenBtnEl = null;
+let _previewFsCloseBtnEl = null;
+let _previewWasBodyOverflow = "";
 
 let _previewToken = 0;
 let _previewTimer = null;
@@ -241,149 +243,6 @@ let _previewLastSwitchAt = 0;
 
 // render scheduler (evita renders en ráfaga)
 let _renderScheduled = false;
-
-/****************************************************
- * ✅ Helpers URL + versioning (para cache / GitHub Pages)
- ****************************************************/
-function toAbsoluteUrl(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-  try {
-    return new URL(s, window.location.href).toString();
-  } catch {
-    return "";
-  }
-}
-
-function appendVersionParam(rawUrl, version) {
-  const url = String(rawUrl || "").trim();
-  const v = String(version || "").trim();
-  if (!url || !v) return url;
-
-  const abs = toAbsoluteUrl(url);
-  if (!abs) return url;
-
-  try {
-    const u = new URL(abs);
-    if (!u.searchParams.has("v")) u.searchParams.set("v", v);
-    return u.toString();
-  } catch {
-    return url;
-  }
-}
-
-/****************************************************
- * ✅ PDF.js (visor multipágina, responsivo, sin iframes)
- * - Requiere un URL directo a PDF (GitHub Pages recomendado)
- ****************************************************/
-const PDFJS_VERSION = "4.10.38";
-const PDFJS_LIB_SRC = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
-const PDFJS_WORKER_SRC = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
-
-let _pdfjsReadyPromise = null;
-
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    if ([...document.scripts].some((s) => s.src === src)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error(`No se pudo cargar: ${src}`));
-    document.head.appendChild(s);
-  });
-}
-
-async function ensurePdfjsLoaded() {
-  if (_pdfjsReadyPromise) return _pdfjsReadyPromise;
-
-  _pdfjsReadyPromise = (async () => {
-    if (!window.pdfjsLib) {
-      await loadScriptOnce(PDFJS_LIB_SRC);
-    }
-    if (!window.pdfjsLib) throw new Error("PDF.js no quedó disponible (window.pdfjsLib).");
-    try {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
-    } catch {}
-    return window.pdfjsLib;
-  })();
-
-  return _pdfjsReadyPromise;
-}
-
-function isDirectPdfUrl(url) {
-  const u = String(url || "").trim().toLowerCase();
-  return !!u && (u.includes(".pdf") || u.includes("application/pdf"));
-}
-
-async function renderPdfWithPdfjs(url, renderSeqLocal) {
-  if (!_pdfjsViewerEl || !_pdfjsPagesEl) throw new Error("No existe el contenedor del visor PDF.js.");
-
-  const pdfjsLib = await ensurePdfjsLoaded();
-  if (renderSeqLocal !== _pdfjsRenderSeq) return;
-
-  // Cancelar carga previa
-  try {
-    if (_pdfjsLoadingTask) _pdfjsLoadingTask.destroy();
-  } catch {}
-  _pdfjsLoadingTask = null;
-  _pdfjsDoc = null;
-
-  _pdfjsPagesEl.innerHTML = "";
-
-  const absUrl = toAbsoluteUrl(url) || url;
-  const containerWidth = Math.max(320, (_pdfjsViewerEl.clientWidth || 900) - 32);
-  const dpr = window.devicePixelRatio || 1;
-
-  _pdfjsLoadingTask = pdfjsLib.getDocument({ url: absUrl });
-  const pdf = await _pdfjsLoadingTask.promise;
-  _pdfjsDoc = pdf;
-
-  if (renderSeqLocal !== _pdfjsRenderSeq) return;
-
-  // Render secuencial (estable en móviles). PDFs largos: puede tardar, pero no se traba.
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    if (renderSeqLocal !== _pdfjsRenderSeq) return;
-
-    const page = await pdf.getPage(pageNum);
-    if (renderSeqLocal !== _pdfjsRenderSeq) return;
-
-    const baseViewport = page.getViewport({ scale: 1 });
-    const scale = containerWidth / baseViewport.width;
-    const viewport = page.getViewport({ scale });
-
-    const wrap = document.createElement("div");
-    wrap.style.width = `${viewport.width}px`;
-    wrap.style.maxWidth = "100%";
-    wrap.style.background = "#fff";
-    wrap.style.borderRadius = "12px";
-    wrap.style.boxShadow = "0 10px 24px rgba(0,0,0,.08)";
-    wrap.style.overflow = "hidden";
-
-    const canvas = document.createElement("canvas");
-    canvas.style.display = "block";
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
-
-    const ctx = canvas.getContext("2d", { alpha: false });
-
-    canvas.width = Math.floor(viewport.width * dpr);
-    canvas.height = Math.floor(viewport.height * dpr);
-
-    const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
-
-    await page.render({ canvasContext: ctx, viewport, transform }).promise;
-
-    wrap.appendChild(canvas);
-    _pdfjsPagesEl.appendChild(wrap);
-
-    // ✅ quitar overlay apenas se renderiza la 1ª página
-    if (pageNum === 1) {
-      try { setPreviewLoading(false); } catch {}
-    }
-  }
-}
-
 
 /****************************************************
  * Normalización y mapeo (FIX del filtro)
@@ -560,36 +419,110 @@ function makeGoogleGviewUrl(pdfUrl) {
   return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}`;
 }
 
-function makePreviewUrl(url) {
-  const raw = String(url || "").trim();
-  const n = normalizeText(raw);
 
+function normalizeGithubPdfUrl(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+
+  // Convierte URLs tipo:
+  // https://github.com/<owner>/<repo>/blob/<branch>/<path>
+  // a:
+  // https://<owner>.github.io/<repo>/<path>
+  // Esto hace que el PDF sea "directo" y embebible.
+  const m = s.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/[^\/]+\/(.+)$/i);
+  if (m && m[1] && m[2] && m[3]) {
+    const owner = m[1];
+    const repo = m[2];
+    const path = m[3];
+    return `https://${owner}.github.io/${repo}/${path}`;
+  }
+  return "";
+}
+
+function toAbsoluteUrl(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  try {
+    // soporta URLs relativas (./, ../, /path, etc.)
+    return new URL(s, window.location.href).toString();
+  } catch {
+    return "";
+  }
+}
+
+function isSameOriginUrl(raw) {
+  const abs = toAbsoluteUrl(raw);
+  if (!abs) return false;
+  try {
+    const u = new URL(abs);
+    return u.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function appendVersionParam(rawUrl, version) {
+  const v = String(version || "").trim();
+  if (!rawUrl || !v) return rawUrl;
+
+  // Si ya trae ?v=, lo respetamos
+  try {
+    const abs = toAbsoluteUrl(rawUrl);
+    if (!abs) return rawUrl;
+    const u = new URL(abs);
+    if (!u.searchParams.has("v")) u.searchParams.set("v", v);
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+function makeDirectPdfEmbedUrl(rawUrl) {
+  // Evita que algunos viewers muestren UI excesiva
+  const abs = toAbsoluteUrl(rawUrl);
+  if (!abs) return "";
+  if (abs.includes("#")) return abs;
+  return `${abs}#toolbar=0&navpanes=0&scrollbar=0`;
+}
+
+
+function makePreviewUrl(url) {
+  let raw = String(url || "").trim();
   if (!raw) return "";
 
-  // ✅ Si ya es Drive /preview, lo respetamos
+  // ✅ GitHub: si pegas el link de "blob", lo convertimos a GitHub Pages (directo)
+  raw = normalizeGithubPdfUrl(raw) || raw;
+
+  const n = normalizeText(raw);
+
+  // Si ya es un viewer de Drive, lo respetamos
   if (n.includes("drive.google.com/file") && n.includes("/preview")) return raw;
 
-  // ✅ Drive (file o uc): SIEMPRE usar /preview (iframe funciona, pero NO es la vía principal)
+  // Drive (file o uc): SIEMPRE usar /preview
   if (n.includes("drive.google.com")) {
     const id = extractDriveFileId(raw);
     if (id) return makeDrivePreviewViewerUrl(id);
     return "";
   }
 
-  // ✅ PDF directo: devolvemos el URL ABSOLUTO del PDF (lo renderiza PDF.js)
+  // PDF directo: lo embebemos tal cual.
+  // (Ya NO usamos docs.google.com/gview porque hoy suele bloquearse por X-Frame-Options.)
   if (n.includes(".pdf") || n.includes("application/pdf")) {
-    return toAbsoluteUrl(raw) || raw;
+    return makeDirectPdfEmbedUrl(raw);
   }
 
-  // ❌ NO usar docs.google.com/gview en iframe (bloquea conexión)
   return "";
 }
 
 
 function makeOpenUrl(url) {
-  const raw = String(url || "").trim();
-  const n = normalizeText(raw);
+  let raw = String(url || "").trim();
   if (!raw) return "";
+
+  // ✅ GitHub: si pegas el link de "blob", lo convertimos a GitHub Pages (directo)
+  raw = normalizeGithubPdfUrl(raw) || raw;
+
+  const n = normalizeText(raw);
 
   if (n.includes("drive.google.com")) {
     const id = extractDriveFileId(raw);
@@ -599,6 +532,7 @@ function makeOpenUrl(url) {
 
   return raw;
 }
+
 
 /****************************************************
  * ✅ Preview DOM control (1 iframe + throttle + hard reset)
@@ -612,11 +546,9 @@ function cachePreviewDomRefs() {
   _previewOpenBtnEl = listEl.querySelector("#student-resources-open-newtab");
   _previewLoadingEl = listEl.querySelector("#student-resources-preview-loading");
 
-  _pdfjsViewerEl = listEl.querySelector("#student-resources-pdfjs-viewer");
-  _pdfjsPagesEl = listEl.querySelector("#student-resources-pdfjs-pages");
-  _pdfjsFsBtnEl = listEl.querySelector("#student-resources-pdf-fs-btn");
+  _previewFsOpenBtnEl = listEl.querySelector("#student-resources-preview-fs-open");
+  _previewFsCloseBtnEl = listEl.querySelector("#student-resources-preview-fs-close");
 
-  // Fallback iframe events (solo si llegamos a usarlo)
   if (_previewFrameEl && !_previewFrameEl.dataset.bound) {
     _previewFrameEl.dataset.bound = "1";
 
@@ -634,41 +566,31 @@ function cachePreviewDomRefs() {
     });
   }
 
-  // Botón de pantalla completa (solo UI; el contenido NO se borra)
-  if (_pdfjsFsBtnEl && !_pdfjsFsBtnEl.dataset.bound) {
-    _pdfjsFsBtnEl.dataset.bound = "1";
+  // ✅ Fullscreen (sin recargar el iframe)
+  if (_previewBoxEl && !_previewBoxEl.dataset.fsBound) {
+    _previewBoxEl.dataset.fsBound = "1";
+    if (!_previewBoxEl.dataset.baseStyle) _previewBoxEl.dataset.baseStyle = _previewBoxEl.getAttribute("style") || "";
 
-    _pdfjsFsBtnEl.addEventListener("click", async () => {
-      try {
-        const el = _previewBoxEl;
-        if (!el) return;
+    if (_previewFsOpenBtnEl && !_previewFsOpenBtnEl.dataset.bound) {
+      _previewFsOpenBtnEl.dataset.bound = "1";
+      _previewFsOpenBtnEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        enterPreviewFullscreen();
+      });
+    }
 
-        const isFs = document.fullscreenElement === el;
-        if (isFs) {
-          await document.exitFullscreen();
-        } else {
-          await el.requestFullscreen();
-        }
-      } catch (err) {
-        // Si el navegador no soporta fullscreen, no hacemos nada.
-        console.warn("Fullscreen no disponible:", err);
-      }
-    });
+    if (_previewFsCloseBtnEl && !_previewFsCloseBtnEl.dataset.bound) {
+      _previewFsCloseBtnEl.dataset.bound = "1";
+      _previewFsCloseBtnEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        exitPreviewFullscreen();
+      });
+    }
   }
 
-  // Mantener el ícono coherente
-  if (!document.documentElement.dataset.pdfFsBound) {
-    document.documentElement.dataset.pdfFsBound = "1";
-    document.addEventListener("fullscreenchange", () => {
-      if (!_pdfjsFsBtnEl || !_previewBoxEl) return;
-      const isFs = document.fullscreenElement === _previewBoxEl;
-      _pdfjsFsBtnEl.textContent = isFs ? "✕" : "⛶";
-      _pdfjsFsBtnEl.setAttribute("aria-label", isFs ? "Cerrar pantalla completa" : "Pantalla completa");
-      _pdfjsFsBtnEl.title = isFs ? "Cerrar" : "Pantalla completa";
-    });
-  }
 }
-
 
 function setPreviewLoading(on) {
   if (!_previewLoadingEl) return;
@@ -683,36 +605,64 @@ function showPreviewUnavailableNote(customText) {
   if (_previewBoxEl) _previewBoxEl.classList.add("hidden");
 }
 
+
+function enterPreviewFullscreen() {
+  if (!_previewBoxEl) return;
+  if (_previewBoxEl.classList.contains("hidden")) return;
+  if (_previewBoxEl.dataset.fullscreen === "1") return;
+
+  _previewBoxEl.dataset.fullscreen = "1";
+
+  // Guardar y bloquear scroll del body
+  _previewWasBodyOverflow = document.body.style.overflow || "";
+  document.body.style.overflow = "hidden";
+
+  // Guardar estilo base para restaurar al cerrar
+  const base = _previewBoxEl.dataset.baseStyle || (_previewBoxEl.getAttribute("style") || "");
+  _previewBoxEl.dataset.baseStyle = base;
+
+  // Aplicar fullscreen
+  _previewBoxEl.setAttribute(
+    "style",
+    base +
+      "; position:fixed; inset:0; width:100vw; height:100vh; margin:0 !important; border-radius:0 !important; z-index:9999;"
+  );
+
+  if (_previewFsOpenBtnEl) _previewFsOpenBtnEl.classList.add("hidden");
+  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.remove("hidden");
+}
+
+function exitPreviewFullscreen() {
+  if (!_previewBoxEl) return;
+  if (_previewBoxEl.dataset.fullscreen !== "1") return;
+
+  _previewBoxEl.dataset.fullscreen = "0";
+
+  // Restaurar body
+  document.body.style.overflow = _previewWasBodyOverflow || "";
+
+  // Restaurar estilo base
+  const base = _previewBoxEl.dataset.baseStyle || "";
+  if (base) _previewBoxEl.setAttribute("style", base);
+  else _previewBoxEl.removeAttribute("style");
+
+  if (_previewFsOpenBtnEl) _previewFsOpenBtnEl.classList.remove("hidden");
+  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.add("hidden");
+}
+
 function disposeInlinePreview() {
-  // invalida renders en vuelo
-  _pdfjsRenderSeq += 1;
-
   try {
-    if (_previewFrameEl) {
-      _previewFrameEl.src = "about:blank";
-      _previewFrameEl.classList.add("hidden");
-    }
+    if (_previewFrameEl) _previewFrameEl.src = "about:blank";
   } catch {}
-
-  try {
-    if (_pdfjsPagesEl) _pdfjsPagesEl.innerHTML = "";
-  } catch {}
-
-  try {
-    if (_pdfjsLoadingTask) _pdfjsLoadingTask.destroy();
-  } catch {}
-  _pdfjsLoadingTask = null;
-
-  _pdfjsDoc = null;
-  _pdfjsActiveUrl = "";
-
+  exitPreviewFullscreen();
   setPreviewLoading(false);
   clearTimeout(_previewTimer);
   _previewTimer = null;
 }
 
-
 function applyPreviewToDom(token) {
+  if (!_previewFrameEl) return;
+
   // botón abrir (solo si hay PDF seleccionado)
   if (_previewOpenBtnEl) {
     if (_selectedOpenUrl) {
@@ -724,13 +674,9 @@ function applyPreviewToDom(token) {
     }
   }
 
-  // si no hay preview (no hay PDF dedicado)
+  // si no hay preview (no hay PDFs o no se pudo construir URL)
   if (!_selectedPreviewUrl) {
-    if (_previewFrameEl) {
-      _previewFrameEl.src = "about:blank";
-      _previewFrameEl.classList.add("hidden");
-    }
-    if (_pdfjsPagesEl) _pdfjsPagesEl.innerHTML = "";
+    _previewFrameEl.src = "about:blank";
     showPreviewUnavailableNote("Este tema no tiene PDF para vista previa.");
     return;
   }
@@ -740,65 +686,22 @@ function applyPreviewToDom(token) {
 
   setPreviewLoading(true);
 
-  const url = String(_selectedPreviewUrl || "").trim();
-  const n = normalizeText(url);
+  // HARD RESET
+  _previewFrameEl.dataset.token = String(token);
+  _previewFrameEl.src = "about:blank";
 
-  // ✅ Drive /preview: usamos iframe (Drive bloquea fetch/CORS para PDF.js)
-  if (n.includes("drive.google.com") && n.includes("/preview")) {
-    if (_pdfjsViewerEl) _pdfjsViewerEl.classList.add("hidden");
+  requestAnimationFrame(() => {
+    if (token !== _previewToken) return;
 
-    if (_previewFrameEl) {
-      _previewFrameEl.classList.remove("hidden");
+    const url = _selectedPreviewUrl;
 
-      // HARD RESET
-      _previewFrameEl.dataset.token = String(token);
-      _previewFrameEl.src = "about:blank";
-
-      requestAnimationFrame(() => {
-        if (token !== _previewToken) return;
-        _previewFrameEl.dataset.token = String(token);
-        _previewFrameEl.src = url;
-      });
-    } else {
-      setPreviewLoading(false);
-      showPreviewUnavailableNote();
-    }
-    return;
-  }
-
-  // ✅ PDF directo: render multipágina con PDF.js
-  if (_previewFrameEl) {
-    _previewFrameEl.src = "about:blank";
-    _previewFrameEl.classList.add("hidden");
-  }
-  if (_pdfjsViewerEl) _pdfjsViewerEl.classList.remove("hidden");
-
-  // Evita re-render si es el mismo URL y ya hay páginas
-  if (_pdfjsActiveUrl === url && _pdfjsPagesEl && _pdfjsPagesEl.childElementCount > 0) {
-    setPreviewLoading(false);
-    return;
-  }
-
-  _pdfjsActiveUrl = url;
-  const renderSeqLocal = ++_pdfjsRenderSeq;
-
-  renderPdfWithPdfjs(url, renderSeqLocal)
-    .then(() => {
-      if (renderSeqLocal !== _pdfjsRenderSeq) return;
-      setPreviewLoading(false);
-    })
-    .catch((err) => {
-      if (renderSeqLocal !== _pdfjsRenderSeq) return;
-      console.warn("PDF.js no pudo renderizar el PDF:", err);
-      setPreviewLoading(false);
-      _pdfjsActiveUrl = "";
-      showPreviewUnavailableNote("No se pudo mostrar el PDF aquí. Ábrelo en pestaña nueva.");
-    });
+    _previewFrameEl.dataset.token = String(token);
+    _previewFrameEl.src = url;
+  });
 }
 
-
 function schedulePreviewUpdate() {
-  if (!_previewBoxEl) return;
+  if (!_previewFrameEl) return;
 
   const now = performance.now();
   const minGap = IS_IOS ? 650 : IS_MOBILE ? 450 : 150;
@@ -1035,10 +938,18 @@ export function initStudentResourcesUI() {
         const raw = previewBtn.getAttribute("data-preview-url") || "";
         if (!raw) return;
 
-        // Abrir en nueva pestaña: preferimos viewer (no download)
+        // ✅ Nuevo comportamiento para tu flujo:
+        // Si el tema tiene un PDF dedicado de vista previa (GitHub/legacy Storage),
+        // NO reemplazamos la vista previa con links externos; solo abrimos en nueva pestaña.
+        if (selectedTopicHasDedicatedPreviewPdf()) {
+          const open = makeOpenUrl(raw) || raw;
+          if (open) window.open(open, "_blank", "noopener");
+          return;
+        }
+
+        // (Fallback) Si NO hay PDF dedicado, permitimos usar el PDF de links[] como vista previa
         _selectedOpenUrl = makeOpenUrl(raw);
 
-        // Preview: SIEMPRE viewer (no download)
         const preview = makePreviewUrl(raw);
         _selectedPreviewUrl = preview || "";
 
@@ -1060,6 +971,15 @@ export function initStudentResourcesUI() {
     document.documentElement.dataset.resourcesVisBound = "1";
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) disposeInlinePreview();
+    });
+  }
+
+
+  // ✅ ESC cierra fullscreen del PDF
+  if (!document.documentElement.dataset.resourcesFsEscBound) {
+    document.documentElement.dataset.resourcesFsEscBound = "1";
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") exitPreviewFullscreen();
     });
   }
 
@@ -1090,7 +1010,7 @@ export async function activateStudentResources() {
           specialty: specialtyRaw,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
           previewPdf: (data.previewPdf && typeof data.previewPdf === "object") ? data.previewPdf : null,
-          // soporte GitHub Pages (campos simples)
+          // ✅ NUEVO: soporte directo para GitHub Pages (si guardas el URL como campos simples)
           previewPdfUrl: String(data.previewPdfUrl || ""),
           previewPdfVersion: data.previewPdfVersion != null ? String(data.previewPdfVersion) : "",
           links: Array.isArray(data.links) ? data.links : [],
@@ -1143,7 +1063,7 @@ export async function getStudentResourcesProgressStats(options = {}) {
           specialty: specialtyRaw,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
           previewPdf: (data.previewPdf && typeof data.previewPdf === "object") ? data.previewPdf : null,
-          // soporte GitHub Pages (campos simples)
+          // ✅ NUEVO: soporte directo para GitHub Pages (si guardas el URL como campos simples)
           previewPdfUrl: String(data.previewPdfUrl || ""),
           previewPdfVersion: data.previewPdfVersion != null ? String(data.previewPdfVersion) : "",
           links: Array.isArray(data.links) ? data.links : [],
@@ -1312,8 +1232,12 @@ function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // ✅ Al abrir el tema: el botón "Abrir PDF" abre el PRIMER PDF (link externo).
-  // La vista previa se carga desde Firebase Storage (temas/<id>.previewPdf).
+  // ✅ Al abrir el tema:
+  // - El botón "Abrir PDF" abre el PRIMER PDF (link externo en links[]).
+  // - La vista previa se carga desde el PDF dedicado del tema:
+  //     * GitHub Pages: previewPdf.url (o previewPdfUrl) + previewPdf.version
+  //     * Legacy:      previewPdf.path (Storage)
+  //   (si no existe, se muestra un mensaje).
   const firstPdf = groups.pdf[0]?.url || "";
   _selectedOpenUrl = firstPdf ? makeOpenUrl(firstPdf) : "";
   _selectedPreviewUrl = ""; // se hidrata async desde Storage
@@ -1360,51 +1284,44 @@ function renderTopicDetail(topic) {
       <div
         id="student-resources-preview-box"
         class="hidden"
-        style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; position:relative; background:#f8fafc;"
+        style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; position:relative;"
       >
         <div
           id="student-resources-preview-loading"
           class="hidden"
-          style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.85); z-index:4; font-weight:700;"
+          style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.85); z-index:2; font-weight:700;"
         >
           Cargando…
         </div>
 
-        <!-- ✅ Visor multipágina (PDF.js) -->
-        <div
-          id="student-resources-pdfjs-viewer"
-          style="position:absolute; inset:0; overflow:auto; padding:14px; display:flex; justify-content:center;"
-        >
-          <div
-            id="student-resources-pdfjs-pages"
-            style="width:100%; max-width:1000px; display:flex; flex-direction:column; gap:14px; align-items:center;"
-          ></div>
-        </div>
-
-        <!-- Fallback (Drive /preview). Normalmente oculto. -->
         <iframe
           id="student-resources-preview-frame"
-          title="Vista previa (fallback)"
+          title="Vista previa"
           src="about:blank"
-          class="hidden"
-          style="position:absolute; inset:0; width:100%; height:100%; border:0;"
+          style="width:100%;height:100%;border:0;"
           loading="eager"
         ></iframe>
 
-        <!-- ✅ Pantalla completa -->
+        </iframe>
+
         <button
-          id="student-resources-pdf-fs-btn"
+          id="student-resources-preview-fs-open"
           type="button"
           aria-label="Pantalla completa"
-          title="Pantalla completa"
-          style="position:absolute; right:12px; bottom:12px; z-index:6; width:44px; height:44px; border-radius:999px; border:1px solid rgba(0,0,0,.12); background:rgba(255,255,255,.95); box-shadow:0 10px 24px rgba(0,0,0,.12); font-size:18px; font-weight:900; display:flex; align-items:center; justify-content:center; cursor:pointer;"
-        >
-          ⛶
-        </button>
+          style="position:absolute; right:12px; bottom:12px; z-index:3; width:44px; height:44px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:rgba(255,255,255,.92); font-size:18px; font-weight:800; cursor:pointer;"
+        >⛶</button>
+
+        <button
+          id="student-resources-preview-fs-close"
+          type="button"
+          class="hidden"
+          aria-label="Cerrar pantalla completa"
+          style="position:absolute; right:12px; top:12px; z-index:4; width:44px; height:44px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:rgba(255,255,255,.92); font-size:18px; font-weight:800; cursor:pointer;"
+        >✕</button>
+
       </div>
     </div>
   `;
-
 
   // ✅ Un solo bloque "Recursos"
   const allButtons = [pdfLinks, resumenLinks, gpcLinks, otherLinks].filter(Boolean).join("");
