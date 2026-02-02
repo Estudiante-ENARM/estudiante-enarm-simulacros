@@ -3,6 +3,10 @@
 // Objetivo: UI moderna + filtros robustos (sin romper simulacros).
 // OPT PRO: iOS-safe preview (1 iframe + throttle + hard reset) + event delegation.
 // REQ: SOLO PDFs en vista previa. Resto SOLO pestaña nueva. NO descargas automáticas.
+// ✅ V5: Visor propio con PDF.js (pdf-viewer.html) para:
+//    - evitar "pantalla en blanco" al cambiar de pestaña
+//    - arreglar iPhone/Android (no solo primera página)
+//    - controlar UI (sin imprimir/descargar/subrayar etc)
 
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
@@ -80,7 +84,7 @@ async function hydrateSelectedTopicPreviewPdf(topic) {
 
   cachePreviewDomRefs();
 
-  // ✅ NUEVO: URL del PDF para vista previa (GitHub Pages)
+  // ✅ URL del PDF para vista previa (GitHub Pages o URL directa)
   const rawUrl = (topic?.previewPdf && typeof topic.previewPdf === "object" && topic.previewPdf.url)
     ? String(topic.previewPdf.url || "").trim()
     : String(topic?.previewPdfUrl || "").trim();
@@ -233,9 +237,14 @@ let _previewBoxEl = null;
 let _previewNoteEl = null;
 let _previewOpenBtnEl = null;
 let _previewLoadingEl = null;
+
+// Fullscreen buttons (overlay)
 let _previewFsOpenBtnEl = null;
 let _previewFsCloseBtnEl = null;
 let _previewWasBodyOverflow = "";
+
+// tab visibility handling (avoid blank preview after switching tabs)
+let _tabWasHidden = false;
 
 let _previewToken = 0;
 let _previewTimer = null;
@@ -419,38 +428,6 @@ function makeGoogleGviewUrl(pdfUrl) {
   return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(pdfUrl)}`;
 }
 
-
-
-
-// ✅ PDF.js viewer (mejor en iOS para multi-página + zoom dentro de iframe)
-// Nota: usa el viewer oficial alojado en GitHub Pages de Mozilla.
-// Requiere que el PDF sea público y permita CORS (GitHub Pages normalmente sí).
-function makePdfJsViewerUrl(pdfUrl) {
-  const abs = toAbsoluteUrl(pdfUrl);
-  if (!abs) return "";
-  return `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(abs)}`;
-}
-
-
-function normalizeGithubPdfUrl(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return "";
-
-  // Convierte URLs tipo:
-  // https://github.com/<owner>/<repo>/blob/<branch>/<path>
-  // a:
-  // https://<owner>.github.io/<repo>/<path>
-  // Esto hace que el PDF sea "directo" y embebible.
-  const m = s.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/[^\/]+\/(.+)$/i);
-  if (m && m[1] && m[2] && m[3]) {
-    const owner = m[1];
-    const repo = m[2];
-    const path = m[3];
-    return `https://${owner}.github.io/${repo}/${path}`;
-  }
-  return "";
-}
-
 function toAbsoluteUrl(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -459,17 +436,6 @@ function toAbsoluteUrl(raw) {
     return new URL(s, window.location.href).toString();
   } catch {
     return "";
-  }
-}
-
-function isSameOriginUrl(raw) {
-  const abs = toAbsoluteUrl(raw);
-  if (!abs) return false;
-  try {
-    const u = new URL(abs);
-    return u.origin === window.location.origin;
-  } catch {
-    return false;
   }
 }
 
@@ -489,74 +455,85 @@ function appendVersionParam(rawUrl, version) {
   }
 }
 
+// Normaliza links típicos de GitHub "blob" a URL de GitHub Pages (si aplica)
+function normalizeGithubPdfUrl(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
 
-function makeDirectPdfEmbedUrl(rawUrl) {
-  const abs = toAbsoluteUrl(rawUrl);
-  if (!abs) return "";
+  try {
+    const u = new URL(s);
+    // Si ya es github.io, OK
+    if (u.hostname.endsWith("github.io")) return u.toString();
 
-  // Si ya trae #, lo respetamos tal cual.
-  if (abs.includes("#")) return abs;
+    // Si es github.com/<user>/<repo>/blob/<branch>/<path>
+    if (u.hostname === "github.com") {
+      const parts = u.pathname.split("/").filter(Boolean); // [user, repo, blob, branch, ...path]
+      if (parts.length >= 5 && parts[2] === "blob") {
+        const user = parts[0];
+        const repo = parts[1];
+        const path = parts.slice(4).join("/");
+        // asumimos Pages del repo: https://user.github.io/repo/<path>
+        return `https://${user}.github.io/${repo}/${path}`;
+      }
+    }
+  } catch {
+    // no-op
+  }
 
-  // iOS Safari es frágil embebiendo PDFs con fragmentos: usar URL limpia.
-  if (IS_IOS) return abs;
-
-  // En móvil, evitamos esconder el scrollbar (permite scroll multipágina).
-  if (IS_MOBILE) return `${abs}#toolbar=0&navpanes=0`;
-
-  // Desktop: UI mínima
-  return `${abs}#toolbar=0&navpanes=0&scrollbar=0`;
+  return s;
 }
 
+// URL local del visor (mismo origen) para que el Service Worker pueda cachear PDFs (y evitar el blanco)
+function makeLocalPdfViewerUrl(pdfUrl) {
+  const absPdf = toAbsoluteUrl(pdfUrl);
+  if (!absPdf) return "";
+
+  const viewer = new URL("./pdf-viewer.html", window.location.href);
+  viewer.searchParams.set("file", absPdf);
+  return viewer.toString();
+}
 
 function makePreviewUrl(url) {
-  let raw = String(url || "").trim();
+  const raw = String(url || "").trim();
   if (!raw) return "";
 
-  // ✅ GitHub: si pegas el link de "blob", lo convertimos a GitHub Pages (directo)
-  raw = normalizeGithubPdfUrl(raw) || raw;
+  const normalized = normalizeGithubPdfUrl(raw);
+  const n = normalizeText(normalized);
 
-  const n = normalizeText(raw);
+  // Si ya es Drive preview, lo respetamos
+  if (n.includes("drive.google.com/file") && n.includes("/preview")) return normalized;
 
-  // Si ya es un viewer de Drive, lo respetamos
-  if (n.includes("drive.google.com/file") && n.includes("/preview")) return raw;
-
-  // Drive (file o uc): SIEMPRE usar /preview
+  // Drive: usamos /preview (pero esto depende de Drive)
   if (n.includes("drive.google.com")) {
-    const id = extractDriveFileId(raw);
+    const id = extractDriveFileId(normalized);
     if (id) return makeDrivePreviewViewerUrl(id);
     return "";
   }
 
-  // PDF directo: lo embebemos tal cual.
-  // (Ya NO usamos docs.google.com/gview porque hoy suele bloquearse por X-Frame-Options.)
+  // PDF directo: SIEMPRE usar visor local (pdf-viewer.html) -> consistente en desktop + móvil
   if (n.includes(".pdf") || n.includes("application/pdf")) {
-  // iOS: usar PDF.js viewer para evitar "solo primera página" y zoom raro dentro de iframe.
-  if (IS_IOS) return makePdfJsViewerUrl(raw) || makeDirectPdfEmbedUrl(raw);
-  return makeDirectPdfEmbedUrl(raw);
-}
-
-  return "";
-}
-
-
-function makeOpenUrl(url) {
-  let raw = String(url || "").trim();
-  if (!raw) return "";
-
-  // ✅ GitHub: si pegas el link de "blob", lo convertimos a GitHub Pages (directo)
-  raw = normalizeGithubPdfUrl(raw) || raw;
-
-  const n = normalizeText(raw);
-
-  if (n.includes("drive.google.com")) {
-    const id = extractDriveFileId(raw);
-    if (id) return makeDriveViewUrl(id);
-    return raw;
+    return makeLocalPdfViewerUrl(normalized);
   }
 
-  return raw;
+  // Fallback: gview (por si acaso)
+  return makeGoogleGviewUrl(normalized);
 }
 
+function makeOpenUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+
+  const normalized = normalizeGithubPdfUrl(raw);
+  const n = normalizeText(normalized);
+
+  if (n.includes("drive.google.com")) {
+    const id = extractDriveFileId(normalized);
+    if (id) return makeDriveViewUrl(id);
+    return normalized;
+  }
+
+  return normalized;
+}
 
 /****************************************************
  * ✅ Preview DOM control (1 iframe + throttle + hard reset)
@@ -572,6 +549,22 @@ function cachePreviewDomRefs() {
 
   _previewFsOpenBtnEl = listEl.querySelector("#student-resources-preview-fs-open");
   _previewFsCloseBtnEl = listEl.querySelector("#student-resources-preview-fs-close");
+
+  // Fullscreen buttons
+  if (_previewFsOpenBtnEl && !_previewFsOpenBtnEl.dataset.bound) {
+    _previewFsOpenBtnEl.dataset.bound = "1";
+    _previewFsOpenBtnEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      enterPreviewFullscreen();
+    });
+  }
+  if (_previewFsCloseBtnEl && !_previewFsCloseBtnEl.dataset.bound) {
+    _previewFsCloseBtnEl.dataset.bound = "1";
+    _previewFsCloseBtnEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      exitPreviewFullscreen();
+    });
+  }
 
   if (_previewFrameEl && !_previewFrameEl.dataset.bound) {
     _previewFrameEl.dataset.bound = "1";
@@ -589,31 +582,25 @@ function cachePreviewDomRefs() {
       showPreviewUnavailableNote();
     });
   }
+}
 
-  // ✅ Fullscreen (sin recargar el iframe)
-  if (_previewBoxEl && !_previewBoxEl.dataset.fsBound) {
-    _previewBoxEl.dataset.fsBound = "1";
-    if (!_previewBoxEl.dataset.baseStyle) _previewBoxEl.dataset.baseStyle = _previewBoxEl.getAttribute("style") || "";
+function enterPreviewFullscreen() {
+  if (!_previewBoxEl) return;
 
-    if (_previewFsOpenBtnEl && !_previewFsOpenBtnEl.dataset.bound) {
-      _previewFsOpenBtnEl.dataset.bound = "1";
-      _previewFsOpenBtnEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        enterPreviewFullscreen();
-      });
-    }
+  _previewWasBodyOverflow = document.body.style.overflow || "";
+  document.body.style.overflow = "hidden";
 
-    if (_previewFsCloseBtnEl && !_previewFsCloseBtnEl.dataset.bound) {
-      _previewFsCloseBtnEl.dataset.bound = "1";
-      _previewFsCloseBtnEl.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        exitPreviewFullscreen();
-      });
-    }
-  }
+  _previewBoxEl.classList.add("preview-fullscreen");
+  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.remove("hidden");
+}
 
+function exitPreviewFullscreen() {
+  if (!_previewBoxEl) return;
+
+  document.body.style.overflow = _previewWasBodyOverflow;
+
+  _previewBoxEl.classList.remove("preview-fullscreen");
+  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.add("hidden");
 }
 
 function setPreviewLoading(on) {
@@ -629,59 +616,81 @@ function showPreviewUnavailableNote(customText) {
   if (_previewBoxEl) _previewBoxEl.classList.add("hidden");
 }
 
-
-function enterPreviewFullscreen() {
-  if (!_previewBoxEl) return;
-  if (_previewBoxEl.classList.contains("hidden")) return;
-  if (_previewBoxEl.dataset.fullscreen === "1") return;
-
-  _previewBoxEl.dataset.fullscreen = "1";
-
-  // Guardar y bloquear scroll del body
-  _previewWasBodyOverflow = document.body.style.overflow || "";
-  document.body.style.overflow = "hidden";
-
-  // Guardar estilo base para restaurar al cerrar
-  const base = _previewBoxEl.dataset.baseStyle || (_previewBoxEl.getAttribute("style") || "");
-  _previewBoxEl.dataset.baseStyle = base;
-
-  // Aplicar fullscreen
-  _previewBoxEl.setAttribute(
-    "style",
-    base +
-      "; position:fixed; inset:0; width:100vw; height:100vh; margin:0 !important; border-radius:0 !important; z-index:9999;"
-  );
-
-  if (_previewFsOpenBtnEl) _previewFsOpenBtnEl.classList.add("hidden");
-  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.remove("hidden");
-}
-
-function exitPreviewFullscreen() {
-  if (!_previewBoxEl) return;
-  if (_previewBoxEl.dataset.fullscreen !== "1") return;
-
-  _previewBoxEl.dataset.fullscreen = "0";
-
-  // Restaurar body
-  document.body.style.overflow = _previewWasBodyOverflow || "";
-
-  // Restaurar estilo base
-  const base = _previewBoxEl.dataset.baseStyle || "";
-  if (base) _previewBoxEl.setAttribute("style", base);
-  else _previewBoxEl.removeAttribute("style");
-
-  if (_previewFsOpenBtnEl) _previewFsOpenBtnEl.classList.remove("hidden");
-  if (_previewFsCloseBtnEl) _previewFsCloseBtnEl.classList.add("hidden");
-}
-
 function disposeInlinePreview() {
   try {
     if (_previewFrameEl) _previewFrameEl.src = "about:blank";
   } catch {}
-  exitPreviewFullscreen();
   setPreviewLoading(false);
   clearTimeout(_previewTimer);
   _previewTimer = null;
+}
+
+// Ping/refresh al visor local para evitar "blanco" tras cambiar de pestaña
+function postPdfViewerMessage(type, payload = {}) {
+  try {
+    if (!_previewFrameEl) return false;
+    const win = _previewFrameEl.contentWindow;
+    if (!win) return false;
+    win.postMessage({ type, ...payload }, "*");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function pingPdfViewer(timeoutMs = 350) {
+  if (!_previewFrameEl || !_previewFrameEl.contentWindow) return false;
+
+  return new Promise((resolve) => {
+    let done = false;
+
+    const token = String(Date.now());
+    const onMsg = (e) => {
+      const data = e?.data || {};
+      if (data && data.type === "pdfViewer:pong" && data.token === token) {
+        done = true;
+        window.removeEventListener("message", onMsg);
+        resolve(true);
+      }
+    };
+
+    window.addEventListener("message", onMsg);
+
+    // send ping
+    postPdfViewerMessage("pdfViewer:ping", { token });
+
+    setTimeout(() => {
+      if (done) return;
+      window.removeEventListener("message", onMsg);
+      resolve(false);
+    }, timeoutMs);
+  });
+}
+
+function refreshPreviewAfterTabReturn() {
+  // Si no hay preview cargado, no hacemos nada
+  if (!_previewFrameEl || !_selectedPreviewUrl) return;
+
+  // Si es visor local, intentamos refrescar dentro del iframe sin recargar src
+  const src = String(_previewFrameEl.src || "");
+  const isLocalViewer = normalizeText(src).includes("pdf-viewer.html");
+
+  if (isLocalViewer) {
+    // si responde al ping, solo pedimos refresh interno
+    pingPdfViewer(450).then((ok) => {
+      if (ok) {
+        setPreviewLoading(false);
+        postPdfViewerMessage("pdfViewer:refresh");
+      } else {
+        // fallback: recargar el iframe (usa SW cache)
+        schedulePreviewUpdate(true /*force*/);
+      }
+    });
+    return;
+  }
+
+  // si no es local, fallback recarga
+  schedulePreviewUpdate(true);
 }
 
 function applyPreviewToDom(token) {
@@ -708,6 +717,7 @@ function applyPreviewToDom(token) {
   if (_previewBoxEl) _previewBoxEl.classList.remove("hidden");
   if (_previewNoteEl) _previewNoteEl.textContent = "Vista previa (PDF)";
 
+  // En cambios normales sí mostramos overlay breve
   setPreviewLoading(true);
 
   // HARD RESET
@@ -724,12 +734,12 @@ function applyPreviewToDom(token) {
   });
 }
 
-function schedulePreviewUpdate() {
+function schedulePreviewUpdate(force = false) {
   if (!_previewFrameEl) return;
 
   const now = performance.now();
   const minGap = IS_IOS ? 650 : IS_MOBILE ? 450 : 150;
-  const wait = Math.max(0, minGap - (now - _previewLastSwitchAt));
+  const wait = force ? 0 : Math.max(0, minGap - (now - _previewLastSwitchAt));
   _previewLastSwitchAt = now;
 
   clearTimeout(_previewTimer);
@@ -941,8 +951,6 @@ export function initStudentResourcesUI() {
         return;
       }
 
-
-
       // DETAIL VIEW: complete
       if (target?.closest?.("#student-resources-complete")) {
         e.preventDefault();
@@ -990,40 +998,11 @@ export function initStudentResourcesUI() {
     });
   }
 
-  
-// ✅ Mantener vista previa al cambiar de pestaña
-// Algunos navegadores (Safari/iOS y también algunos desktop) pueden “vaciar” el PDF embebido al volver.
-// Solución: NO limpiar al ocultar; al volver, forzamos un refresh suave del iframe.
+  // ✅ Evita el "blanco" al cambiar de pestaña:
+  // - NO destruimos el iframe en hidden
+  // - al volver visible, forzamos refresh interno del visor local
   if (!document.documentElement.dataset.resourcesVisBound) {
     document.documentElement.dataset.resourcesVisBound = "1";
-
-    let _tabWasHidden = false;
-
-    const refreshPreviewAfterTabReturn = () => {
-      try {
-        // Solo si estamos viendo un tema con PDF
-        if (!_selectedTopicId || !_selectedPreviewUrl) return;
-
-        cachePreviewDomRefs();
-        if (!_previewFrameEl || !_previewBoxEl) return;
-        if (_previewBoxEl.classList.contains("hidden")) return;
-
-        // Refresh suave: si hay src, re-asignarlo; si está en blanco, aplicar preview normal.
-        const currentSrc = String(_previewFrameEl.getAttribute("src") || _previewFrameEl.src || "");
-        if (currentSrc && currentSrc !== "about:blank") {
-          setPreviewLoading(true);
-          _previewFrameEl.dataset.token = String(++_previewToken);
-          _previewFrameEl.src = currentSrc;
-          return;
-        }
-
-        schedulePreviewUpdate();
-      } catch {
-        // fallback duro
-        schedulePreviewUpdate();
-      }
-    };
-
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         _tabWasHidden = true;
@@ -1031,27 +1010,9 @@ export function initStudentResourcesUI() {
       }
       if (_tabWasHidden) {
         _tabWasHidden = false;
+        // refrescar solo si estamos en detalle con preview
         refreshPreviewAfterTabReturn();
       }
-    });
-
-    window.addEventListener("focus", () => {
-      // En algunos casos no dispara visibilitychange (mobile); focus ayuda.
-      refreshPreviewAfterTabReturn();
-    });
-
-    window.addEventListener("pageshow", (e) => {
-      // Si el navegador regresa desde BFCache, re-hidratar.
-      if (e && e.persisted) refreshPreviewAfterTabReturn();
-    });
-  }
-
-
-  // ✅ ESC cierra fullscreen del PDF
-  if (!document.documentElement.dataset.resourcesFsEscBound) {
-    document.documentElement.dataset.resourcesFsEscBound = "1";
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") exitPreviewFullscreen();
     });
   }
 
@@ -1082,7 +1043,7 @@ export async function activateStudentResources() {
           specialty: specialtyRaw,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
           previewPdf: (data.previewPdf && typeof data.previewPdf === "object") ? data.previewPdf : null,
-          // ✅ NUEVO: soporte directo para GitHub Pages (si guardas el URL como campos simples)
+          // ✅ soporte directo para GitHub Pages (si guardas el URL como campos simples)
           previewPdfUrl: String(data.previewPdfUrl || ""),
           previewPdfVersion: data.previewPdfVersion != null ? String(data.previewPdfVersion) : "",
           links: Array.isArray(data.links) ? data.links : [],
@@ -1135,7 +1096,6 @@ export async function getStudentResourcesProgressStats(options = {}) {
           specialty: specialtyRaw,
           specialtyKey: canonicalizeSpecialty(specialtyRaw),
           previewPdf: (data.previewPdf && typeof data.previewPdf === "object") ? data.previewPdf : null,
-          // ✅ NUEVO: soporte directo para GitHub Pages (si guardas el URL como campos simples)
           previewPdfUrl: String(data.previewPdfUrl || ""),
           previewPdfVersion: data.previewPdfVersion != null ? String(data.previewPdfVersion) : "",
           links: Array.isArray(data.links) ? data.links : [],
@@ -1238,7 +1198,6 @@ function render() {
     progressBarEl.style.width = `${pct}%`;
   }
 
-
   if (countEl) countEl.textContent = `${filtered.length} tema${filtered.length === 1 ? "" : "s"}`;
 
   const selected = getSelectedTopic();
@@ -1304,19 +1263,12 @@ function renderTopicDetail(topic) {
   const spLabel = specialtyLabelFromKey(topic.specialtyKey);
   const groups = buildLinkGroups(topic);
 
-  // ✅ Al abrir el tema:
-  // - El botón "Abrir PDF" abre el PRIMER PDF (link externo en links[]).
-  // - La vista previa se carga desde el PDF dedicado del tema:
-  //     * GitHub Pages: previewPdf.url (o previewPdfUrl) + previewPdf.version
-  //     * Legacy:      previewPdf.path (Storage)
-  //   (si no existe, se muestra un mensaje).
   const firstPdf = groups.pdf[0]?.url || "";
   _selectedOpenUrl = firstPdf ? makeOpenUrl(firstPdf) : "";
-  _selectedPreviewUrl = ""; // se hidrata async desde Storage
+  _selectedPreviewUrl = ""; // se hidrata async desde Storage/GitHub
 
   const completed = isTopicCompleted(topic.id);
 
-  // Helpers de botones (sin textos extra)
   const newTabLinks = (items) =>
     (items || [])
       .map(
@@ -1328,8 +1280,7 @@ function renderTopicDetail(topic) {
       )
       .join("");
 
-  // Links en pestaña nueva
-  const pdfLinks = newTabLinks(groups.pdf);       // ✅ ya NO se usan para vista previa
+  const pdfLinks = newTabLinks(groups.pdf);
   const resumenLinks = newTabLinks(groups.resumen);
   const gpcLinks = newTabLinks(groups.gpc);
   const otherLinks = newTabLinks(groups.otro);
@@ -1342,21 +1293,23 @@ function renderTopicDetail(topic) {
           <div class="panel-subtitle" id="student-resources-preview-note" style="margin-top:4px;">Cargando PDF…</div>
         </div>
 
-        <a
-          id="student-resources-open-newtab"
-          class="btn btn-primary btn-sm ${_selectedOpenUrl ? "" : "hidden"}"
-          href="${_selectedOpenUrl ? escapeHtml(_selectedOpenUrl) : "#"}"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Abrir PDF
-        </a>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <a
+            id="student-resources-open-newtab"
+            class="btn btn-primary btn-sm ${_selectedOpenUrl ? "" : "hidden"}"
+            href="${_selectedOpenUrl ? escapeHtml(_selectedOpenUrl) : "#"}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir PDF
+          </a>
+        </div>
       </div>
 
       <div
         id="student-resources-preview-box"
         class="hidden"
-        style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; position:relative;"
+        style="margin-top:12px; width:100%; height:70vh; border-radius:12px; overflow:hidden; border:1px solid #e5e7eb; position:relative; background:#fff;"
       >
         <div
           id="student-resources-preview-loading"
@@ -1366,37 +1319,47 @@ function renderTopicDetail(topic) {
           Cargando…
         </div>
 
-        <iframe
-          id="student-resources-preview-frame"
-          title="Vista previa"
-          src="about:blank"
-          style="width:100%;height:100%;border:0;"
-          loading="eager"
-          scrolling="yes"
-          allow="fullscreen"
-          allowfullscreen
-        ></iframe>
-
+        <!-- Fullscreen buttons -->
         <button
           id="student-resources-preview-fs-open"
           type="button"
-          aria-label="Pantalla completa"
-          style="position:absolute; right:12px; bottom:12px; z-index:3; width:44px; height:44px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:rgba(255,255,255,.92); font-size:18px; font-weight:800; cursor:pointer;"
+          title="Pantalla completa"
+          style="position:absolute; right:10px; bottom:10px; z-index:3; border:0; border-radius:10px; padding:10px 12px; background:rgba(17,24,39,.85); color:#fff; font-weight:800; cursor:pointer;"
         >⛶</button>
 
         <button
           id="student-resources-preview-fs-close"
-          type="button"
           class="hidden"
-          aria-label="Cerrar pantalla completa"
-          style="position:absolute; right:12px; top:12px; z-index:4; width:44px; height:44px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:rgba(255,255,255,.92); font-size:18px; font-weight:800; cursor:pointer;"
+          type="button"
+          title="Cerrar"
+          style="position:absolute; right:10px; top:10px; z-index:4; border:0; border-radius:10px; padding:10px 12px; background:rgba(17,24,39,.85); color:#fff; font-weight:800; cursor:pointer;"
         >✕</button>
 
+        <iframe
+          id="student-resources-preview-frame"
+          title="Vista previa"
+          src="about:blank"
+          style="width:100%;height:100%;border:0;background:#fff;"
+          loading="eager"
+          referrerpolicy="no-referrer"
+          allow="fullscreen"
+        ></iframe>
+
+        <style>
+          .preview-fullscreen{
+            position:fixed !important;
+            inset:0 !important;
+            width:100vw !important;
+            height:100vh !important;
+            z-index:9999 !important;
+            border-radius:0 !important;
+            margin:0 !important;
+          }
+        </style>
       </div>
     </div>
   `;
 
-  // ✅ Un solo bloque "Recursos"
   const allButtons = [pdfLinks, resumenLinks, gpcLinks, otherLinks].filter(Boolean).join("");
 
   const resourcesPanel = `
@@ -1442,17 +1405,13 @@ function renderTopicDetail(topic) {
         <button id="student-resources-start-topic-exam" class="btn btn-outline btn-sm" type="button" disabled>En proceso</button>
       </div>
     </div>
-
   `;
 
   cachePreviewDomRefs();
 
-  // Estado inicial del botón de repaso (cache o default: En proceso)
   applyTopicExamButtonState(topic.id);
   prefetchTopicExam(topic.id);
 
-  // Estado inicial de la vista previa
   showPreviewUnavailableNote("Cargando PDF…");
   hydrateSelectedTopicPreviewPdf(topic);
 }
-
