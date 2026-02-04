@@ -4,7 +4,7 @@
 // - PDFs: cache-first con refresh en background (stale-while-revalidate) + TTL 9 meses
 // - Viewer local (pdf-viewer.html) y libs PDF.js (/pdfjs/*): cache-first (TTL 30 días)
 
-const SW_VERSION = "v5";
+const SW_VERSION = "v6";
 const PDF_CACHE = `pdf-cache-${SW_VERSION}`;
 const META_CACHE = `pdf-meta-${SW_VERSION}`;
 const VIEWER_CACHE = `pdf-viewer-${SW_VERSION}`;
@@ -117,7 +117,17 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
 
   // PDFs (mismo origen o externo): cache-first + TTL largo
+  // ⚠️ PDF.js usa "Range requests" (206 Partial Content) para pedir chunks.
+  // Si respondemos desde cache a una request con Range, puede romper offsets y dar:
+  //   "Bad end offset" (pdf.worker)
+  // Por eso: si viene Range, NO tocamos cache; dejamos ir directo a red.
   if (isPdfRequest(url)) {
+    const hasRange = req.headers.has("range") || req.headers.has("Range");
+    if (hasRange) {
+      event.respondWith(fetch(req));
+      return;
+    }
+
     event.respondWith(cacheFirstWithTtl(event, PDF_CACHE, PDF_TTL_MS));
     return;
   }
