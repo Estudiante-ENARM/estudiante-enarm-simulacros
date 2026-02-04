@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudiante ENARM | Plataforma</title>
+
+  <!-- TIPOGRAFÍA -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ESTILOS COMPARTIDOS -->
+  <link rel="stylesheet" href="style.css?v=1770181814" />
+
+  <!-- ✅ HOTFIX UI (Recursos + Mini-exámenes) -->
+  <style>
+    /* ===============================
+       BIBLIOTECA (Resúmenes / GPC)
+       - Barra de progreso centrada
+       - Layout estable en móvil
+       =============================== */
+    #student-resources-view .resources-header{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:flex-start;
+    }
+    #student-resources-view .resources-progress-card{
+      width:min(560px, 100%);
+      margin:0 auto;
+      padding:12px 14px;
+    }
+    #student-resources-view .resources-progress-title{
+      font-weight:600;
+      font-size:14px;
+      text-align:center;
+    }
+    #student-resources-view .resources-progress-text{
+      font-weight:600;
+      font-size:14px;
+      text-align:center;
+      opacity:0.9;
+    }
+    #student-resources-view .resources-progress-bar-wrap{
+      width:100%;
+      height:10px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(148,163,184,0.35);
+    }
+    #student-resources-view .resources-progress-bar{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:#1d4ed8;
+      transition:width 220ms ease;
+    }
+    #student-resources-view .resources-count-hidden{
+      display:none !important;
+    }
+    @media (max-width: 520px){
+      #student-resources-view .resources-progress-card{
+        padding:12px 12px;
+      }
+      #student-resources-filters-card .field{
+        min-width: 0 !important;
+        width: 100%;
+      }
+    }
+
+    /* ===============================
+       MINI-EXÁMENES
+       - Chips de especialidad con estado visible
+       - Toggle de selección aleatoria con estado visible
+       - Select de número de preguntas estable en móvil
+       =============================== */
+    .mini-num-select{
+      width:100%;
+      max-width:100%;
+      box-sizing:border-box;
+    }
+    @media (max-width: 520px){
+      .mini-exam-card-body{
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    .mini-specialty-chip{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.75);
+      background:rgba(148,163,184,0.14);
+      color:inherit;
+      font-weight:600;
+      cursor:pointer;
+      user-select:none;
+      transition:background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 80ms ease;
+    }
+    .mini-specialty-chip:hover{
+      transform: translateY(-1px);
+    }
+    .mini-specialty-chip--active{
+      background:#1d4ed8 !important;
+      border-color:#1d4ed8 !important;
+      color:#fff !important;
+      box-shadow:0 0 0 3px rgba(29,78,216,0.25);
+    }
+    .mini-specialty-chip input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .mini-random-toggle{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:12px 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.75);
+      background:rgba(148,163,184,0.18);
+      color:inherit;
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+      transition:background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 80ms ease;
+    }
+    .mini-random-toggle:hover{
+      transform: translateY(-1px);
+    }
+    .mini-random-toggle[aria-pressed="true"]{
+      background:#1d4ed8 !important;
+      border-color:#1d4ed8 !important;
+      color:#fff !important;
+      box-shadow:0 0 0 3px rgba(29,78,216,0.25);
+    }
+  </style>
+
+
+  <!-- Favicon (evita error 404 /favicon.ico) -->
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  <!-- CHART.JS PARA LA GRÁFICA DE PROGRESO -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Consent-based loading (GA4 + Meta Pixel) -->
+  <script>
+    (function () {
+      const KEY = 'cookies_enarm_preference';
+      const GA_ID = 'G-B43LFZV7MR';
+      const META_PIXEL_ID = '1146031771035535';
+
+      function loadGA() {
+        if (window.__ga4_loaded) return;
+        window.__ga4_loaded = true;
+
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){ dataLayer.push(arguments); };
+        gtag('js', new Date());
+        gtag('config', GA_ID);
+
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
+        document.head.appendChild(s);
+      }
+
+      function loadMetaPixel() {
+        if (window.__mp_loaded) return;
+        window.__mp_loaded = true;
+
+        !function(f,b,e,v,n,t,s){
+          if(f.fbq) return;
+          n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+          if(!f._fbq) f._fbq=n;
+          n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[];
+          t=b.createElement(e); t.async=!0; t.src=v;
+          s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+        }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+        fbq('init', META_PIXEL_ID);
+        fbq('track', 'PageView');
+      }
+
+      window.__enableTracking = function () {
+        loadGA();
+        loadMetaPixel();
+      };
+
+      // Si ya aceptó en una visita anterior, cargamos trackers desde el inicio
+      const stored = localStorage.getItem(KEY);
+      if (stored === 'accepted') {
+        window.__enableTracking();
+      }
+    })();
+  </script>
+</head>
+
+<body>
+  <!-- Banner de cookies -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cookie-banner__text">
+      Usamos cookies para analizar el uso de la plataforma y mejorar tu experiencia.
+      Esto incluye Google Analytics y Meta Pixel. Puedes aceptar o rechazar estas cookies.
+    </div>
+    <div class="cookie-banner__actions">
+      <button id="cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+      <button id="cookie-decline" class="btn btn-outline btn-sm">Rechazar</button>
+    </div>
+  </div>
+
+  <section id="student-view" class="view">
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <img src="logo.png" alt="Logo" class="sidebar-logo-img">
+    <h2 class="sidebar-title">Estudiante ENARM</h2>
+  </div>
+
+  <!-- ✅ BOTÓN RESÚMENES / GPC (primero) -->
+  <button id="student-resources-btn" class="sidebar-btn">
+    Resúmenes y GPC
+  </button>
+
+  <!-- BOTÓN MINI EXÁMENES -->
+  <button id="student-mini-exams-btn" class="sidebar-btn sidebar-btn-mini">
+    Mini exámenes
+  </button>
+
+  <!-- ✅ NUEVO: BOTÓN EXÁMENES (agrupa secciones) -->
+  <button id="student-exams-btn" class="sidebar-btn">
+    Exámenes
+  </button>
+
+<!-- SECCIONES DINÁMICAS -->
+  <ul id="student-sidebar-sections" class="sidebar-sections hidden"></ul>
+
+  <!-- BOTÓN PROGRESO -->
+  <button id="student-progress-btn" class="sidebar-btn">
+    Progreso
+  </button>
+
+  <!-- REDES SOCIALES -->
+  <div class="sidebar-social">
+    <img src="instagram.png" class="social-icon" data-network="instagram" alt="Instagram">
+    <img src="whatsapp.png" class="social-icon" data-network="whatsapp" alt="WhatsApp">
+    <img src="tiktok.png" class="social-icon" data-network="tiktok" alt="TikTok">
+    <img src="telegram.png" class="social-icon" data-network="telegram" alt="Telegram">
+  </div>
+</aside>
+
+    <!-- HEADER -->
+    <header class="header">
+      <button id="btn-toggle-sidebar" class="hamburger-btn">☰</button>
+
+      <div class="header-right">
+        <span id="student-user-email"></span>
+        <button id="student-btn-logout" class="btn btn-secondary">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main id="content">
+
+      <!-- PANEL BLOQUEO ANTIGUO (OCULTO) -->
+      <div id="trial-locked-panel" class="card hidden" style="margin-bottom:16px;background:#fee2e2;border-left:4px solid #dc2626;">
+        <h3 style="font-size:15px;color:#b91c1c;margin-bottom:6px;">
+          Contenido bloqueado
+        </h3>
+        <p style="font-size:13px;color:#7f1d1d;">
+          Para acceder a esta sección adquiere tu acceso completo.
+        </p>
+        <button id="trial-unlock-btn" class="btn btn-primary" style="margin-top:10px;">
+          Adquirir acceso
+        </button>
+      </div>
+
+      <!-- ==========================
+           VISTA MINI EXÁMENES
+           ========================== -->
+      <div id="student-mini-exams-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Mini exámenes</h2>
+            <p class="panel-subtitle">
+              Crea mini exámenes personalizados con los casos clínicos de la plataforma.
+            </p>
+          </div>
+        </div>
+
+        <div class="card mini-exam-card">
+          <!-- Cabecera visual de la tarjeta -->
+          <div class="mini-exam-card-header">
+            <div>
+              <div class="mini-exam-pill">Mini examen personalizado</div>
+              <div class="mini-exam-card-title">Configura tu mini examen</div>
+              <p class="mini-exam-card-description">
+                Elige el número de preguntas y las especialidades que deseas repasar en este intento.
+              </p>
+            </div>
+            <div class="mini-exam-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                <line x1="7" y1="9" x2="17" y2="9"></line>
+                <line x1="7" y1="13" x2="12" y2="13"></line>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Cuerpo del formulario -->
+          <div class="mini-exam-card-body">
+            <!-- Nº de preguntas -->
+            <div>
+              <label for="student-mini-num-questions" class="mini-field-label">Número de preguntas</label>
+              <select id="student-mini-num-questions" class="mini-num-select">
+                <option value="5">5 preguntas</option>
+                <option value="10">10 preguntas</option>
+                <option value="15">15 preguntas</option>
+                <option value="20">20 preguntas</option>
+              </select>
+            </div>
+
+            <!-- Especialidades -->
+            <div>
+              <span class="mini-field-label">Especialidades (puedes seleccionar varias)</span>
+              <div class="mini-specialties-grid">
+                <label class="mini-specialty-chip">
+                  <input type="checkbox" class="student-mini-specialty" value="medicina_interna" checked>
+                  <span>Medicina interna</span>
+                </label>
+                <label class="mini-specialty-chip">
+                  <input type="checkbox" class="student-mini-specialty" value="cirugia_general" checked>
+                  <span>Cirugía general</span>
+                </label>
+                <label class="mini-specialty-chip">
+                  <input type="checkbox" class="student-mini-specialty" value="pediatria" checked>
+                  <span>Pediatría</span>
+                </label>
+                <label class="mini-specialty-chip">
+                  <input type="checkbox" class="student-mini-specialty" value="gine_obstetricia" checked>
+                  <span>Ginecología y Obstetricia</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Modo de selección -->
+            <div>
+              <span class="mini-field-label">Modo de selección</span>
+              <div class="mini-mode-row">
+                <!-- Checkbox real (lo usa student.js) -->
+                <input
+                  type="checkbox"
+                  id="student-mini-random"
+                  class="mini-random-checkbox"
+                  checked
+                />
+
+                <!-- Botón visual -->
+                <label for="student-mini-random" class="mini-random-toggle">
+                  Selección aleatoria de casos clínicos
+                </label>
+              </div>
+            </div>
+
+            <!-- Botón iniciar -->
+            <button id="student-mini-start-btn" class="btn btn-primary">
+              Iniciar mini examen
+            </button>
+          </div>
+
+          <!-- Texto informativo inferior -->
+          <div class="mini-exam-card-footer">
+            Una vez iniciado el mini examen, se mostrará el examen completo en esta misma pantalla,
+            con cronómetro, tablas de resultados y justificaciones al finalizar.
+          </div>
+        </div>
+      </div>
+
+      <!-- MINI EXÁMENES (placeholder, se mantiene) -->
+      <div id="student-mini-exam-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Mini exámenes</h2>
+            <p class="panel-subtitle">
+              Próximamente podrás crear tus propios mini exámenes desde aquí.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ NUEVO: BIBLIOTECA (RESÚMENES / GPC) -->
+      <div id="student-resources-view" class="panel hidden">
+                <div class="panel-header resources-header">
+                  <div>
+                    <h2>Resúmenes y GPC</h2>
+                  </div>
+
+                  <!-- ✅ Progreso por especialidad (se actualiza con JS) -->
+                  <div id="student-resources-progress-card" class="card resources-progress-card" style="margin-top:0;">
+                    <div class="resources-progress-title">Progreso</div>
+                    <div id="student-resources-progress-text" class="resources-progress-text">0 de 0 (0%)</div>
+                    <div class="resources-progress-bar-wrap">
+                      <div id="student-resources-progress-bar" class="resources-progress-bar"></div>
+                    </div>
+                  </div>
+
+                  <!-- Contador interno (lo actualiza la librería; lo ocultamos para no romper el layout) -->
+                  <div id="student-resources-count" class="resources-count-hidden">—</div>
+                </div>
+
+                <!-- Filtros -->
+                <div id="student-resources-filters-card" class="card" style="margin-top:14px;">
+                  <div class="flex-row" style="gap:12px; flex-wrap:wrap;">
+                    <label class="field" style="flex:1; min-width:240px;">
+                      <span>Buscar</span>
+                      <input id="student-resources-search" type="text" placeholder="Ej. apendicitis, preeclampsia, EVC..." />
+                    </label>
+
+                    <label class="field" style="min-width:240px;">
+                      <span>Especialidad</span>
+                      <select id="student-resources-specialty"></select>
+                    </label>
+                  </div>
+                </div>
+
+                <div id="student-resources-loading" class="card hidden" style="margin-top:14px;">
+                  <div class="panel-subtitle">Cargando temas…</div>
+                </div>
+
+                <div id="student-resources-empty" class="card hidden" style="margin-top:14px;">
+                  <div class="panel-subtitle">No hay resultados con esos filtros.</div>
+                </div>
+
+        
+
+
+        <div id="student-resources-split" class="student-resources-split" style="margin-top:14px;">
+          <div class="student-resources-col student-resources-col--list">
+            <div id="student-resources-list" class="cards-list"></div>
+          </div>
+
+          <div class="student-resources-col student-resources-col--detail">
+            <div id="student-resources-detail" class="cards-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LISTA DE EXÁMENES POR SECCIÓN -->
+      <div id="student-exams-view" class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="student-current-section-title">Exámenes disponibles</h2>
+            <p id="student-current-section-subtitle" class="panel-subtitle">
+              Selecciona un examen para comenzar.
+            </p>
+          </div>
+        </div>
+
+        <div id="student-exams-list" class="cards-list"></div>
+      </div>
+
+      <!-- DETALLE DE EXAMEN -->
+      <div id="student-exam-detail-view" class="panel hidden">
+        <div class="panel-header">
+          <button id="student-btn-back-to-exams" class="btn btn-outline">
+            ← Volver
+          </button>
+
+          <div>
+            <h2 id="student-exam-title">Examen</h2>
+            <p id="student-exam-subtitle" class="panel-subtitle">
+              Resuelve las preguntas dentro del tiempo establecido.
+            </p>
+          </div>
+
+          <div style="margin-left:auto;text-align:right;">
+            <span class="panel-subtitle">Tiempo restante</span>
+            <div id="student-exam-timer" style="font-weight:600;font-size:16px;">--:--</div>
+          </div>
+        </div>
+
+        <!-- META DEL EXAMEN -->
+        <div id="student-exam-meta-card" class="card">
+          <div id="student-exam-meta-text" class="panel-subtitle"></div>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div id="student-result-banner">
+          <h3>
+            <svg viewBox="0 0 24 24">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+            Resultado del examen
+          </h3>
+          <div class="result-values" id="student-result-values"></div>
+        </div>
+
+        <!-- LISTA DE PREGUNTAS -->
+        <div id="student-questions-list" class="cards-list"></div>
+
+        <!-- BOTÓN ENVIAR -->
+        <div class="flex-row" style="margin-top:16px;">
+          <button id="student-btn-submit-exam" class="btn btn-primary">
+            Finalizar examen
+          </button>
+        </div>
+
+        <!-- CTA POST-EXAMEN (OCULTA) -->
+        <div id="student-post-exam-cta" class="card hidden" style="margin-top:16px;text-align:center;">
+          <h3 style="margin-bottom:6px;font-size:16px;">¿Quieres ver todos tus resultados completos?</h3>
+          <p class="panel-subtitle" style="margin-bottom:12px;">
+            Desbloquea acceso total para ver tablas, justificaciones y promedios completos.
+          </p>
+          <button id="student-post-exam-whatsapp" class="btn btn-primary">
+            Adquirir acceso
+          </button>
+        </div>
+      </div>
+
+      <!-- PROGRESO -->
+      <div id="student-progress-view" class="panel hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Progreso</h2>
+            <p class="panel-subtitle">Evolución de tus calificaciones.</p>
+          </div>
+        </div>
+
+        <div id="student-progress-summary" class="card">
+          <h3 style="font-size:16px;margin-bottom:6px;">Resumen general</h3>
+
+          <p id="student-progress-username" class="panel-subtitle"></p>
+
+          <div id="student-progress-sections" class="progress-section-grid"></div>
+
+          <div id="student-progress-global" class="progress-global"></div>
+        </div>
+
+        <div id="student-progress-chart-card" class="card">
+          <h3 style="font-size:16px;margin-bottom:8px;">Evolución del estudiante</h3>
+          <canvas id="student-progress-chart" height="240"></canvas>
+        </div>
+      </div>
+
+    </main>
+  </section>
+
+  <!-- CÓDIGO DEL ESTUDIANTE -->
+  <script type="module" src="student.js?v=1770181814"></script>
+
+
+  <!-- ✅ Service Worker (cache de PDFs en GitHub Pages) -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./service-worker.js?v=6').catch(function (err) {
+          console.warn('SW register failed:', err);
+        });
+      });
+    })();
+  </script>
+
+  <!-- LÓGICA DEL BANNER DE COOKIES (con carga de trackers solo si acepta) -->
+  <script>
+    (function () {
+      const banner = document.getElementById('cookie-banner');
+      if (!banner) return;
+
+      const KEY = 'cookies_enarm_preference';
+      const stored = localStorage.getItem(KEY);
+
+      if (stored === 'accepted') {
+        banner.style.display = 'none';
+        window.__enableTracking && window.__enableTracking();
+        return;
+      }
+
+      if (stored === 'declined') {
+        banner.style.display = 'none';
+        return;
+      }
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        banner.style.display = 'none';
+        window.__enableTracking && window.__enableTracking();
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        banner.style.display = 'none';
+      });
+    })();
+  </script>
+</body>
+</html>
