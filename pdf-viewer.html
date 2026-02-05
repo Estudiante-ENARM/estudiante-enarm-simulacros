@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Visor PDF</title>
+  <style>
+    :root { --bg:#0b1220; --panel:#111827; --border:#243048; --text:#e5e7eb; --muted:#9ca3af; --btn:#1f2937; }
+    html,body { height:100%; margin:0; background:#fff; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#111; }
+
+    /* Toolbar minimalista */
+    .topbar{
+      position:sticky; top:0; z-index:50;
+      background:rgba(17,24,39,.95);
+      color:var(--text);
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(8px);
+    }
+    .left, .right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .right{ margin-right:72px; }
+    .btn{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:7px 10px;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+      line-height:1;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn[disabled]{ opacity:.5; cursor:not-allowed; }
+    .badge{
+      font-weight:800;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .counter{ font-weight:800; min-width:72px; text-align:center; }
+    .zoom{ display:flex; align-items:center; gap:6px; }
+    .zoomVal{ min-width:56px; text-align:center; font-weight:800; }
+
+    /* Layout: sidebar thumbnails + viewer */
+    .shell{
+      display:flex;
+      height: calc(100vh - 54px);
+      background:#fff;
+    }
+    .sidebar{
+      width: 220px;
+      display:none;
+      min-width: 180px;
+      max-width: 40vw;
+      border-right:1px solid #e5e7eb;
+      overflow:auto;
+      background:#f8fafc;
+    }
+    .thumb{
+      padding:10px;
+      border-bottom:1px solid #e5e7eb;
+      cursor:pointer;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .thumb.active{ background:#eef2ff; }
+    .thumb canvas{ width:60px; height:auto; border:1px solid #cbd5e1; border-radius:6px; background:#fff; }
+    .thumb .meta{ display:flex; flex-direction:column; gap:4px; }
+    .thumb .meta b{ font-size:13px; }
+    .thumb .meta span{ font-size:12px; color:#64748b; }
+
+    .shell.show-thumbs .sidebar{ display:block; }
+
+    .viewer{
+      flex:1;
+      overflow:auto;
+      position:relative;
+      background:#fff;
+    }
+    .pageWrap{
+      display:flex;
+      justify-content:center;
+      padding:16px 12px 28px;
+    }
+    .pageCanvas{
+      max-width: 100%;
+      height:auto;
+      border:1px solid #e5e7eb;
+      border-radius:10px;
+      background:#fff;
+      box-shadow: 0 8px 30px rgba(0,0,0,.06);
+    }
+
+    .loading{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:900;
+      background:rgba(255,255,255,.86);
+      color:#111827;
+    }
+
+    /* Mobile: sidebar colapsable */
+    @media (max-width: 820px){
+      .sidebar{ width: 92px; min-width: 88px; }
+      .thumb .meta{ display:none; }
+      .thumb canvas{ width:64px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="left">
+      <span class="badge">PDF</span>
+      <button class="btn" id="toggleThumbs" type="button" aria-pressed="false">Páginas</button>
+      <span class="counter" id="pageCounter">—</span>
+    </div>
+    <div class="right">
+      <div class="zoom">
+        <button class="btn" id="zoomOut">−</button>
+        <div class="zoomVal" id="zoomVal">100%</div>
+        <button class="btn" id="zoomIn">＋</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="shell">
+    <div class="sidebar" id="sidebar"></div>
+    <div class="viewer" id="viewer">
+      <div class="loading" id="loading">Cargando PDF…</div>
+    </div>
+  </div>
+
+  <!-- PDF.js (tú lo subes a /pdfjs/) -->
+  <script src="./pdfjs/pdf.min.js"></script>
+  <script>
+    // Configurar worker
+    if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdfjs/pdf.worker.min.js";
+    }
+
+    const qs = new URLSearchParams(location.search);
+    const file = qs.get("file");
+
+    const sidebar = document.getElementById("sidebar");
+    const viewer = document.getElementById("viewer");
+    const loading = document.getElementById("loading");
+    const pageCounter = document.getElementById("pageCounter");
+    const zoomVal = document.getElementById("zoomVal");
+    const zoomIn = document.getElementById("zoomIn");
+    const zoomOut = document.getElementById("zoomOut");
+
+    const shell = document.querySelector(".shell");
+    const toggleThumbs = document.getElementById("toggleThumbs");
+
+    function setThumbsVisible(on){
+      if (!shell) return;
+      shell.classList.toggle("show-thumbs", !!on);
+      if (toggleThumbs) toggleThumbs.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+
+    // Por defecto: NO mostrar miniaturas
+    setThumbsVisible(false);
+
+    if (toggleThumbs && !toggleThumbs.dataset.bound) {
+      toggleThumbs.dataset.bound = "1";
+      toggleThumbs.addEventListener("click", async () => {
+        const showing = shell?.classList?.contains("show-thumbs");
+        const willShow = !showing;
+        setThumbsVisible(willShow);
+
+        if (willShow && pdfDoc && !thumbsBuilt) {
+          // Construir miniaturas SOLO bajo demanda
+          try {
+            setLoading(true);
+            await buildThumbnails();
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setLoading(false);
+          }
+        }
+      });
+    }
+
+    let pdfDoc = null;
+    let currentPage = 1;
+    let zoom = 3.0;
+    const zParam = parseFloat(qs.get("z") || "3");
+    if (!Number.isNaN(zParam) && zParam > 0) zoom = clampZoom(zParam);
+
+    let pageCanvases = [];
+    let thumbCanvases = [];
+    let thumbsBuilt = false;
+
+    function setLoading(on){
+      loading.style.display = on ? "flex" : "none";
+    }
+
+    function updateCounter(){
+      if (!pdfDoc) { pageCounter.textContent = "—"; return; }
+      pageCounter.textContent = `${currentPage} / ${pdfDoc.numPages}`;
+    }
+
+    function updateZoomLabel(){
+      zoomVal.textContent = `${Math.round(zoom*100)}%`;
+    }
+
+    function clampZoom(z){
+      return Math.min(3.0, Math.max(0.6, z));
+    }
+
+    async function renderPage(pageNumber){
+      const page = await pdfDoc.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: zoom });
+
+      const canvas = pageCanvases[pageNumber-1];
+      const ctx = canvas.getContext("2d", { alpha:false });
+
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    }
+
+    async function buildThumbnails(){
+      sidebar.innerHTML = "";
+      thumbCanvases = [];
+
+      for (let i=1; i<=pdfDoc.numPages; i++){
+        const item = document.createElement("div");
+        item.className = "thumb";
+        item.dataset.page = String(i);
+
+        const c = document.createElement("canvas");
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML = `<b>Página ${i}</b><span>Ver</span>`;
+
+        item.appendChild(c);
+        item.appendChild(meta);
+        sidebar.appendChild(item);
+
+        thumbCanvases.push(c);
+
+        item.addEventListener("click", () => {
+          scrollToPage(i);
+        });
+      }
+
+      // Render thumbs con escala chica
+      for (let i=1; i<=pdfDoc.numPages; i++){
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 0.2 });
+        const c = thumbCanvases[i-1];
+        const ctx = c.getContext("2d", { alpha:false });
+        c.width = Math.floor(viewport.width);
+        c.height = Math.floor(viewport.height);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      }
+
+      thumbsBuilt = true;
+      highlightThumb(currentPage || 1);
+    }
+
+    function highlightThumb(i){
+      if (!thumbsBuilt) return;
+      sidebar.querySelectorAll(".thumb").forEach(el => el.classList.remove("active"));
+      const t = sidebar.querySelector(`.thumb[data-page="${i}"]`);
+      if (t) t.classList.add("active");
+    }
+
+    function scrollToPage(i){
+      const wrap = viewer.querySelector(`.pageWrap[data-page="${i}"]`);
+      if (wrap) {
+        wrap.scrollIntoView({ behavior:"smooth", block:"start" });
+      }
+    }
+
+    function observeCurrentPage(){
+      const wraps = viewer.querySelectorAll(".pageWrap");
+      const obs = new IntersectionObserver((entries)=>{
+        let best = null;
+        for (const e of entries){
+          if (e.isIntersecting) {
+            if (!best || e.intersectionRatio > best.intersectionRatio) best = e;
+          }
+        }
+        if (best){
+          const p = Number(best.target.dataset.page);
+          if (p && p !== currentPage){
+            currentPage = p;
+            updateCounter();
+            highlightThumb(p);
+          }
+        }
+      }, { root: viewer, threshold:[0.35, 0.5, 0.7] });
+
+      wraps.forEach(w => obs.observe(w));
+    }
+
+    async function renderAllPages(){
+      viewer.querySelectorAll(".pageWrap").forEach(n => n.remove());
+      pageCanvases = [];
+
+      for (let i=1; i<=pdfDoc.numPages; i++){
+        const wrap = document.createElement("div");
+        wrap.className = "pageWrap";
+        wrap.dataset.page = String(i);
+
+        const canvas = document.createElement("canvas");
+        canvas.className = "pageCanvas";
+        wrap.appendChild(canvas);
+
+        viewer.appendChild(wrap);
+        pageCanvases.push(canvas);
+      }
+
+      // Render secuencial para no reventar móvil
+      for (let i=1; i<=pdfDoc.numPages; i++){
+        await renderPage(i);
+      }
+
+      observeCurrentPage();
+      updateCounter();
+      updateZoomLabel();
+    }
+
+    async function loadPdf(url){
+      if (!url) {
+        setLoading(false);
+      try { window.parent && window.parent.postMessage({type:"pdf-ready"}, "*"); } catch {}
+
+        viewer.innerHTML = "<div style='padding:20px;font-weight:800'>No se recibió URL del PDF.</div>";
+        return;
+      }
+
+      setLoading(true);
+
+      pdfDoc = await pdfjsLib.getDocument({ url }).promise;
+
+      // Render principal (páginas completas) siempre
+      await renderAllPages();
+      setLoading(false);
+      // Miniaturas: se construyen solo cuando el usuario abre "Páginas"
+    }
+
+    function fullRenderReset(){
+      // no vuelve a bajar el PDF; re-renderiza canvases desde pdfDoc (usa memoria/caché)
+      if (!pdfDoc) return;
+      setLoading(false);
+      renderAllPages().catch(()=>{});
+    }
+
+    zoomIn.addEventListener("click", ()=>{
+      zoom = clampZoom(zoom + 0.15);
+      fullRenderReset();
+    });
+    zoomOut.addEventListener("click", ()=>{
+      zoom = clampZoom(zoom - 0.15);
+      fullRenderReset();
+    });
+
+    // Mensajes desde el padre (student-resources)
+    window.addEventListener("message", (e)=>{
+      const data = e.data || {};
+      if (data.type === "pdfViewer:ping") {
+        window.parent?.postMessage({ type:"pdfViewer:pong", token:data.token }, "*");
+      }
+      if (data.type === "pdfViewer:refresh") {
+        // Evita “blanco” al volver de otra pestaña
+        fullRenderReset();
+      }
+    });
+
+    loadPdf(file);
+  </script>
+</body>
+</html>
