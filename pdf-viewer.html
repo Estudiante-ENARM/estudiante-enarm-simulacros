@@ -103,13 +103,6 @@
       background:#fff;
       box-shadow: 0 8px 30px rgba(0,0,0,.06);
     }
-    /*
-      IMPORTANTE:
-      En móvil/PC, cuando el canvas es más grande que el contenedor y existe
-      max-width (fit a pantalla), el navegador puede “aplastar” el ancho si
-      también fijamos un height en px.
-      Para evitar distorsión (ancho reducido), dejamos height:auto.
-    */
     .pageCanvas{
       max-width: 100%;
       height: auto;
@@ -185,7 +178,8 @@
     const file = qs.get("file");
     const token = String(qs.get("token") || "");
     const zRaw = String(qs.get("z") || "3").trim().toLowerCase();
-const sidebar = document.getElementById("sidebar");
+
+    const sidebar = document.getElementById("sidebar");
     const viewer  = document.getElementById("viewer");
     const loading = document.getElementById("loading");
     const pageCounter = document.getElementById("pageCounter");
@@ -209,12 +203,33 @@ const sidebar = document.getElementById("sidebar");
     function setLoading(on){ loading.style.display = on ? "flex" : "none"; }
     function clampZoom(z){ return Math.min(3.0, Math.max(0.6, z)); }
 
-    // Zoom mode: fit (default) o manual (numérico)
-    let zoomMode = (zRaw === "fit") ? "fit" : "manual";
-    let zoom = 1.0;
-    if (zoomMode === "manual") {
-      const z = parseFloat(zRaw);
-      zoom = clampZoom(Number.isFinite(z) ? z : 1.0);
+    // Zoom/Calidad:
+    // - Visual: por defecto abrimos en "fit" (se ve la hoja completa).
+    // - Calidad: renderizamos a más resolución interna sin agrandar visualmente.
+    const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    function clampQuality(q){ return Math.min(3.0, Math.max(1.0, q)); }
+
+    // "z" se usa como pista de calidad (1..3). Por compatibilidad, si te llega z=3, mantenemos alta nitidez.
+    let qualityHint = 3.0;
+    if (zRaw !== "fit") {
+      const q = parseFloat(zRaw);
+      if (Number.isFinite(q)) qualityHint = clampQuality(q);
+    }
+
+    // Visual: siempre arrancamos en FIT (no 300% visual).
+    let zoomMode = "fit"; // "fit" | "manual"
+    let zoom = 1.0;       // solo aplica en modo manual
+
+    function getRenderMultiplier(){
+      // DPR cap para evitar reventar memoria en iPhone
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+
+      // Mapeo: qualityHint 1..3 => factor 1.0..1.8 (controlado)
+      const qFactor = 1.0 + ((qualityHint - 1.0) * 0.4);
+
+      // Multiplicador final capado: nitidez sin canvas gigantes
+      return Math.min(2.2, dpr * qFactor);
     }
 
     let pdfDoc = null;
@@ -241,7 +256,13 @@ const sidebar = document.getElementById("sidebar");
     function getScaleForPage(pageNum){
       if (!pdfDoc) return zoom;
       const meta = pageMeta[pageNum-1];
-      if (!meta || !meta.w1) return zoomMode === "fit" ? 1.0 : zoom;
+      if (!meta || !meta.w1) {
+        if (zoomMode === "manual") return zoom;
+        // Fallback rápido (antes de computePageSizes): asumimos ancho tipo A4 (~596pt)
+        const avail = getAvailableWidth();
+        const fit = avail / 596;
+        return clampZoom(fit);
+      }
 
       if (zoomMode === "manual") return zoom;
 
@@ -276,7 +297,6 @@ const sidebar = document.getElementById("sidebar");
 
       if (willShow && pdfDoc && !thumbsBuilt) {
         try {
-          // No tapamos todo el visor; solo construimos
           await buildThumbnails();
         } catch (err) {
           console.error(err);
@@ -320,7 +340,6 @@ const sidebar = document.getElementById("sidebar");
         item.addEventListener("click", () => scrollToPage(i));
       }
 
-      // Render thumbs con escala chica (secuencial)
       for (let i=1; i<=pdfDoc.numPages; i++){
         const page = await pdfDoc.getPage(i);
         const viewport = page.getViewport({ scale: 0.2 });
@@ -338,7 +357,7 @@ const sidebar = document.getElementById("sidebar");
     function makePlaceholder(pageNum){
       const ph = document.createElement("div");
       ph.className = "pagePlaceholder";
-      ph.textContent = " ";
+      ph.textContent = "Página " + pageNum;
       setPlaceholderSize(ph, pageNum);
       return ph;
     }
@@ -369,11 +388,12 @@ const sidebar = document.getElementById("sidebar");
       const node = pageNodes[pageNum-1];
       if (!node) return;
 
-      const scale = getScaleForPage(pageNum);
+      const visScale = getScaleForPage(pageNum);
+      const rm = getRenderMultiplier();
       const eps = 0.01;
 
-      // Already rendered at this scale
-      if (node.rendered && node.canvas && Math.abs((node.lastScale||0) - scale) < eps) return;
+      // Already rendered at this visual scale + render multiplier
+      if (node.rendered && node.canvas && Math.abs((node.lastScale||0) - visScale) < eps && Math.abs((node.lastRm||0) - rm) < 0.02) return;
 
       // Token to invalidate older renders
       node.renderToken = (node.renderToken || 0) + 1;
@@ -389,15 +409,16 @@ const sidebar = document.getElementById("sidebar");
         const page = await pdfDoc.getPage(pageNum);
         if (node.renderToken != myToken) return;
 
-        const vp = page.getViewport({ scale });
+        const vpCss = page.getViewport({ scale: visScale });
+        const vpPx  = page.getViewport({ scale: visScale * rm });
 
         // Create/replace canvas
         const canvas = document.createElement('canvas');
         canvas.className = 'pageCanvas';
-        canvas.width = Math.floor(vp.width);
-        canvas.height = Math.floor(vp.height);
-        canvas.style.width = Math.floor(vp.width) + 'px';
-        // Evita que el PDF se vea "estrecho" cuando el canvas se escala para caber.
+        canvas.width = Math.floor(vpPx.width);
+        canvas.height = Math.floor(vpPx.height);
+        // Tamaño visual (layout): usamos viewport a escala visible
+        canvas.style.width = Math.floor(vpCss.width) + 'px';
         // Con height:auto el navegador mantiene el aspect ratio al aplicar max-width.
         canvas.style.height = 'auto';
 
@@ -406,14 +427,15 @@ const sidebar = document.getElementById("sidebar");
         node.canvas = canvas;
 
         const ctx = canvas.getContext('2d', { alpha: false });
-        const renderTask = page.render({ canvasContext: ctx, viewport: vp });
+        const renderTask = page.render({ canvasContext: ctx, viewport: vpPx });
         node.renderTask = renderTask;
 
         await renderTask.promise;
         if (node.renderToken != myToken) return;
 
         node.rendered = true;
-        node.lastScale = scale;
+        node.lastScale = visScale;
+        node.lastRm = rm;
         node.renderTask = null;
 
         // Enviar señal de listo una sola vez cuando ya pintamos algo
@@ -461,12 +483,25 @@ const sidebar = document.getElementById("sidebar");
       node.canvas = null;
       node.rendered = false;
       node.lastScale = 0;
+      node.lastRm = 0;
     }
+
     function getKeepRange(){
+      const total = pdfDoc?.numPages || 0;
       const w = Math.max(window.innerWidth || 0, viewer?.clientWidth || 0);
-      if (w <= 420) return 1;
-      if (w <= 768) return 2;
-      return 3;
+
+      // Tus PDFs son cortos (6–30 págs). Mantener más páginas evita que "desaparezcan"
+      // y reduce la sensación de pantalla en blanco.
+      if (total && total <= 40) {
+        if (w <= 420) return 8;   // móvil chico (iPhone)
+        if (w <= 768) return 10;  // móvil grande / tablet
+        return 12;                // desktop
+      }
+
+      // Fallback para PDFs grandes (control de memoria)
+      if (w <= 420) return 5;
+      if (w <= 768) return 7;
+      return 9;
     }
 
     function evictFarPages(center){
@@ -528,11 +563,11 @@ const sidebar = document.getElementById("sidebar");
 
         const placeholder = document.createElement("div");
         placeholder.className = "pagePlaceholder";
-        placeholder.textContent = " ";
+        placeholder.textContent = "Página " + i;
         wrap.appendChild(placeholder);
 
         viewer.appendChild(wrap);
-        pageNodes.push({ wrap, placeholder, canvas: null, rendered: false, lastScale: 0, renderTask: null, renderToken: 0 });
+        pageNodes.push({ wrap, placeholder, canvas: null, rendered: false, lastScale: 0, lastRm: 0, renderTask: null, renderToken: 0 });
       }
 
       updateCounter();
@@ -555,7 +590,6 @@ const sidebar = document.getElementById("sidebar");
     }
 
     function scheduleRelayout(){
-      // Puede ser llamado muy temprano (antes de cargar el PDF)
       if (!pdfDoc || !pageNodes.length) return;
       try {
         clearTimeout(relayoutTimer);
@@ -582,13 +616,25 @@ const sidebar = document.getElementById("sidebar");
     window.addEventListener('resize', scheduleRelayout);
     window.addEventListener("orientationchange", scheduleRelayout);
 
+    // iOS/Safari: al volver del background (o BFCache), a veces el canvas queda en blanco.
+    // Reforzamos un re-render ligero.
+    document.addEventListener("visibilitychange", ()=>{
+      if (document.hidden) return;
+      scheduleRelayout();
+      const c = currentPage || 1;
+      ensureRendered(c);
+    });
+    window.addEventListener("pageshow", ()=>{
+      scheduleRelayout();
+      const c = currentPage || 1;
+      ensureRendered(c);
+    });
+
     zoomIn.addEventListener("click", ()=>{
-      // Pasar a modo manual tomando el zoom actual del fit
       const base = getScaleForPage(currentPage || 1);
       zoomMode = "manual";
       zoom = clampZoom(base + 0.15);
       updateAllPlaceholderSizes();
-      // re-render cercanos
       evictFarPages(currentPage || 1);
       for (let p=Math.max(1, (currentPage||1)-2); p<=Math.min(pdfDoc.numPages, (currentPage||1)+2); p++){
         ensureRendered(p);
@@ -608,8 +654,7 @@ const sidebar = document.getElementById("sidebar");
       updateZoomLabel();
     });
 
-    // Failsafe: si algo revienta (por ejemplo un error en móviles/iOS),
-    // avisamos al padre y mostramos un mensaje en el visor.
+    // Failsafe
     let runtimeErrorShown = false;
     function showRuntimeError(msg){
       if (runtimeErrorShown) return;
@@ -639,14 +684,13 @@ const sidebar = document.getElementById("sidebar");
         try { window.parent?.postMessage({ type:"pdfViewer:pong", token:data.token }, "*"); } catch {}
       }
       if (data.type === "pdfViewer:refresh") {
-        // Re-render de la página actual
         scheduleRelayout();
         const c = currentPage || 1;
         ensureRendered(c);
       }
     });
 
-        function uniq(arr){
+    function uniq(arr){
       return Array.from(new Set(arr.filter(Boolean)));
     }
 
@@ -655,31 +699,25 @@ const sidebar = document.getElementById("sidebar");
       const s = String(raw || "").trim();
       if (!s) return out;
 
-      // original
       out.push(s);
 
-      // absolutizar
       try {
         const u0 = new URL(s, location.href);
         out.push(u0.toString());
 
-        // quitar query completa (a veces hosting/CDN no sirve archivos con query)
         if (u0.search) {
           const uNoQ = new URL(u0.toString());
           uNoQ.search = "";
           out.push(uNoQ.toString());
         }
 
-        // si trae cache-buster tipo ?v=4, intentar sin él
         if (u0.searchParams && u0.searchParams.has("v")) {
           const uNoV = new URL(u0.toString());
           uNoV.searchParams.delete("v");
-          // si quedó vacío, limpiar '?'
           if ([...uNoV.searchParams.keys()].length === 0) uNoV.search = "";
           out.push(uNoV.toString());
         }
 
-        // intentos de mayúsculas/minúsculas en el nombre del archivo (GitHub Pages es case-sensitive)
         const parts = u0.pathname.split("/").filter(Boolean);
         const filename = parts.length ? parts[parts.length - 1] : "";
         if (filename) {
@@ -730,15 +768,20 @@ const sidebar = document.getElementById("sidebar");
       try {
         for (const u of candidates) {
           try {
-            pdfDoc = await pdfjsLib.getDocument({ url: u }).promise;
+            const docParams = { url: u };
+            // iPhone/Safari: más estable sin Range/Stream (evita 'blanco' intermitente)
+            if (IS_IOS) {
+              docParams.disableRange = true;
+              docParams.disableStream = true;
+              docParams.disableAutoFetch = true;
+            }
+            pdfDoc = await pdfjsLib.getDocument(docParams).promise;
             loadedUrl = u;
             lastErr = null;
             break;
           } catch (err) {
             lastErr = err;
-            // Si parece "archivo no encontrado", probamos el siguiente candidato.
             if (isLikelyMissingPdfError(err)) continue;
-            // Errores de render/worker: no insistir con otros candidates
             break;
           }
         }
@@ -759,20 +802,16 @@ const sidebar = document.getElementById("sidebar");
           return;
         }
 
-        // OK: construir skeleton + primer render
         await createSkeleton();
         setupObservers();
 
-        // placeholders con tamaño real
         computePageSizes(); // no await
-        // Render 1a página para que "Cargando" no se quede pegado
         await ensureRendered(1);
         evictFarPages(1);
 
         updateCounter();
         updateZoomLabel();
 
-        // Si el PDF cargó con un candidato distinto, avisamos al padre (debug suave)
         if (loadedUrl && loadedUrl !== url) {
           try { window.parent && window.parent.postMessage({ type:"pdf-loaded-alt", token, from:url, to:loadedUrl }, "*"); } catch {}
         }
