@@ -6,7 +6,7 @@
 
 // ⚠️ IMPORTANT: incrementa SW_VERSION cada vez que cambies pdf-viewer.html o libs.
 // Esto invalida caches viejos que pueden dejar al usuario con un visor roto.
-const SW_VERSION = "v10";
+const SW_VERSION = "v11";
 const PDF_CACHE = `pdf-cache-${SW_VERSION}`;
 const META_CACHE = `pdf-meta-${SW_VERSION}`;
 const VIEWER_CACHE = `pdf-viewer-${SW_VERSION}`;
@@ -99,16 +99,18 @@ async function cacheFirstWithTtl(event, cacheName, ttlMs) {
   // No hay cache: ir a red
   try {
     const net = await fetch(req);
+
+    // IMPORTANTE: si cache.put() falla (cuota en móvil), NO debemos tumbar la respuesta.
     if (net && (net.ok || net.type === "opaque")) {
-      await cache.put(req, net.clone());
-      await setTimestamp(meta, urlKey);
+      try { await cache.put(req, net.clone()); } catch (e) {}
+      try { await setTimestamp(meta, urlKey); } catch (e) {}
     }
+
     return net;
   } catch (err) {
     // offline sin cache
     return new Response("Offline", { status: 503 });
   }
-}
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
