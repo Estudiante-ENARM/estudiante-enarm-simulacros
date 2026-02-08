@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Estudiante ENARM | Plataforma</title>
+
+  <!-- Fuente -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="logo.png" />
+
+  
+  </head>
+
+<body>
+  <!-- Banner cookies -->
+  <div id="cookie-banner" class="cookie-banner">
+    <div class="cookie-banner__text">
+      Usamos cookies opcionales para medir el uso de la plataforma y mejorar tu experiencia.
+      Esto puede incluir Google Analytics (medición) y Meta Pixel (marketing). Puedes aceptar o rechazar.
+    </div>
+    <div class="cookie-banner__actions">
+      <button id="cookie-accept" class="btn btn-primary btn-sm">Aceptar</button>
+      <button id="cookie-decline" class="btn btn-outline btn-sm">Rechazar</button>
+    </div>
+  </div>
+
+
+  <!-- Re-mensaje tras rechazo (cookies opcionales) -->
+  <div id="cookie-reprompt" class="cookie-reprompt hidden" role="dialog" aria-modal="true" aria-label="Preferencias de cookies">
+    <div class="cookie-reprompt__card">
+      <div class="cookie-reprompt__title">Cookies opcionales desactivadas</div>
+      <div class="cookie-reprompt__text">
+        Puedes usar la plataforma sin cookies opcionales. Si aceptas, nos permites medir rendimiento y mejorar estabilidad/funciones
+        mediante servicios de analítica (p. ej., Google) y marketing (p. ej., Meta). Puedes cambiar tu decisión cuando quieras.
+      </div>
+      <div class="cookie-reprompt__actions">
+        <button id="cookie-reprompt-accept" class="btn btn-primary btn-sm">Aceptar cookies opcionales</button>
+        <button id="cookie-reprompt-keep" class="btn btn-outline btn-sm">Seguir sin cookies</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Botón permanente de preferencias -->
+  <button id="cookie-preferences" class="cookie-preferences hidden" type="button" aria-label="Preferencias de cookies">
+    Preferencias de cookies
+  </button>
+
+
+<section id="login-view" class="view">
+    <div class="lp-shell">
+
+      <!-- IZQUIERDA: LOGIN -->
+      <div class="lp-left">
+        <h1 class="lp-brand">Estudiante ENARM</h1>
+        <p class="lp-sub">
+          Accede con tu correo y contraseña para comenzar tus simulacros.
+        </p>
+
+        <div class="field">
+          <span>Correo electrónico</span>
+          <input
+            type="email"
+            id="login-email"
+            placeholder="correo@ejemplo.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="field">
+          <span>Contraseña</span>
+          <input
+            type="password"
+            id="login-password"
+            placeholder="********"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="lp-actions">
+          <button id="login-btn-cancel" class="btn btn-outline">Cancelar</button>
+          <button id="login-btn" class="btn btn-primary">Entrar</button>
+        </div>
+
+        <div id="login-error" class="error" style="display:none;"></div>
+      </div>
+
+      <!-- DIVISOR -->
+      <div class="lp-divider" aria-hidden="true"></div>
+
+      <!-- DERECHA: INFO/PLANES -->
+      <div class="lp-right">
+        <h2 class="lp-title">Descubre la plataforma</h2>
+        <div class="lp-title-line"></div>
+
+        <!-- 3 FEATURES -->
+        <div class="lp-features">
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO LIBRO -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 19.5z" />
+                <path d="M8 6h8" />
+                <path d="M8 10h8" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Resúmenes y GPC</div>
+            <div class="lp-fdesc">Guías y resúmenes<br/>por especialidad.</div>
+          </div>
+
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO CLIPBOARD -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M9 5h6" />
+                <path d="M9 3h6a2 2 0 0 1 2 2v2H7V5a2 2 0 0 1 2-2z" />
+                <path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" />
+                <path d="M9 13l2 2 4-4" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Exámenes simulacro</div>
+            <div class="lp-fdesc">Mini-exámenes y<br/>simulacros completos.</div>
+          </div>
+
+          <div class="lp-feature">
+            <div class="lp-icon">
+              <!-- ICONO GRAFICA -->
+              <svg viewBox="0 0 24 24" class="lp-svg" aria-hidden="true">
+                <path d="M3 3v18h18" />
+                <path d="M7 15l4-4 3 3 5-6" />
+                <path d="M7 15v3" />
+              </svg>
+            </div>
+            <div class="lp-ftitle">Progreso y estadísticas</div>
+            <div class="lp-fdesc">Analiza tu rendimiento<br/>y avance.</div>
+          </div>
+        </div>
+
+        <!-- TEXTO DINÁMICO (ADMIN/JS) -->
+        <p id="landing-text" class="lp-landing-text">
+          Cargando información de la plataforma…
+        </p>
+
+        <!-- CAJA PLANES -->
+        <div class="lp-plans-box">
+          <div class="lp-plans-copy">
+            Prepárate para el <b>ENARM</b> con las mejores herramientas en un solo lugar.
+          </div>
+
+          <div class="lp-plans-actions">
+            <button id="btn-price-month" class="btn btn-primary lp-btn-plan">
+              Ver Plan Mensual
+            </button>
+            <button id="btn-price-full" class="btn btn-primary lp-btn-plan lp-btn-dark">
+              Ver Plan Completo
+            </button>
+          </div>
+        </div>
+
+        <!-- REDES (mantengo tus iconos y data-network para tu JS) -->
+        <div class="lp-social">
+          <img src="whatsapp.png" alt="WhatsApp" class="lp-social-icon" data-network="whatsapp" />
+          <img src="instagram.png" alt="Instagram" class="lp-social-icon" data-network="instagram" />
+          <img src="tiktok.png" alt="TikTok" class="lp-social-icon" data-network="tiktok" />
+          <img src="telegram.png" alt="Telegram" class="lp-social-icon" data-network="telegram" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lógica -->
+  <script type="module" src="index.js"></script>
+
+  
+  <!-- Consentimiento de cookies (GA4 + Meta Pixel SOLO si aceptan) -->
+  <script>
+    (function () {
+      const KEY = 'cookies_enarm_preference';
+      const GA_ID = 'G-B43LFZV7MR';
+      const META_PIXEL_ID = '1146031771035535';
+
+      function loadGA() {
+        if (window.__ga4_loaded) return;
+        window.__ga4_loaded = true;
+
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){ dataLayer.push(arguments); };
+
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
+        document.head.appendChild(s);
+
+        window.gtag('js', new Date());
+        window.gtag('config', GA_ID, { anonymize_ip: true });
+      }
+
+      function loadMetaPixel() {
+        if (window.__mp_loaded) return;
+        window.__mp_loaded = true;
+
+        !function(f,b,e,v,n,t,s){
+          if(f.fbq)return;
+          n=f.fbq=function(){ n.callMethod ? n.callMethod.apply(n,arguments) : n.queue.push(arguments) };
+          if(!f._fbq)f._fbq=n;
+          n.push=n; n.loaded=!0; n.version='2.0'; n.queue=[];
+          t=b.createElement(e); t.async=!0; t.src=v;
+          s=b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t,s);
+        }(window, document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+        window.fbq('init', META_PIXEL_ID);
+        window.fbq('track', 'PageView');
+      }
+
+      function enableTracking() {
+        loadGA();
+        loadMetaPixel();
+      }
+
+      function show(el){ if (el) el.classList.remove('hidden'); }
+      function hide(el){ if (el) el.classList.add('hidden'); }
+
+      const banner = document.getElementById('cookie-banner');
+      const reprompt = document.getElementById('cookie-reprompt');
+      const prefsBtn = document.getElementById('cookie-preferences');
+
+      const btnAccept = document.getElementById('cookie-accept');
+      const btnDecline = document.getElementById('cookie-decline');
+      const btnReAccept = document.getElementById('cookie-reprompt-accept');
+      const btnReKeep = document.getElementById('cookie-reprompt-keep');
+
+      function openBanner() {
+        if (!banner) return;
+        banner.style.display = 'flex';
+      }
+      function closeBanner() {
+        if (!banner) return;
+        banner.style.display = 'none';
+      }
+
+      function applyStoredPreference() {
+        const stored = localStorage.getItem(KEY);
+        if (stored === 'accepted') {
+          closeBanner();
+          hide(reprompt);
+          show(prefsBtn);
+          enableTracking();
+          return;
+        }
+        if (stored === 'declined') {
+          closeBanner();
+          show(prefsBtn);
+          // El reprompt NO se muestra siempre: solo justo después del rechazo o si el usuario abre preferencias
+          hide(reprompt);
+          return;
+        }
+        // Sin preferencia -> mostrar banner
+        hide(prefsBtn);
+        openBanner();
+      }
+
+      // Botón "Preferencias"
+      prefsBtn && prefsBtn.addEventListener('click', function () {
+        // Si ya rechazó, mostramos el reprompt (más claro y con opción de aceptar)
+        const stored = localStorage.getItem(KEY);
+        if (stored === 'declined') {
+          show(reprompt);
+          closeBanner();
+        } else {
+          // si no hay preferencia, o si aceptó, reabrimos banner para cambiar decisión
+          openBanner();
+        }
+      });
+
+      btnAccept && btnAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        closeBanner();
+        hide(reprompt);
+        show(prefsBtn);
+        enableTracking();
+      });
+
+      btnDecline && btnDecline.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'declined');
+        closeBanner();
+        show(prefsBtn);
+        // Mostrar reprompt una vez, con explicación + opción de cambiar
+        show(reprompt);
+      });
+
+      btnReAccept && btnReAccept.addEventListener('click', function () {
+        localStorage.setItem(KEY, 'accepted');
+        hide(reprompt);
+        closeBanner();
+        show(prefsBtn);
+        enableTracking();
+      });
+
+      btnReKeep && btnReKeep.addEventListener('click', function () {
+        hide(reprompt);
+        closeBanner();
+        show(prefsBtn);
+      });
+
+      // Al cargar: aplicar preferencia guardada
+      applyStoredPreference();
+    })();
+  </script>
+
+</body>
+</html>
